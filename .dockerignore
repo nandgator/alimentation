@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.github
+.wrangler
+.env
+.env.*
+!.env.example
+coverage
+reports
+.stryker-tmp
+test-results
+playwright-report
+*.log

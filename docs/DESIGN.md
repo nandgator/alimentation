@@ -372,16 +372,31 @@ fleet is migrated). The control database has its own migration line.
 
 ## 6. Technology
 
-| Layer      | Choice                                                                         | Why                                                                                     |
-| ---------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Language   | TypeScript 7 everywhere                                                        | One engine for server, browser and verifier. Runs on Workers and Node.                  |
-| API        | Hono                                                                           | Small, runs unchanged on Workers and Node, no framework lock-in.                        |
-| Database   | PostgreSQL 18 (any >= 15 works)                                                | Row-level security, triggers, functions. Neon, Supabase and plain servers all speak it. |
-| Drivers    | `pg` on Node, `@neondatabase/serverless` on Workers, behind one `Db` interface | The HTTP driver avoids connection setup on Workers.                                     |
-| Validation | zod 4                                                                          | One schema for API input, policy documents and bundles.                                 |
-| Auth       | `jose` for token verification, own OIDC client                                 | No auth vendor in the data path.                                                        |
-| Web        | React 19, Vite 8, service worker through vite-plugin-pwa                       | Static assets are free and unlimited on Cloudflare; no server runtime for the shell.    |
-| Tests      | Vitest 5, fast-check, real Postgres 18, Chromium for the browser checks        | Isolation and wipe claims are only worth anything against a real database.              |
+| Layer      | Choice                                                                                                   | Why                                                                                                                              |
+| ---------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Language   | TypeScript 7 everywhere                                                                                  | One engine for server, browser and verifier. Runs on Workers and Node.                                                           |
+| API        | Hono                                                                                                     | Small, runs unchanged on Workers and Node, no framework lock-in.                                                                 |
+| Database   | PostgreSQL 18 (any >= 15 works)                                                                          | Row-level security, triggers, functions. Neon, Supabase and plain servers all speak it.                                          |
+| Drivers    | `pg` on Node, `@neondatabase/serverless` on Workers, behind one `Db` interface                           | The HTTP driver avoids connection setup on Workers.                                                                              |
+| Validation | zod 4                                                                                                    | One schema for API input, policy documents and bundles.                                                                          |
+| Auth       | `jose` for token verification, own OIDC client                                                           | No auth vendor in the data path.                                                                                                 |
+| Web        | React 19, Vite 8, service worker through vite-plugin-pwa                                                 | Static assets are free and unlimited on Cloudflare; no server runtime for the shell.                                             |
+| Tests      | Vitest 5, fast-check, real Postgres 18, Chromium for the browser checks                                  | Isolation and wipe claims are only worth anything against a real database.                                                       |
+| Containers | One image (Node 24, a single bundled file, non-root); Compose for a dedicated instance and for the tests | The shared service runs on Workers with no container. Everywhere else, and in CI, it is the same image and the same Postgres 18. |
+
+Containers, and where they are not used:
+
+- **Dedicated instances, the paid fallback, development and CI are containerised.**
+  `docker compose up` starts the app and its own Postgres; on first start the app makes
+  its keys and control database and keeps them in a volume (`INSTANCE_DIR`), so a
+  dedicated instance is one command. `compose.test.yaml` runs format, types and every test
+  against the official Postgres 18 image with its log mounted, so the log check runs and
+  CI requires it. The same file is what CI runs.
+- **The shared free service is not containerised, on purpose.** It is Workers plus Neon, and
+  Cloudflare's container product needs the paid plan (section 10). Building it as a container
+  would add cost and an always-on server to the one profile whose point is that it is free.
+- **Postgres is a container in development and CI, not in the shared service**, where each
+  workspace gets its own Neon project.
 
 Considered and set aside:
 

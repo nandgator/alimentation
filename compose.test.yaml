@@ -1,0 +1,49 @@
+# The whole test suite against the Postgres this project targets, in containers.
+# The same command runs in continuous integration.
+#
+#   docker compose -f compose.test.yaml run --rm test
+#
+# Postgres writes its log where the test can read it, so the check that no personal
+# data reaches the database log runs for real instead of being skipped.
+name: alimentation-test
+
+services:
+  pg:
+    image: postgres:18-alpine
+    command:
+      - postgres
+      - -c
+      - logging_collector=on
+      - -c
+      - log_directory=log
+      - -c
+      - log_filename=postgres.log
+      - -c
+      - log_file_mode=0644
+    environment:
+      POSTGRES_PASSWORD: test
+    volumes:
+      - pg:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  test:
+    build:
+      context: .
+      target: dev
+    depends_on:
+      pg:
+        condition: service_healthy
+    environment:
+      ALIMENTATION_TEST_PG: postgres://postgres:test@pg:5432/postgres
+      ALIMENTATION_TEST_PG_LOG: /pg/18/docker/log/postgres.log
+      ALIMENTATION_REQUIRE_PG_LOG: '1'
+    command: ['sh', '-c', 'npm run format:check && npm run typecheck && npm test']
+    volumes:
+      - pg:/pg:ro
+
+volumes:
+  pg:

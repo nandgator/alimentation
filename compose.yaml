@@ -1,0 +1,56 @@
+# A dedicated instance: this program and its own Postgres, started with one command.
+#
+#   docker compose up -d
+#
+# One-time: echo "DB_PASSWORD=$(openssl rand -hex 24)" > .env
+#
+# The first start makes the keys and the control database and keeps them in the
+# `instance` volume; later starts reuse them. Back that volume up with the database:
+# without the keys the data cannot be read.
+#
+# To try it on one machine without an identity provider:
+#   NODE_ENV=development AUTH_DEV=1 docker compose up
+# For real use set APP_ORIGIN (https), OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET,
+# OPERATOR_EMAILS, and MIGRATION_TOKEN if workspaces will be sent here from another instance.
+name: alimentation
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD (any long random string; it never leaves this machine)}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Not published: only the app reaches it.
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '${PORT:-8787}:8787'
+    volumes:
+      - instance:/data
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8787}
+      DEDICATED: '1'
+      PLACEMENT_ADMIN_URL: postgres://postgres:${DB_PASSWORD}@db:5432/postgres
+      AUTH_DEV: ${AUTH_DEV:-0}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OPERATOR_EMAILS: ${OPERATOR_EMAILS:-}
+      MIGRATION_TOKEN: ${MIGRATION_TOKEN:-}
+
+volumes:
+  pgdata:
+  instance:

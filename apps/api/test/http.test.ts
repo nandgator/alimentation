@@ -425,6 +425,12 @@ describe('[P5] no plaintext personal data reaches a log, application or database
     }
   })();
 
+  // In continuous integration the log must be there; a skipped check would pass for a clean one.
+  it.runIf(process.env.ALIMENTATION_REQUIRE_PG_LOG === '1')(
+    'has a Postgres log to read when one is required',
+    () => expect(readable).toBe(true),
+  );
+
   it.runIf(readable)(
     'keeps names, contacts and notes out of the Postgres log with every statement logged',
     async () => {
@@ -499,12 +505,12 @@ describe('[P5] no plaintext personal data reaches a log, application or database
         await owner.get('/api/w/logcheck/log?from=2026-10-01&to=2026-10-31');
 
         // A control: a statement we know carries plaintext does appear, so a silent log would not pass for clean.
-        await new pg.Client({ connectionString: ADMIN_URL.replace('/postgres', `/${db}`) })
-          .connect()
-          .then(async (c) => {
-            await c.query(`SELECT 'ZZCONTROLSENTINEL'`);
-            await c.end();
-          });
+        const controlUrl = new URL(ADMIN_URL);
+        controlUrl.pathname = `/${db}`;
+        const control = new pg.Client({ connectionString: controlUrl.toString() });
+        await control.connect();
+        await control.query(`SELECT 'ZZCONTROLSENTINEL'`);
+        await control.end();
         await new Promise((r) => setTimeout(r, 500));
 
         const fd = openSync(PG_LOG, 'r');

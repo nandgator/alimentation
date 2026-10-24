@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { existsSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import { nodeOpenDb } from './db/node.ts';
+import { selfHost } from './instance.ts';
 import { PgDatabasePlacement } from './placement/pgdatabase.ts';
 import { createRuntime } from './runtime.ts';
 
@@ -11,7 +12,7 @@ import { createRuntime } from './runtime.ts';
  * The Node server: the API, and the built web app from WEB_DIR when it exists.
  * The same application runs on Cloudflare Workers through `worker.ts`.
  */
-const env = process.env;
+const env = await selfHost(process.env);
 const placement = env.PLACEMENT_ADMIN_URL
   ? new PgDatabasePlacement({ adminUrl: env.PLACEMENT_ADMIN_URL })
   : null;
