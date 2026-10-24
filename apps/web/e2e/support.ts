@@ -59,3 +59,13 @@ export async function newPerson(context: BrowserContext) {
   const page = await context.newPage();
   return page;
 }
+
+/** Collects anything the browser refuses under the page's security policy, or that throws. */
+export function watchPage(page: Page): string[] {
+  const seen: string[] = [];
+  page.on('console', (m) => {
+    if (/Content Security Policy|Refused to/i.test(m.text())) seen.push(m.text().slice(0, 200));
+  });
+  page.on('pageerror', (e) => seen.push(`script error: ${e.message}`.slice(0, 200)));
+  return seen;
+}

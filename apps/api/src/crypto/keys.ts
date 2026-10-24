@@ -54,6 +54,21 @@ export class Keyring {
     return out;
   }
 
+  /** Which master key wrapped this blob. */
+  static keyIdOf(blob: Bytes): number {
+    return blob[1] ?? 0;
+  }
+
+  /** The id of the master key that wraps anything new. */
+  get currentId(): number {
+    return this.current;
+  }
+
+  /** The same secret, wrapped again under the current master key. */
+  async rewrap(blob: Bytes, aad: string): Promise<Bytes> {
+    return this.wrap(await this.unwrap(blob, aad), aad);
+  }
+
   async unwrap(blob: Bytes, aad: string): Promise<Bytes> {
     const key = this.keys.get(blob[1] ?? 0);
     if (!key) throw new Error('the master key that wrapped this is no longer configured');
@@ -74,8 +89,8 @@ export interface WorkspaceKeys {
   log: CryptoKey;
 }
 
-const dataAad = (workspaceId: string) => `workspace-data-key:${workspaceId}`;
-const logAad = (workspaceId: string) => `workspace-log-key:${workspaceId}`;
+export const dataAad = (workspaceId: string) => `workspace-data-key:${workspaceId}`;
+export const logAad = (workspaceId: string) => `workspace-log-key:${workspaceId}`;
 export const dsnAad = (workspaceId: string) => `workspace-dsn:${workspaceId}`;
 
 export async function newWorkspaceKeys(

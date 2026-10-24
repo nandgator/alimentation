@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import pg from 'pg';
-import { aWorkingDayThisMonth, expectAccessible, firstOfMonth, shot, signIn } from './support.ts';
+import {
+  aWorkingDayThisMonth,
+  expectAccessible,
+  firstOfMonth,
+  shot,
+  signIn,
+  watchPage,
+} from './support.ts';
 
 const ADMIN = process.env.ALIMENTATION_TEST_PG ?? 'postgres://pgadmin@127.0.0.1:5432/postgres';
 
@@ -28,6 +35,7 @@ test('a kitchen from its first day to its last: set up, use, go offline, move, a
   const member = await browser.newContext({ ...info.project.use });
   const jovial = await member.newPage();
   let inviteLink = '';
+  const seen = [watchPage(page), watchPage(jovial)];
 
   try {
     await test.step('the owner starts a kitchen', async () => {
@@ -221,6 +229,8 @@ test('a kitchen from its first day to its last: set up, use, go offline, move, a
       await jovial.goto('/app');
       await expect(jovial).toHaveURL(/\/signin/);
     });
+
+    expect(seen.flat(), 'nothing refused by the security policy, nothing thrown').toEqual([]);
   } finally {
     await member.close();
     await admin.query(`DROP DATABASE IF EXISTS ${external} WITH (FORCE)`).catch(() => undefined);

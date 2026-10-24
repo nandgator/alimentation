@@ -48,6 +48,12 @@ const toWorkspace = (r: R): WorkspaceRow => ({
   createdAt: r.created_at,
 });
 
+export interface Wrapped {
+  dsnEnc: Bytes;
+  dataKeyWrapped: Bytes;
+  logKeyWrapped: Bytes;
+}
+
 /** All queries on the control database. Holds no business rules; those live in the callers. */
 export class ControlRepo {
   /**
@@ -424,6 +430,77 @@ export class ControlRepo {
       placement: r.placement,
       dsnEnc: Uint8Array.from(r.dsn_enc),
     }));
+  }
+
+  /** Retired copies whose keys still exist, for re-wrapping them under a new master key. */
+  async retiredWithKeys(): Promise<
+    {
+      id: string;
+      workspaceId: string;
+      dsnEnc: Bytes;
+      dataKeyWrapped: Bytes;
+      logKeyWrapped: Bytes;
+    }[]
+  > {
+    const rows = await this.many<R>(
+      `SELECT id, workspace_id, dsn_enc, data_key_wrapped, log_key_wrapped FROM retired_database
+        WHERE destroyed_at IS NULL AND data_key_wrapped IS NOT NULL AND log_key_wrapped IS NOT NULL`,
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      workspaceId: r.workspace_id,
+      dsnEnc: bytes(r.dsn_enc)!,
+      dataKeyWrapped: bytes(r.data_key_wrapped)!,
+      logKeyWrapped: bytes(r.log_key_wrapped)!,
+    }));
+  }
+
+  /**
+   * Swaps in the same secrets wrapped under a new master key, only if nothing changed in the
+   * meantime: a move or a wipe that got there first wins, and keys that were destroyed stay so.
+   */
+  async rewrapWorkspace(id: string, from: Wrapped, to: Wrapped): Promise<boolean> {
+    return (
+      (
+        await this.many(
+          `UPDATE workspace SET dsn_enc = $5, data_key_wrapped = $6, log_key_wrapped = $7
+            WHERE id = $1 AND dsn_enc = $2 AND data_key_wrapped = $3 AND log_key_wrapped = $4 RETURNING id`,
+          [
+            id,
+            ...[
+              from.dsnEnc,
+              from.dataKeyWrapped,
+              from.logKeyWrapped,
+              to.dsnEnc,
+              to.dataKeyWrapped,
+              to.logKeyWrapped,
+            ].map((b) => Buffer.from(b)),
+          ],
+        )
+      ).length === 1
+    );
+  }
+
+  async rewrapRetired(id: string, from: Wrapped, to: Wrapped): Promise<boolean> {
+    return (
+      (
+        await this.many(
+          `UPDATE retired_database SET dsn_enc = $5, data_key_wrapped = $6, log_key_wrapped = $7
+            WHERE id = $1 AND dsn_enc = $2 AND data_key_wrapped = $3 AND log_key_wrapped = $4 RETURNING id`,
+          [
+            id,
+            ...[
+              from.dsnEnc,
+              from.dataKeyWrapped,
+              from.logKeyWrapped,
+              to.dsnEnc,
+              to.dataKeyWrapped,
+              to.logKeyWrapped,
+            ].map((b) => Buffer.from(b)),
+          ],
+        )
+      ).length === 1
+    );
   }
 
   /** Destroys the keys that open a retired copy. Done before the copy itself is removed. */

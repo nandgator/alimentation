@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { existsSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import { nodeOpenDb } from './db/node.ts';
+import { scheduleHousekeeping } from './lifecycle/housekeeping.ts';
 import { selfHost } from './instance.ts';
 import { PgDatabasePlacement } from './placement/pgdatabase.ts';
 import { createRuntime } from './runtime.ts';
@@ -33,6 +34,30 @@ if (existsSync(webDir)) {
   root.get('*', serveStatic({ root: rel, path: 'index.html' })); // the app routes itself
 }
 
+// Finishes wipes, removes old copies and frees stalled moves: on Workers a cron does this.
+const stopHousekeeping = scheduleHousekeeping(deps.platform, {
+  onReport: (r) => {
+    if (
+      r.wipesFinished ||
+      r.wipedAgain ||
+      r.movedCopiesWiped ||
+      r.oldCopiesRemoved ||
+      r.stalledMovesReleased ||
+      r.needAttention.length ||
+      r.errors.length
+    )
+      console.log(JSON.stringify({ t: new Date().toISOString(), msg: 'housekeeping', ...r }));
+  },
+  onError: (e) =>
+    console.error(
+      JSON.stringify({
+        t: new Date().toISOString(),
+        msg: 'housekeeping failed',
+        error: String((e as Error).message).slice(0, 200),
+      }),
+    ),
+});
+
 const port = Number(env.PORT ?? 8787);
 const server = serve({ fetch: root.fetch, port }, (info) => {
   console.log(
@@ -47,6 +72,7 @@ const server = serve({ fetch: root.fetch, port }, (info) => {
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, () => {
+    stopHousekeeping();
     void deps.gate.flush().finally(() => server.close(() => process.exit(0)));
   });
 }

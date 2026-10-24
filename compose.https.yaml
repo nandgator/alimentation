@@ -1,0 +1,33 @@
+# Adds HTTPS to a dedicated instance, with a certificate that renews itself:
+#
+#   DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d
+#
+# Point the domain's DNS at this machine first, and open ports 80 and 443.
+# The app is then reached only through this, at https://$DOMAIN.
+name: alimentation
+
+services:
+  app:
+    ports: !reset []
+    environment:
+      APP_ORIGIN: https://${DOMAIN:?Set DOMAIN to the address people will use}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

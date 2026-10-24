@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { expectAccessible, shot } from './support.ts';
+import { expectAccessible, shot, watchPage } from './support.ts';
 
 test.describe('the home page', () => {
   test('says the principle, states each promise with its limit, and fits the screen', async ({
     page,
   }, info) => {
+    const problems = watchPage(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('A kitchen’s accounts');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('returned to you whole');
@@ -21,6 +22,10 @@ test.describe('the home page', () => {
     );
     expect(overflow, 'no sideways scrolling').toBeLessThanOrEqual(0);
     await shot(page, info, 'home-light');
+    expect(problems, 'nothing refused by the security policy, nothing thrown').toEqual([]);
+    const res = await page.request.get('/');
+    expect(res.headers()['content-security-policy']).toContain("default-src 'self'");
+    expect(res.headers()['x-frame-options']).toBe('DENY');
   });
 
   for (const scheme of ['light', 'dark'] as const) {

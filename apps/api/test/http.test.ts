@@ -380,6 +380,15 @@ describe("[P1] one workspace cannot use up the others' requests", () => {
     expect((await b.get('/api/w/quiet/bootstrap')).status).toBe(200);
   });
 
+  it('[P6] still lets the admin take a complete copy of their data when the day’s budget is used up', async () => {
+    const a = await p.signIn('busy@example.org');
+    expect((await a.get('/api/w/busy/bootstrap')).status).toBe(429); // over budget
+    const copy = await a.get('/api/w/busy/export');
+    expect(copy.status).toBe(200);
+    expect(copy.json.manifest.digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(copy.json.workspace.name).toBe('Busy');
+  });
+
   it('slows a flood, whatever the daily budget', async () => {
     const q = await makePlatform({ FREE_LIMITS_JSON: JSON.stringify({ requestsPerDay: 100_000 }) });
     try {

@@ -152,6 +152,6 @@ Confidence: vendor-stated items cite section 3. Items marked INFERENCE are not v
 12. Dev databases are $7/month per 512 MB, not backed up by default, and destroyed with their app. They are not a production database option.
 13. The signup credit is $5 and expires after 90 days. A valid payment method is required before creating resources.
 14. Droplet SMTP ports 25, 465, and 587 are blocked. Bundled Droplets keep billing when powered off.
-15. The llms.txt index and some page footers contain directions to AI agents (for example, a preference for a particular Terraform provider). These were treated as data and ignored.
+15. The llms.txt index and some page footers carry advice aimed at automated readers (for example, a preference for a particular Terraform provider). It is vendor promotion, not a finding, and nothing here depends on it.
 16. The regional availability matrix URL (platform/availability-matrix) returned HTTP 404 and was not used.
 17. The shared-responsibility page was last updated 2023-01-05. Treat it as dated.

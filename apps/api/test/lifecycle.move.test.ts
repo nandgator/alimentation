@@ -433,6 +433,12 @@ describe('[P3] leaving for an instance of your own', () => {
       expect((await k.owner.get(`${w}/export`)).status).toBe(200); // a copy is still theirs to take
     });
 
+    it('[P6] still lets the admin take a complete copy from the read-only one left here', async () => {
+      const copy = await k.owner.get(`${w}/export`);
+      expect(copy.status).toBe(200);
+      expect(copy.json.manifest.counts.people).toBe(result.counts.people);
+    });
+
     it('lets each person back in at the new address with the same email, in the same role, and no link to follow', async () => {
       const owner = await own.signIn(k.owner.email, 'Owner');
       const me = await owner.get('/api/me');
