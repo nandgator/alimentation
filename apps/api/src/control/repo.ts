@@ -50,7 +50,16 @@ const toWorkspace = (r: R): WorkspaceRow => ({
 
 /** All queries on the control database. Holds no business rules; those live in the callers. */
 export class ControlRepo {
-  constructor(private readonly db: Db) {}
+  /**
+   * `now` is the program's clock, not the database's: the times stored here are compared
+   * with times the program computes, so both must come from the one clock.
+   */
+  constructor(
+    private readonly db: Db,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  private stamp = (): string => this.now().toISOString();
 
   private one<T = R>(sql: string, values: unknown[] = []): Promise<T | undefined> {
     return this.db.tx(async (tx) => (await tx.query<R>(sql, values))[0] as T | undefined);
@@ -95,7 +104,7 @@ export class ControlRepo {
 
   async insertWorkspace(
     w: Omit<WorkspaceRow, 'createdAt' | 'overSince' | 'movedToUrl' | 'state'> & {
-      createdBy: string;
+      createdBy: string | null;
     },
   ): Promise<void> {
     await this.many(
@@ -151,7 +160,32 @@ export class ControlRepo {
   }
 
   async setState(id: string, state: WorkspaceState): Promise<void> {
-    await this.many('UPDATE workspace SET state = $2 WHERE id = $1', [id, state]);
+    await this.many('UPDATE workspace SET state = $2, state_since = $3 WHERE id = $1', [
+      id,
+      state,
+      this.stamp(),
+    ]);
+  }
+
+  /** Takes the move lock: true for the one caller that finds the workspace active. */
+  async beginMove(id: string): Promise<boolean> {
+    return (
+      (
+        await this.many(
+          `UPDATE workspace SET state = 'MIGRATING', state_since = $2 WHERE id = $1 AND state = 'ACTIVE' RETURNING id`,
+          [id, this.stamp()],
+        )
+      ).length === 1
+    );
+  }
+
+  /** Workspaces that have been mid-move since before `cutoff`: the move stopped without finishing. */
+  async stuckMoving(cutoff: Date): Promise<WorkspaceRow[]> {
+    return (
+      await this.many<R>(`SELECT * FROM workspace WHERE state = 'MIGRATING' AND state_since < $1`, [
+        cutoff.toISOString(),
+      ])
+    ).map(toWorkspace);
   }
 
   async setOverSince(id: string, date: string | null): Promise<void> {
@@ -233,15 +267,15 @@ export class ControlRepo {
   }
 
   async markInviteAccepted(id: string): Promise<void> {
-    await this.many('UPDATE invite SET accepted_at = now() WHERE id = $1', [id]);
+    await this.many('UPDATE invite SET accepted_at = $2 WHERE id = $1', [id, this.stamp()]);
   }
 
   async pendingInvites(
     workspaceId: string,
   ): Promise<{ personId: string; role: Role; email: string; expiresAt: string }[]> {
     const rows = await this.many<R>(
-      `SELECT person_id, role, email, expires_at FROM invite WHERE workspace_id = $1 AND accepted_at IS NULL AND expires_at > now()`,
-      [workspaceId],
+      `SELECT person_id, role, email, expires_at FROM invite WHERE workspace_id = $1 AND accepted_at IS NULL AND expires_at > $2`,
+      [workspaceId, this.stamp()],
     );
     return rows.map((r) => ({
       personId: r.person_id,
@@ -261,30 +295,77 @@ export class ControlRepo {
     return rows.map((r) => ({ personId: r.person_id, role: r.role as Role, email: r.email }));
   }
 
-  /** Points the workspace at a new database and retires the old one, in one step. */
+  /** Which sign-in account is which person, for re-linking after the data has been copied elsewhere. */
+  async membershipLinks(workspaceId: string): Promise<{ personId: string; accountId: string }[]> {
+    const rows = await this.many<R>(
+      `SELECT person_id, account_id FROM membership WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+    return rows.map((r) => ({
+      personId: r.person_id as string,
+      accountId: r.account_id as string,
+    }));
+  }
+
+  /**
+   * Points the workspace at a new database under new keys, and retires the old
+   * database with the old keys, in one step. Only the retired record can still open
+   * the old copy, and it goes when the copy does.
+   */
   async rehome(
     id: string,
-    to: { placement: PlacementRef; dsnEnc: Uint8Array },
-    old: { placement: PlacementRef; dsnEnc: Uint8Array },
+    to: {
+      placement: PlacementRef;
+      dsnEnc: Uint8Array;
+      dataKeyWrapped: Uint8Array;
+      logKeyWrapped: Uint8Array;
+    },
+    old: {
+      placement: PlacementRef;
+      dsnEnc: Uint8Array;
+      dataKeyWrapped: Uint8Array;
+      logKeyWrapped: Uint8Array;
+    },
     destroyAfter: Date,
   ): Promise<void> {
     await this.db.tx(async (tx) => {
       await tx.query(
-        `INSERT INTO retired_database (workspace_id, placement, dsn_enc, destroy_after) VALUES ($1,$2,$3,$4)`,
-        [id, JSON.stringify(old.placement), Buffer.from(old.dsnEnc), destroyAfter.toISOString()],
+        `INSERT INTO retired_database (workspace_id, placement, dsn_enc, data_key_wrapped, log_key_wrapped, destroy_after)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [
+          id,
+          JSON.stringify(old.placement),
+          Buffer.from(old.dsnEnc),
+          Buffer.from(old.dataKeyWrapped),
+          Buffer.from(old.logKeyWrapped),
+          destroyAfter.toISOString(),
+        ],
       );
       await tx.query(
-        `UPDATE workspace SET placement = $2, dsn_enc = $3, state = 'ACTIVE' WHERE id = $1`,
-        [id, JSON.stringify(to.placement), Buffer.from(to.dsnEnc)],
+        `UPDATE workspace SET placement = $2, dsn_enc = $3, data_key_wrapped = $4, log_key_wrapped = $5,
+                state = 'ACTIVE', state_since = $6 WHERE id = $1`,
+        [
+          id,
+          JSON.stringify(to.placement),
+          Buffer.from(to.dsnEnc),
+          Buffer.from(to.dataKeyWrapped),
+          Buffer.from(to.logKeyWrapped),
+          this.stamp(),
+        ],
       );
     });
   }
 
   async setMoved(id: string, url: string): Promise<void> {
     await this.many(
-      `UPDATE workspace SET state = 'MOVED', moved_to_url = $2, moved_at = now() WHERE id = $1`,
-      [id, url],
+      `UPDATE workspace SET state = 'MOVED', state_since = $3, moved_to_url = $2, moved_at = $3 WHERE id = $1`,
+      [id, url, this.stamp()],
     );
+  }
+
+  /** Notes where a move is headed before it starts, so a move that stalls can be told from one that never began. */
+  async setMoveTarget(id: string, url: string | null): Promise<void> {
+    await this.many('UPDATE workspace SET moved_to_url = $2 WHERE id = $1', [id, url]);
   }
 
   async movedBefore(cutoff: Date): Promise<WorkspaceRow[]> {
@@ -302,8 +383,8 @@ export class ControlRepo {
   /** Destroys the keys and marks the workspace as being wiped, in one statement. */
   async destroyKeys(id: string): Promise<void> {
     await this.many(
-      `UPDATE workspace SET state = 'WIPING', data_key_wrapped = NULL, log_key_wrapped = NULL WHERE id = $1`,
-      [id],
+      `UPDATE workspace SET state = 'WIPING', state_since = $2, data_key_wrapped = NULL, log_key_wrapped = NULL WHERE id = $1`,
+      [id, this.stamp()],
     );
   }
 
@@ -334,6 +415,40 @@ export class ControlRepo {
       placement: r.placement,
       dsnEnc: Uint8Array.from(r.dsn_enc),
     }));
+  }
+
+  /** Destroys the keys that open a retired copy. Done before the copy itself is removed. */
+  async shredRetired(id: string): Promise<void> {
+    await this.many(
+      `UPDATE retired_database SET data_key_wrapped = NULL, log_key_wrapped = NULL WHERE id = $1`,
+      [id],
+    );
+  }
+
+  /** What is kept about a workspace, as counts, for the wipe receipt. */
+  async footprint(workspaceId: string): Promise<Record<string, number>> {
+    const r = await this.one<R>(
+      `SELECT (SELECT count(*) FROM membership WHERE workspace_id = $1)::int AS memberships,
+              (SELECT count(*) FROM invite WHERE workspace_id = $1)::int AS invites,
+              (SELECT count(*) FROM usage_daily WHERE workspace_id = $1)::int AS usage_days,
+              (SELECT count(*) FROM retired_database WHERE workspace_id = $1 AND destroyed_at IS NULL)::int AS retired_databases`,
+      [workspaceId],
+    );
+    return r as Record<string, number>;
+  }
+
+  /** Usage counts older than the cutoff; the meter only ever looks two days back. */
+  async pruneUsage(before: string): Promise<number> {
+    return (await this.many(`DELETE FROM usage_daily WHERE day < $1 RETURNING 1`, [before])).length;
+  }
+
+  async pruneInvites(before: Date): Promise<number> {
+    return (
+      await this.many(
+        `DELETE FROM invite WHERE (accepted_at IS NOT NULL OR expires_at < $1) AND created_at < $1 RETURNING 1`,
+        [before.toISOString()],
+      )
+    ).length;
   }
 
   async deleteRetired(id: string): Promise<void> {

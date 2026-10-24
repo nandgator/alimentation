@@ -33,6 +33,8 @@ export interface TargetCheck {
   problems: string[];
   ownerUrl: string;
   appUrl: string | null;
+  /** True once something was created in the database, so a failed attempt knows to clean up. */
+  touched: boolean;
 }
 
 const withUser = (url: string, user: string, password: string) => {
@@ -50,8 +52,9 @@ const withUser = (url: string, user: string, password: string) => {
 export async function prepareExternalTarget(
   openDb: (dsn: string, o?: { ephemeral?: boolean }) => Db,
   ownerUrl: string,
+  opts: { checkOnly?: boolean } = {},
 ): Promise<TargetCheck> {
-  const result: TargetCheck = { ok: false, problems: [], ownerUrl, appUrl: null };
+  const result: TargetCheck = { ok: false, problems: [], ownerUrl, appUrl: null, touched: false };
   let u: URL;
   try {
     u = new URL(ownerUrl);
@@ -95,7 +98,12 @@ export async function prepareExternalTarget(
         'The user in this connection string cannot create roles. Use the owner role of the project (on Neon, the default role), or create an application role yourself.',
       );
     if (result.problems.length) return result;
+    if (opts.checkOnly) {
+      result.ok = true;
+      return result;
+    }
 
+    result.touched = true;
     const role = `alim_app_${randomSecret(5)
       .toLowerCase()
       .replace(/[^a-z0-9]/g, 'x')}`;

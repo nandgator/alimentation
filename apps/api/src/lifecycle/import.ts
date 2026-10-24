@@ -22,7 +22,7 @@ export interface ImportReport {
 
 class Rollback extends Error {}
 
-const AUDITED = [
+export const AUDITED = [
   'workspace',
   'person',
   'policy_version',

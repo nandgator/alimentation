@@ -8,6 +8,7 @@ import type { Db } from './db/driver.ts';
 import { Directory } from './directory.ts';
 import { Gate } from './limits/gate.ts';
 import { ApiError } from './workspace/errors.ts';
+import { ExternalPlacement } from './placement/external.ts';
 import type { Credentials, Placement, PlacementRef, Provisioned } from './placement/types.ts';
 import type { PlatformDeps } from './platform/workspaces.ts';
 
@@ -38,7 +39,7 @@ export async function createRuntime(o: RuntimeOptions) {
   const config: Config = loadConfig(o.env);
   const now = o.now ?? (() => new Date());
   const keyring = await Keyring.fromSpec(config.masterKeys);
-  const control = new ControlRepo(o.openDb(config.controlDatabaseUrl));
+  const control = new ControlRepo(o.openDb(config.controlDatabaseUrl), now);
   const gate = new Gate({
     control,
     now,
@@ -55,10 +56,18 @@ export async function createRuntime(o: RuntimeOptions) {
     now,
     requestsLast24h: (id) => gate.today(id),
   });
+  const placement = o.placement ?? noPlacement;
+  const external = new ExternalPlacement(o.openDb);
   const platform: PlatformDeps = {
     control,
     keyring,
-    placement: o.placement ?? noPlacement,
+    placement,
+    placementFor: (kind) => {
+      if (kind === 'external') return external;
+      if (kind === placement.kind) return placement;
+      throw new ApiError(501, 'no_placement', `This deployment cannot manage ${kind} databases.`);
+    },
+    fetch: o.fetch ?? fetch,
     openDb: o.openDb,
     directory,
     config,

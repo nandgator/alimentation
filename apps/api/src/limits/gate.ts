@@ -85,7 +85,8 @@ export class Gate {
     const b = this.buckets.get(ws.id) ?? { tokens: this.o.burst ?? 40, at: now };
     b.tokens = Math.min(
       this.o.burst ?? 40,
-      b.tokens + ((now - b.at) / 1000) * (this.o.refillPerSecond ?? 2),
+      // A clock that steps back (a time sync, another machine's clock) must not drain the bucket.
+      b.tokens + (Math.max(0, now - b.at) / 1000) * (this.o.refillPerSecond ?? 2),
     );
     b.at = now;
     this.buckets.set(ws.id, b);

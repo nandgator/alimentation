@@ -1,4 +1,10 @@
-import { LOG_CHANGES, PAY_METHODS, SETTLEMENT_TYPES, type Role } from '@alimentation/core';
+import {
+  LOG_CHANGES,
+  PAY_METHODS,
+  SETTLEMENT_TYPES,
+  localNow,
+  type Role,
+} from '@alimentation/core';
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { z, ZodError } from 'zod';
@@ -6,10 +12,16 @@ import { OidcClient, OidcError } from './auth/oidc.ts';
 import { SESSION_TTL, TokenSigner } from './auth/session.ts';
 import type { Config } from './config.ts';
 import type { AccountRow, ControlRepo } from './control/repo.ts';
+import { sameSecret } from './crypto/aead.ts';
 import { KeysDestroyedError } from './crypto/keys.ts';
 import type { Directory, WorkspaceHandle } from './directory.ts';
 import type { Gate } from './limits/gate.ts';
-import { acceptInvite, createInvite } from './platform/invites.ts';
+import { exportWorkspace } from './lifecycle/bundleio.ts';
+import { housekeeping } from './lifecycle/housekeeping.ts';
+import { moveToDatabase, moveToInstance, previewMove, releaseMove } from './lifecycle/move.ts';
+import { receiveWorkspace } from './lifecycle/receive.ts';
+import { toReceipt, wipeWorkspace } from './lifecycle/wipe.ts';
+import { acceptInvite, claimAutoInvites, createInvite } from './platform/invites.ts';
 import { capacityNow, createWorkspace, type PlatformDeps } from './platform/workspaces.ts';
 import { resolveActors, type Actor } from './workspace/context.ts';
 import { ApiError, forbidden, invalid } from './workspace/errors.ts';
@@ -46,6 +58,7 @@ type Vars = {
 const ROLE_ORDER: Role[] = ['admin', 'supplier', 'consumer'];
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const Month = z.string().regex(/^\d{4}-\d{2}$/);
+const MAX_BUNDLE_BYTES = 40_000_000;
 const Money = z.number().int().min(0).max(10_000_000_000);
 
 export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
@@ -167,6 +180,8 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     to && to.startsWith('/') && !to.startsWith('//') && !to.includes('\\') ? to : '/app';
 
   const startSession = async (c: Context<{ Variables: Vars }>, account: AccountRow) => {
+    // A workspace that arrived from another instance is waiting for this email.
+    await claimAutoInvites(deps.platform, account).catch(() => undefined);
     const token = await deps.signer.sign(
       { a: account.id, e: account.email, n: account.displayName },
       SESSION_TTL,
@@ -278,6 +293,8 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
 
   app.post('/api/workspaces', async (c) => {
     const a = needAccount(c);
+    if (config.dedicated && !isOperator(a))
+      throw forbidden('This instance is private. Ask whoever runs it to add a workspace.');
     const b = await parse(
       c,
       z.object({
@@ -319,6 +336,65 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const a = needAccount(c);
     if (!isOperator(a)) throw forbidden();
     return c.json({ events: await deps.control.events(200) });
+  });
+
+  app.post('/api/platform/housekeeping', async (c) => {
+    const a = needAccount(c);
+    if (!isOperator(a)) throw forbidden();
+    return c.json(await housekeeping(deps.platform));
+  });
+
+  const operatorTarget = async (c: Context<{ Variables: Vars }>) => {
+    const a = needAccount(c);
+    if (!isOperator(a)) throw forbidden();
+    const row = await deps.control.workspaceBySlug(c.req.param('slug') ?? '');
+    if (!row) throw new ApiError(404, 'not_found', 'There is no such workspace.');
+    return row;
+  };
+  app.post('/api/platform/workspaces/:slug/wipe', async (c) => {
+    const row = await operatorTarget(c);
+    const out = await wipeWorkspace(deps.platform, row.id);
+    return c.json(out, out.done ? 200 : 202);
+  });
+  app.post('/api/platform/workspaces/:slug/release', async (c) => {
+    const row = await operatorTarget(c);
+    await releaseMove(deps.platform, row.id);
+    return c.body(null, 204);
+  });
+
+  // A receipt names no one and is addressed by an id that cannot be guessed.
+  app.get('/api/receipts/:id', async (c) => {
+    const r = await deps.control.receipt(c.req.param('id') ?? '');
+    if (!r) throw new ApiError(404, 'not_found', 'There is no such receipt.');
+    return c.json(toReceipt(r));
+  });
+
+  // The way in for a workspace sent from another instance. Absent unless a token is set.
+  app.post('/_migrate/receive', async (c) => {
+    if (!config.migrationToken) throw new ApiError(404, 'not_found', 'Not found.');
+    const sent = /^Bearer (.+)$/.exec(c.req.header('authorization') ?? '')?.[1] ?? '';
+    if (!(await sameSecret(sent, config.migrationToken)))
+      throw new ApiError(401, 'bad_token', 'That token was not accepted.');
+    const size = Number(c.req.header('content-length') ?? 0);
+    if (size > MAX_BUNDLE_BYTES)
+      throw new ApiError(413, 'too_large', 'That workspace is larger than this instance accepts.');
+    const b = await parse(
+      c,
+      z.object({
+        slug: z.string().max(60),
+        bundle: z.unknown(),
+        dryRun: z.boolean().default(false),
+      }),
+    );
+    const report = await receiveWorkspace(deps.platform, b);
+    const status = report.ok
+      ? 200
+      : report.code === 'slug_taken'
+        ? 409
+        : report.code === 'full'
+          ? 503
+          : 422;
+    return c.json(report, status as 200);
   });
 
   // --- inside a workspace ------------------------------------------------
@@ -568,6 +644,68 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
       })
       .parse(c.req.query());
     return c.json(await svc(c).audit(who(c), q));
+  });
+
+  // --- leaving: take a copy, move, or go ---------------------------------
+
+  const needAdmin = (c: Context<{ Variables: Vars }>) => {
+    if (!c.get('roles').includes('admin')) throw forbidden('Only an admin can do that.');
+    return needAccount(c);
+  };
+  const Target = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('database'), url: z.string().min(10).max(2000) }),
+    z.object({
+      kind: z.literal('instance'),
+      url: z.string().min(10).max(500),
+      token: z.string().min(24).max(500),
+    }),
+  ]);
+
+  w.get('/export', async (c) => {
+    needAdmin(c);
+    const handle = c.get('handle');
+    const owner = deps.platform.openDb(handle.dsns.owner, { ephemeral: true });
+    try {
+      const bundle = await exportWorkspace(owner, handle.cipher!, {
+        exportedAt: deps.now(),
+        members: await deps.control.membersOf(handle.row.id),
+        today: localNow(deps.now(), handle.info.timeZone).date,
+      });
+      c.header(
+        'content-disposition',
+        `attachment; filename="${handle.row.slug}.alimentation.json"`,
+      );
+      return c.json(bundle);
+    } finally {
+      await owner.close();
+    }
+  });
+  w.post('/move/preview', async (c) => {
+    needAdmin(c);
+    return c.json(await previewMove(deps.platform, c.get('handle'), await parse(c, Target)));
+  });
+  w.post('/move', async (c) => {
+    const a = needAdmin(c);
+    const b = await parse(c, z.object({ target: Target, confirm: z.string() }));
+    const handle = c.get('handle');
+    if (b.confirm !== handle.row.slug)
+      throw invalid('Type the workspace address to confirm the move.');
+    const out =
+      b.target.kind === 'database'
+        ? await moveToDatabase(deps.platform, handle, asRow(a), b.target.url)
+        : await moveToInstance(deps.platform, handle, asRow(a), b.target);
+    actorCache.clear();
+    return c.json(out);
+  });
+  w.post('/wipe', async (c) => {
+    needAdmin(c);
+    const b = await parse(c, z.object({ confirm: z.string() }));
+    const handle = c.get('handle');
+    if (b.confirm !== handle.row.slug)
+      throw invalid('Type the workspace address to confirm that everything should be deleted.');
+    const out = await wipeWorkspace(deps.platform, handle.row.id);
+    actorCache.clear();
+    return c.json(out, out.done ? 200 : 202);
   });
 
   app.route('/api/w/:slug', w);

@@ -100,13 +100,19 @@ export async function loadEngineData(
       location: h.location ?? null,
       confirmed: h.confirmed,
     })),
-    people: people.map((p, i): Person => ({
-      id: p.id,
-      name: names[i] ?? '',
-      role: p.role as Role,
-      activeFrom: p.active_from ?? null,
-      activeTo: p.active_to ?? null,
-    })),
+    // The same order wherever the rows sit, so a copy lists people as the original did.
+    people: people
+      .map((p, i): Person => ({
+        id: p.id,
+        name: names[i] ?? '',
+        role: p.role as Role,
+        activeFrom: p.active_from ?? null,
+        activeTo: p.active_to ?? null,
+      }))
+      .sort(
+        (a, b) =>
+          a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }) || (a.id < b.id ? -1 : 1),
+      ),
     log: log.map((e): LogEntry => ({
       id: e.id,
       date: e.on_date,

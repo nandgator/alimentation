@@ -192,6 +192,8 @@ export class WorkspaceService {
           name: info.name,
           timeZone: info.timeZone,
           currency: info.currency,
+          state: info.state,
+          movedTo: info.movedTo,
         },
         me: { personId: actor.personId, role: actor.role, name: me?.name ?? '' },
         roles,

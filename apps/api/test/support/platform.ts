@@ -36,16 +36,26 @@ export interface TestPlatform {
   destroy(): Promise<void>;
 }
 
+type OpenDb = ReturnType<typeof nodeOpenDb>;
+
 export async function makePlatform(
   env: Record<string, string> = {},
-  opts: { devAuth?: boolean } = {},
+  opts: {
+    devAuth?: boolean;
+    /** How this instance reaches others: a test points it at another instance's app. */
+    fetch?: typeof fetch;
+    /** Lets a test watch or break the connections the platform opens. */
+    wrapOpenDb?: (open: OpenDb) => OpenDb;
+    clock?: { now: Date };
+  } = {},
 ): Promise<TestPlatform> {
   const controlPlacement = new PgDatabasePlacement({ adminUrl: ADMIN_URL, prefix: 'control' });
   const control = await controlPlacement.provision(randomUUID(), CONTROL_MIGRATIONS);
   const placement = new PgDatabasePlacement({ adminUrl: ADMIN_URL });
-  const openDb = nodeOpenDb();
+  const baseOpen = nodeOpenDb();
+  const openDb = opts.wrapOpenDb ? opts.wrapOpenDb(baseOpen) : baseOpen;
   const logs: Record<string, unknown>[] = [];
-  const clock = { now: new Date('2026-10-24T06:00:00Z') };
+  const clock = opts.clock ?? { now: new Date('2026-10-24T06:00:00Z') };
   const { spec } = await Keyring.generate();
   const runtime = await createRuntime({
     env: {
@@ -64,17 +74,19 @@ export async function makePlatform(
     },
     openDb,
     placement,
+    fetch: opts.fetch,
     now: () => clock.now,
     log: (l) => logs.push(l),
   });
 
   const clientFor = (email: string, jar: { cookie: string }): Client => {
     const req: Client['req'] = async (method, path, body, headers = {}) => {
-      const res = await runtime.app.request(`http://localhost${path}`, {
+      const origin = runtime.deps.platform.config.appOrigin;
+      const res = await runtime.app.request(`${origin}${path}`, {
         method,
         headers: {
           ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-          ...(method !== 'GET' ? { origin: 'http://localhost' } : {}),
+          ...(method !== 'GET' ? { origin } : {}),
           ...(jar.cookie ? { cookie: jar.cookie } : {}),
           ...headers,
         },
@@ -119,8 +131,10 @@ export async function makePlatform(
     async destroy() {
       await runtime.deps.gate.flush().catch(() => undefined);
       for (const w of await runtime.deps.control.allWorkspaces().catch(() => []))
-        await placement.destroy(w.placement).catch(() => undefined);
+        if (w.placement.kind === 'pg-database')
+          await placement.destroy(w.placement).catch(() => undefined);
       await openDb.closeAll();
+      if (openDb !== baseOpen) await baseOpen.closeAll();
       await controlPlacement.destroy(control.ref).catch(() => undefined);
     },
   };
