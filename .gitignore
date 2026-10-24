@@ -13,3 +13,4 @@ playwright-report/
 
 reports/
 .stryker-tmp/
+dist-worker/

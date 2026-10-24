@@ -1,0 +1,19 @@
+{
+  // The shared service on Cloudflare's free plan: static files cost nothing and never run
+  // code, so only the API paths below count against the daily request allowance.
+  "name": "alimentation",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/auth/*", "/_migrate/*"],
+  },
+  // Housekeeping: finishes wipes, removes old copies, drops counts nobody reads.
+  "triggers": { "crons": ["17 * * * *"] },
+  "observability": { "enabled": true },
+  // Set as secrets (wrangler secret put): APP_ORIGIN, SESSION_SECRETS, MASTER_KEYS,
+  // CONTROL_DATABASE_URL, OIDC_*, OPERATOR_EMAILS, NEON_API_KEY, NEON_REGION.
+  "vars": { "NODE_ENV": "production" },
+}
