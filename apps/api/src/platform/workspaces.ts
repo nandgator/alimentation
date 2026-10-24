@@ -1,4 +1,4 @@
-import { canAdmit, capacityPlan, isKnownTimeZone, type Role } from '@alimentation/core';
+import { canAdmit, capacityPlan, isKnownTimeZone, UNLIMITED, type Role } from '@alimentation/core';
 import type { Config } from '../config.ts';
 import type { AccountRow, ControlRepo } from '../control/repo.ts';
 import { FieldCipher } from '../crypto/fields.ts';
@@ -6,14 +6,18 @@ import { loadWorkspaceKeys, newWorkspaceKeys, type Keyring } from '../crypto/key
 import type { Db } from '../db/driver.ts';
 import { WORKSPACE_MIGRATIONS } from '../db/migrations.generated.ts';
 import { sealDsns, type Directory } from '../directory.ts';
-import type { Placement } from '../placement/types.ts';
+import type { Placement, PlacementKind } from '../placement/types.ts';
 import { ApiError, invalid } from '../workspace/errors.ts';
 import { initializeWorkspace } from '../workspace/setup.ts';
 
 export interface PlatformDeps {
   control: ControlRepo;
   keyring: Keyring;
+  /** What creates new workspace databases. */
   placement: Placement;
+  /** What removes a database of the given kind, wherever a workspace has been moved to. */
+  placementFor: (kind: PlacementKind) => Placement;
+  fetch: typeof fetch;
   /** `ephemeral` connections are closed by the caller and never cached. */
   openDb: (dsn: string, opts?: { ephemeral?: boolean }) => Db;
   directory: Directory;
@@ -64,13 +68,29 @@ export interface WorkspaceSummary {
   roles: Role[];
 }
 
-export async function capacityNow(
-  p: Pick<PlatformDeps, 'control' | 'config'>,
-): Promise<{ capacity: number; used: number; open: boolean; binding: string }> {
+export async function capacityNow(p: Pick<PlatformDeps, 'control' | 'config'>): Promise<{
+  capacity: number;
+  used: number;
+  open: boolean;
+  binding: string;
+  dedicated: boolean;
+}> {
   const plan = capacityPlan(p.config.capacity);
   const used = await p.control.countWorkspaces();
-  return { capacity: plan.capacity, used, open: canAdmit(plan, used), binding: plan.binding };
+  // A dedicated instance is the tenant's own; the free tier's places do not apply to it.
+  const dedicated = p.config.dedicated;
+  return {
+    capacity: plan.capacity,
+    used,
+    open: dedicated || canAdmit(plan, used),
+    binding: dedicated ? 'dedicated' : plan.binding,
+    dedicated,
+  };
 }
+
+/** The caps a new workspace lives under here. */
+export const limitsFor = (config: Pick<Config, 'dedicated' | 'freeLimits'>) =>
+  config.dedicated ? UNLIMITED : config.freeLimits;
 
 /**
  * Makes a workspace: a database of its own, keys of its own, its first rows, and
@@ -119,7 +139,7 @@ export async function createWorkspace(
       dataKeyWrapped: wrapped.dataKeyWrapped,
       logKeyWrapped: wrapped.logKeyWrapped,
       timeZone: input.timeZone,
-      limits: p.config.freeLimits,
+      limits: limitsFor(p.config),
       createdBy: account.id,
     });
     inserted = true;
@@ -132,7 +152,7 @@ export async function createWorkspace(
         timeZone: input.timeZone,
         adminName: account.displayName ?? account.email,
         alsoSupplier: input.alsoSupplier,
-        limits: p.config.freeLimits,
+        limits: p.config.dedicated ? null : p.config.freeLimits,
       });
     } finally {
       await owner.close();

@@ -38,6 +38,8 @@ CREATE TABLE workspace (
   -- The caps this workspace lives under: see packages/core limits.ts.
   limits           jsonb NOT NULL,
   over_since       date,
+  -- When it entered its current state; a move that stalls is found by this.
+  state_since      timestamptz NOT NULL DEFAULT now(),
   -- Where the workspace went, after a move.
   moved_to_url     text,
   moved_at         timestamptz,
@@ -79,14 +81,18 @@ CREATE INDEX invite_workspace ON invite (workspace_id);
 
 -- A workspace database that has been moved away from and waits out the undo window
 -- before it is destroyed. The credentials are kept encrypted, only to destroy it.
+-- Its personal data is sealed under the keys kept here, not under the workspace's
+-- current ones, so destroying these two is what makes the old copy unreadable.
 CREATE TABLE retired_database (
-  id            uuid PRIMARY KEY DEFAULT uuidv7(),
-  workspace_id  uuid NOT NULL,
-  placement     jsonb NOT NULL,
-  dsn_enc       bytea NOT NULL,
-  retired_at    timestamptz NOT NULL DEFAULT now(),
-  destroy_after timestamptz NOT NULL,
-  destroyed_at  timestamptz
+  id               uuid PRIMARY KEY DEFAULT uuidv7(),
+  workspace_id     uuid NOT NULL,
+  placement        jsonb NOT NULL,
+  dsn_enc          bytea NOT NULL,
+  data_key_wrapped bytea,
+  log_key_wrapped  bytea,
+  retired_at       timestamptz NOT NULL DEFAULT now(),
+  destroy_after    timestamptz NOT NULL,
+  destroyed_at     timestamptz
 );
 
 CREATE TABLE usage_daily (

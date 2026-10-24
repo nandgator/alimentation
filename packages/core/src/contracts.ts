@@ -26,7 +26,16 @@ export interface StatementDto extends Statement {
 }
 
 export interface BootstrapDto {
-  workspace: { id: string; slug: string; name: string; timeZone: string; currency: string };
+  workspace: {
+    id: string;
+    slug: string;
+    name: string;
+    timeZone: string;
+    currency: string;
+    /** Anything but ACTIVE is read-only; `movedTo` says where it went once it has. */
+    state: 'ACTIVE' | 'MIGRATING' | 'MOVED';
+    movedTo: string | null;
+  };
   me: { personId: string; role: Role; name: string };
   /** The roles this sign-in holds here; the app lets the person switch between them. */
   roles: Role[];

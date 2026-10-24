@@ -95,3 +95,13 @@ export function toBase64Url(b: Bytes): string {
     .replace(/\//g, '_')
     .replace(/=+$/, '');
 }
+
+/** Compares two secrets without stopping at the first difference. */
+export async function sameSecret(a: string, b: string): Promise<boolean> {
+  const h = async (x: string) =>
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(x)));
+  const [x, y] = await Promise.all([h(a), h(b)]);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i]! ^ y[i]!;
+  return diff === 0;
+}

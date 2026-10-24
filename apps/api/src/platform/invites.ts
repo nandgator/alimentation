@@ -73,3 +73,29 @@ export async function acceptInvite(
   await p.control.markInviteAccepted(inv.id);
   return { slug: handle.row.slug, role: inv.role };
 }
+
+/**
+ * Binds an account to the people that were waiting for its email: the ones a
+ * workspace brought with it from another instance. Needs the sign-in provider to
+ * have verified the address, which it does before an account is made. Returns how
+ * many were claimed.
+ */
+export async function claimAutoInvites(p: PlatformDeps, account: AccountRow): Promise<number> {
+  let claimed = 0;
+  for (const inv of await p.control.pendingAutoInvites(account.email, p.now())) {
+    try {
+      const handle = await p.directory.byId(inv.workspaceId);
+      if (!handle || handle.info.state !== 'ACTIVE') continue;
+      await handle.appDb.tx(
+        async (tx) =>
+          void (await tx.query('SELECT bind_account($1, $2)', [inv.personId, account.id])),
+      );
+      await p.control.addMembership(account.id, handle.row.id, inv.personId, inv.role);
+      await p.control.markInviteAccepted(inv.id);
+      claimed++;
+    } catch {
+      // This one stays pending; the rest are not held up by it.
+    }
+  }
+  return claimed;
+}
