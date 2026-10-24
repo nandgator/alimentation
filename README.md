@@ -37,6 +37,9 @@ docker compose -f compose.test.yaml run --rm test           # every check, on Po
 NODE_ENV=development AUTH_DEV=1 DB_PASSWORD=change-me docker compose up -d   # a trial instance on http://localhost:8787
 ```
 
+The same files work with Podman (`podman compose`); every image name is fully qualified, so no registry setup is needed.
+Podman builds in its own image format and ignores the image's health check, which is harmless here: Compose runs its own for the database.
+
 Without Docker:
 
 ```sh

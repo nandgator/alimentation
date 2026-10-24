@@ -16,7 +16,7 @@ name: alimentation
 
 services:
   db:
-    image: postgres:18-alpine
+    image: docker.io/library/postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD (any long random string; it never leaves this machine)}
