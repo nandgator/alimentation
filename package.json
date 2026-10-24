@@ -1,0 +1,24 @@
+{
+  "name": "alimentation",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Mess and tiffin accounts for small kitchens, one private workspace each.",
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "typecheck": "tsc -p packages/core && tsc -p apps/api && tsc -p apps/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev:api": "npm run dev -w @alimentation/api",
+    "dev:web": "npm run dev -w @alimentation/web",
+    "build:web": "npm run build -w @alimentation/web"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
