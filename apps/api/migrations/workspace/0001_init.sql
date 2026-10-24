@@ -75,7 +75,7 @@ CREATE FUNCTION workspace_today() RETURNS date
 CREATE TABLE person (
   id          uuid PRIMARY KEY DEFAULT uuidv7(),
   -- The sign-in account (held by the platform) this person logs in as.
-  account_id  uuid UNIQUE,
+  account_id  uuid,
   role        text NOT NULL CHECK (role IN ('admin', 'supplier', 'consumer')),
   name_enc    enc_blob NOT NULL,
   contact_enc enc_blob,
@@ -86,6 +86,10 @@ CREATE TABLE person (
   CHECK (role = 'consumer' OR (active_from IS NULL AND active_to IS NULL)),
   CHECK (active_to IS NULL OR (active_from IS NOT NULL AND active_to >= active_from))
 );
+
+-- One login can hold one role of each kind, so the owner of a kitchen who is also
+-- its supplier is two people here, both reached from one sign-in.
+CREATE UNIQUE INDEX person_account_role ON person (account_id, role) WHERE account_id IS NOT NULL;
 
 -- Rules and prices are appended and never edited, so past months cannot change.
 CREATE TABLE policy_version (
@@ -583,6 +587,11 @@ CREATE POLICY audit_admin_read ON audit_log FOR SELECT USING (app_role() = 'admi
 -- is what makes decisions, settlements and prices append-only even before the
 -- triggers are consulted.
 
+-- How far this database has been migrated; the application role may ask, not change.
+CREATE FUNCTION schema_version() RETURNS integer
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+  AS $$ SELECT coalesce(max(version), 0) FROM schema_migration $$;
+
 CREATE FUNCTION grant_to_app(p_privileges text, p_table regclass) RETURNS void
   LANGUAGE plpgsql AS $$
 BEGIN
@@ -596,7 +605,7 @@ BEGIN
   EXECUTE format('GRANT USAGE ON SCHEMA public TO %I', app);
   EXECUTE format('GRANT EXECUTE ON FUNCTION app_role(), app_person(), is_app_session(), workspace_today(), '
                  'policy_on(date), is_working_day(date), month_closed(date, uuid), close_blocks_admin(date), person_billing(uuid), '
-                 'resolve_actor(uuid), bind_account(uuid, uuid), system_close_month(date, uuid, integer, bigint) TO %I', app);
+                 'resolve_actor(uuid), bind_account(uuid, uuid), system_close_month(date, uuid, integer, bigint), schema_version() TO %I', app);
 END $$;
 
 SELECT grant_to_app('SELECT', 'meta');

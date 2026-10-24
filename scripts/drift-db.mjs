@@ -366,12 +366,7 @@ const defects = [
     `CREATE OR REPLACE FUNCTION resolve_actor(p_account uuid) RETURNS TABLE (person_id uuid, role text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$ SELECT id, role FROM person WHERE account_id = p_account $$`,
     'disabled person',
   ],
-  [
-    'actor: second account can bind',
-    'owner',
-    `ALTER TABLE person DROP CONSTRAINT person_account_id_key`,
-    'second account',
-  ],
+  ['actor: second account can bind', 'owner', `DROP INDEX person_account_role`, 'second account'],
   [
     'close: automatic close ignores the due date',
     'owner',
