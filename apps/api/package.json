@@ -7,7 +7,8 @@
     "dev": "tsx watch src/node.ts",
     "start": "tsx src/node.ts",
     "cli": "tsx src/cli.ts",
-    "build:worker": "wrangler deploy --dry-run --outdir dist"
+    "build:worker": "wrangler deploy --dry-run --outdir dist",
+    "build:server": "esbuild src/node.ts src/cli.ts --bundle --platform=node --format=esm --target=node22 --external:pg-native --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\" --outdir=dist --out-extension:.js=.mjs"
   },
   "dependencies": {
     "@alimentation/core": "*",

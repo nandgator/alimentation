@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [build, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Format, types and every test, in the same containers anyone can run locally:
+  #   docker compose -f compose.test.yaml run --rm test
+  # The Postgres log check is required here, not skipped.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker compose -f compose.test.yaml run --rm --build test
+      - if: always()
+        run: docker compose -f compose.test.yaml down -v
+
+  # The image that ships starts, sets itself up against a fresh Postgres, and serves.
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - run: scripts/smoke-compose.sh

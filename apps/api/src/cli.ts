@@ -6,9 +6,10 @@ import { CONTROL_MIGRATIONS, WORKSPACE_MIGRATIONS } from './db/migrations.genera
 import { readDsns } from './directory.ts';
 import { Keyring } from './crypto/keys.ts';
 import { PgDatabasePlacement } from './placement/pgdatabase.ts';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 /**
+ *   keys:generate     print a new MASTER_KEYS and SESSION_SECRETS
  *   control:init      create the control database and print the settings that point at it
  *   migrate:control   bring the control database up to this release
  *   migrate:all       bring every workspace database up to this release
@@ -33,6 +34,11 @@ switch (command) {
     console.log(
       `CONTROL_OWNER_URL=${p.ownerUrl}   # keep this for migrate:control; the app does not need it`,
     );
+    break;
+  }
+  case 'keys:generate': {
+    console.log(`MASTER_KEYS=${(await Keyring.generate()).spec}`);
+    console.log(`SESSION_SECRETS=${randomBytes(32).toString('base64')}`);
     break;
   }
   case 'migrate:control': {
@@ -86,7 +92,7 @@ switch (command) {
   }
   default:
     console.error(
-      'usage: cli.ts control:init | migrate:control | migrate:all | lockdown [database ...]',
+      'usage: cli.ts keys:generate | control:init | migrate:control | migrate:all | lockdown [database ...]',
     );
     process.exitCode = 2;
 }
