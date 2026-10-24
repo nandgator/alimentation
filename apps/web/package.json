@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "npm run build:server -w @alimentation/api && npm run build && playwright test",
+    "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
     "@alimentation/core": "*",
@@ -17,6 +19,8 @@
     "wouter": "^3.13.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",

@@ -43,3 +43,34 @@ jobs:
       - run: npm ci
       - run: npm run build:worker -w @alimentation/api
       - run: scripts/smoke-worker.sh
+
+  # The real app in a real browser, desktop and phone: a kitchen from its first day to its last,
+  # with accessibility and layout checks at every stage.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      ALIMENTATION_TEST_PG: postgres://postgres:ci@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-results
+          path: apps/web/test-results
+          retention-days: 7

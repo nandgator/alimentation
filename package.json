@@ -12,7 +12,7 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "typecheck": "tsc -p packages/core && tsc -p apps/api",
+    "typecheck": "tsc -p packages/core && tsc -p apps/api && tsc -p apps/web",
     "drift:db": "node scripts/drift-db.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -20,7 +20,8 @@
     "format:check": "prettier --check .",
     "dev:api": "npm run dev -w @alimentation/api",
     "dev:web": "npm run dev -w @alimentation/web",
-    "build:web": "npm run build -w @alimentation/web"
+    "build:web": "npm run build -w @alimentation/web",
+    "test:e2e": "npm run test:e2e -w @alimentation/web"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^10.1.1",

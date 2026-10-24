@@ -218,7 +218,12 @@ export class WorkspaceService {
     const [row] = await tx.query<R>(
       `SELECT (SELECT count(*) FROM person)::int AS people,
               ((SELECT count(*) FROM log_entry) + (SELECT count(*) FROM claim) + (SELECT count(*) FROM settlement) + (SELECT count(*) FROM claim_decision))::int AS rows,
-              pg_database_size(current_database())::bigint AS bytes`,
+              -- Our own tables and their indexes: an empty Postgres database is already several
+              -- megabytes of catalogs, which are not the kitchen's, and on a database the tenant owns
+              -- the rest of it is not ours to count.
+              (SELECT coalesce(sum(pg_total_relation_size(c.oid)), 0)
+                 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relkind IN ('r', 'm'))::bigint AS bytes`,
     );
     return {
       requestsLast24h: requests,
