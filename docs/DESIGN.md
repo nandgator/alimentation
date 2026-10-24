@@ -278,53 +278,89 @@ token bucket per workspace. Where the host exposes a hard per-project quota
 
 ### 5.9 Move (graduation) (ADR-08)
 
+There are two destinations, and the same checks apply to both.
+
+- **A database of their own** (`external` placement): the tenant gives a Postgres
+  connection string. This instance keeps serving the workspace from there.
+- **An instance of their own**: the tenant gives the address and a one-time token of
+  a dedicated instance. That instance receives the workspace and serves it; this one
+  keeps a read-only copy for seven days.
+
 ```
- source workspace                            target (empty Postgres, or another instance)
  ACTIVE
-   | admin presses Move, gives target
+   | admin presses Move, gives the target and types the workspace address
    v
- preflight: target reachable, empty, Postgres >= 15, policy representable
- MIGRATING (writes frozen, reads open)
-   | export bundle inside one REPEATABLE READ transaction
-   | dry-run import on target: schema, constraints, no commit
-   | import on target; recompute every statement for every month from raw rows
-   | compare to the bundle's totals, to the paisa, per person per month
-   | clean? -> target answers with a receipt (digest of canonical content)
-   |           source checks the digest equals its own
+ take the move lock (compare-and-set ACTIVE -> MIGRATING; a second press gets 409)
+ preflight: reachable, empty of our tables, Postgres 15 or newer, encrypted in
+            production, not a private address (a person typed it and this server connects to it)
+ trial: dry-run import on the target while writing is still open; rolls back
+   | any problem so far: unlock, remove what was created on the target, back to ACTIVE
    v
- MOVED  (read-only, redirects to the new address, 7 day undo window)
-   | after 7 days or when the admin says so: wipe (section 5.10)
+ freeze: LOCK TABLE ... SHARE ROW EXCLUSIVE with a timeout (waits for writes in flight),
+         then workspace.read_only = true; a trigger refuses application writes, reads carry on
+ export inside one REPEATABLE READ transaction -> canonical bundle with row counts and SHA-256
+ import for real; recompute every statement for every month from the raw rows;
+ compare with the bundle's totals to the paisa, per person per month; read the digest back
+   | not clean: unfreeze, remove what was created, back to ACTIVE
    v
- WIPED
+ database move:  one transaction in the control plane points the workspace at the new
+                 database under new keys and records the old database with the old wrapped
+                 keys as a retired copy due in 7 days. State: ACTIVE, served from the new place.
+ instance move:  the receiving instance answers with its digest; the same digest here means
+                 MOVED (read-only, points to the new address, copy removed after 7 days).
 ```
 
-If anything fails before cutover, the source is unfrozen and nothing was lost. The
-bundle is versioned, with a manifest of table row counts and a SHA-256 over the
-canonical form. Instance-to-instance moves seal the bundle to the target's public
-key, so only the target can read it in transit.
+Decisions that are easy to miss:
+
+- **New keys on arrival.** The workspace is re-encrypted under keys made for the
+  destination. Whoever holds the old database holds only the old keys, and those are
+  destroyed before the old database is removed (section 5.10).
+- **People get in without a link.** A database move keeps the same sign-in accounts and
+  re-links them. An instance move creates an invitation for each member that is claimed
+  when they sign in on the new instance with the same verified email.
+- **An answer that never arrives.** If the other instance may have accepted but this one
+  cannot be sure (network failure after sending, a 5xx), the workspace stays read-only and
+  is flagged for the operator rather than unfrozen. Two live copies is worse than one
+  frozen one. The operator checks the other side and either releases it or completes the wipe.
+  Housekeeping never releases such a workspace by itself; it releases moves that stalled
+  before sending anything, after 30 minutes.
+- **Dedicated instances** (`DEDICATED=1`) have no storage caps and no request budget, only
+  their operator can create workspaces, and `/_migrate/receive` exists only when a token is set
+  (compared in constant time; the body is size-limited as it arrives, not by trusting the header).
+- **Free-tier caps lift on a database move** (people, rows, bytes) because the storage is
+  theirs; the request budget stays because this instance still serves it.
+- Not built: sealing the bundle to the target's public key. Transport is HTTPS with a bearer
+  token; the bundle is not otherwise encrypted in transit.
 
 ### 5.10 Wipe (ADR-09)
 
-In this order, each step logged to the platform event stream without personal data:
+In this order and no other. A step that fails after the second leaves the workspace
+unreadable and in `WIPING`, and housekeeping finishes it.
 
-1. Offer the export (skipped when the tenant declines).
-2. Mark the workspace `WIPING`; refuse all requests.
-3. **Destroy the wrapped data key and the log key.** From this point the data is
-   unreadable everywhere.
-4. Delete rows (placement `pg-database`: drop the database and role;
-   `neon-project`: delete the project; `external`: delete rows and leave the
-   empty schema, since it is the tenant's database).
-5. Delete memberships, invites, usage rows, and any account left with no
-   membership.
-6. Verify: the database is gone or every table is empty, the key row is gone, the
-   directory entry is gone.
-7. Issue a receipt: workspace id, timestamps, a manifest of what was destroyed,
-   with no personal data. The tenant gets a copy; the operator keeps one.
+1. Offer the export (the interface does; the export route is open until the wipe starts).
+2. Count rows per table, never contents, for the receipt.
+3. **Destroy the wrapped data key and the log key and mark the workspace `WIPING`, in one
+   statement.** From here nothing it held can be read, wherever it was copied. Requests get 410.
+4. Remove the retired copies left by earlier moves (their keys first, then the database).
+5. Remove the database. `pg-database`: drop the database and both roles. `external`: drop only
+   what this program created (the tables, functions and domains named in `OUR_TABLES`,
+   `OUR_FUNCTIONS` and `OUR_DOMAINS`, which a test checks against a freshly migrated database)
+   and our role; the tenant's own tables and roles are not touched.
+6. Remove members, invitations, usage rows, and any account left with no workspace anywhere. A
+   session cookie for a removed account stops working within a minute.
+7. Check four things (keys destroyed, database gone, directory entry gone, no control rows
+   left), and only then write the receipt: workspace id, times, counts, the checks, and what
+   remains. It names no one, is addressed by an id that cannot be guessed, and cannot be altered
+   or removed: the application role has no update or delete privilege, and a trigger stops the
+   owner as well.
 
-What remains afterwards and why: the receipt; a count-only platform event; the
-host's recovery copy of a deleted Neon project for up to 7 days, unreadable
-without the destroyed key; Cloudflare request logs for up to 3 days, carrying
-only the now-unlinkable pseudonym.
+What remains afterwards and why: the receipt; a count-only platform event; the host's
+recovery copy of a deleted Neon project for up to 7 days, unreadable without the destroyed
+key; Cloudflare request logs for up to 3 days, carrying only the now-unlinkable pseudonym.
+
+If the control database is restored to a point before a wipe, the destroyed wrapped keys come
+back with it. The receipts table is the memory of what was wiped, so housekeeping looks for any
+workspace that has a receipt and wipes it again. The runbook says to run it after any restore.
 
 ### 5.11 Migrations across many databases (ADR-10)
 
@@ -376,14 +412,16 @@ Considered and set aside:
 
 ## 8. Risks
 
-| Risk                                                             | Mitigation                                                                                          |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Free-tier terms change or forbid the operator model              | `pg-database` and `external` placements; limits are configuration; export always works              |
-| Cloudflare 100,000 request cap is account-wide                   | Budgets and admission control; static assets carry the traffic; Workers Paid is the cheap exit      |
-| Free CPU limit of 10 ms on Workers                               | One round trip per operation; HTTP driver; measure on first deploy                                  |
-| Schema drift across many databases                               | Version table, advisory-locked migrate, `migrate-all`, expand/contract                              |
-| Neon compute suspends when a workspace uses its own 100 CU-hours | Affects only that workspace (the point of P1); meter warns before                                   |
-| Key loss makes a workspace unreadable                            | Master key is a deployment secret with documented rotation; export offered before destructive steps |
+| Risk                                                              | Mitigation                                                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Free-tier terms change or forbid the operator model               | `pg-database` and `external` placements; limits are configuration; export always works                  |
+| Cloudflare 100,000 request cap is account-wide                    | Budgets and admission control; static assets carry the traffic; Workers Paid is the cheap exit          |
+| Free CPU limit of 10 ms on Workers                                | One round trip per operation; HTTP driver; measure on first deploy                                      |
+| Schema drift across many databases                                | Version table, advisory-locked migrate, `migrate-all`, expand/contract                                  |
+| Neon compute suspends when a workspace uses its own 100 CU-hours  | Affects only that workspace (the point of P1); meter warns before                                       |
+| Key loss makes a workspace unreadable                             | Master key is a deployment secret with documented rotation; export offered before destructive steps     |
+| A control-database restore brings back keys that a wipe destroyed | Receipts record every wipe; housekeeping wipes again any workspace that has one; run it after a restore |
+| A move is accepted by the other side but the answer is lost       | Stays read-only and flagged for the operator; never released automatically                              |
 
 ## 9. Law and logs (not legal advice)
 

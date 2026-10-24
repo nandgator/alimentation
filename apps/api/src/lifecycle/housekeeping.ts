@@ -7,6 +7,8 @@ const MOVE_PATIENCE_MS = 30 * 60_000;
 
 export interface HousekeepingReport {
   wipesFinished: number;
+  /** Workspaces that came back from a restore of the control database and were wiped again. */
+  wipedAgain: number;
   movedCopiesWiped: number;
   oldCopiesRemoved: number;
   stalledMovesReleased: number;
@@ -28,6 +30,7 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
   const now = p.now();
   const r: HousekeepingReport = {
     wipesFinished: 0,
+    wipedAgain: 0,
     movedCopiesWiped: 0,
     oldCopiesRemoved: 0,
     stalledMovesReleased: 0,
@@ -47,6 +50,11 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
   for (const w of await p.control.wiping())
     await guard('finish wipe', async () => {
       if ((await wipeWorkspace(p, w.id)).done) r.wipesFinished++;
+    });
+
+  for (const w of await p.control.wipedButPresent())
+    await guard('wipe again', async () => {
+      if ((await wipeWorkspace(p, w.id)).done) r.wipedAgain++;
     });
 
   for (const w of await p.control.movedBefore(new Date(now.getTime() - UNDO_DAYS * DAY)))

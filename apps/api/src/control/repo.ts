@@ -376,6 +376,15 @@ export class ControlRepo {
     ).map(toWorkspace);
   }
 
+  /** Workspaces that exist although a receipt says they were wiped: what a restore of this database brings back. */
+  async wipedButPresent(): Promise<WorkspaceRow[]> {
+    return (
+      await this.many<R>(
+        `SELECT w.* FROM workspace w JOIN wipe_receipt r ON r.workspace_id = w.id WHERE w.state <> 'WIPING'`,
+      )
+    ).map(toWorkspace);
+  }
+
   async wiping(): Promise<WorkspaceRow[]> {
     return (await this.many<R>(`SELECT * FROM workspace WHERE state = 'WIPING'`)).map(toWorkspace);
   }
@@ -481,7 +490,7 @@ export class ControlRepo {
     digest: string;
   }): Promise<void> {
     await this.many(
-      `INSERT INTO wipe_receipt (workspace_id, requested_at, manifest, digest) VALUES ($1,$2,$3,$4)`,
+      `INSERT INTO wipe_receipt (workspace_id, requested_at, manifest, digest) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
       [r.workspaceId, r.requestedAt.toISOString(), JSON.stringify(r.manifest), r.digest],
     );
   }
