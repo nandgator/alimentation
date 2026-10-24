@@ -14,9 +14,11 @@ Neon and Cloudflare were read directly and are cited in `DESIGN.md` section 3.
 Vendor terms and limits change often; re-verify anything here before relying on it
 for a commercial decision. Rows marked UNKNOWN are open questions, not findings.
 
-| File                                             | Platforms                                                                                                      |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| [platforms-backends.md](platforms-backends.md)   | Appwrite, Firebase, Convex                                                                                     |
-| [platforms-compute.md](platforms-compute.md)     | Render, Koyeb, Cloud Run, Deno Deploy, Vercel, Netlify, Fly.io, Railway, Northflank, Zeabur, Sevalla, Back4app |
-| [platforms-databases.md](platforms-databases.md) | Aiven, CockroachDB, Xata, Nile, Turso, Prisma Postgres, Tiger Data, Crunchy Bridge, PlanetScale                |
-| [platforms-vms.md](platforms-vms.md)             | Oracle Always Free, Google Compute Engine, AWS, Azure, Cloudflare Containers, Codespaces                       |
+| File                                                   | Platforms                                                                                                      |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| [platforms-backends.md](platforms-backends.md)         | Appwrite, Firebase, Convex                                                                                     |
+| [platforms-compute.md](platforms-compute.md)           | Render, Koyeb, Cloud Run, Deno Deploy, Vercel, Netlify, Fly.io, Railway, Northflank, Zeabur, Sevalla, Back4app |
+| [platforms-databases.md](platforms-databases.md)       | Aiven, CockroachDB, Xata, Nile, Turso, Prisma Postgres, Tiger Data, Crunchy Bridge, PlanetScale                |
+| [platform-digitalocean.md](platform-digitalocean.md)   | DigitalOcean: Droplets, App Platform, Managed PostgreSQL, with prices                                          |
+| [platforms-hyperscalers.md](platforms-hyperscalers.md) | AWS, Google Cloud, Azure: paid options priced for a tiny workload; some prices derived, some unknown           |
+| [platforms-vms.md](platforms-vms.md)                   | Oracle Always Free, Google Compute Engine, AWS, Azure, Cloudflare Containers, Codespaces                       |

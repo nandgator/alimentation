@@ -63,7 +63,9 @@ export function fromEpochDay(z0: number): IsoDate {
   const z = z0 + 719468;
   const era = Math.floor(z / 146097);
   const doe = z - era * 146097;
-  const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365);
+  const yoe = Math.floor(
+    (doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365,
+  );
   const y = yoe + era * 400;
   const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
   const mp = Math.floor((5 * doy + 2) / 153);
@@ -131,6 +133,7 @@ const formatters = new Map<string, Intl.DateTimeFormat>();
 
 function formatterFor(timeZone: string): Intl.DateTimeFormat {
   let f = formatters.get(timeZone);
+  // Stryker disable next-line ConditionalExpression: the cache changes speed, never results
   if (!f) {
     f = new Intl.DateTimeFormat('en-GB', {
       timeZone,
@@ -141,6 +144,7 @@ function formatterFor(timeZone: string): Intl.DateTimeFormat {
       hour: '2-digit',
       minute: '2-digit',
     });
+    // Stryker disable next-line all: the cache changes speed, never results
     formatters.set(timeZone, f);
   }
   return f;
@@ -174,7 +178,20 @@ export function wallClock(date: IsoDate, time: string): string {
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
 
 export function dayName(w: Weekday): string {
   return DAY_NAMES[w];

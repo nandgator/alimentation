@@ -1,12 +1,46 @@
-import { prepare, rupees, type Claim, type Decision, type EngineData, type LogEntry, type Person, type RateCard, type Settlement } from '../src/index.ts';
+import {
+  prepare,
+  rupees,
+  type Claim,
+  type Decision,
+  type EngineData,
+  type LogEntry,
+  type Person,
+  type RateCard,
+  type Settlement,
+} from '../src/index.ts';
 import type { Holiday, MonthClose } from '../src/index.ts';
 import { DEFAULT_POLICY, type Policy, type PolicyVersion } from '../src/index.ts';
 
 /** The spec's seed data (section 10), with every amount in paise. */
-export const ADMIN: Person = { id: 'admin', name: 'Owner', role: 'admin', activeFrom: null, activeTo: null };
-export const NAMRATA: Person = { id: 'namrata', name: 'Namrata', role: 'supplier', activeFrom: null, activeTo: null };
-export const JOVIAL: Person = { id: 'jovial', name: 'Jovial', role: 'consumer', activeFrom: '2026-10-01', activeTo: null };
-export const SMRUTI: Person = { id: 'smruti', name: 'Smruti', role: 'consumer', activeFrom: '2026-10-01', activeTo: null };
+export const ADMIN: Person = {
+  id: 'admin',
+  name: 'Owner',
+  role: 'admin',
+  activeFrom: null,
+  activeTo: null,
+};
+export const NAMRATA: Person = {
+  id: 'namrata',
+  name: 'Namrata',
+  role: 'supplier',
+  activeFrom: null,
+  activeTo: null,
+};
+export const JOVIAL: Person = {
+  id: 'jovial',
+  name: 'Jovial',
+  role: 'consumer',
+  activeFrom: '2026-10-01',
+  activeTo: null,
+};
+export const SMRUTI: Person = {
+  id: 'smruti',
+  name: 'Smruti',
+  role: 'consumer',
+  activeFrom: '2026-10-01',
+  activeTo: null,
+};
 
 export const CARD_APR: RateCard = {
   id: 'card-apr',
@@ -20,7 +54,13 @@ export const CARD_APR: RateCard = {
   note: null,
 };
 
-export const CARD_NOV: RateCard = { ...CARD_APR, id: 'card-nov', effectiveFrom: '2026-11-01', veg: rupees(160), nonVeg: rupees(180) };
+export const CARD_NOV: RateCard = {
+  ...CARD_APR,
+  id: 'card-nov',
+  effectiveFrom: '2026-11-01',
+  veg: rupees(160),
+  nonVeg: rupees(180),
+};
 
 const h = (id: string, name: string, date: string, confirmed = true): Holiday => ({
   id,

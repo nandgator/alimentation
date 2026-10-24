@@ -14,7 +14,7 @@ export function rupees(n: number): Paise {
 }
 
 export function isPaise(n: unknown): n is Paise {
-  return typeof n === 'number' && Number.isSafeInteger(n);
+  return Number.isSafeInteger(n);
 }
 
 /** `bps` basis points (1/100 of a percent) of `amount`, rounded half up. */
@@ -29,6 +29,7 @@ function group(digits: string): string {
 /** `₹3,260` with zero shown as `-`, as the spec asks. Paise are shown only when non-zero. */
 export function formatMoney(p: Paise): string {
   if (p === 0) return '-';
+  // Stryker disable next-line EqualityOperator: zero returned above
   const sign = p < 0 ? '-' : '';
   const abs = Math.abs(p);
   const whole = Math.floor(abs / PAISE_PER_RUPEE);
