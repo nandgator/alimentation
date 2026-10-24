@@ -28,3 +28,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: scripts/smoke-compose.sh
+
+  # The Cloudflare Worker, bundled as it would be deployed and then run in the Workers
+  # runtime against Postgres through the same kind of WebSocket path Neon uses.
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:worker -w @alimentation/api
+      - run: scripts/smoke-worker.sh
