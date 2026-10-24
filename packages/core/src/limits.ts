@@ -27,6 +27,14 @@ export const FREE_LIMITS: Limits = {
   bytes: 20 * 1024 * 1024,
 };
 
+/** For a dedicated instance, where the caps of the free tier do not apply. */
+export const UNLIMITED: Limits = {
+  requestsPerDay: 1_000_000_000,
+  people: 1_000_000,
+  rows: 1_000_000_000,
+  bytes: 1e15,
+};
+
 export type Pressure = 'OK' | 'WATCH' | 'ASK' | 'OVER';
 
 export const THRESHOLDS = { watch: 0.7, ask: 0.9, over: 1 } as const;

@@ -8,8 +8,6 @@
 -- The role that runs this file owns every object; the application role named in
 -- alimentation.app_role gets the privileges granted at the end.
 
-ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-
 CREATE TABLE account (
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
   idp_issuer    text NOT NULL,
@@ -69,12 +67,27 @@ CREATE TABLE invite (
   role         text NOT NULL CHECK (role IN ('admin', 'supplier', 'consumer')),
   email        text NOT NULL CHECK (email = lower(email)),
   token_hash   bytea NOT NULL UNIQUE,
+  -- Made when a workspace arrives from elsewhere: bound to the person who signs in
+  -- with a verified matching email, with no link to follow.
+  auto         boolean NOT NULL DEFAULT false,
   expires_at   timestamptz NOT NULL,
   accepted_at  timestamptz,
   created_by   uuid REFERENCES account (id) ON DELETE SET NULL,
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX invite_workspace ON invite (workspace_id);
+
+-- A workspace database that has been moved away from and waits out the undo window
+-- before it is destroyed. The credentials are kept encrypted, only to destroy it.
+CREATE TABLE retired_database (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  workspace_id  uuid NOT NULL,
+  placement     jsonb NOT NULL,
+  dsn_enc       bytea NOT NULL,
+  retired_at    timestamptz NOT NULL DEFAULT now(),
+  destroy_after timestamptz NOT NULL,
+  destroyed_at  timestamptz
+);
 
 CREATE TABLE usage_daily (
   workspace_id uuid NOT NULL REFERENCES workspace (id) ON DELETE CASCADE,
@@ -113,12 +126,15 @@ CREATE TRIGGER platform_event_append_only BEFORE UPDATE OR DELETE ON platform_ev
 CREATE TRIGGER wipe_receipt_append_only BEFORE UPDATE OR DELETE ON wipe_receipt
   FOR EACH ROW EXECUTE FUNCTION forbid_change();
 
+-- No function is executable by everyone.
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
+
 -- Privileges for the application role.
 DO $$
 DECLARE
   app text := current_setting('alimentation.app_role');
 BEGIN
   EXECUTE format('GRANT USAGE ON SCHEMA public TO %I', app);
-  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON account, workspace, membership, invite, usage_daily TO %I', app);
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON account, workspace, membership, invite, usage_daily, retired_database TO %I', app);
   EXECUTE format('GRANT SELECT, INSERT ON platform_event, wipe_receipt TO %I', app);
 END $$;

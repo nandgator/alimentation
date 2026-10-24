@@ -6,3 +6,4 @@ export * from './engine.ts';
 export * from './validate.ts';
 export * from './limits.ts';
 export * from './contracts.ts';
+export * from './bundle.ts';

@@ -1,6 +1,12 @@
 import pg from 'pg';
 import { migrate, type Migration } from '../db/migrate.ts';
-import { randomSecret, type Placement, type PlacementRef, type Provisioned } from './types.ts';
+import {
+  randomSecret,
+  type Credentials,
+  type Placement,
+  type PlacementRef,
+  type Provisioned,
+} from './types.ts';
 
 export interface PgDatabaseOptions {
   /** Superuser, or a role that can create roles and databases. */
@@ -104,7 +110,7 @@ export class PgDatabasePlacement implements Placement {
     }
   }
 
-  async destroy(ref: PlacementRef): Promise<void> {
+  async destroy(ref: PlacementRef, _creds?: Credentials): Promise<void> {
     const { database, owner, app } = ref.data as Record<string, string>;
     if (!database || !owner || !app) throw new Error('not a pg-database reference');
     const admin = new pg.Client({ connectionString: this.opts.adminUrl });
@@ -167,7 +173,7 @@ export class PgDatabasePlacement implements Placement {
     return names;
   }
 
-  async exists(ref: PlacementRef): Promise<boolean> {
+  async exists(ref: PlacementRef, _creds?: Credentials): Promise<boolean> {
     const { database } = ref.data as Record<string, string>;
     const admin = new pg.Client({ connectionString: this.opts.adminUrl });
     await admin.connect();

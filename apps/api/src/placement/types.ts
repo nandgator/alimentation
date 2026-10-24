@@ -14,6 +14,12 @@ export interface PlacementRef {
   data: Record<string, string>;
 }
 
+/** For a database that is not ours to drop, the connection that lets us remove only our own objects from it. */
+export interface Credentials {
+  ownerUrl: string;
+  appUrl: string;
+}
+
 export interface Provisioned {
   ref: PlacementRef;
   ownerUrl: string;
@@ -24,8 +30,8 @@ export interface Placement {
   readonly kind: PlacementKind;
   provision(workspaceId: string, migrations: readonly Migration[]): Promise<Provisioned>;
   /** Removes the database and its roles. Succeeds when it is already gone. */
-  destroy(ref: PlacementRef): Promise<void>;
-  exists(ref: PlacementRef): Promise<boolean>;
+  destroy(ref: PlacementRef, creds?: Credentials): Promise<void>;
+  exists(ref: PlacementRef, creds?: Credentials): Promise<boolean>;
 }
 
 export function randomSecret(bytes = 24): string {
