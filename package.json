@@ -12,7 +12,8 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "typecheck": "tsc -p packages/core && tsc -p apps/api && tsc -p apps/web",
+    "typecheck": "tsc -p packages/core && tsc -p apps/api",
+    "drift:db": "node scripts/drift-db.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",

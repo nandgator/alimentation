@@ -23,6 +23,7 @@ export async function newWorkspace(opts: Partial<PgDatabaseOptions> = {}): Promi
   const placement = new PgDatabasePlacement({ adminUrl: ADMIN_URL, ...opts });
   const id = randomUUID();
   const p = await placement.provision(id, WORKSPACE_MIGRATIONS);
+  await applyDrift(p.ownerUrl, p.appUrl);
   const owner = new pg.Pool({ connectionString: p.ownerUrl, max: 4 });
   const app = new pg.Pool({ connectionString: p.appUrl, max: 4 });
   return {
@@ -172,4 +173,28 @@ export async function dbError(p: Promise<unknown>): Promise<{ code: string; mess
     return { code: err.code ?? '', message: err.message };
   }
   throw new Error('expected the database to refuse, but it accepted');
+}
+
+/**
+ * Drift testing: scripts/drift-db.mjs sets ALIMENTATION_DRIFT to a deliberate
+ * defect (drop a policy, loosen a privilege, remove a trigger) and runs these
+ * tests, which must then fail. Does nothing unless that variable is set.
+ */
+async function applyDrift(ownerUrl: string, appUrl: string): Promise<void> {
+  const raw = process.env.ALIMENTATION_DRIFT;
+  if (!raw) return;
+  const { as, sql } = JSON.parse(raw) as { as: 'owner' | 'admin'; sql: string };
+  let url = ownerUrl;
+  if (as === 'admin') {
+    const u = new URL(ADMIN_URL);
+    u.pathname = new URL(appUrl).pathname;
+    url = u.toString();
+  }
+  const c = new pg.Client({ connectionString: url });
+  await c.connect();
+  try {
+    await c.query(sql);
+  } finally {
+    await c.end();
+  }
 }

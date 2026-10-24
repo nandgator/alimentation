@@ -140,7 +140,7 @@ describe('dates and money, at the edges', () => {
   });
 
   it('validates paise and money formatting', () => {
-    expect(() => rupees(Number.NaN)).toThrowError(RangeError);
+    expect(() => rupees(Number.NaN)).toThrowError(/finite/);
     expect(() => rupees(Infinity)).toThrowError(RangeError);
     expect([5, 0, -3].map(isPaise)).toEqual([true, true, true]);
     for (const bad of [1.5, '1', Number.NaN, 2 ** 53, null, undefined])

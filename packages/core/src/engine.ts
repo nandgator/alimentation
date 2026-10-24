@@ -142,8 +142,7 @@ export function prepare(data: EngineData): Prepared {
   for (const e of [...data.log].sort(byLogOrder)) {
     if (e.change === 'Supplier Off') {
       if (e.allConsumers) supplierOff.add(e.date);
-      // Stryker disable next-line ConditionalExpression: a personal entry without a person cannot be stored
-    } else if (e.personId !== null) {
+    } else {
       push(logByPersonDate, `${e.personId}|${e.date}`, e);
     }
   }
@@ -249,8 +248,14 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
       const card = requireCard(p, date);
       let meal = menuMeal(card);
       for (const e of entries) {
-        if (e.change === 'Switch to Veg') meal = 'Veg';
-        else if (e.change === 'Switch to Non Veg') meal = 'Non Veg';
+        switch (e.change) {
+          case 'Switch to Veg':
+            meal = 'Veg';
+            break;
+          case 'Switch to Non Veg':
+            meal = 'Non Veg';
+            break;
+        }
       }
       leaveAmount = fractionOf(priceOf(card, meal), policy.leave.chargeBps);
     }
@@ -262,11 +267,20 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
   let chapati = 0;
   let bhakri = 0;
   for (const e of entries) {
-    if (e.change === 'Switch to Veg') meal = 'Veg';
-    else if (e.change === 'Switch to Non Veg') meal = 'Non Veg';
-    else if (e.change === 'Extra Chapati') chapati += e.qty ?? 0;
-    // Stryker disable next-line ConditionalExpression: no other change type reaches this list with a quantity
-    else if (e.change === 'Extra Bhakri') bhakri += e.qty ?? 0;
+    switch (e.change) {
+      case 'Switch to Veg':
+        meal = 'Veg';
+        break;
+      case 'Switch to Non Veg':
+        meal = 'Non Veg';
+        break;
+      case 'Extra Chapati':
+        chapati += e.qty ?? 0;
+        break;
+      case 'Extra Bhakri':
+        bhakri += e.qty ?? 0;
+        break;
+    }
   }
   const mealPrice = priceOf(card, meal);
   const breadAmount = chapati * card.extraChapati + bhakri * card.extraBhakri;
@@ -468,6 +482,13 @@ export function buildStatements(
   return out;
 }
 
+/** The last date a consumer can have been billed up to, given today. */
+function billedThrough(person: Person, today: IsoDate): IsoDate {
+  // Stryker disable next-line all: months after today never come due, so clipping at today is only a shortcut
+  if (person.activeTo !== null && person.activeTo < today) return person.activeTo;
+  return today;
+}
+
 export interface DueClose {
   consumerId: string;
   month: Month;
@@ -485,10 +506,7 @@ export function dueAutoCloses(p: Prepared): DueClose[] {
   const today = p.data.today;
   for (const person of consumers(p)) {
     if (person.activeFrom === null) continue;
-    // Stryker disable next-line all: months after today never come due, so this bound is only a shortcut
-    const lastMonth = monthOf(
-      person.activeTo !== null && person.activeTo < today ? person.activeTo : today,
-    );
+    const lastMonth = monthOf(billedThrough(person, today));
     for (let m = monthOf(person.activeFrom); m <= lastMonth; m = addMonths(m, 1)) {
       const policy = policyForMonth(p.data.policies, m);
       const until = autoCloseDate(policy, m);

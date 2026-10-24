@@ -84,7 +84,7 @@ describe('[P5] personal data reaches the database only as ciphertext', () => {
     }
   });
 
-  it("keeps every personal column typed as ciphertext, and allows no plain-text column that could hold a person's details", async () => {
+  it('keeps every personal column typed as ciphertext, and allows no unreviewed plain-text column', async () => {
     const cols = (
       await ws.owner.query(`
         SELECT c.table_name, c.column_name, c.data_type, c.domain_name
@@ -101,23 +101,42 @@ describe('[P5] personal data reaches the database only as ciphertext', () => {
     expect(enc.length).toBeGreaterThanOrEqual(7);
     for (const c of enc) expect(c.domain_name, `${c.table_name}.${c.column_name}`).toBe('enc_blob');
 
-    // Plain text columns whose names suggest personal content must be on this short, reviewed list.
-    const suspicious = /(name|contact|email|phone|address|note|reason|label)/i;
+    // Every free-text or JSON column must be on this reviewed list. A new one fails
+    // here until someone decides, in review, that it can never hold a person's details.
     const reviewed = new Set([
       'workspace.name',
-      'holiday.name',
+      'workspace.time_zone',
+      'workspace.currency',
+      'person.role',
+      'person.status',
+      'policy_version.doc',
+      'rate_card.menu_sun',
+      'rate_card.menu_mon',
+      'rate_card.menu_tue',
+      'rate_card.menu_wed',
+      'rate_card.menu_thu',
+      'rate_card.menu_fri',
+      'rate_card.menu_sat',
       'rate_card.note',
+      'holiday.name',
       'holiday.location',
+      'log_entry.change',
+      'claim.method',
+      'claim_decision.decision',
+      'settlement.type',
       'audit_log.table_name',
+      'audit_log.row_id',
       'audit_log.action',
+      'audit_log.before',
+      'audit_log.after',
+      'meta.key',
+      'meta.value',
       'schema_migration.name',
+      'schema_migration.checksum',
     ]);
+    const freeText = ['text', 'character varying', 'character', 'jsonb', 'json'];
     const offenders = cols
-      .filter(
-        (c) =>
-          ['text', 'character varying', 'character'].includes(c.data_type) &&
-          suspicious.test(c.column_name),
-      )
+      .filter((c) => freeText.includes(c.data_type))
       .map((c) => `${c.table_name}.${c.column_name}`)
       .filter((n) => !reviewed.has(n));
     expect(offenders).toEqual([]);
