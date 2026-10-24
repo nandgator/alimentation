@@ -30,6 +30,8 @@ export interface TestPlatform {
   runtime: Awaited<ReturnType<typeof createRuntime>>;
   logs: Record<string, unknown>[];
   clock: { now: Date };
+  /** The control database as its owner, for checks that the application role could not make. */
+  controlOwnerUrl: string;
   /** Signs in as this email (development sign-in) and returns a client that keeps the cookie. */
   signIn(email: string, name?: string): Promise<Client>;
   anonymous(): Client;
@@ -119,6 +121,7 @@ export async function makePlatform(
     runtime,
     logs,
     clock,
+    controlOwnerUrl: control.ownerUrl,
     async signIn(email, name) {
       const jar = { cookie: '' };
       const c = clientFor(email, jar);

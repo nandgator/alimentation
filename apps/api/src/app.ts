@@ -59,6 +59,7 @@ const ROLE_ORDER: Role[] = ['admin', 'supplier', 'consumer'];
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const Month = z.string().regex(/^\d{4}-\d{2}$/);
 const MAX_BUNDLE_BYTES = 40_000_000;
+const MAX_JSON_BYTES = 256_000;
 const Money = z.number().int().min(0).max(10_000_000_000);
 
 export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
@@ -67,6 +68,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   const sessionCookie = config.secure ? '__Host-session' : 'session';
   const flowCookie = config.secure ? '__Host-signin' : 'signin';
   const actorCache = new Map<string, { at: number; actors: Actor[] }>();
+  const accountSeen = new Map<string, number>();
 
   // --- every request -----------------------------------------------------
 
@@ -103,10 +105,26 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   });
 
   app.use('*', async (c, next) => {
-    const p = await deps.signer.verify<{ a: string; e: string; n: string | null }>(
+    let p = await deps.signer.verify<{ a: string; e: string; n: string | null }>(
       getCookie(c, sessionCookie),
       deps.now(),
     );
+    if (p) {
+      // A session is a signed cookie, so it outlives the account it names unless asked.
+      // Checked once a minute per account, not on every request.
+      const nowMs = deps.now().getTime();
+      const seen = accountSeen.get(p.a);
+      if (seen === undefined || nowMs - seen > 60_000) {
+        if (await deps.control.account(p.a)) {
+          if (accountSeen.size > 5000) accountSeen.clear();
+          accountSeen.set(p.a, nowMs);
+        } else {
+          accountSeen.delete(p.a);
+          deleteCookie(c, sessionCookie, { path: '/', secure: config.secure });
+          p = null;
+        }
+      }
+    }
     if (p) c.set('account', { id: p.a, email: p.e, name: p.n });
     await next();
   });
@@ -152,15 +170,47 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     );
   });
 
-  const parse = async <S extends z.ZodTypeAny>(c: Context, schema: S): Promise<z.infer<S>> => {
-    let raw: unknown;
+  /**
+   * Reads a JSON body, stopping as soon as it is larger than `max` bytes. The size is
+   * counted as it arrives, not taken from the header, which a sender can leave out.
+   */
+  const readBody = async (c: Context, max: number): Promise<unknown> => {
+    if (Number(c.req.header('content-length') ?? 0) > max) throw tooLarge();
+    const stream = c.req.raw.body;
+    if (!stream) throw new ApiError(400, 'bad_json', 'Send a JSON body.');
+    const reader = stream.getReader();
+    const parts: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > max) {
+        await reader.cancel().catch(() => undefined);
+        throw tooLarge();
+      }
+      parts.push(value);
+    }
+    const all = new Uint8Array(total);
+    let at = 0;
+    for (const part of parts) {
+      all.set(part, at);
+      at += part.byteLength;
+    }
     try {
-      raw = await c.req.json();
+      return JSON.parse(new TextDecoder().decode(all));
     } catch {
       throw new ApiError(400, 'bad_json', 'Send a JSON body.');
     }
-    return schema.parse(raw);
   };
+  const tooLarge = () =>
+    new ApiError(413, 'too_large', 'That is larger than this service accepts in one request.');
+
+  const parse = async <S extends z.ZodTypeAny>(
+    c: Context,
+    schema: S,
+    max = MAX_JSON_BYTES,
+  ): Promise<z.infer<S>> => schema.parse(await readBody(c, max));
 
   const needAccount = (c: Context<{ Variables: Vars }>): SessionAccount => {
     const a = c.get('account');
@@ -364,7 +414,10 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
 
   // A receipt names no one and is addressed by an id that cannot be guessed.
   app.get('/api/receipts/:id', async (c) => {
-    const r = await deps.control.receipt(c.req.param('id') ?? '');
+    const id = c.req.param('id') ?? '';
+    const r = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)
+      ? await deps.control.receipt(id)
+      : undefined;
     if (!r) throw new ApiError(404, 'not_found', 'There is no such receipt.');
     return c.json(toReceipt(r));
   });
@@ -375,9 +428,6 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const sent = /^Bearer (.+)$/.exec(c.req.header('authorization') ?? '')?.[1] ?? '';
     if (!(await sameSecret(sent, config.migrationToken)))
       throw new ApiError(401, 'bad_token', 'That token was not accepted.');
-    const size = Number(c.req.header('content-length') ?? 0);
-    if (size > MAX_BUNDLE_BYTES)
-      throw new ApiError(413, 'too_large', 'That workspace is larger than this instance accepts.');
     const b = await parse(
       c,
       z.object({
@@ -385,6 +435,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         bundle: z.unknown(),
         dryRun: z.boolean().default(false),
       }),
+      MAX_BUNDLE_BYTES,
     );
     const report = await receiveWorkspace(deps.platform, b);
     const status = report.ok
@@ -695,6 +746,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         ? await moveToDatabase(deps.platform, handle, asRow(a), b.target.url)
         : await moveToInstance(deps.platform, handle, asRow(a), b.target);
     actorCache.clear();
+    accountSeen.clear();
     return c.json(out);
   });
   w.post('/wipe', async (c) => {
@@ -705,6 +757,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
       throw invalid('Type the workspace address to confirm that everything should be deleted.');
     const out = await wipeWorkspace(deps.platform, handle.row.id);
     actorCache.clear();
+    accountSeen.clear();
     return c.json(out, out.done ? 200 : 202);
   });
 
