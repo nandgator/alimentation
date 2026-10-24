@@ -9,7 +9,7 @@ name: alimentation-test
 
 services:
   pg:
-    image: postgres:18-alpine
+    image: docker.io/library/postgres:18-alpine
     command:
       - postgres
       - -c

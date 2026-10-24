@@ -9,7 +9,7 @@
 
 ARG NODE=24-alpine
 
-FROM node:${NODE} AS deps
+FROM docker.io/library/node:${NODE} AS deps
 WORKDIR /src
 COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/
@@ -27,7 +27,7 @@ RUN npm run build:server -w @alimentation/api \
  && mkdir -p apps/web/dist \
  && if [ -f apps/web/index.html ]; then npm run build:web; fi
 
-FROM node:${NODE} AS run
+FROM docker.io/library/node:${NODE} AS run
 ENV NODE_ENV=production PORT=8787 WEB_DIR=/app/web INSTANCE_DIR=/data
 WORKDIR /app
 COPY --from=build /src/apps/api/dist/node.mjs /src/apps/api/dist/cli.mjs ./

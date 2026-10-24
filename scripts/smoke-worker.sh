@@ -24,7 +24,7 @@ cleanup() {
 trap cleanup EXIT
 
 docker run -d --name alim-smoke-pg --network host -e POSTGRES_PASSWORD=smoke \
-  postgres:18-alpine -c port=55432 >/dev/null
+  docker.io/library/postgres:18-alpine -c port=55432 >/dev/null
 docker run -d --name alim-smoke-ws --network host -e ALLOW_ADDR_REGEX='.*' \
   ghcr.io/neondatabase/wsproxy:latest >/dev/null
 for _ in $(seq 1 40); do
