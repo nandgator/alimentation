@@ -1,0 +1,58 @@
+/**
+ * Wording shown to people when a rule stops them. Kept apart from the rules so the
+ * rules can be tested by code, not by sentence, and so the words can be translated.
+ */
+
+export const MSG = {
+  monthClosed: 'That month is closed. Ask the admin to change it.',
+  monthClosed2:
+    'That month is closed and this workspace does not allow changes after close. Reopen it first.',
+  changesAfterClose:
+    'That month is closed. The bill stays as closed and the change will be flagged.',
+  unknownChange: 'Choose one of the listed changes.',
+  notADate: 'A date is required.',
+  shape: 'Supplier Off applies to all consumers.',
+  shape2: '"All consumers" can only be used with Supplier Off.',
+  shape3: 'Choose who this is for.',
+  qtyRequired: 'Enter how many.',
+  qtyRange: 'How many must be between 1 and 20.',
+  qtyNotAllowed: 'A quantity only applies to extra chapati or bhakri.',
+  roleCannot: 'Only the supplier can mark the kitchen off.',
+  forSelfOnly: 'You can only log for yourself.',
+  roleCannot2: 'The supplier can only mark the kitchen off.',
+  notWorkingDay: 'That is not a working day.',
+  unknownPerson: 'No such person.',
+  notAConsumer: 'Only consumers are billed.',
+  inactiveOnDate: 'That person is not billed on that date.',
+  duplicate: 'That is already logged for this day.',
+  holiday: 'That day is a holiday, so no meal is billed anyway.',
+  onlyAuthor: 'Only the person who logged this can change it.',
+  cutoffPassed: 'The cut-off for that day has passed.',
+  roleCannot3: 'The supplier decides on claims; they do not file them.',
+  claimsDisabled: 'This workspace records payments directly. Ask the supplier.',
+  forSelfOnly2: 'You can only claim for yourself.',
+  notAConsumer2: 'Only consumers pay.',
+  amount: 'The amount must be more than zero.',
+  method: 'Choose how you paid.',
+  monthRange: 'Choose the month this pays for.',
+  monthRange2: 'That month is outside the months billed to this person.',
+  notADate2: 'Enter the date you paid.',
+  paidInFuture: 'The payment date cannot be in the future.',
+  roleCannot4: 'Only the supplier decides on claims.',
+  noSuchClaim: 'No such claim.',
+  alreadyDecided: 'This claim has already been decided and cannot change.',
+  shape4: 'Decide Confirmed or Disputed.',
+  reasonRequired: 'Say why you are disputing it.',
+  roleCannot5: 'Only the admin can reverse a decision.',
+  notDecided: 'There is no decision to reverse.',
+  alreadyVoid: 'That decision was already reversed.',
+  reasonRequired2: 'Say why you are reversing it.',
+  onlyAuthor2: 'Only the person who filed this can withdraw it.',
+  alreadyDecided2: 'This claim has been decided and cannot change.',
+  notADate3: 'Enter the date the new rates start.',
+  noMenuForWorkingDay: 'Every working day needs a meal on the menu.',
+  duplicate2: 'A rate card already starts on that date.',
+  backdatedRateCard: 'New rates cannot start in a month that has already begun or closed.',
+  cutoffPassedOn: (date: string, time: string, daysBefore: number): string =>
+    `Exceptions for ${date} had to be logged by ${time} ${daysBefore === 0 ? 'that day' : `${daysBefore} day(s) before`}.`,
+} as const;

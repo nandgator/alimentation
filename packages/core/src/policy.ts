@@ -21,7 +21,10 @@ export const PolicySchema = z
       .refine((a) => new Set(a).size === a.length, 'workingDays must be distinct'),
     holidays: z.object({ count: z.enum(['confirmed', 'all']) }).strict(),
     /** Null means no flat monthly extras. The amount comes from the rate card. */
-    extras: z.object({ minMeals: z.number().int().min(1).max(31) }).strict().nullable(),
+    extras: z
+      .object({ minMeals: z.number().int().min(1).max(31) })
+      .strict()
+      .nullable(),
     /** Share of the day's meal price charged on a leave day, in basis points. */
     leave: z.object({ chargeBps: z.number().int().min(0).max(10000) }).strict(),
     monthClose: z.discriminatedUnion('mode', [
@@ -72,6 +75,7 @@ export interface PolicyVersion {
 export function policyOn(versions: readonly PolicyVersion[], date: IsoDate): Policy {
   let best: PolicyVersion | undefined;
   for (const v of versions) {
+    // Stryker disable next-line EqualityOperator: two versions never share a date
     if (v.effectiveFrom <= date && (!best || v.effectiveFrom > best.effectiveFrom)) best = v;
   }
   return best ? best.doc : DEFAULT_POLICY;
@@ -108,7 +112,10 @@ export function rateCardStartAllowed(
     case 'unrestricted':
       return true;
     case 'current_month':
-      return monthOf(effectiveFrom) >= monthOf(today) && (!lastClosedMonth || monthOf(effectiveFrom) > lastClosedMonth);
+      return (
+        monthOf(effectiveFrom) >= monthOf(today) &&
+        (!lastClosedMonth || monthOf(effectiveFrom) > lastClosedMonth)
+      );
     case 'none':
       return effectiveFrom >= today;
   }

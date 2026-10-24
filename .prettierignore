@@ -1,0 +1,7 @@
+node_modules
+dist
+package-lock.json
+apps/api/src/db/migrations.generated.ts
+reports
+.stryker-tmp
+docs/research

@@ -28,7 +28,15 @@ describe('calendar arithmetic', () => {
   });
 
   it('rejects impossible dates', () => {
-    for (const bad of ['2026-02-29', '2026-13-01', '2026-00-10', '2026-04-31', '26-04-01', '2026-4-1', '']) {
+    for (const bad of [
+      '2026-02-29',
+      '2026-13-01',
+      '2026-00-10',
+      '2026-04-31',
+      '26-04-01',
+      '2026-4-1',
+      '',
+    ]) {
       expect(isValidDate(bad)).toBe(false);
     }
     expect(isValidDate('2028-02-29')).toBe(true);
@@ -52,10 +60,20 @@ describe('calendar arithmetic', () => {
     expect(diffDays('2026-11-01', '2026-10-01')).toBe(31);
     expect(addMonths('2026-12', 1)).toBe('2027-01');
     expect(addMonths('2026-01', -1)).toBe('2025-12');
-    expect(monthsBetween('2026-10', '2027-01')).toEqual(['2026-10', '2026-11', '2026-12', '2027-01']);
+    expect(monthsBetween('2026-10', '2027-01')).toEqual([
+      '2026-10',
+      '2026-11',
+      '2026-12',
+      '2027-01',
+    ]);
     expect(monthsBetween('2026-10', '2026-09')).toEqual([]);
     expect(monthEnd('2028-02')).toBe('2028-02-29');
-    expect(daysBetween('2026-10-30', '2026-11-02')).toEqual(['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']);
+    expect(daysBetween('2026-10-30', '2026-11-02')).toEqual([
+      '2026-10-30',
+      '2026-10-31',
+      '2026-11-01',
+      '2026-11-02',
+    ]);
   });
 });
 
@@ -73,7 +91,10 @@ describe('the workspace clock, not the host clock', () => {
   });
 
   it('never prints 24:00 at midnight', () => {
-    expect(localNow(new Date('2026-10-24T18:30:00Z'), 'Asia/Kolkata')).toEqual({ date: '2026-10-25', time: '00:00' });
+    expect(localNow(new Date('2026-10-24T18:30:00Z'), 'Asia/Kolkata')).toEqual({
+      date: '2026-10-25',
+      time: '00:00',
+    });
   });
 });
 

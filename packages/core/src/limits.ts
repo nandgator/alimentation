@@ -53,8 +53,14 @@ const KEYS = {
   bytes: 'bytes',
 } as const satisfies Record<keyof Usage, keyof Limits>;
 
-export function meter(usage: Usage, limits: Limits, previousOverSince: IsoDate | null, today: IsoDate): Meter {
+export function meter(
+  usage: Usage,
+  limits: Limits,
+  previousOverSince: IsoDate | null,
+  today: IsoDate,
+): Meter {
   const ratios = {} as Record<keyof Usage, number>;
+  // Stryker disable next-line StringLiteral: overwritten by the first measure
   let worst: keyof Usage = 'requestsLast24h';
   let ratio = -1;
   for (const k of Object.keys(KEYS) as (keyof Usage)[]) {
@@ -66,7 +72,14 @@ export function meter(usage: Usage, limits: Limits, previousOverSince: IsoDate |
       worst = k;
     }
   }
-  const state: Pressure = ratio >= THRESHOLDS.over ? 'OVER' : ratio >= THRESHOLDS.ask ? 'ASK' : ratio >= THRESHOLDS.watch ? 'WATCH' : 'OK';
+  const state: Pressure =
+    ratio >= THRESHOLDS.over
+      ? 'OVER'
+      : ratio >= THRESHOLDS.ask
+        ? 'ASK'
+        : ratio >= THRESHOLDS.watch
+          ? 'WATCH'
+          : 'OK';
   const overSince = state === 'OVER' ? (previousOverSince ?? today) : null;
   const graceEndsOn = overSince === null ? null : addDays(overSince, GRACE_DAYS);
   const writesAllowed = graceEndsOn === null || today <= graceEndsOn;
@@ -95,7 +108,10 @@ export interface CapacityPlan {
 
 export function capacityPlan(i: CapacityInputs): CapacityPlan {
   const byProjects = Math.max(0, i.hostProjects - i.reservedProjects);
-  const byRequests = Math.max(0, Math.floor((i.accountRequestsPerDay * (1 - i.headroom)) / i.perWorkspaceRequestsPerDay));
+  const byRequests = Math.max(
+    0,
+    Math.floor((i.accountRequestsPerDay * (1 - i.headroom)) / i.perWorkspaceRequestsPerDay),
+  );
   return {
     byProjects,
     byRequests,

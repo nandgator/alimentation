@@ -426,18 +426,66 @@ leaving, a path to hand a database over.
 | Oracle Always Free VM                                                | partial         | Strongest free VM on paper. Idle instances are reclaimed (7-day 95th-percentile thresholds), and a quiet Postgres host can look idle.                                                                                                               |
 | Google Compute Engine, AWS, Azure, Cloudflare Containers, Codespaces | weak or no      | US-only micro VM with 1 GB egress; credit-limited or 12-month offers; Containers needs the paid Workers plan.                                                                                                                                       |
 
-What follows from this:
+### 10.1 Paid options, and the drop rule
 
-1. **Reference profile (A)**: Cloudflare Workers and static assets, with one Neon
-   project per workspace. It is the only combination found that gives a free
-   database per tenant through an API, per-tenant compute accounting, a
+The owner asked for AWS, Google Cloud, Azure and DigitalOcean to be compared on
+cost and maintenance, and dropped if "outright cost prohibitive and too much
+maintenance". Two things matter for a tiny kitchen: what the cheapest
+low-maintenance setup costs per month, and how much of the system administrator's
+job lands on the person who owns the kitchen. Prices are USD list prices from
+vendor pages fetched on 2026-10-24; "derived" means a quoted hourly rate times 730
+hours; Mumbai-region prices were not available for every item.
+
+| Option                                                                                             | Monthly  | Basis                                                              | Owner maintenance                                               | Decision                           |
+| -------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------ | --------------------------------------------------------------- | ---------------------------------- |
+| Cloudflare Workers Free + Neon Free (own accounts)                                                 | 0        | vendor pages                                                       | None beyond the app                                             | **Reference** (free)               |
+| DigitalOcean App Platform + Managed PostgreSQL 1 GiB                                               | 20.15    | verified (5.00 + 15.15), Bangalore region exists                   | Low: patching and backups are DigitalOcean's                    | **Paid fallback**, documented      |
+| Google Cloud Run + Cloud SQL db-f1-micro                                                           | about 17 | derived, Mumbai not confirmed for Cloud SQL                        | Low, more setup (IAM, connectors)                               | Documented, not built              |
+| AWS App Runner + RDS db.t4g.micro (Mumbai)                                                         | about 21 | derived; storage size assumed                                      | Low, more setup                                                 | Documented, not built              |
+| Azure App Service + PostgreSQL B1MS (Central India)                                                | 18 to 31 | derived; storage price unknown                                     | Low                                                             | Documented, not built              |
+| AWS ECS Fargate + RDS                                                                              | about 27 | derived, excludes load balancer and NAT                            | Medium: networking, task definitions, IPv4 charge               | **Dropped**                        |
+| Self-managed VM running Postgres and Node (DigitalOcean Droplet 7.20, Lightsail 7, Azure VM 11.51) | 7 to 12  | verified or derived                                                | **High**: OS patches, Postgres upgrades, backups, TLS, firewall | **Dropped** as a supported profile |
+| Oracle Always Free VM, self-managed                                                                | 0        | vendor pages                                                       | **High**, plus idle reclamation                                 | **Dropped** as a supported profile |
+| Amplify Hosting, Aurora Serverless v2, Container Apps                                              | n/a      | free plan lasts 6 months; minimum storage and idle charges unknown | Medium                                                          | **Not pursued**                    |
+
+Reasoning, stated plainly:
+
+1. No hyperscaler option is prohibitive in absolute terms; a company would pay
+   17 to 31 dollars a month without noticing. Against this product it is the wrong
+   shape: the reference stack is free and needs no administration, so a tenant that
+   "graduates" to something that costs 20 dollars a month and needs IAM roles, VPCs
+   and database patch windows is being punished for growing.
+2. The cheap options (7 to 12 dollars) are self-managed virtual machines. Their
+   price is paid for in the owner's time: the kitchen owner would patch Linux,
+   upgrade Postgres, test backups and renew certificates. That contradicts a
+   one-click move. Dropped.
+3. The managed options cost about 17 to 21 dollars. They are acceptable as a
+   paid fallback when free tiers disappear, or for a tenant who wants no vendor
+   from the reference stack. DigitalOcean is the recommended one: every price on
+   its pages was verified, it has a Bangalore region, one console, flat pricing and
+   no hidden network charges. Destroying a Managed PostgreSQL cluster permanently
+   deletes its automated backups, which supports the erasure promise.
+4. None of this needs provider-specific code. Every managed Postgres in the table is reached
+   through the `external` placement (a connection string) and every host runs the same Node container, so
+   "supported" means "documented and tested through the generic path".
+
+DigitalOcean specifics that the runbook must carry: the 1 GiB Postgres plan allows
+only 22 connections (one tenant is fine; a shared cluster needs pooling), accounts
+default to 10 clusters, cloud firewalls do not protect managed databases (use
+trusted sources), and the Deploy to DigitalOcean button cannot attach a managed
+database.
+
+### 10.2 What follows
+
+1. **Reference profile (A), free**: Cloudflare Workers and static assets, with one
+   Neon project per workspace. It is the only combination found that gives a
+   free database per tenant through an API, per-tenant compute accounting, a
    documented deletion window and a transfer route.
-2. **Portable profile (B)**: the same Node build on Cloud Run (Mumbai) or any
-   container host, against any Postgres 15 or later, with workspaces on the
-   `pg-database` or `external` placement. Needs a billing account on Cloud Run.
-3. **Self-host profile (C)**: a VM you control (Oracle Always Free, or any VPS)
-   running Postgres 18 and the Node build. Full control over Postgres logs, at the
-   price of running it yourself. Keep the VM busy enough, or on a paid account, to
-   avoid reclamation.
-4. Nothing found is a better database host than Neon for this model. Prisma and
-   Nile are worth re-checking if Neon's terms rule out the operator model.
+2. **Paid fallback and graduation target (B)**: the same Node build in a container on
+   DigitalOcean App Platform (or Cloud Run, App Runner, Azure App Service) against that
+   host's managed Postgres, using the `external` placement.
+3. **Dropped as supported profiles**: self-managed VMs on any provider, including
+   Oracle Always Free. The `pg-database` placement still exists for development,
+   continuous integration and anyone who chooses to run it themselves.
+4. Nothing found is a better free database host than Neon for this model. Prisma
+   and Nile are worth re-checking if Neon's terms rule out the operator model.

@@ -9,7 +9,19 @@ import {
   STATUS_LABEL,
   weekdayOf,
 } from '../src/index.ts';
-import { CARD_APR, CARD_NOV, JOVIAL, SMRUTI, claim, close, data, decision, entry, prep, settlement } from './fixtures.ts';
+import {
+  CARD_APR,
+  CARD_NOV,
+  JOVIAL,
+  SMRUTI,
+  claim,
+  close,
+  data,
+  decision,
+  entry,
+  prep,
+  settlement,
+} from './fixtures.ts';
 
 const stmt = (over: Parameters<typeof prep>[0], id: string, month: string) => {
   const p = prep(over);
@@ -59,14 +71,22 @@ describe('spec section 11: October 2026', () => {
     for (let y = 2026; y <= 2032 && !found; y++) {
       for (let m = 1; m <= 12 && !found; m++) {
         const mo = `${y}-${String(m).padStart(2, '0')}`;
-        const days = daysBetween(monthStart(mo), monthEnd(mo)).filter((d) => weekdayOf(d) >= 1 && weekdayOf(d) <= 5);
+        const days = daysBetween(monthStart(mo), monthEnd(mo)).filter(
+          (d) => weekdayOf(d) >= 1 && weekdayOf(d) <= 5,
+        );
         const nv = days.filter((d) => weekdayOf(d) === 3 || weekdayOf(d) === 5).length;
         if (days.length === 22 && nv === 8) found = mo;
       }
     }
     expect(found).not.toBeNull();
     const consumer = { ...JOVIAL, activeFrom: monthStart(found!) };
-    const p = prep({ people: [consumer], holidays: [], log: [], today: monthEnd(found!), rateCards: [{ ...CARD_APR, effectiveFrom: '2020-01-01' }] });
+    const p = prep({
+      people: [consumer],
+      holidays: [],
+      log: [],
+      today: monthEnd(found!),
+      rateCards: [{ ...CARD_APR, effectiveFrom: '2020-01-01' }],
+    });
     const s = buildStatements(p, ['jovial'], [found!])[0]!;
     expect(s.counts).toMatchObject({ meals: 22, veg: 14, nonVeg: 8 });
     expect(s.liveTotal).toBe(rupees(3500));
@@ -113,7 +133,11 @@ describe('claim flow (spec section 4)', () => {
   });
 
   it('disputed claim opens a query; an admin Query Resolved entry closes it', () => {
-    const disputed = { ...base, claims: [claim()], decisions: [decision({ decision: 'Disputed', note: 'not received' })] };
+    const disputed = {
+      ...base,
+      claims: [claim()],
+      decisions: [decision({ decision: 'Disputed', note: 'not received' })],
+    };
     const open = stmt(disputed, 'jovial', '2026-10');
     expect(open.openQueries).toBe(1);
     expect(STATUS_LABEL[open.status]).toBe('Query open');
@@ -127,7 +151,11 @@ describe('claim flow (spec section 4)', () => {
   });
 
   it('a voided (reversed) decision counts for nothing and the claim is not pending again', () => {
-    const s = stmt({ ...base, claims: [claim()], decisions: [decision({ voided: true })] }, 'jovial', '2026-10');
+    const s = stmt(
+      { ...base, claims: [claim()], decisions: [decision({ voided: true })] },
+      'jovial',
+      '2026-10',
+    );
     expect(s.paid).toBe(0);
     expect(s.claimedPending).toBe(0);
     expect(s.openQueries).toBe(0);
@@ -158,7 +186,10 @@ describe('month close (spec section 3.7)', () => {
 
     // Jovial's Wednesday 14-Oct is a Non Veg day; a late leave removes 170.
     const edited = stmt(
-      { closes: closed, log: [...data().log, entry({ date: '2026-10-14', personId: 'jovial', change: 'Leave' })] },
+      {
+        closes: closed,
+        log: [...data().log, entry({ date: '2026-10-14', personId: 'jovial', change: 'Leave' })],
+      },
       'jovial',
       '2026-10',
     );
@@ -178,7 +209,9 @@ describe('month close (spec section 3.7)', () => {
 
 describe('statement status and basis', () => {
   it('is Projected until the month ends, then Due', () => {
-    expect(STATUS_LABEL[stmt({ today: '2026-10-10' }, 'jovial', '2026-10').status]).toBe('Projected');
+    expect(STATUS_LABEL[stmt({ today: '2026-10-10' }, 'jovial', '2026-10').status]).toBe(
+      'Projected',
+    );
     expect(stmt({ today: '2026-10-10' }, 'jovial', '2026-10').basis).toBe('Projected');
     expect(STATUS_LABEL[stmt({ today: '2026-11-01' }, 'jovial', '2026-10').status]).toBe('Due');
     expect(stmt({ today: '2026-11-01' }, 'jovial', '2026-10').basis).toBe('Actual');
@@ -199,11 +232,19 @@ describe('statement status and basis', () => {
   });
 
   it('carries earlier unpaid forward and sums the balances of earlier months', () => {
-    const [oct, nov] = buildStatements(prep({ rateCards: [CARD_APR, CARD_NOV], log: [] }), ['jovial'], ['2026-10', '2026-11']);
+    const [oct, nov] = buildStatements(
+      prep({ rateCards: [CARD_APR, CARD_NOV], log: [] }),
+      ['jovial'],
+      ['2026-10', '2026-11'],
+    );
     expect(oct!.earlierUnpaid).toBe(0);
     expect(nov!.earlierUnpaid).toBe(oct!.balance);
     // Asking for November alone must give the same answer.
-    const alone = buildStatements(prep({ rateCards: [CARD_APR, CARD_NOV], log: [] }), ['jovial'], ['2026-11'])[0]!;
+    const alone = buildStatements(
+      prep({ rateCards: [CARD_APR, CARD_NOV], log: [] }),
+      ['jovial'],
+      ['2026-11'],
+    )[0]!;
     expect(alone.earlierUnpaid).toBe(oct!.balance);
   });
 
@@ -221,7 +262,10 @@ describe('Supplier Off applies to every consumer', () => {
     const off = entry({ date: '2026-10-07', allConsumers: true, change: 'Supplier Off' });
     const p = prep({ log: [off] });
     for (const c of [JOVIAL, SMRUTI]) {
-      expect(ledgerMonth(p, c, '2026-10').find((d) => d.date === '2026-10-07')).toMatchObject({ status: 'Supplier Off', dayTotal: 0 });
+      expect(ledgerMonth(p, c, '2026-10').find((d) => d.date === '2026-10-07')).toMatchObject({
+        status: 'Supplier Off',
+        dayTotal: 0,
+      });
     }
   });
 });

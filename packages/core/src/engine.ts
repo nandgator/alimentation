@@ -82,7 +82,14 @@ export interface Statement {
   personId: string;
   month: Month;
   basis: Basis;
-  counts: { meals: number; veg: number; nonVeg: number; leave: number; extraChapati: number; extraBhakri: number };
+  counts: {
+    meals: number;
+    veg: number;
+    nonVeg: number;
+    leave: number;
+    extraChapati: number;
+    extraBhakri: number;
+  };
   mealsAmount: Paise;
   breadAmount: Paise;
   leaveAmount: Paise;
@@ -111,8 +118,14 @@ export interface Prepared {
   readonly closeByKey: ReadonlyMap<string, MonthClose>;
 }
 
+/** Three-way comparison of two strings: negative, zero or positive. */
+export function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** Oldest first; entries made at the same instant fall back to id so the order is total. */
 const byLogOrder = (a: LogEntry, b: LogEntry) =>
-  a.loggedAt < b.loggedAt ? -1 : a.loggedAt > b.loggedAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  compareText(a.loggedAt, b.loggedAt) || compareText(a.id, b.id);
 
 function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   const list = m.get(k);
@@ -129,6 +142,7 @@ export function prepare(data: EngineData): Prepared {
   for (const e of [...data.log].sort(byLogOrder)) {
     if (e.change === 'Supplier Off') {
       if (e.allConsumers) supplierOff.add(e.date);
+      // Stryker disable next-line ConditionalExpression: a personal entry without a person cannot be stored
     } else if (e.personId !== null) {
       push(logByPersonDate, `${e.personId}|${e.date}`, e);
     }
@@ -142,7 +156,7 @@ export function prepare(data: EngineData): Prepared {
 
   return {
     data,
-    cards: [...data.rateCards].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : a.effectiveFrom > b.effectiveFrom ? 1 : 0)),
+    cards: [...data.rateCards].sort((a, b) => compareText(a.effectiveFrom, b.effectiveFrom)),
     holidaysByDate,
     supplierOff,
     logByPersonDate,
@@ -212,13 +226,20 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
 
   if (p.supplierOff.has(date)) return { ...row, status: 'Supplier Off' };
 
+  // Stryker disable next-line ArrayDeclaration: an empty fallback is never read as data
   const entries = p.logByPersonDate.get(`${person.id}|${date}`) ?? [];
 
-  const priceOf = (card: RateCard, meal: MealType): Paise => (meal === 'Veg' ? card.veg : card.nonVeg);
+  const priceOf = (card: RateCard, meal: MealType): Paise =>
+    meal === 'Veg' ? card.veg : card.nonVeg;
 
   const menuMeal = (card: RateCard): MealType => {
     const m = card.menu[wd];
-    if (!m) throw new EngineError('NO_MENU', `the rate card from ${card.effectiveFrom} serves nothing on this weekday`, date);
+    if (!m)
+      throw new EngineError(
+        'NO_MENU',
+        `the rate card from ${card.effectiveFrom} serves nothing on this weekday`,
+        date,
+      );
     return m;
   };
 
@@ -244,6 +265,7 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
     if (e.change === 'Switch to Veg') meal = 'Veg';
     else if (e.change === 'Switch to Non Veg') meal = 'Non Veg';
     else if (e.change === 'Extra Chapati') chapati += e.qty ?? 0;
+    // Stryker disable next-line ConditionalExpression: no other change type reaches this list with a quantity
     else if (e.change === 'Extra Bhakri') bhakri += e.qty ?? 0;
   }
   const mealPrice = priceOf(card, meal);
@@ -305,7 +327,11 @@ function statusOf(s: {
   return s.basis === 'Actual' ? 'DUE' : 'PROJECTED';
 }
 
-function monthStatement(p: Prepared, person: Person, month: Month): Omit<Statement, 'earlierUnpaid'> {
+function monthStatement(
+  p: Prepared,
+  person: Person,
+  month: Month,
+): Omit<Statement, 'earlierUnpaid'> {
   const policy = policyForMonth(p.data.policies, month);
   const days = ledgerMonth(p, person, month);
 
@@ -337,17 +363,20 @@ function monthStatement(p: Prepared, person: Person, month: Month): Omit<Stateme
 
   // The flat monthly fee comes from the card in force on the first of the month,
   // or on the first meal day when the first card starts mid-month.
-  let feeCard: RateCard | null = null;
-  if (policy.extras && counts.meals >= policy.extras.minMeals) {
-    feeCard = cardOn(p, monthStart(month)) ?? (firstMeal ? requireCard(p, firstMeal) : null);
+  const minMeals = policy.extras?.minMeals ?? null;
+  let extrasAmount: Paise = 0;
+  let actualExtras: Paise = 0;
+  if (minMeals !== null && counts.meals >= minMeals) {
+    const feeCard = cardOn(p, monthStart(month)) ?? requireCard(p, firstMeal!);
+    extrasAmount = feeCard.extrasPerMonth;
+    if (actualMeals >= minMeals) actualExtras = extrasAmount;
   }
-  const extrasAmount = policy.extras && feeCard && counts.meals >= policy.extras.minMeals ? feeCard.extrasPerMonth : 0;
-  const actualExtras = policy.extras && feeCard && actualMeals >= policy.extras.minMeals ? feeCard.extrasPerMonth : 0;
 
   const liveTotal = mealsAmount + breadAmount + leaveAmount + extrasAmount;
   const actualToDate = actualDays + actualExtras;
 
-  const close = policy.monthClose.mode === 'off' ? undefined : p.closeByKey.get(`${person.id}|${month}`);
+  const close =
+    policy.monthClose.mode === 'off' ? undefined : p.closeByKey.get(`${person.id}|${month}`);
   const closed = close !== undefined;
   const billed = close ? close.billed : liveTotal;
   const changedAfterClose = close ? liveTotal - close.billed : 0;
@@ -375,7 +404,15 @@ function monthStatement(p: Prepared, person: Person, month: Month): Omit<Stateme
 
   const basis: Basis = p.data.today > monthEnd(month) ? 'Actual' : 'Projected';
   const balance = billed - paid;
-  const status = statusOf({ billed, closed, changedAfterClose, openQueries, paid, claimedPending, basis });
+  const status = statusOf({
+    billed,
+    closed,
+    changedAfterClose,
+    openQueries,
+    paid,
+    claimedPending,
+    basis,
+  });
 
   return {
     personId: person.id,
@@ -404,7 +441,12 @@ function monthStatement(p: Prepared, person: Person, month: Month): Omit<Stateme
  * walked from their first month so that `earlierUnpaid` is right whichever months
  * the caller asked for.
  */
-export function buildStatements(p: Prepared, consumerIds: readonly string[], months: readonly Month[]): Statement[] {
+export function buildStatements(
+  p: Prepared,
+  consumerIds: readonly string[],
+  months: readonly Month[],
+): Statement[] {
+  // Stryker disable next-line ConditionalExpression: with no months the loops below yield nothing anyway
   if (months.length === 0) return [];
   const wanted = new Set(months);
   const lastWanted = [...months].sort().at(-1)!;
@@ -414,6 +456,7 @@ export function buildStatements(p: Prepared, consumerIds: readonly string[], mon
     const person = p.data.people.find((x) => x.id === id);
     if (!person) throw new EngineError('BAD_INPUT', `unknown person ${id}`);
     const firstOwn = person.activeFrom ? monthOf(person.activeFrom) : firstWanted;
+    // Stryker disable next-line EqualityOperator: equal months give the same start either way
     const start = firstOwn < firstWanted ? firstOwn : firstWanted;
     let carried: Paise = 0;
     for (const month of monthsBetween(start, lastWanted)) {
@@ -442,7 +485,10 @@ export function dueAutoCloses(p: Prepared): DueClose[] {
   const today = p.data.today;
   for (const person of consumers(p)) {
     if (person.activeFrom === null) continue;
-    const lastMonth = monthOf(person.activeTo !== null && person.activeTo < today ? person.activeTo : today);
+    // Stryker disable next-line all: months after today never come due, so this bound is only a shortcut
+    const lastMonth = monthOf(
+      person.activeTo !== null && person.activeTo < today ? person.activeTo : today,
+    );
     for (let m = monthOf(person.activeFrom); m <= lastMonth; m = addMonths(m, 1)) {
       const policy = policyForMonth(p.data.policies, m);
       const until = autoCloseDate(policy, m);
@@ -456,7 +502,11 @@ export function dueAutoCloses(p: Prepared): DueClose[] {
 }
 
 /** The figures a manual close freezes. */
-export function closeSnapshot(p: Prepared, consumerId: string, month: Month): { meals: number; billed: Paise } {
+export function closeSnapshot(
+  p: Prepared,
+  consumerId: string,
+  month: Month,
+): { meals: number; billed: Paise } {
   const person = p.data.people.find((x) => x.id === consumerId);
   if (!person) throw new EngineError('BAD_INPUT', `unknown person ${consumerId}`);
   const s = monthStatement(p, person, month);
