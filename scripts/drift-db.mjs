@@ -326,6 +326,44 @@ const defects = [
     'each kind of change',
   ],
 
+  // Read-only while moving.
+  [
+    'frozen: the flag is ignored on log entries',
+    'owner',
+    `DROP TRIGGER log_entry_read_only ON log_entry`,
+    'database itself',
+  ],
+  [
+    'frozen: the flag is ignored on claims',
+    'owner',
+    `DROP TRIGGER claim_read_only ON claim`,
+    'database itself',
+  ],
+  [
+    'frozen: the flag is ignored on people',
+    'owner',
+    `DROP TRIGGER person_read_only ON person`,
+    'database itself',
+  ],
+  [
+    'frozen: the flag is ignored on the workspace row',
+    'owner',
+    `DROP TRIGGER workspace_read_only ON workspace`,
+    'database itself',
+  ],
+  [
+    'frozen: the guard never fires',
+    'owner',
+    `CREATE OR REPLACE FUNCTION guard_read_only() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`,
+    'database itself',
+  ],
+  [
+    'frozen: an automatic close ignores the flag',
+    'owner',
+    `UPDATE workspace SET read_only = false; CREATE OR REPLACE FUNCTION system_close_month(p_month date, p_consumer uuid, p_meals integer, p_billed bigint) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$ INSERT INTO month_close (for_month, consumer_id, meals, billed, closed_on) VALUES (p_month, p_consumer, p_meals, p_billed, now()::date) ON CONFLICT DO NOTHING $$`,
+    'automatic close',
+  ],
+
   // Credentials and limits.
   [
     'creds: anyone may connect',

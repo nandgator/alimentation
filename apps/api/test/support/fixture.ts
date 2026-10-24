@@ -68,13 +68,13 @@ export async function makeFixture(
   };
   const real = nodeDb(ws.appUrl);
   const db: Db = {
-    tx: (fn) =>
+    tx: (fn, o) =>
       real.tx(async (tx) => {
         await tx.query(`SELECT set_config('alimentation.test_today', $1, true)`, [
           localNow(clock.now, 'Asia/Kolkata').date,
         ]);
         return fn(tx);
-      }),
+      }, o),
     withClient: (fn) => real.withClient(fn),
     close: () => real.close(),
   };

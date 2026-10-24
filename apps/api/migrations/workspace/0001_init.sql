@@ -10,10 +10,6 @@
 --   app.person_id  the person's id
 -- With neither set, the policies below match no rows.
 
--- Postgres lets every role execute a new function. Here nothing is executable
--- unless it is granted on purpose, at the end of this file.
-ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-
 CREATE TABLE meta (
   key   text PRIMARY KEY,
   value text NOT NULL
@@ -24,9 +20,11 @@ CREATE TABLE meta (
 -- owner, who imports and wipes.
 INSERT INTO meta (key, value) VALUES ('app_role', current_setting('alimentation.app_role'));
 
+-- session_user, not current_user: inside a SECURITY DEFINER function current_user is
+-- the function's owner, which would make the application look like the owner.
 CREATE FUNCTION is_app_session() RETURNS boolean
   LANGUAGE sql STABLE
-  AS $$ SELECT current_user = (SELECT value FROM meta WHERE key = 'app_role') $$;
+  AS $$ SELECT session_user = (SELECT value FROM meta WHERE key = 'app_role') $$;
 
 CREATE FUNCTION app_role() RETURNS text
   LANGUAGE sql STABLE
@@ -52,6 +50,9 @@ CREATE TABLE workspace (
   time_zone  text NOT NULL DEFAULT 'Asia/Kolkata',
   currency   char(3) NOT NULL DEFAULT 'INR',
   -- Null means no cap (a dedicated workspace). The platform sets these on free ones.
+  -- Set while the workspace is being moved. Enforced here, in the database, so no
+  -- instance holding a stale idea of the workspace can write after the snapshot.
+  read_only  boolean NOT NULL DEFAULT false,
   people_cap integer CHECK (people_cap IS NULL OR people_cap >= 0),
   row_cap    integer CHECK (row_cap IS NULL OR row_cap >= 0),
   created_at timestamptz NOT NULL DEFAULT now()
@@ -384,6 +385,42 @@ CREATE TRIGGER holiday_guard BEFORE INSERT OR UPDATE OR DELETE ON holiday
   FOR EACH ROW EXECUTE FUNCTION guard_holiday();
 
 -- ---------------------------------------------------------------------------
+-- Read-only. While a workspace is being moved, the application role can read and
+-- nothing else. Statement-level, so it fires even when no row would change.
+
+CREATE FUNCTION guard_read_only() RETURNS trigger
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+  IF is_app_session() AND (SELECT read_only FROM workspace) THEN
+    RAISE EXCEPTION 'ALIMENTATION_RULE: this workspace is read-only while it is moved' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NULL;
+END $$;
+
+CREATE TRIGGER workspace_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON workspace
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER person_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON person
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER policy_version_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON policy_version
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER rate_card_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON rate_card
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER holiday_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON holiday
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER log_entry_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON log_entry
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER claim_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON claim
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER claim_decision_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON claim_decision
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER claim_reversal_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON claim_reversal
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER settlement_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON settlement
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER month_close_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON month_close
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+
+-- ---------------------------------------------------------------------------
 -- Caps. Null means none. A free workspace has them; a dedicated one does not.
 
 CREATE FUNCTION enforce_people_cap() RETURNS trigger
@@ -489,6 +526,9 @@ DECLARE
   rule jsonb := policy_on(p_month) -> 'monthClose';
   due  date;
 BEGIN
+  IF (SELECT read_only FROM workspace) THEN
+    RETURN;
+  END IF;
   IF rule ->> 'mode' IS DISTINCT FROM 'auto' THEN
     RAISE EXCEPTION 'ALIMENTATION_RULE: this workspace does not close months automatically' USING ERRCODE = 'P0001';
   END IF;
@@ -597,6 +637,12 @@ CREATE FUNCTION grant_to_app(p_privileges text, p_table regclass) RETURNS void
 BEGIN
   EXECUTE format('GRANT %s ON %s TO %I', p_privileges, p_table, (SELECT value FROM meta WHERE key = 'app_role'));
 END $$;
+
+-- Postgres lets every role execute a new function. Here nothing is executable unless
+-- it is granted on purpose, below. This is done with an explicit revoke, not with
+-- default privileges, so it never changes how anything else in the database behaves.
+-- Every migration that adds a function must end with the same revoke and its own grants.
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 
 DO $$
 DECLARE

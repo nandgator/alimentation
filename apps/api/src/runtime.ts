@@ -8,7 +8,7 @@ import type { Db } from './db/driver.ts';
 import { Directory } from './directory.ts';
 import { Gate } from './limits/gate.ts';
 import { ApiError } from './workspace/errors.ts';
-import type { Placement, PlacementRef, Provisioned } from './placement/types.ts';
+import type { Credentials, Placement, PlacementRef, Provisioned } from './placement/types.ts';
 import type { PlatformDeps } from './platform/workspaces.ts';
 
 export interface RuntimeOptions {
@@ -27,7 +27,7 @@ const noPlacement: Placement = {
   async provision(): Promise<Provisioned> {
     throw new ApiError(501, 'no_placement', 'This deployment cannot create workspaces.');
   },
-  async destroy(_ref: PlacementRef): Promise<void> {},
+  async destroy(_ref: PlacementRef, _creds?: Credentials): Promise<void> {},
   async exists(): Promise<boolean> {
     return false;
   },

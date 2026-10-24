@@ -11,7 +11,8 @@ export interface Tx {
 }
 
 export interface Db {
-  tx<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
+  /** `snapshot` runs read-only at repeatable-read: one consistent picture of everything read. */
+  tx<T>(fn: (tx: Tx) => Promise<T>, opts?: { snapshot?: boolean }): Promise<T>;
   /** Lends one connection, outside any transaction, to code that manages its own (the migration runner). */
   withClient<T>(
     fn: (client: {
@@ -33,11 +34,13 @@ export interface PoolLike {
 
 export function dbFromPool(pool: PoolLike): Db {
   return {
-    async tx(fn) {
+    async tx(fn, opts) {
       const client = await pool.connect();
       let broken = false;
       try {
-        await client.query('BEGIN');
+        await client.query(
+          opts?.snapshot ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : 'BEGIN',
+        );
         const tx: Tx = {
           async query<R extends Row = Row>(text: string, values?: unknown[]) {
             return (await client.query(text, values)).rows as R[];

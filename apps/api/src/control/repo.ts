@@ -251,6 +251,172 @@ export class ControlRepo {
     }));
   }
 
+  // --- moving and wiping ---------------------------------------------------
+
+  async membersOf(workspaceId: string): Promise<{ personId: string; role: Role; email: string }[]> {
+    const rows = await this.many<R>(
+      `SELECT m.person_id, m.role, a.email FROM membership m JOIN account a ON a.id = m.account_id WHERE m.workspace_id = $1 ORDER BY m.created_at`,
+      [workspaceId],
+    );
+    return rows.map((r) => ({ personId: r.person_id, role: r.role as Role, email: r.email }));
+  }
+
+  /** Points the workspace at a new database and retires the old one, in one step. */
+  async rehome(
+    id: string,
+    to: { placement: PlacementRef; dsnEnc: Uint8Array },
+    old: { placement: PlacementRef; dsnEnc: Uint8Array },
+    destroyAfter: Date,
+  ): Promise<void> {
+    await this.db.tx(async (tx) => {
+      await tx.query(
+        `INSERT INTO retired_database (workspace_id, placement, dsn_enc, destroy_after) VALUES ($1,$2,$3,$4)`,
+        [id, JSON.stringify(old.placement), Buffer.from(old.dsnEnc), destroyAfter.toISOString()],
+      );
+      await tx.query(
+        `UPDATE workspace SET placement = $2, dsn_enc = $3, state = 'ACTIVE' WHERE id = $1`,
+        [id, JSON.stringify(to.placement), Buffer.from(to.dsnEnc)],
+      );
+    });
+  }
+
+  async setMoved(id: string, url: string): Promise<void> {
+    await this.many(
+      `UPDATE workspace SET state = 'MOVED', moved_to_url = $2, moved_at = now() WHERE id = $1`,
+      [id, url],
+    );
+  }
+
+  async movedBefore(cutoff: Date): Promise<WorkspaceRow[]> {
+    return (
+      await this.many<R>(`SELECT * FROM workspace WHERE state = 'MOVED' AND moved_at < $1`, [
+        cutoff.toISOString(),
+      ])
+    ).map(toWorkspace);
+  }
+
+  async wiping(): Promise<WorkspaceRow[]> {
+    return (await this.many<R>(`SELECT * FROM workspace WHERE state = 'WIPING'`)).map(toWorkspace);
+  }
+
+  /** Destroys the keys and marks the workspace as being wiped, in one statement. */
+  async destroyKeys(id: string): Promise<void> {
+    await this.many(
+      `UPDATE workspace SET state = 'WIPING', data_key_wrapped = NULL, log_key_wrapped = NULL WHERE id = $1`,
+      [id],
+    );
+  }
+
+  async retiredDue(
+    now: Date,
+  ): Promise<{ id: string; workspaceId: string; placement: PlacementRef; dsnEnc: Bytes }[]> {
+    const rows = await this.many<R>(
+      `SELECT id, workspace_id, placement, dsn_enc FROM retired_database WHERE destroyed_at IS NULL AND destroy_after <= $1`,
+      [now.toISOString()],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      workspaceId: r.workspace_id,
+      placement: r.placement,
+      dsnEnc: Uint8Array.from(r.dsn_enc),
+    }));
+  }
+
+  async retiredOf(
+    workspaceId: string,
+  ): Promise<{ id: string; placement: PlacementRef; dsnEnc: Bytes }[]> {
+    const rows = await this.many<R>(
+      `SELECT id, placement, dsn_enc FROM retired_database WHERE workspace_id = $1 AND destroyed_at IS NULL`,
+      [workspaceId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      placement: r.placement,
+      dsnEnc: Uint8Array.from(r.dsn_enc),
+    }));
+  }
+
+  async deleteRetired(id: string): Promise<void> {
+    await this.many(`DELETE FROM retired_database WHERE id = $1`, [id]);
+  }
+
+  /** Removes the workspace and everything that points at it, and any account left with no membership anywhere. */
+  async deleteWorkspaceAndOrphans(id: string): Promise<{ accountsRemoved: number }> {
+    return this.db.tx(async (tx) => {
+      const members = (
+        await tx.query<R>(`SELECT DISTINCT account_id FROM membership WHERE workspace_id = $1`, [
+          id,
+        ])
+      ).map((r) => r.account_id as string);
+      await tx.query(`DELETE FROM workspace WHERE id = $1`, [id]);
+      const gone = members.length
+        ? await tx.query(
+            `DELETE FROM account a WHERE a.id = ANY($1::uuid[]) AND NOT EXISTS (SELECT 1 FROM membership m WHERE m.account_id = a.id) RETURNING a.id`,
+            [members],
+          )
+        : [];
+      return { accountsRemoved: gone.length };
+    });
+  }
+
+  async insertReceipt(r: {
+    workspaceId: string;
+    requestedAt: Date;
+    manifest: unknown;
+    digest: string;
+  }): Promise<void> {
+    await this.many(
+      `INSERT INTO wipe_receipt (workspace_id, requested_at, manifest, digest) VALUES ($1,$2,$3,$4)`,
+      [r.workspaceId, r.requestedAt.toISOString(), JSON.stringify(r.manifest), r.digest],
+    );
+  }
+
+  async receipt(workspaceId: string): Promise<R | undefined> {
+    return this.one<R>(
+      `SELECT workspace_id, requested_at, completed_at, manifest, digest FROM wipe_receipt WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+  }
+
+  // --- invitations that need no link ----------------------------------------
+
+  async createAutoInvite(i: {
+    workspaceId: string;
+    personId: string;
+    role: Role;
+    email: string;
+    expiresAt: Date;
+  }): Promise<void> {
+    const hash = crypto.getRandomValues(new Uint8Array(32)); // never shown to anyone: the verified email is the key
+    await this.many(
+      `INSERT INTO invite (workspace_id, person_id, role, email, token_hash, auto, expires_at) VALUES ($1,$2,$3,$4,$5,true,$6)`,
+      [
+        i.workspaceId,
+        i.personId,
+        i.role,
+        i.email.toLowerCase(),
+        Buffer.from(hash),
+        i.expiresAt.toISOString(),
+      ],
+    );
+  }
+
+  async pendingAutoInvites(
+    email: string,
+    now: Date,
+  ): Promise<{ id: string; workspaceId: string; personId: string; role: Role }[]> {
+    const rows = await this.many<R>(
+      `SELECT id, workspace_id, person_id, role FROM invite WHERE auto AND email = $1 AND accepted_at IS NULL AND expires_at > $2`,
+      [email.toLowerCase(), now.toISOString()],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      workspaceId: r.workspace_id,
+      personId: r.person_id,
+      role: r.role as Role,
+    }));
+  }
+
   // --- usage and events ---------------------------------------------------
 
   async addUsage(

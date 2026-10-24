@@ -32,6 +32,10 @@ const Env = z.object({
   /** Free-tier numbers, as JSON, to override the defaults when a host changes its terms. */
   FREE_LIMITS_JSON: z.string().optional(),
   CAPACITY_JSON: z.string().optional(),
+  /** A dedicated instance has no free-tier caps. */
+  DEDICATED: z.enum(['0', '1']).default('0'),
+  /** Lets another instance push a workspace here. Unset, the endpoint does not exist. */
+  MIGRATION_TOKEN: z.string().min(24).optional(),
   /** Requests a day beyond the budget before a workspace is refused, as a multiple. */
   HARD_CAP_FACTOR: z.coerce.number().min(1).max(20).default(2),
 });
@@ -50,6 +54,8 @@ export interface Config {
   freeLimits: Limits;
   capacity: CapacityInputs;
   hardCapFactor: number;
+  dedicated: boolean;
+  migrationToken: string | null;
 }
 
 export function loadConfig(env: Record<string, string | undefined>): Config {
@@ -96,5 +102,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       ? { ...REFERENCE_CAPACITY, ...JSON.parse(e.CAPACITY_JSON) }
       : REFERENCE_CAPACITY,
     hardCapFactor: e.HARD_CAP_FACTOR,
+    dedicated: e.DEDICATED === '1',
+    migrationToken: e.MIGRATION_TOKEN ?? null,
   };
 }

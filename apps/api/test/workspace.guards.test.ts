@@ -405,3 +405,125 @@ describe('who is asking, and automatic closing', () => {
     expect(today.d).toEqual(today.e);
   });
 });
+
+describe('[P3] a workspace being moved can be read and not written, by the database itself', () => {
+  let ws: TestWorkspace;
+  let s: Seeded;
+  beforeAll(async () => {
+    ws = await newWorkspace();
+    s = await seed(ws.owner);
+  });
+  afterAll(async () => ws.destroy());
+
+  it('refuses every kind of write from the application role, and still answers reads', async () => {
+    await ws.owner.query('UPDATE workspace SET read_only = true');
+    const writes: [string, unknown[]][] = [
+      [
+        `INSERT INTO log_entry (on_date, person_id, change, logged_by) VALUES ('2026-10-14', $1, 'Leave', $1)`,
+        [s.jovial.personId],
+      ],
+      [
+        `INSERT INTO claim (consumer_id, paid_at, for_month, amount, method) VALUES ($1, now(), '2026-10-01', 5, 'UPI')`,
+        [s.jovial.personId],
+      ],
+      [`INSERT INTO holiday (name, on_date) VALUES ('x', '2026-10-30')`, []],
+      [`DELETE FROM holiday`, []],
+      [`UPDATE person SET status = 'DISABLED'`, []],
+      [`UPDATE workspace SET name = 'renamed'`, []],
+      [
+        `INSERT INTO month_close (for_month, consumer_id, meals, billed, closed_on) VALUES ('2026-10-01', $1, 0, 0, '2026-11-01')`,
+        [s.jovial.personId],
+      ],
+    ];
+    for (const [sql, values] of writes) {
+      const actor = sql.includes('claim')
+        ? s.jovial
+        : sql.includes('log_entry')
+          ? s.jovial
+          : s.admin;
+      const e = await dbError(asActor(ws.app, actor, (c) => c.query(sql, values)));
+      expect(e.message, sql).toContain('read-only');
+    }
+    expect(
+      await asActor(
+        ws.app,
+        s.admin,
+        async (c) => (await c.query('SELECT count(*)::int AS n FROM person')).rows[0]!.n,
+      ),
+    ).toBe(4);
+  });
+
+  it('fires even when no row would change, and does not stop the owner', async () => {
+    const e = await dbError(
+      asActor(ws.app, s.admin, (c) => c.query(`DELETE FROM holiday WHERE false`)),
+    );
+    expect(e.message).toContain('read-only');
+    await ws.owner.query(`INSERT INTO holiday (name, on_date) VALUES ('owner may', '2026-10-30')`);
+  });
+
+  it('does not let an automatic close slip in while frozen', async () => {
+    await ws.owner.query(
+      `INSERT INTO policy_version (effective_from, doc) VALUES ('2020-01-01', '{"workingDays":[1,2,3,4,5],"monthClose":{"mode":"auto","afterDays":0,"afterClose":"flag"}}')`,
+    );
+    await asActor(ws.app, s.jovial, (c) =>
+      c.query('SELECT system_close_month($1, $2, 1, 100)', ['2026-08-01', s.jovial.personId]),
+    );
+    expect(
+      (await ws.owner.query(`SELECT 1 FROM month_close WHERE for_month = '2026-08-01'`)).rows,
+    ).toEqual([]);
+  });
+
+  it('lets writes resume when the flag is cleared', async () => {
+    await ws.owner.query('UPDATE workspace SET read_only = false');
+    await asActor(ws.app, s.admin, (c) =>
+      c.query(`INSERT INTO holiday (name, on_date) VALUES ('back', '2026-10-29')`),
+    );
+  });
+});
+
+describe('[P1] nothing in the schema is open to everyone by accident', () => {
+  it('has no function that PUBLIC may execute, and the application role may execute only the reviewed few', async () => {
+    const ws = await newWorkspace();
+    try {
+      const open = await ws.owner.query(`
+        SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+         WHERE n.nspname = 'public'
+           AND (p.proacl IS NULL OR EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'))`);
+      expect(open.rows).toEqual([]);
+      const app = await ws.owner.query(
+        `
+        SELECT DISTINCT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+          JOIN LATERAL aclexplode(p.proacl) a ON true JOIN pg_roles r ON r.oid = a.grantee
+         WHERE n.nspname = 'public' AND r.rolname = $1 AND a.privilege_type = 'EXECUTE' ORDER BY 1`,
+        [ws.ref.data.app],
+      );
+      expect(app.rows.map((r) => r.proname)).toEqual([
+        'app_person',
+        'app_role',
+        'bind_account',
+        'close_blocks_admin',
+        'is_app_session',
+        'is_working_day',
+        'month_closed',
+        'person_billing',
+        'policy_on',
+        'resolve_actor',
+        'schema_version',
+        'system_close_month',
+        'workspace_today',
+      ]);
+    } finally {
+      await ws.destroy();
+    }
+  });
+
+  it('leaves the default privileges of the owner alone', async () => {
+    const ws = await newWorkspace();
+    try {
+      const d = await ws.owner.query('SELECT count(*)::int AS n FROM pg_default_acl');
+      expect(d.rows[0]!.n).toBe(0);
+    } finally {
+      await ws.destroy();
+    }
+  });
+});
