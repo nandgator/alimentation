@@ -396,6 +396,48 @@ personal data, only pseudonyms that become unlinkable when the key is destroyed.
 Before the first outside tenant, the operator should have this reviewed by counsel;
 the tenant is normally the data fiduciary and the operator a processor.
 
-## 10. Scout findings
+## 10. Other platforms considered
 
-Appended after the scouting pass; see the end of this file.
+Scouted on 2026-10-24 from vendor documentation, pricing pages and terms; every
+row has a quote and URL in `docs/research/`. The question for each was whether it
+beats the reference pair (Cloudflare Workers plus one Neon project per
+workspace) on the owner's requirements: free with no expiry, a database per
+tenant created through an API, no tenant able to starve another, erasable on
+leaving, a path to hand a database over.
+
+| Platform                                                             | Verdict         | Decisive facts                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Appwrite Cloud                                                       | weak            | Free allows 2 projects per account and 1 database per project, so no per-tenant isolation. Managed Postgres is paid only and needs a payment method. No Mumbai or Delhi region (Bangalore "coming soon"). Self-hosting is the only route that fits. |
+| Firebase                                                             | no              | Postgres only as Cloud SQL, 3-month trial then paid. Spark allows about 5 to 10 projects. Functions needs the paid plan.                                                                                                                            |
+| Convex                                                               | no              | Not Postgres. 40 deployments per team. No India or Singapore region.                                                                                                                                                                                |
+| Supabase                                                             | no as a host    | 2 active projects; paused after a week of inactivity. Fine as a place to bring your own Postgres.                                                                                                                                                   |
+| Prisma Postgres                                                      | partial         | Real Postgres, 50 databases, Singapore. One workspace-wide monthly operations cap stops every database in it, which is the starvation we are avoiding.                                                                                              |
+| Nile                                                                 | partial         | Unlimited tenant databases, never pauses. Compute is shared between tenants, free-tier backups are absent, deletion timeline is unpublished.                                                                                                        |
+| Aiven                                                                | partial         | Free Postgres, no card, no expiry, but powers off on inactivity and the region is not selectable.                                                                                                                                                   |
+| Turso                                                                | partial         | 100 databases by API. SQLite, and free databases are archived after 10 days of inactivity.                                                                                                                                                          |
+| CockroachDB, Xata, Tiger Data, Crunchy Bridge, PlanetScale, Railway  | no              | Trials only, or no free tier.                                                                                                                                                                                                                       |
+| Google Cloud Run                                                     | partial         | Best non-Cloudflare compute: Mumbai and Delhi regions, 2 million free requests a month, 60-minute request limit. Needs a billing account with a payment method. The Mumbai allowance and the terms were not verified.                               |
+| Render                                                               | weak            | Free service sleeps after 15 minutes; free Postgres expires after 30 days; a free service may be suspended for calling an external database.                                                                                                        |
+| Koyeb                                                                | partial         | One free web service and Postgres per its FAQ, only in Frankfurt or Washington. Card required.                                                                                                                                                      |
+| Vercel Hobby                                                         | no              | Personal, non-commercial use only.                                                                                                                                                                                                                  |
+| Netlify Free                                                         | weak            | A 300-credit monthly cap pauses sites; free projects can be disabled without notice.                                                                                                                                                                |
+| Deno Deploy, Back4app, Northflank                                    | weak or partial | Personal-use framing or tiny allowances; outbound Postgres connections unverified.                                                                                                                                                                  |
+| Fly.io, Zeabur, Sevalla                                              | no              | No free compute for new accounts.                                                                                                                                                                                                                   |
+| Oracle Always Free VM                                                | partial         | Strongest free VM on paper. Idle instances are reclaimed (7-day 95th-percentile thresholds), and a quiet Postgres host can look idle.                                                                                                               |
+| Google Compute Engine, AWS, Azure, Cloudflare Containers, Codespaces | weak or no      | US-only micro VM with 1 GB egress; credit-limited or 12-month offers; Containers needs the paid Workers plan.                                                                                                                                       |
+
+What follows from this:
+
+1. **Reference profile (A)**: Cloudflare Workers and static assets, with one Neon
+   project per workspace. It is the only combination found that gives a free
+   database per tenant through an API, per-tenant compute accounting, a
+   documented deletion window and a transfer route.
+2. **Portable profile (B)**: the same Node build on Cloud Run (Mumbai) or any
+   container host, against any Postgres 15 or later, with workspaces on the
+   `pg-database` or `external` placement. Needs a billing account on Cloud Run.
+3. **Self-host profile (C)**: a VM you control (Oracle Always Free, or any VPS)
+   running Postgres 18 and the Node build. Full control over Postgres logs, at the
+   price of running it yourself. Keep the VM busy enough, or on a paid account, to
+   avoid reclamation.
+4. Nothing found is a better database host than Neon for this model. Prisma and
+   Nile are worth re-checking if Neon's terms rule out the operator model.
