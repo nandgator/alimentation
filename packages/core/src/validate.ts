@@ -100,6 +100,17 @@ function anyClosed(p: Prepared, month: Month): boolean {
   return p.data.people.some((x) => x.role === 'consumer' && isMonthClosed(p, x.id, month));
 }
 
+/** A Supplier Off day touches every consumer; anything else touches one. */
+function entryMonthClosed(
+  p: Prepared,
+  change: string,
+  personId: string | null,
+  month: Month,
+): boolean {
+  if (change === 'Supplier Off') return anyClosed(p, month);
+  return personId !== null && isMonthClosed(p, personId, month);
+}
+
 function closedIssue(p: Prepared, actor: Actor, month: Month, closed: boolean): Issue | null {
   if (!closed) return null;
   const policy = policyForMonth(p.data.policies, month);
@@ -183,10 +194,7 @@ export function checkLogEntry(p: Prepared, actor: Actor, e: NewLogEntry, now: Lo
   if (holiday) out.push(warn('HOLIDAY', MSG.holiday));
 
   // Month closed.
-  const closed =
-    e.change === 'Supplier Off'
-      ? anyClosed(p, month)
-      : e.personId !== null && isMonthClosed(p, e.personId, month);
+  const closed = entryMonthClosed(p, e.change, e.personId, month);
   const ci = closedIssue(p, actor, month, closed);
   if (ci) out.push(ci);
 
@@ -224,10 +232,7 @@ export function checkLogChange(
     return [err('ONLY_AUTHOR', MSG.onlyAuthor)];
   }
   const month = monthOf(existing.date);
-  const closed =
-    existing.change === 'Supplier Off'
-      ? anyClosed(p, month)
-      : existing.personId !== null && isMonthClosed(p, existing.personId, month);
+  const closed = entryMonthClosed(p, existing.change, existing.personId, month);
   const ci = closedIssue(p, actor, month, closed);
   if (ci) out.push(ci);
 
@@ -341,7 +346,11 @@ export function checkRateCard(
   for (const c of p.data.closes)
     // Stryker disable next-line EqualityOperator: equal months give the same answer
     if (lastClosed === null || c.forMonth > lastClosed) lastClosed = c.forMonth;
-  if (!rateCardStartAllowed(policy, effectiveFrom, p.data.today, lastClosed)) {
+  // The first card prices nothing that was priced before, so it may start whenever.
+  if (
+    p.cards.length > 0 &&
+    !rateCardStartAllowed(policy, effectiveFrom, p.data.today, lastClosed)
+  ) {
     out.push(err('BACKDATED_RATE_CARD', MSG.backdatedRateCard));
   }
   return out;

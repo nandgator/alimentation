@@ -333,6 +333,11 @@ describe('rate cards', () => {
   it('refuses a second card on the same date', () => {
     expect(codes(checkRateCard(p, '2026-04-01', menu))).toContain('DUPLICATE');
   });
+  it('lets the very first card start whenever, because it reprices nothing', () => {
+    const empty = prep({ today: '2026-10-20', rateCards: [] });
+    expect(checkRateCard(empty, '2026-04-01', menu)).toEqual([]);
+    expect(codes(checkRateCard(p, '2026-04-02', menu))).toEqual(['BACKDATED_RATE_CARD']); // but not once there is one
+  });
   it('lets a card start earlier in the current month, but never in a past month, by default', () => {
     expect(checkRateCard(p, '2026-10-15', menu)).toEqual([]); // the spec: past MONTHS must not change
     expect(codes(checkRateCard(p, '2026-09-30', menu))).toEqual(['BACKDATED_RATE_CARD']);

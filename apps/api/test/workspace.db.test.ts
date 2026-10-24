@@ -258,13 +258,23 @@ describe('decisions, settlements, prices and rules never change', () => {
   });
 
   it('requires a reason to dispute and an amount to record a payment', async () => {
+    // A claim nobody has decided yet, so that the only thing wrong is the missing reason.
+    const open = randomUUID();
+    await ws.owner.query(
+      `INSERT INTO claim (id, consumer_id, paid_at, for_month, amount, method) VALUES ($1, $2, now(), '2026-10-01', 9, 'UPI')`,
+      [open, s.jovial.personId],
+    );
     const noReason = await dbError(
       ws.owner.query(
-        `INSERT INTO claim_decision (claim_id, decision, decided_by) SELECT id, 'Disputed', $1 FROM claim WHERE id = $2`,
-        [s.supplier.personId, s.claimJ],
+        `INSERT INTO claim_decision (claim_id, decision, decided_by) VALUES ($1, 'Disputed', $2)`,
+        [open, s.supplier.personId],
       ),
     );
-    expect(['23505', '23514']).toContain(noReason.code); // already decided (23505) or no reason (23514), either way refused
+    expect(noReason.code).toBe('23514');
+    await ws.owner.query(
+      `INSERT INTO claim_decision (claim_id, decision, note_enc, decided_by) VALUES ($1, 'Disputed', $2, $3)`,
+      [open, fakeEnc('not received'), s.supplier.personId],
+    );
     const noAmount = await dbError(
       rows(
         s.admin,
