@@ -377,6 +377,16 @@ export class WorkspaceService {
     });
   }
 
+  /** The role of a person, for the admin deciding what to invite them as. */
+  async roleOf(actor: Actor, personId: string): Promise<Role> {
+    this.mustBeAdmin(actor);
+    return this.run(actor, async (tx) => {
+      const [row] = await tx.query<R>('SELECT role FROM person WHERE id = $1', [personId]);
+      if (!row) throw notFound('Person');
+      return row.role as Role;
+    });
+  }
+
   private mustBeAdmin(actor: Actor): void {
     if (actor.role !== 'admin') throw forbidden('Only the admin can do that.');
   }

@@ -12,6 +12,12 @@ export interface Tx {
 
 export interface Db {
   tx<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
+  /** Lends one connection, outside any transaction, to code that manages its own (the migration runner). */
+  withClient<T>(
+    fn: (client: {
+      query(text: string, values?: unknown[]): Promise<{ rows: Row[] }>;
+    }) => Promise<T>,
+  ): Promise<T>;
   close(): Promise<void>;
 }
 
@@ -49,6 +55,14 @@ export function dbFromPool(pool: PoolLike): Db {
         throw e;
       } finally {
         client.release(broken);
+      }
+    },
+    async withClient(fn) {
+      const client = await pool.connect();
+      try {
+        return await fn(client);
+      } finally {
+        client.release();
       }
     },
     close: () => pool.end(),

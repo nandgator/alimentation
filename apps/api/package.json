@@ -5,7 +5,9 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "tsx watch src/node.ts",
-    "start": "tsx src/node.ts"
+    "start": "tsx src/node.ts",
+    "cli": "tsx src/cli.ts",
+    "build:worker": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
     "@alimentation/core": "*",

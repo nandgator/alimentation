@@ -75,6 +75,7 @@ export async function makeFixture(
         ]);
         return fn(tx);
       }),
+    withClient: (fn) => real.withClient(fn),
     close: () => real.close(),
   };
   const svc = new WorkspaceService({

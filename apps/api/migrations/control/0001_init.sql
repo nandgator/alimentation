@@ -22,10 +22,6 @@ CREATE TABLE account (
 );
 CREATE UNIQUE INDEX account_email ON account (email);
 
-CREATE TABLE operator (
-  account_id uuid PRIMARY KEY REFERENCES account (id) ON DELETE CASCADE
-);
-
 CREATE TABLE workspace (
   id               uuid PRIMARY KEY DEFAULT uuidv7(),
   slug             text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$'),
@@ -124,6 +120,5 @@ DECLARE
 BEGIN
   EXECUTE format('GRANT USAGE ON SCHEMA public TO %I', app);
   EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON account, workspace, membership, invite, usage_daily TO %I', app);
-  EXECUTE format('GRANT SELECT, INSERT, DELETE ON operator TO %I', app);
   EXECUTE format('GRANT SELECT, INSERT ON platform_event, wipe_receipt TO %I', app);
 END $$;

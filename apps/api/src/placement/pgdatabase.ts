@@ -5,6 +5,8 @@ import { randomSecret, type Placement, type PlacementRef, type Provisioned } fro
 export interface PgDatabaseOptions {
   /** Superuser, or a role that can create roles and databases. */
   adminUrl: string;
+  /** Names the database and roles `<prefix>_<id>`. Workspaces use `ws`. */
+  prefix?: string;
   connectionLimit?: number;
   statementTimeout?: string;
   lockTimeout?: string;
@@ -23,7 +25,12 @@ export class PgDatabasePlacement implements Placement {
   private names(workspaceId: string) {
     const short = workspaceId.replace(/-/g, '').slice(0, 16).toLowerCase();
     if (!/^[0-9a-f]{16}$/.test(short)) throw new Error('workspace id must be a UUID');
-    return { database: `ws_${short}`, owner: `ws_${short}_own`, app: `ws_${short}_app` };
+    const pre = this.opts.prefix ?? 'ws';
+    return {
+      database: `${pre}_${short}`,
+      owner: `${pre}_${short}_own`,
+      app: `${pre}_${short}_app`,
+    };
   }
 
   private withUser(urlText: string, user: string, password: string, database: string): string {
