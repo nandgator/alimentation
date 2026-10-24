@@ -80,7 +80,14 @@ export class Gate {
     return this.cache;
   }
 
-  async admit(ws: { id: string; limits: Limits }): Promise<GateVerdict> {
+  /**
+   * `essential` requests (taking a copy of your own data) are still counted and still rate
+   * limited, but are never turned away for using up the day's budget: that is a promise.
+   */
+  async admit(
+    ws: { id: string; limits: Limits },
+    opts: { essential?: boolean } = {},
+  ): Promise<GateVerdict> {
     const now = this.o.now().getTime();
     const b = this.buckets.get(ws.id) ?? { tokens: this.o.burst ?? 40, at: now };
     b.tokens = Math.min(
@@ -95,12 +102,12 @@ export class Gate {
 
     const snap = await this.snapshot();
     const mine = (snap.byWorkspace.get(ws.id) ?? 0) + (this.pending.get(ws.id)?.requests ?? 0);
-    if (mine >= ws.limits.requestsPerDay * this.o.hardCapFactor)
+    if (!opts.essential && mine >= ws.limits.requestsPerDay * this.o.hardCapFactor)
       return this.refuse(ws.id, 'daily', this.secondsToMidnight());
     let pendingTotal = 0;
     for (const p of this.pending.values()) pendingTotal += p.requests;
     const nearCap = snap.total + pendingTotal >= this.o.accountDailyCap * (1 - this.o.headroom / 2);
-    if (nearCap && mine >= ws.limits.requestsPerDay)
+    if (!opts.essential && nearCap && mine >= ws.limits.requestsPerDay)
       return this.refuse(ws.id, 'global', this.secondsToMidnight());
 
     const p = this.pending.get(ws.id) ?? { requests: 0, rejected: 0 };

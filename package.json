@@ -21,7 +21,12 @@
     "dev:api": "npm run dev -w @alimentation/api",
     "dev:web": "npm run dev -w @alimentation/web",
     "build:web": "npm run build -w @alimentation/web",
-    "test:e2e": "npm run test:e2e -w @alimentation/web"
+    "test:e2e": "npm run test:e2e -w @alimentation/web",
+    "promises": "node scripts/check-promises.mjs",
+    "promises:write": "node scripts/check-promises.mjs --write",
+    "smoke:compose": "scripts/smoke-compose.sh",
+    "smoke:worker": "scripts/smoke-worker.sh",
+    "smoke:live": "tsx scripts/smoke-live.mts"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^10.1.1",

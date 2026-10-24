@@ -46,37 +46,54 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
       r.errors.push(`${what}: ${String((e as Error).message).slice(0, 120)}`);
     }
   };
+  // Even finding out what there is to do can fail; that must not stop the other kinds of work.
+  const each = async <T>(what: string, list: () => Promise<T[]>, fn: (x: T) => Promise<void>) => {
+    let items: T[] = [];
+    await guard(`list ${what}`, async () => void (items = await list()));
+    for (const x of items) await guard(what, () => fn(x));
+  };
 
-  for (const w of await p.control.wiping())
-    await guard('finish wipe', async () => {
+  await each(
+    'finish wipe',
+    () => p.control.wiping(),
+    async (w) => {
       if ((await wipeWorkspace(p, w.id)).done) r.wipesFinished++;
-    });
-
-  for (const w of await p.control.wipedButPresent())
-    await guard('wipe again', async () => {
+    },
+  );
+  await each(
+    'wipe again',
+    () => p.control.wipedButPresent(),
+    async (w) => {
       if ((await wipeWorkspace(p, w.id)).done) r.wipedAgain++;
-    });
-
-  for (const w of await p.control.movedBefore(new Date(now.getTime() - UNDO_DAYS * DAY)))
-    await guard('wipe moved copy', async () => {
+    },
+  );
+  await each(
+    'wipe moved copy',
+    () => p.control.movedBefore(new Date(now.getTime() - UNDO_DAYS * DAY)),
+    async (w) => {
       if ((await wipeWorkspace(p, w.id)).done) r.movedCopiesWiped++;
-    });
-
-  for (const old of await p.control.retiredDue(now))
-    await guard('remove old copy', async () => {
+    },
+  );
+  await each(
+    'remove old copy',
+    () => p.control.retiredDue(now),
+    async (old) => {
       await destroyRetired(p, old);
       r.oldCopiesRemoved++;
-    });
-
-  for (const w of await p.control.stuckMoving(new Date(now.getTime() - MOVE_PATIENCE_MS)))
-    await guard('release stalled move', async () => {
+    },
+  );
+  await each(
+    'release stalled move',
+    () => p.control.stuckMoving(new Date(now.getTime() - MOVE_PATIENCE_MS)),
+    async (w) => {
       if (w.movedToUrl) {
         r.needAttention.push(w.slug);
         return;
       }
       await releaseMove(p, w.id);
       r.stalledMovesReleased++;
-    });
+    },
+  );
 
   await guard('prune usage', async () => {
     r.usageRowsPruned = await p.control.pruneUsage(
@@ -87,4 +104,60 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
     r.invitesPruned = await p.control.pruneInvites(new Date(now.getTime() - 30 * DAY));
   });
   return r;
+}
+
+/** Timers a scheduler uses; a test supplies its own. Each returns the way to cancel. */
+export interface Timers {
+  after(ms: number, fn: () => void): () => void;
+  every(ms: number, fn: () => void): () => void;
+}
+
+const realTimers: Timers = {
+  after(ms, fn) {
+    const t = setTimeout(fn, ms);
+    t.unref?.(); // a timer alone does not keep the process alive
+    return () => clearTimeout(t);
+  },
+  every(ms, fn) {
+    const t = setInterval(fn, ms);
+    t.unref?.();
+    return () => clearInterval(t);
+  },
+};
+
+/**
+ * For a server that stays up: runs housekeeping soon after it starts and then on a timer, and
+ * never lets a failure stop the next run. Returns a function that stops it. (On Cloudflare the
+ * platform's own scheduler calls `housekeeping` instead.)
+ */
+export function scheduleHousekeeping(
+  p: PlatformDeps,
+  o: {
+    everyMs?: number;
+    firstAfterMs?: number;
+    onReport?: (r: HousekeepingReport) => void;
+    onError?: (e: unknown) => void;
+    timers?: Timers;
+  } = {},
+): () => void {
+  const timers = o.timers ?? realTimers;
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const report = await housekeeping(p);
+      o.onReport?.(report);
+    } catch (e) {
+      o.onError?.(e);
+    } finally {
+      running = false;
+    }
+  };
+  const stopFirst = timers.after(o.firstAfterMs ?? 60_000, () => void tick());
+  const stopEvery = timers.every(o.everyMs ?? 15 * 60_000, () => void tick());
+  return () => {
+    stopFirst();
+    stopEvery();
+  };
 }

@@ -85,17 +85,24 @@ Postgres.
    partner routes (Agent plan, OAuth, claimable databases) for platforms. Before
    public launch the operator must read Neon's terms or ask Neon. The design
    survives a "no": the `pg-database` placement (section 5) runs the same code on
-   any Postgres.
-2. Whether a Worker can open a Postgres connection inside the 10 ms Free CPU limit.
-   The HTTP driver (`@neondatabase/serverless`) avoids the connection handshake,
-   and every API operation is built to need one round trip (section 6). It must
-   be measured on first deploy. If it fails, Workers Paid ($5 a month) removes the
-   limit.
-3. Live behaviour of the Neon and Cloudflare control APIs. No credentials were
-   available in the build environment. The Neon provisioner is written against the
-   published OpenAPI document and tested against a mock server only.
+   any Postgres, and a dedicated instance is one `docker compose up`.
+2. Whether a Worker can serve a request that opens a database connection inside the
+   10 ms Free CPU limit. The Worker reaches Neon over its WebSocket driver, one
+   connection per transaction, because a Worker may not keep a connection from one
+   request to the next and the service needs real transactions (a statement that sets
+   who is asking, then the reads). Each operation is built to need one transaction. The Worker was run in
+   the Workers runtime against Postgres (`scripts/smoke-worker.sh`), which shows it works and not how
+   much CPU it uses. `scripts/smoke-live.mts` prints timings against the real thing. If it does not
+   fit, Workers Paid ($5 a month) removes the limit; Hyperdrive (free: 100,000 queries a day) is the next option.
+3. Live behaviour of the Neon and Cloudflare control APIs. No credentials were available in the
+   build environment. The Neon provisioner follows the published OpenAPI document and is tested against a
+   stand-in that keeps each "project" as a real Postgres database, so the role, the migrations and the
+   isolation that follow it are real; what is not known is how the real API answers. One request field is
+   unconfirmed against the live API: `history_retention_seconds: 0` (the schema says zero disables history; the
+   Free plan may impose a minimum).
+4. How a deleted Neon project, and the control project's restore window, behave in practice (section 8).
 
-Other hosts were scouted by sub-agents; section 10 summarises what they found.
+Other hosts were looked at as well; section 10 summarises what was found, and `docs/research/` holds the notes with their sources.
 
 ## 4. Capacity on the free tiers
 
@@ -168,17 +175,23 @@ A graduated workspace is simply a placement change from `pg-database` or
 
 ### 5.3 Request path
 
-1. Verify the signed session cookie (HMAC, no database call).
-2. Resolve the workspace slug through the directory (control database, cached 60 s
-   in memory). Check the workspace state (`ACTIVE`, `MIGRATING`, `MOVED`, `WIPED`).
-3. Take a token from the workspace's rate limiter.
-4. Run the operation as a single database round trip: a transaction that first
-   establishes the actor (account to person and role) and then does the work. In
-   Node this is an ordinary transaction. On the Neon HTTP driver it is one
-   non-interactive batch. Mutations are database functions that validate and write
-   atomically, which also means the spec's rule "enforce with database
-   constraints" holds even for a buggy caller.
-5. Decrypt the few encrypted fields in the application and answer.
+1. Verify the signed session cookie (HMAC, no database call). Once a minute per account, check that the
+   account still exists, so a cookie outlives neither a wipe nor an account removed with it.
+2. Resolve the workspace slug through the directory (control database, cached 60 s in memory). Answer 404 for
+   an unknown or wiped workspace, 410 for one whose wipe is under way.
+3. Admission control: a token bucket per workspace stops floods, then a daily budget, then (near the host's own cap)
+   only workspaces still inside their budget are served. Taking a copy of your own data is counted but never
+   turned away for budget.
+4. Find out who is asking: the signed-in account's person and roles in this workspace (cached 60 s).
+5. Run the operation in one transaction on the workspace's database, as the application role: state who is asking
+   (`app.role`, `app.person_id`), read what the rules need (row-level security limits it to what this person may
+   see), check the rules with the shared engine, and write. The engine is the first line; database constraints,
+   triggers and policies are the backstop that holds even for a buggy caller (append-only tables, caps, read-only
+   while moving, one decision per claim).
+6. Decrypt the few encrypted fields in the application and answer.
+
+On Workers every transaction opens its own WebSocket connection to Neon and closes it, because a Worker keeps nothing
+between requests; on Node a pool is kept. That connection set-up is the cost to measure first (section 3, item 2).
 
 ### 5.4 Rules engine (ADR-03)
 
@@ -377,7 +390,7 @@ fleet is migrated). The control database has its own migration line.
 | Language   | TypeScript 7 everywhere                                                                                  | One engine for server, browser and verifier. Runs on Workers and Node.                                                           |
 | API        | Hono                                                                                                     | Small, runs unchanged on Workers and Node, no framework lock-in.                                                                 |
 | Database   | PostgreSQL 18 (any >= 15 works)                                                                          | Row-level security, triggers, functions. Neon, Supabase and plain servers all speak it.                                          |
-| Drivers    | `pg` on Node, `@neondatabase/serverless` on Workers, behind one `Db` interface                           | The HTTP driver avoids connection setup on Workers.                                                                              |
+| Drivers    | `pg` on Node, `@neondatabase/serverless` (WebSocket) on Workers, behind one `Db` interface               | A Worker keeps no connection between requests, so each transaction opens and closes its own.                                     |
 | Validation | zod 4                                                                                                    | One schema for API input, policy documents and bundles.                                                                          |
 | Auth       | `jose` for token verification, own OIDC client                                                           | No auth vendor in the data path.                                                                                                 |
 | Web        | React 19, Vite 8, service worker through vite-plugin-pwa                                                 | Static assets are free and unlimited on Cloudflare; no server runtime for the shell.                                             |
@@ -412,31 +425,34 @@ Considered and set aside:
 
 ## 7. Verification matrix
 
-| Claim                                                       | Verified how, where                                                                       |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Spec rules and reference numbers                            | Unit and property tests in `packages/core`                                                |
-| Cross-person and cross-workspace isolation                  | Integration tests on Postgres 18 (two workspaces, three consumers)                        |
-| Append-only decisions, settlements, rate cards              | Integration tests that attempt the update and delete as the app role                      |
-| Guards are not dead code                                    | Each guard removed in turn; its test must fail (drift check, recorded in `docs/DRIFT.md`) |
-| No personal data in Postgres logs                           | Test runs a full flow with `log_statement=all` and greps the server log                   |
-| Wipe leaves nothing                                         | Test enumerates the catalog before and after                                              |
-| Move reconciles to the paisa                                | Two real databases; bundle, dry-run, import, recompute, compare                           |
-| Browser: install, offline read, role screens                | Chromium through Playwright against the built app                                         |
-| Cloudflare Worker bundle builds                             | `wrangler deploy --dry-run`                                                               |
-| Neon provisioner, Worker CPU time, claim links, live deploy | **Not verified here.** Needs credentials; `scripts/smoke-live.mjs` is the runbook step.   |
+| Claim                                                       | Verified how, where                                                                                                                               |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Spec rules and reference numbers                            | Unit and property tests in `packages/core`; mutation score 99.8 percent (`docs/DRIFT.md`)                                                         |
+| Cross-person and cross-workspace isolation                  | Database and HTTP tests on Postgres 18: two workspaces, several consumers, with and without a role set                                            |
+| Append-only decisions, settlements, rate cards, receipts    | Tests that attempt the update and delete as the application role, and (for receipts) as the owner                                                 |
+| Guards are not dead code                                    | Each database guard removed in turn; its test must fail (`npm run drift:db`: 69 defects, 0 missed)                                                |
+| No personal data in logs                                    | A full flow with `log_statement=all`; the server log is searched for every sentinel. CI requires the log to be readable, so it cannot be skipped  |
+| Wipe leaves nothing                                         | The database server's catalog and the control database are listed before and after; keys, receipt, interrupted and restored cases                 |
+| Move reconciles to the paisa                                | Two real databases and two instances; a failure injected at each stage leaves the source as it was                                                |
+| Free-tier fairness                                          | Per-workspace budget and flood tests; export is exempt from the daily budget                                                                      |
+| Browser: install, offline read, role screens, layout        | Chromium through Playwright against the built app, desktop and phone; accessibility (axe) and no-sideways-scroll checks at every stage            |
+| Security policy                                             | The strict policy is asserted on every response and the whole journey runs under it with no violations                                            |
+| Worker bundle and runtime                                   | `wrangler deploy --dry-run`; `scripts/smoke-worker.sh` runs it in the Workers runtime through Neon's WebSocket path                               |
+| Container image                                             | `scripts/smoke-compose.sh` builds it, starts it with its own Postgres, makes a kitchen, restarts, and finds it again; the tests run in containers |
+| Neon provisioner, Worker CPU time, claim links, live deploy | **Not verified here.** Needs credentials; `scripts/smoke-live.mts` is the check to run on first deploy (`docs/RUNBOOK.md`).                       |
 
 ## 8. Risks
 
-| Risk                                                              | Mitigation                                                                                              |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Free-tier terms change or forbid the operator model               | `pg-database` and `external` placements; limits are configuration; export always works                  |
-| Cloudflare 100,000 request cap is account-wide                    | Budgets and admission control; static assets carry the traffic; Workers Paid is the cheap exit          |
-| Free CPU limit of 10 ms on Workers                                | One round trip per operation; HTTP driver; measure on first deploy                                      |
-| Schema drift across many databases                                | Version table, advisory-locked migrate, `migrate-all`, expand/contract                                  |
-| Neon compute suspends when a workspace uses its own 100 CU-hours  | Affects only that workspace (the point of P1); meter warns before                                       |
-| Key loss makes a workspace unreadable                             | Master key is a deployment secret with documented rotation; export offered before destructive steps     |
-| A control-database restore brings back keys that a wipe destroyed | Receipts record every wipe; housekeeping wipes again any workspace that has one; run it after a restore |
-| A move is accepted by the other side but the answer is lost       | Stays read-only and flagged for the operator; never released automatically                              |
+| Risk                                                              | Mitigation                                                                                                           |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Free-tier terms change or forbid the operator model               | `pg-database` and `external` placements; limits are configuration; export always works                               |
+| Cloudflare 100,000 request cap is account-wide                    | Budgets and admission control; static assets carry the traffic; Workers Paid is the cheap exit                       |
+| Free CPU limit of 10 ms on Workers                                | One transaction per operation; measure on first deploy (`smoke-live`); Workers Paid or Hyperdrive if it does not fit |
+| Schema drift across many databases                                | Version table, advisory-locked migrate, `migrate-all`, expand/contract                                               |
+| Neon compute suspends when a workspace uses its own 100 CU-hours  | Affects only that workspace (the point of P1); meter warns before                                                    |
+| Key loss makes a workspace unreadable                             | Master key is a deployment secret with documented rotation; export offered before destructive steps                  |
+| A control-database restore brings back keys that a wipe destroyed | Receipts record every wipe; housekeeping wipes again any workspace that has one; run it after a restore              |
+| A move is accepted by the other side but the answer is lost       | Stays read-only and flagged for the operator; never released automatically                                           |
 
 ## 9. Law and logs (not legal advice)
 

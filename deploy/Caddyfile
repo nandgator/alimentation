@@ -1,0 +1,6 @@
+# Terminates HTTPS for a dedicated instance and passes everything to the app.
+# Certificates are requested and renewed automatically for $DOMAIN.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8787
+}

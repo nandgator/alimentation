@@ -118,7 +118,7 @@ describe('[P3] a workspace can be exported and imported without losing a paisa',
     await src.close();
   });
 
-  it('exports every table, with the personal fields in plain text and a digest over the lot', async () => {
+  it('[P6] exports every table, with the personal fields in plain text and a digest over the lot', async () => {
     expect(bundle.manifest.counts).toMatchObject({
       people: 4,
       claims: 2,

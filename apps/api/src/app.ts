@@ -12,6 +12,7 @@ import { OidcClient, OidcError } from './auth/oidc.ts';
 import { SESSION_TTL, TokenSigner } from './auth/session.ts';
 import type { Config } from './config.ts';
 import type { AccountRow, ControlRepo } from './control/repo.ts';
+import { SECURITY_HEADERS } from './security.ts';
 import { sameSecret } from './crypto/aead.ts';
 import { KeysDestroyedError } from './crypto/keys.ts';
 import type { Directory, WorkspaceHandle } from './directory.ts';
@@ -77,8 +78,8 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     c.set('reqId', crypto.randomUUID());
     c.set('account', null);
     await next();
-    c.header('x-content-type-options', 'nosniff');
-    c.header('referrer-policy', 'same-origin');
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) c.header(name, value);
+    if (config.secure) c.header('strict-transport-security', 'max-age=31536000');
     if (c.req.path.startsWith('/api') || c.req.path.startsWith('/auth'))
       c.header('cache-control', 'no-store');
     deps.log?.({
@@ -460,7 +461,10 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     if (handle.row.state === 'WIPING')
       throw new ApiError(410, 'gone', 'This workspace has been deleted.');
 
-    const verdict = await deps.gate.admit({ id: handle.row.id, limits: handle.info.limits });
+    const verdict = await deps.gate.admit(
+      { id: handle.row.id, limits: handle.info.limits },
+      { essential: c.req.method === 'GET' && c.req.path.endsWith('/export') },
+    );
     if (!verdict.allowed) {
       c.header('retry-after', String(verdict.retryAfterSeconds));
       throw new ApiError(

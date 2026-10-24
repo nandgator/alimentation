@@ -5,18 +5,24 @@ import { migrate } from './db/migrate.ts';
 import { CONTROL_MIGRATIONS, WORKSPACE_MIGRATIONS } from './db/migrations.generated.ts';
 import { readDsns } from './directory.ts';
 import { Keyring } from './crypto/keys.ts';
+import { rewrapAll } from './lifecycle/rewrap.ts';
+import { selfHost } from './instance.ts';
 import { PgDatabasePlacement } from './placement/pgdatabase.ts';
 import { randomBytes, randomUUID } from 'node:crypto';
 
 /**
  *   keys:generate     print a new MASTER_KEYS and SESSION_SECRETS
+ *   keys:rewrap       wrap every workspace's secrets under the newest master key
  *   control:init      create the control database and print the settings that point at it
  *   migrate:control   bring the control database up to this release
  *   migrate:all       bring every workspace database up to this release
  *   lockdown          stop the other databases on the workspace cluster being open to everyone
  */
 const [command] = process.argv.slice(2);
-const env = process.env;
+// On a dedicated instance the secrets live in its volume; everywhere else they are in the environment.
+const env = ['keys:generate', 'control:init'].includes(command ?? '')
+  ? process.env
+  : await selfHost(process.env);
 const need = (k: string) => {
   const v = env[k];
   if (!v) throw new Error(`${k} is required for ${command}`);
@@ -39,6 +45,20 @@ switch (command) {
   case 'keys:generate': {
     console.log(`MASTER_KEYS=${(await Keyring.generate()).spec}`);
     console.log(`SESSION_SECRETS=${randomBytes(32).toString('base64')}`);
+    break;
+  }
+  case 'keys:rewrap': {
+    // After adding a new master key to MASTER_KEYS (for example 1:old,2:new): wrap everything under it.
+    const config = loadConfig(env);
+    const keyring = await Keyring.fromSpec(config.masterKeys);
+    const db = nodeDb(config.controlDatabaseUrl, { max: 2 });
+    try {
+      const report = await rewrapAll({ control: new ControlRepo(db), keyring });
+      console.log(JSON.stringify({ currentKey: keyring.currentId, ...report }));
+      if (report.stillOnOldKey || report.skipped) process.exitCode = 1;
+    } finally {
+      await db.close();
+    }
     break;
   }
   case 'migrate:control': {
@@ -92,7 +112,7 @@ switch (command) {
   }
   default:
     console.error(
-      'usage: cli.ts keys:generate | control:init | migrate:control | migrate:all | lockdown [database ...]',
+      'usage: cli.ts keys:generate | keys:rewrap | control:init | migrate:control | migrate:all | lockdown [database ...]',
     );
     process.exitCode = 2;
 }

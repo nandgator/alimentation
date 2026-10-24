@@ -8,7 +8,8 @@
     "start": "tsx src/node.ts",
     "cli": "tsx src/cli.ts",
     "build:worker": "node -e \"require('fs').mkdirSync('../web/dist',{recursive:true})\" && wrangler deploy --dry-run --outdir dist-worker",
-    "build:server": "esbuild src/node.ts src/cli.ts --bundle --platform=node --format=esm --target=node22 --external:pg-native --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\" --outdir=dist --out-extension:.js=.mjs"
+    "build:server": "esbuild src/node.ts src/cli.ts --bundle --platform=node --format=esm --target=node22 --external:pg-native --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\" --outdir=dist --out-extension:.js=.mjs",
+    "deploy": "node -e \"require('fs').mkdirSync('../web/dist',{recursive:true})\" && wrangler deploy"
   },
   "dependencies": {
     "@alimentation/core": "*",
