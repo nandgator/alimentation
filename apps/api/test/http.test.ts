@@ -159,6 +159,15 @@ describe('two kitchens on one platform', () => {
     ]);
   });
 
+  it('[P2] counts a kitchen’s own data against its allowance, not the empty database around it', async () => {
+    const boss = await namrata.get('/api/w/namrata/bootstrap');
+    const { usage } = boss.json.meter;
+    // A fresh Postgres database is about 7 MB of catalogs before anything is stored.
+    expect(usage.bytes).toBeGreaterThan(0);
+    expect(usage.bytes).toBeLessThan(2 * 1024 * 1024);
+    expect(boss.json.meter.state).toBe('OK');
+  });
+
   it("[P1] keeps a workspace's members out of the other workspace", async () => {
     expect((await smruti.get('/api/w/ymca-mess/bootstrap')).status).toBe(403);
     expect((await namrata.get('/api/w/ymca-mess/bootstrap')).status).toBe(403);
