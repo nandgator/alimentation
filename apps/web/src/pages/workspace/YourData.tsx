@@ -241,7 +241,7 @@ function Move() {
                 />
               </Field>
               <div>
-                <button className="btn copper" disabled={go.busy || confirm !== ws.slug}>
+                <button className="btn accent" disabled={go.busy || confirm !== ws.slug}>
                   Move now
                 </button>
               </div>

@@ -51,7 +51,7 @@ for (const p of promises)
   if (proofs.get(p.id).size === 0) problems.push(`${p.id} (“${p.text}”) has no test that names it`);
 for (const u of unknown) problems.push(`a test names a promise that is not in the ledger: ${u}`);
 
-// The home page must show exactly the ledger's promises.
+// The home page must show exactly the ledger's promises, in the ledger's words.
 const home = readFileSync(join(root, 'apps/web/src/pages/Home.tsx'), 'utf8');
 const shown = [...home.matchAll(/^\s+title: '([^']+)'/gm)].map((m) =>
   m[1].replace(/’/g, "'").replace(/\.$/, '').toLowerCase(),
@@ -59,6 +59,13 @@ const shown = [...home.matchAll(/^\s+title: '([^']+)'/gm)].map((m) =>
 const wanted = promises.map((p) => p.text.replace(/’/g, "'").replace(/\.$/, '').toLowerCase());
 if (shown.length !== wanted.length)
   problems.push(`the home page shows ${shown.length} promises and the ledger has ${wanted.length}`);
+else
+  shown.forEach((title, i) => {
+    if (title !== wanted[i])
+      problems.push(
+        `${promises[i].id}: the home page says “${title}” and the ledger says “${wanted[i]}”`,
+      );
+  });
 
 // Rebuild the proof columns.
 const short = (f) => f.replace(/^.*\//, '');

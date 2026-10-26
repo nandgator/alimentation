@@ -105,7 +105,7 @@ export function BarChart({
               <i
                 className={`s${Math.min(j, 3)}`}
                 style={{
-                  background: `var(--${['navy', 'copper', 'ink-2', 'hair'][Math.min(j, 3)]})`,
+                  background: `var(--${['brand', 'accent', 'ink-2', 'hair'][Math.min(j, 3)]})`,
                 }}
               />
               {s.name}

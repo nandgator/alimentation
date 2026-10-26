@@ -19,7 +19,7 @@ including its owner in six months.
 
 ```sh
 docker compose -f compose.test.yaml run --rm test      # format, types, promises, ~400 tests on Postgres 18
-npm run test:e2e                                       # 14 browser checks
+npm run test:e2e                                       # 20 browser checks
 npm run drift:db                                       # 69 database guards removed in turn; each must be noticed
 npm run smoke:compose && npm run smoke:worker          # the image, and the Worker in the Workers runtime
 ```
@@ -40,6 +40,8 @@ These need accounts, keys or real traffic that the build did not have. Each has 
 4. **Automated hand-over through Neon's claim links.** Not built: it is a private preview. A tenant moves with a connection string.
 5. **Cost and limit numbers** in `docs/DESIGN.md` carry their source. Those marked secondary were not read on the vendor's own page.
 6. **A browser other than Chromium.** The suites run on Chromium (desktop and a phone profile). Safari and Firefox are not tested.
+   The home page relies on container-query units, `color-mix`, `overflow: clip` and the separate `translate` and `rotate`
+   properties, which every browser has had since 2023; older ones are not supported.
 
 ## Decisions worth knowing
 
@@ -53,6 +55,17 @@ These need accounts, keys or real traffic that the build did not have. Each has 
 - **A strict content-security policy** (nothing from anywhere but the site itself) is sent everywhere; `apps/web/public/_headers` repeats it
   for Cloudflare's static files and a test keeps the two equal.
 - **The Worker's database traffic is one WebSocket connection per transaction.** It is the first thing to measure.
+- **The home page is a kitchen, drawn in code.** Tiled green walls, steel, turmeric and a chalkboard (`apps/web/src/home.css`,
+  `apps/web/src/home/art.tsx`); Young Serif for headings and Figtree for text, both served by the site itself so the content-security
+  policy stays strict. There are no photographs, so there are no licences or credits to keep. The month a visitor can try runs the real
+  billing engine on made-up people (`apps/web/src/home/month.ts`, pinned by a test). Words are plain on purpose; the technical
+  detail sits in one section at the bottom. Each promise's title on the page is the ledger's wording, and `npm run promises` fails if
+  they drift.
+- **Motion on the home page is small and never hides anything.** Transform, opacity and clip-path only. Parts below the first
+  screen arrive once, as they are reached; the class that hides them is added only after the observer is running, and never under
+  reduced motion. A browser test scrolls the whole page and fails if anything is left waiting. The carrier's hop between the three
+  places is a Web Animations call (a ride and a separate lift, so the top of the arc is smooth), not a scroll-linked effect, so it
+  behaves the same in every browser.
 
 ## What to do next
 

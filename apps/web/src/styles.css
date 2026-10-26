@@ -1,73 +1,94 @@
-@import '@fontsource-variable/inter/index.css';
-@import '@fontsource-variable/fraunces/opsz.css';
-@import '@fontsource-variable/fraunces/opsz-italic.css';
+@import '@fontsource/young-serif/index.css';
+@import '@fontsource-variable/figtree/index.css';
 
 /* ---------- Tokens ---------------------------------------------------------
-   Ivory paper, navy ink, one copper accent. Dark mode keeps the same character:
-   a deep blue-black ground, warm off-white text. Contrast checked for body text
-   (>= 4.5:1) and for the accent on its ground.                                  */
+   A kitchen: tile-white walls, curry-leaf green, turmeric, steel. Dark mode keeps
+   the same character on a deep green-black ground. Every pair of text and ground
+   below was measured at 4.5:1 or better; turmeric is only ever a ground for dark
+   text or a mark, never text on a light ground.                                   */
 :root {
-  --paper: #fbf8f2;
-  --paper-2: #f4efe6;
-  --card: #ffffff;
-  --ink: #1b2236;
-  --ink-2: #4a5268;
-  --hair: #e4dccd;
-  --navy: #1f3864;
-  --navy-ink: #ffffff;
-  --copper: #a84a0a;
-  --copper-soft: #f6e4d5;
-  --good: #2b6a4c;
-  --good-soft: #dcefe4;
-  --warn: #8f5a0a;
-  --warn-soft: #f8ebcf;
-  --bad: #a1362b;
-  --bad-soft: #f6dcd8;
-  --shadow: 0 1px 2px rgb(27 34 54 / 0.05), 0 8px 24px -12px rgb(27 34 54 / 0.18);
+  color-scheme: light dark;
+  --bg: #eef1ec;
+  --paper: var(--bg);
+  --paper-2: #e2e8e0;
+  --card: #f9fbf8;
+  --ink: #14261d;
+  --ink-2: #44574d;
+  --hair: #cad3c9;
+  --brand: #1f4d3a;
+  --brand-ink: #f4f7f2;
+  --accent: #f0b323;
+  --accent-ink: #1b1608;
+  --accent-soft: #f7e6b5;
+  --focus: #1f4d3a;
+  --good: #1f6b43;
+  --good-soft: #dbebdd;
+  --warn: #7a4b00;
+  --warn-soft: #f6e7be;
+  --bad: #a3301f;
+  --bad-soft: #f5dad3;
+  /* The home page's fields and its chalkboard. */
+  --field-green: #1f4d3a;
+  --field-green-ink: #eef1ec;
+  --field-green-soft: #c9d8ce;
+  --field-yellow: #f0b323;
+  --field-yellow-ink: #1b1608;
+  --board: #16251e;
+  --board-ink: #eef1ec;
+  --board-dim: #9fb3a6;
   --radius: 14px;
-  --serif: 'Fraunces Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
-  --sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --serif: 'Young Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --sans: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --gutter: 16px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --paper: #0f1320;
-    --paper-2: #151a2b;
-    --card: #1a2033;
-    --ink: #ece8df;
-    --ink-2: #a3aac0;
-    --hair: #2b3350;
-    --navy: #8ea8e0;
-    --navy-ink: #0f1320;
-    --copper: #e48e52;
-    --copper-soft: #3a2616;
-    --good: #6cc59a;
-    --good-soft: #17301f;
-    --warn: #e5b45a;
+    --bg: #0e1713;
+    --paper-2: #15221c;
+    --card: #1a2923;
+    --ink: #e8ede6;
+    --ink-2: #a8b8ad;
+    --hair: #2a3b33;
+    --brand: #8ccba4;
+    --brand-ink: #0e1713;
+    --accent-soft: #3a2f10;
+    --focus: #f0b323;
+    --good: #7dd3a0;
+    --good-soft: #14301f;
+    --warn: #e8be5c;
     --warn-soft: #33270f;
     --bad: #f0877b;
     --bad-soft: #3a1b18;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -12px rgb(0 0 0 / 0.6);
+    --field-green: #1a4331;
+    --board: #1b2d25;
   }
 }
 :root[data-theme='dark'] {
-  --paper: #0f1320;
-  --paper-2: #151a2b;
-  --card: #1a2033;
-  --ink: #ece8df;
-  --ink-2: #a3aac0;
-  --hair: #2b3350;
-  --navy: #8ea8e0;
-  --navy-ink: #0f1320;
-  --copper: #e48e52;
-  --copper-soft: #3a2616;
-  --good: #6cc59a;
-  --good-soft: #17301f;
-  --warn: #e5b45a;
+  color-scheme: dark;
+  --bg: #0e1713;
+  --paper-2: #15221c;
+  --card: #1a2923;
+  --ink: #e8ede6;
+  --ink-2: #a8b8ad;
+  --hair: #2a3b33;
+  --brand: #8ccba4;
+  --brand-ink: #0e1713;
+  --accent-soft: #3a2f10;
+  --focus: #f0b323;
+  --good: #7dd3a0;
+  --good-soft: #14301f;
+  --warn: #e8be5c;
   --warn-soft: #33270f;
   --bad: #f0877b;
   --bad-soft: #3a1b18;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -12px rgb(0 0 0 / 0.6);
+  --field-green: #1a4331;
+  --board: #1b2d25;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 /* ---------- Base ----------------------------------------------------------- */
@@ -82,30 +103,30 @@ html {
 }
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--bg);
   color: var(--ink);
-  font: 400 16px/1.55 var(--sans);
-  font-feature-settings: 'cv11', 'ss01';
+  font: 400 1.0625rem/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Young Serif's own figures are old-style (a "10" reads as "IO"); money wants the lining ones. */
+  font-variant-numeric: lining-nums;
 }
 h1,
 h2,
 h3 {
   font-family: var(--serif);
-  font-weight: 500;
-  font-variation-settings: 'opsz' 96;
+  font-weight: 400;
   line-height: 1.08;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.012em;
   margin: 0;
   text-wrap: balance;
+  hyphens: none;
 }
 h2 {
   font-size: clamp(1.9rem, 4.2vw, 2.9rem);
 }
 h3 {
-  font-size: 1.35rem;
-  font-variation-settings: 'opsz' 36;
+  font-size: 1.3rem;
   letter-spacing: -0.005em;
 }
 p {
@@ -113,17 +134,18 @@ p {
   text-wrap: pretty;
 }
 a {
-  color: var(--navy);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
+  color: var(--brand);
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.2em;
 }
 :focus-visible {
-  outline: 2px solid var(--copper);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
   border-radius: 4px;
 }
 ::selection {
-  background: var(--copper-soft);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .sr {
   position: absolute;
@@ -160,13 +182,11 @@ a {
   font-size: 0.875rem;
 }
 .num {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .eyebrow {
-  font: 600 0.75rem/1 var(--sans);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--copper);
+  font: 600 0.8125rem/1.2 var(--sans);
+  color: var(--ink-2);
 }
 
 /* ---------- Buttons and fields -------------------------------------------- */
@@ -174,62 +194,67 @@ a {
   appearance: none;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 0.7rem 1.25rem;
+  padding: 0.7rem 1.35rem;
   min-height: 44px;
-  font: 600 0.95rem/1 var(--sans);
+  font: 600 1rem/1 var(--sans);
   cursor: pointer;
-  background: var(--navy);
-  color: var(--navy-ink);
+  background: var(--brand);
+  color: var(--brand-ink);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s;
-}
-.btn:hover {
-  box-shadow: 0 6px 18px -8px var(--navy);
-  transform: translateY(-1px);
+    transform 140ms var(--ease-out),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
 }
 .btn:active {
-  transform: none;
+  transform: scale(0.97);
 }
 .btn[disabled] {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
-  box-shadow: none;
 }
 .btn.ghost {
   background: transparent;
   color: var(--ink);
-  border-color: var(--hair);
-}
-.btn.ghost:hover {
   border-color: var(--ink-2);
-  box-shadow: none;
 }
-.btn.copper {
-  background: var(--copper);
-  color: #fff;
+.btn.accent {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .btn.danger {
   background: var(--bad);
   color: #fff;
 }
-/* The lighter copper and red of dark mode need dark text to stay readable. */
+/* The lighter red of dark mode needs dark text to stay readable. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .btn.copper,
   :root:not([data-theme='light']) .btn.danger {
     color: #1a1206;
   }
 }
-:root[data-theme='dark'] .btn.copper,
 :root[data-theme='dark'] .btn.danger {
   color: #1a1206;
+}
+/* A button answers a pointer only where there is one: on a touch screen a tap would leave it stuck. */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    background: color-mix(in srgb, var(--brand) 82%, var(--ink));
+  }
+  .btn.ghost:hover {
+    background: var(--paper-2);
+  }
+  .btn.accent:hover {
+    background: color-mix(in srgb, var(--accent) 86%, white);
+  }
+  .btn.danger:hover {
+    background: color-mix(in srgb, var(--bad) 85%, black);
+  }
 }
 .btn.small {
   min-height: 36px;
@@ -268,7 +293,7 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid var(--copper);
+  outline: 3px solid var(--focus);
   outline-offset: 0;
   border-color: transparent;
 }
@@ -287,11 +312,7 @@ textarea:focus {
   background: var(--card);
   border: 1px solid var(--hair);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   padding: 20px;
-}
-.card.flat {
-  box-shadow: none;
 }
 .banner {
   border-radius: 12px;
@@ -359,10 +380,9 @@ textarea:focus {
   color: var(--ink-2);
 }
 .tile .v {
-  font: 500 1.7rem/1.2 var(--serif);
-  font-variation-settings: 'opsz' 36;
+  font: 400 1.7rem/1.2 var(--serif);
   margin-top: 6px;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .tile.projected .v {
   color: var(--ink-2);
@@ -400,7 +420,7 @@ tr:last-child td {
 td.r,
 th.r {
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .projected {
   color: var(--ink-2);
@@ -417,7 +437,7 @@ th.r {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--navy);
+  background: var(--brand);
 }
 .meter.warn > i {
   background: var(--warn);
@@ -436,7 +456,7 @@ dialog {
   box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.45);
 }
 dialog::backdrop {
-  background: rgb(15 19 32 / 0.55);
+  background: rgb(8 16 12 / 0.6);
   backdrop-filter: blur(3px);
 }
 
@@ -445,8 +465,7 @@ dialog::backdrop {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: blur(10px);
+  background: var(--bg);
   border-bottom: 1px solid var(--hair);
 }
 .topbar .wrap {
@@ -478,8 +497,8 @@ dialog::backdrop {
   }
 }
 .brand {
-  font: 500 1.25rem/1 var(--serif);
-  font-variation-settings: 'opsz' 48;
+  font: 400 1.3rem/1 var(--serif);
+  font-variant-numeric: lining-nums;
   color: var(--ink);
   text-decoration: none;
   display: inline-flex;
@@ -487,8 +506,8 @@ dialog::backdrop {
   gap: 8px;
 }
 .brand svg {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
 }
 .nav {
   display: flex;
@@ -506,8 +525,8 @@ dialog::backdrop {
   white-space: nowrap;
 }
 .nav a[aria-current='page'] {
-  background: var(--navy);
-  color: var(--navy-ink);
+  background: var(--brand);
+  color: var(--brand-ink);
 }
 .page {
   padding: 24px 0 96px;
@@ -531,19 +550,18 @@ dialog::backdrop {
   bottom: 24px;
   transform: translateX(-50%);
   background: var(--ink);
-  color: var(--paper);
+  color: var(--bg);
   padding: 10px 16px;
   border-radius: 999px;
   font-size: 0.9rem;
   z-index: 50;
-  box-shadow: var(--shadow);
 }
 /* Section links under the top bar; at the bottom of the screen on a phone. */
 .subnav {
   position: sticky;
   top: 58px;
   z-index: 19;
-  background: var(--paper);
+  background: var(--bg);
   border-bottom: 1px solid var(--hair);
 }
 .subnav .nav {
@@ -563,8 +581,7 @@ dialog::backdrop {
     border-bottom: 0;
     border-top: 1px solid var(--hair);
     padding: 0 8px env(safe-area-inset-bottom);
-    background: color-mix(in srgb, var(--paper) 94%, transparent);
-    backdrop-filter: blur(10px);
+    background: var(--bg);
   }
   .subnav .wrap {
     width: 100%;
@@ -603,7 +620,7 @@ dialog::backdrop {
     background: var(--card);
     border: 1px solid var(--hair);
     border-radius: 16px;
-    box-shadow: var(--shadow);
+    box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.35);
   }
   .nav[data-open='true'] .extras {
     display: grid;
@@ -620,16 +637,16 @@ dialog::backdrop {
   stroke-width: 1;
 }
 .chart .s0 {
-  fill: var(--navy);
+  fill: var(--brand);
 }
 .chart .s1 {
-  fill: var(--copper);
+  fill: var(--accent);
 }
 .chart .s2 {
   fill: var(--ink-2);
 }
 .chart .s3 {
-  fill: color-mix(in srgb, var(--ink-2) 55%, var(--paper));
+  fill: color-mix(in srgb, var(--ink-2) 55%, var(--bg));
 }
 .chart .proj {
   opacity: 0.45;
