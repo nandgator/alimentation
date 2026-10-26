@@ -19,7 +19,7 @@ including its owner in six months.
 
 ```sh
 docker compose -f compose.test.yaml run --rm test      # format, types, promises, ~400 tests on Postgres 18
-npm run test:e2e                                       # 20 browser checks
+npm run test:e2e                                       # 34 browser checks
 npm run drift:db                                       # 69 database guards removed in turn; each must be noticed
 npm run smoke:compose && npm run smoke:worker          # the image, and the Worker in the Workers runtime
 ```
@@ -57,10 +57,14 @@ These need accounts, keys or real traffic that the build did not have. Each has 
 - **The Worker's database traffic is one WebSocket connection per transaction.** It is the first thing to measure.
 - **The home page is a kitchen, drawn in code.** Tiled green walls, steel, turmeric and a chalkboard (`apps/web/src/home.css`,
   `apps/web/src/home/art.tsx`); Young Serif for headings and Figtree for text, both served by the site itself so the content-security
-  policy stays strict. There are no photographs, so there are no licences or credits to keep. The month a visitor can try runs the real
-  billing engine on made-up people (`apps/web/src/home/month.ts`, pinned by a test). Words are plain on purpose; the technical
+  policy stays strict. There are no photographs, so there are no licences or credits to keep. The month a visitor can try is a live
+  calendar on the visitor's own date, run by the real billing engine on a made-up person (`apps/web/src/home/month.ts`, pinned by a test): days up to today are frozen, days after it are tentative and can be
+  changed, and the bill shows what is frozen so far and what is expected. Words are plain on purpose; the technical
   detail sits in one section at the bottom. Each promise's title on the page is the ledger's wording, and `npm run promises` fails if
   they drift.
+- **One idea of depth on the home page.** Whatever hangs on the wall or lies against it throws a shadow (the chalkboard, the
+  picture of the kitchen, the step in view, the receipt, the shelves); flat things (buttons, day tiles, text) do not. It is two
+  tokens in `home.css`, `--lift` and `--lift-cut`, deeper in dark mode, and a browser test keeps them equal.
 - **Motion on the home page is small and never hides anything.** Transform, opacity and clip-path only. Parts below the first
   screen arrive once, as they are reached; the class that hides them is added only after the observer is running, and never under
   reduced motion. A browser test scrolls the whole page and fails if anything is left waiting. The carrier's hop between the three

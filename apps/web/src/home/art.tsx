@@ -69,6 +69,7 @@ export function Carrier({ clip = 'mine' }: { clip?: Clip }) {
 export function Shelf({ x, y, w }: { x: number; y: number; w: number }) {
   return (
     <g className="shelf">
+      <rect x={x + 6} y={y + 12} width={w - 12} height="9" rx="4.5" className="cast" />
       <path d={`M${x + 36} ${y + 14}h14v34l-14-14z`} className="s4" />
       <path d={`M${x + w - 50} ${y + 14}h14v20l-14 14z`} className="s4" />
       <rect x={x} y={y} width={w} height="16" rx="3" className="s3" />
@@ -113,6 +114,7 @@ function Pan({ x }: { x: number }) {
 function Rail({ children }: { children: ReactNode }) {
   return (
     <g className="rail">
+      <rect x="36" y="64" width="488" height="9" rx="4.5" className="cast" />
       <rect x="30" y="60" width="500" height="8" rx="4" className="s3" />
       <rect x="30" y="60" width="500" height="3" rx="1.5" className="s2" />
       <rect x="36" y="60" width="10" height="20" rx="3" className="s4" />

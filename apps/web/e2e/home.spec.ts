@@ -38,27 +38,185 @@ test.describe('the home page', () => {
     expect(res.headers()['x-frame-options']).toBe('DENY');
   });
 
-  test('lets a visitor try a month, and bills it on the real rules', async ({ page }) => {
+  test.describe('the live calendar', () => {
+    // The page uses the visitor's own date; here it is fixed to Wednesday 10 March 2027.
+    test.beforeEach(async ({ page }) => {
+      await page.clock.setFixedTime(new Date(2027, 2, 10, 10, 0));
+    });
+
+    test('freezes the days that have happened, leaves the rest tentative, and bills on the real rules', async ({
+      page,
+    }) => {
+      await page.goto('/');
+      const total = page.locator('.board-bill .total b');
+      const sofar = page.locator('.board-bill .sofar b');
+      await expect(page.getByRole('heading', { name: 'Meera, March 2027' })).toBeVisible();
+      await expect(page.getByText('Today is Wednesday 10 March.')).toBeVisible();
+      // History behind today and changes to come are marked from the start.
+      await expect(total).toHaveText('₹2,830');
+      await expect(sofar).toHaveText('₹950');
+
+      // Today is the one bright tile; the weekdays of the next month are faint numbers, not tiles.
+      await expect(page.locator('.day.is-today')).toHaveCount(1);
+      await expect(page.locator('.day.is-today')).toHaveAccessibleName(/^Wednesday 10 March/);
+      const faint = page.locator('.board-days .day-out');
+      await expect(faint).toHaveText(['1', '2']); // Thursday 1 and Friday 2 April
+      await expect(faint.first()).toHaveAttribute('aria-hidden', 'true');
+
+      // Up to and including today: frozen, and cannot be changed.
+      await expect(page.getByRole('button', { name: /^Monday 1 March: .*frozen/ })).toBeDisabled();
+      await expect(
+        page.getByRole('button', { name: /^Wednesday 10 March: .*today, frozen/ }),
+      ).toBeDisabled();
+      // After today: tentative, and a tap steps it through leave, switched dish, extra chapatis.
+      const thursday = page.getByRole('button', { name: /^Thursday 11 March: .*tentative/ });
+      await expect(thursday).toBeEnabled();
+      await thursday.click(); // leave: the day's veg meal (120) is gone
+      await expect(total).toHaveText('₹2,710');
+      await page.getByRole('button', { name: /^Thursday 11 March: Leave/ }).click(); // non-veg: +30
+      await expect(total).toHaveText('₹2,860');
+      await page.getByRole('button', { name: /^Thursday 11 March/ }).click(); // two chapatis: +20
+      await expect(total).toHaveText('₹2,850');
+      await page.getByRole('button', { name: /^Thursday 11 March/ }).click(); // back to the day's meal
+      await expect(total).toHaveText('₹2,830');
+      await expect(sofar, 'a change to come does not touch what is frozen').toHaveText('₹950');
+
+      // Every day to come can be changed from the keyboard. Friday 12 March starts as a leave;
+      // the next step is a switch to the veg dish (120 where there was nothing).
+      await page.getByRole('button', { name: /^Friday 12 March/ }).focus();
+      await page.keyboard.press('Enter');
+      await expect(total).toHaveText('₹2,950');
+
+      // Clearing removes only what is still to come; the frozen history stays.
+      await page.getByRole('button', { name: 'Clear the changes still to come' }).click();
+      await expect(total).toHaveText('₹2,930');
+      await expect(sofar).toHaveText('₹950');
+    });
+
+    test('looks ahead to a month not begun, and back at one that is over', async ({ page }) => {
+      await page.goto('/');
+      const total = page.locator('.board-bill .total b');
+      await page.getByRole('button', { name: 'Next month' }).click();
+      await expect(page.getByRole('heading', { name: 'Meera, April 2027' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Next month' })).toBeDisabled();
+      await expect(total).toHaveText('₹2,940');
+      await expect(page.locator('.board-bill .sofar'), 'nothing is frozen yet').toHaveCount(0);
+      await expect(page.locator('.board-days .day:disabled')).toHaveCount(0);
+      await expect(page.locator('.board-days .day')).toHaveCount(22);
+
+      await page.getByRole('button', { name: 'Previous month' }).click();
+      await page.getByRole('button', { name: 'Previous month' }).click();
+      await expect(page.getByRole('heading', { name: 'Meera, February 2027' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Previous month' })).toBeDisabled();
+      await expect(total).toHaveText('₹2,670');
+      await expect(page.getByText('Meera’s bill for February', { exact: true })).toBeVisible();
+      await expect(page.locator('.board-days .day:enabled'), 'all of it has happened').toHaveCount(
+        0,
+      );
+    });
+  });
+
+  test('keeps the title beside the picture while the words pass', async ({ page }, info) => {
     await page.goto('/');
-    const total = page.locator('.board-bill .total b');
-    // One leave, one switched dish and one extra-chapati day are marked from the start.
-    await expect(total).toHaveText('₹2,960');
-    const monday = page.getByRole('button', { name: /^Monday 1 March: Veg, ₹120/ });
-    await monday.click(); // leave: the day's veg meal (120) is gone
-    await expect(total).toHaveText('₹2,840');
-    await expect(page.getByRole('button', { name: /^Monday 1 March: Leave/ })).toBeVisible();
-    await page.getByRole('button', { name: /^Monday 1 March/ }).click(); // switched to non-veg: +30
-    await expect(total).toHaveText('₹2,990');
-    await page.getByRole('button', { name: /^Monday 1 March/ }).click(); // two extra chapatis: +20
-    await expect(total).toHaveText('₹2,980');
-    await page.getByRole('button', { name: /^Monday 1 March/ }).click(); // back to the day's meal
-    await expect(total).toHaveText('₹2,960');
-    await page.getByRole('button', { name: 'Clear every change' }).click();
-    await expect(total).toHaveText('₹3,060'); // 14 veg at 120, 9 non-veg at 150, 30 of extras
-    // Every day can be reached and changed from the keyboard.
-    await page.getByRole('button', { name: /^Tuesday 2 March/ }).focus();
-    await page.keyboard.press('Enter');
-    await expect(total).toHaveText('₹2,940');
+    const title = page.locator('#moving-title');
+    const centre = (i: number) =>
+      page.evaluate((n) => {
+        const li = document.querySelectorAll('.steps li')[n]!;
+        const r = li.getBoundingClientRect();
+        window.scrollBy({
+          top: r.top + r.height / 2 - window.innerHeight / 2,
+          behavior: 'instant',
+        });
+      }, i);
+    const top = async () => Math.round((await title.boundingBox())!.y);
+    const tops: number[] = [];
+    for (const i of [0, 1, 2]) {
+      await centre(i);
+      await expect(page.locator('.steps li').nth(i)).toHaveClass(/on/);
+      if (info.project.name === 'desktop') {
+        await expect(title, 'the title is on screen at every step').toBeInViewport({ ratio: 1 });
+        tops.push(await top());
+      }
+    }
+    if (info.project.name === 'desktop') {
+      expect(
+        Math.abs(tops[2]! - tops[1]!),
+        'it does not move while the steps scroll',
+      ).toBeLessThanOrEqual(2);
+    } else {
+      // On a phone the title scrolls away and the picture holds, under the bar.
+      const picture = await page.locator('.stage-wrap').boundingBox();
+      expect(Math.round(picture!.y)).toBe(64);
+    }
+  });
+
+  test('ends on the name, dissolving at its foot, and it cannot be selected', async ({ page }) => {
+    await page.goto('/');
+    const mega = page.locator('.mega');
+    await expect(mega).toHaveAttribute('aria-hidden', 'true');
+    const style = await mega.evaluate((el) => {
+      const c = getComputedStyle(el);
+      const sharp = getComputedStyle(el.querySelector('.mega-sharp')!);
+      const blur = getComputedStyle(el.querySelector('.mega-blur')!);
+      return {
+        select: c.userSelect,
+        fade: sharp.maskImage.includes('linear-gradient'),
+        blurred: blur.filter.startsWith('blur('),
+      };
+    });
+    expect(style).toEqual({ select: 'none', fade: true, blurred: true });
+  });
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`gives whatever hangs on the wall the same shadow in ${scheme} mode`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto('/');
+      const shadows = await page.evaluate(() => {
+        const box = (sel: string, pseudo?: string) =>
+          getComputedStyle(document.querySelector(sel)!, pseudo).boxShadow;
+        return {
+          board: box('.board'),
+          stage: box('.stage'),
+          stepCard: box('.steps li', '::after'),
+          receipt: getComputedStyle(document.querySelector('.printer')!).filter,
+        };
+      });
+      expect(shadows.board).not.toBe('none');
+      expect(shadows.stage).toBe(shadows.board);
+      expect(shadows.stepCard).toBe(shadows.board);
+      expect(shadows.receipt).toContain('drop-shadow');
+      // Nothing flat is lifted: a button and a day tile stay on the surface.
+      const flat = await page.evaluate(() => [
+        getComputedStyle(document.querySelector('.btn')!).boxShadow,
+        getComputedStyle(document.querySelector('.day')!).boxShadow,
+      ]);
+      expect(flat).toEqual(['none', 'none']);
+    });
+  }
+
+  test('says what an entry is, and that the figures are for the whole kitchen', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const free = page.locator('#free');
+    await expect(free).toContainText('What counts as an entry?');
+    await expect(free).toContainText('not per person');
+    await expect(free).toContainText('actions a day, all together');
+  });
+
+  test('shows every digit of the free-tier figures whole', async ({ page }) => {
+    await page.goto('/');
+    // The rolling columns are clipped above and below, never at the sides: a figure's right edge can
+    // reach past its box, and a side clip shaves the last zero.
+    const clip = await page
+      .locator('.roll-col')
+      .first()
+      .evaluate((el) => {
+        const c = getComputedStyle(el);
+        return [c.overflowX, c.overflowY];
+      });
+    expect(clip).toEqual(['visible', 'clip']);
+    await expect(page.locator('.limits')).toContainText('5,000');
   });
 
   for (const scheme of ['light', 'dark'] as const) {
