@@ -427,7 +427,7 @@ export function Rates() {
             Change rules
           </button>
         </div>
-        <div className="card flat">
+        <div className="card">
           <ul className="stack" style={{ margin: 0, paddingLeft: 18, ['--gap' as string]: '6px' }}>
             <li>Meals on {current.workingDays.map((d) => dayName(d as Weekday)).join(', ')}.</li>
             <li>

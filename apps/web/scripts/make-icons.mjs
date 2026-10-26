@@ -1,19 +1,30 @@
-// Draws the app icons from one design: a plate seen from above, with a small bowl on its rim.
+// Draws the app icons from one design: a tiffin carrier (handle, lid, three tiers, side clips) on
+// curry-leaf green.
 //   node scripts/make-icons.mjs
 import { chromium } from '@playwright/test';
 import { writeFileSync } from 'node:fs';
 
-const NAVY = '#1F3864';
-const IVORY = '#FBF8F2';
-const COPPER = '#E08A4B';
+const GREEN = '#1F4D3A';
+const TILE = '#EEF1EC';
+const TURMERIC = '#F0B323';
 
 // `inset` shrinks the drawing so a maskable icon keeps it inside the safe zone.
 const svg = ({ rounded, inset }) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" ${rounded ? 'rx="112"' : ''} fill="${NAVY}"/>
-  <g transform="translate(256 256) scale(${inset}) translate(-256 -256)">
-    <circle cx="256" cy="256" r="168" fill="none" stroke="${IVORY}" stroke-width="22"/>
-    <circle cx="256" cy="256" r="95" fill="none" stroke="${IVORY}" stroke-width="13" opacity="0.6"/>
-    <circle cx="334" cy="178" r="38" fill="${COPPER}"/>
+  <rect width="512" height="512" ${rounded ? 'rx="112"' : ''} fill="${GREEN}"/>
+  <g transform="translate(256 256) scale(${inset * 17}) translate(-12 -12.5)">
+    <g fill="${TILE}">
+      <rect x="7" y="2.4" width="10" height="1.8" rx="0.9"/>
+      <rect x="8.6" y="3.8" width="1.6" height="3.2"/>
+      <rect x="13.8" y="3.8" width="1.6" height="3.2"/>
+      <rect x="4.6" y="6.8" width="14.8" height="3" rx="1.5"/>
+      <rect x="5.6" y="10.8" width="12.8" height="3.4" rx="1.7"/>
+      <rect x="5.6" y="15.2" width="12.8" height="3.4" rx="1.7"/>
+      <rect x="5.6" y="19.6" width="12.8" height="3" rx="1.5"/>
+    </g>
+    <g fill="${TURMERIC}">
+      <rect x="3.6" y="7" width="1.8" height="14.4" rx="0.9"/>
+      <rect x="18.6" y="7" width="1.8" height="14.4" rx="0.9"/>
+    </g>
   </g>
 </svg>`;
 

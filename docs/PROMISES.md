@@ -12,7 +12,7 @@ fails the build when a promise has no tagged test, or a tag names no promise.
 | P4  | Leave, and everything goes.                          | tagged in crypto.test.ts, housekeeping.schedule.test.ts, lifecycle.wipe.test.ts, rewrap.test.ts                                        | tested |
 | P5  | Your people's details are never readable in logs.    | tagged in crypto.test.ts, http.test.ts, service.test.ts, workspace.guards.test.ts                                                      | tested |
 | P6  | Your data is yours to take, at any time.             | tagged in http.test.ts, lifecycle.move.test.ts, lifecycle.test.ts                                                                      | tested |
-| P7  | One person's rows are invisible to everyone else.    | tagged in http.test.ts, service.test.ts, workspace.db.test.ts                                                                          | tested |
+| P7  | One person's records are invisible to everyone else. | tagged in http.test.ts, service.test.ts, workspace.db.test.ts                                                                          | tested |
 
 The limits stated beside each promise in `DESIGN.md` section 1 are part of the
 promise. The home page repeats them.
