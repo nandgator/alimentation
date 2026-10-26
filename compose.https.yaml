@@ -1,6 +1,6 @@
 # Adds HTTPS to a dedicated instance, with a certificate that renews itself:
 #
-#   DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d
+#   DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d --build
 #
 # Point the domain's DNS at this machine first, and open ports 80 and 443.
 # The app is then reached only through this, at https://$DOMAIN.

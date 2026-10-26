@@ -1,6 +1,10 @@
 # A dedicated instance: this program and its own Postgres, started with one command.
 #
-#   docker compose up -d
+#   docker compose up -d --build
+#
+# Compose builds the app image only when there is none, so after pulling new code run
+# it with --build again (quick when nothing changed). Without --build you keep running
+# the image you built first.
 #
 # One-time: echo "DB_PASSWORD=$(openssl rand -hex 24)" > .env
 #
@@ -9,7 +13,7 @@
 # without the keys the data cannot be read.
 #
 # To try it on one machine without an identity provider:
-#   NODE_ENV=development AUTH_DEV=1 docker compose up
+#   NODE_ENV=development AUTH_DEV=1 docker compose up --build
 # For real use set APP_ORIGIN (https), OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET,
 # OPERATOR_EMAILS, and MIGRATION_TOKEN if workspaces will be sent here from another instance.
 name: alimentation

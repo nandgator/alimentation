@@ -34,9 +34,10 @@ Requires Node 22.18 or later and a PostgreSQL 15 or later server (18 recommended
 
 ```sh
 docker compose -f compose.test.yaml run --rm test           # every check, on Postgres 18, in containers
-NODE_ENV=development AUTH_DEV=1 DB_PASSWORD=change-me docker compose up -d   # a trial instance on http://localhost:8787
+NODE_ENV=development AUTH_DEV=1 DB_PASSWORD=change-me docker compose up -d --build   # a trial instance on http://localhost:8787
 ```
 
+Compose builds the app image only when there is none, so after pulling new code run it with `--build` again (quick when nothing changed).
 The same files work with Podman (`podman compose`); every image name is fully qualified, so no registry setup is needed.
 Podman builds in its own image format and ignores the image's health check, which is harmless here: Compose runs its own for the database.
 
