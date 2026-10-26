@@ -66,12 +66,10 @@ export function Stage() {
   const world = narrow ? `translateX(${-step * 400}px)` : 'none';
 
   return (
-    <>
-      <div className="hwrap moving-head">
+    <div className="moving hwrap" data-step={step}>
+      <div className="stage-col">
         <Lines lines={['Start on our shelf.', 'Move when you’re ready.']} id="moving-title" />
-      </div>
-      <div className="moving hwrap" data-step={step}>
-        <div className="stage-col">
+        <div className="stage-wrap">
           <svg
             className="stage"
             viewBox={view}
@@ -89,36 +87,38 @@ export function Stage() {
             </g>
           </svg>
         </div>
-        <div className="steps-col">
-          <ol className="steps" aria-labelledby="moving-title">
-            <li ref={(n) => void (itemRefs.current[0] = n)} className={step === 0 ? 'on' : ''}>
-              <h3>{STATIONS[0].name}</h3>
-              <p>
-                Free while you are small. Your kitchen gets a book of its own, kept apart from every
-                other kitchen’s, so a busy neighbour never slows you down.
-              </p>
-            </li>
-            <li ref={(n) => void (itemRefs.current[1] = n)} className={step === 1 ? 'on' : ''}>
-              <h3>{STATIONS[1].name}</h3>
-              <p>
-                Outgrown free? One tap moves everything to storage you hold, and we keep serving it.
-                You keep the key.
-              </p>
-              <p className="catch">
-                <b>The catch.</b> It needs somewhere to go: empty storage from any database
-                provider, or your own copy of Alimentation.
-              </p>
-            </li>
-            <li ref={(n) => void (itemRefs.current[2] = n)} className={step === 2 ? 'on' : ''}>
-              <h3>{STATIONS[2].name}</h3>
-              <p>
-                Run all of it on a computer you control. One command starts it, and moving there is
-                the same single tap.
-              </p>
-            </li>
-          </ol>
-        </div>
       </div>
-    </>
+      <ol className="steps" aria-labelledby="moving-title">
+        <li ref={(n) => void (itemRefs.current[0] = n)} className={step === 0 ? 'on' : ''}>
+          <h3>{STATIONS[0].name}</h3>
+          <p>
+            Free while you are small. Your kitchen gets a book of its own, kept apart from every
+            other kitchen’s, so a busy neighbour never slows you down.
+          </p>
+        </li>
+        <li ref={(n) => void (itemRefs.current[1] = n)} className={step === 1 ? 'on' : ''}>
+          <h3>{STATIONS[1].name}</h3>
+          <p>
+            Outgrown free? One tap moves everything to storage you hold, and we keep serving it. You
+            keep the key.
+          </p>
+          <p>
+            First we practise the move, then recount every bill to the paisa, and only then switch.
+            Your old copy stays readable for seven days, then it is wiped.
+          </p>
+          <p className="catch">
+            <b>The catch.</b> It needs somewhere to go: empty storage from any database provider, or
+            your own copy of Alimentation.
+          </p>
+        </li>
+        <li ref={(n) => void (itemRefs.current[2] = n)} className={step === 2 ? 'on' : ''}>
+          <h3>{STATIONS[2].name}</h3>
+          <p>
+            Run all of it on a computer you control. One command starts it, and moving there is the
+            same single tap, with the same checks.
+          </p>
+        </li>
+      </ol>
+    </div>
   );
 }

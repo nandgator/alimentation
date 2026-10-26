@@ -75,8 +75,8 @@ export function Home() {
           </Link>
           <nav aria-label="Sections">
             <a href="#try">Try it</a>
-            <a href="#moving">Moving</a>
             <a href="#free">Free</a>
+            <a href="#moving">Moving</a>
             <a href="#leaving">Leaving</a>
             <a href="#promises">Promises</a>
           </nav>
@@ -133,36 +133,6 @@ export function Home() {
           <Month />
         </section>
 
-        <section id="moving" className="section steel" aria-labelledby="moving-title">
-          <Stage />
-          <div className="hwrap safe">
-            <Lines lines={['What happens', 'when you tap']} />
-            <ol className="safe-steps">
-              <li data-reveal style={{ ['--d' as string]: '0ms' }}>
-                <h3>We practise first</h3>
-                <p>
-                  We try the move on the new shelf while you carry on as normal. If anything goes
-                  wrong, we clear away what we added and nothing has changed for you.
-                </p>
-              </li>
-              <li data-reveal style={{ ['--d' as string]: '90ms' }}>
-                <h3>We copy and recount</h3>
-                <p>
-                  Writing pauses for a moment. We copy every entry, then work out every bill again
-                  from the raw entries and compare, to the paisa.
-                </p>
-              </li>
-              <li data-reveal style={{ ['--d' as string]: '180ms' }}>
-                <h3>We switch</h3>
-                <p>
-                  Everyone signs in as before, with the same email. Your old copy stays readable for
-                  seven days in case you change your mind, then it is wiped.
-                </p>
-              </li>
-            </ol>
-          </div>
-        </section>
-
         <section id="free" className="section free" aria-labelledby="free-title">
           <div className="hwrap free-grid">
             <div>
@@ -172,6 +142,13 @@ export function Home() {
                 {THRESHOLDS.watch * 100} percent full we tell you. At 100 percent you have{' '}
                 {GRACE_DAYS} days before new entries pause. Looking at your book and taking a copy
                 never pause.
+              </p>
+              <p className="statement-note" data-reveal>
+                What counts as an entry? Each change someone logs (a leave, a switch, extra
+                chapatis), each payment, and the cook’s answer to it. The meals nobody changes cost
+                nothing. Everything is counted for the kitchen as a whole, not per person: 25 people
+                who each log three changes a month and pay monthly use about 1,500 entries a year,
+                so {fmt.format(FREE_LIMITS.rows)} lasts over three years.
               </p>
               <p className="catch" data-reveal>
                 <b>The catch.</b> Our hosts can change their free limits. If they do, you hear from
@@ -192,7 +169,7 @@ export function Home() {
                 </dd>
               </div>
               <div>
-                <dt>actions a day</dt>
+                <dt>actions a day, all together</dt>
                 <dd>
                   <Figure value={fmt.format(FREE_LIMITS.requestsPerDay)} />
                 </dd>
@@ -208,12 +185,16 @@ export function Home() {
           </div>
         </section>
 
+        <section id="moving" className="section steel" aria-labelledby="moving-title">
+          <Stage />
+        </section>
+
         <section id="leaving" className="section leaving" aria-labelledby="leaving-title">
           <div className="hwrap leaving-grid">
             <div>
               <Lines lines={['When you leave,', 'everything goes']} id="leaving-title" />
               <p className="statement" data-reveal>
-                No exit interview, no maze of “are you sure”. Leaving is a fixed procedure, done in
+                Stopping for good? There is no exit interview. Leaving is a fixed procedure, done in
                 this order, and it ends with a receipt.
               </p>
               <ol className="wipe">
@@ -234,47 +215,48 @@ export function Home() {
               </ol>
             </div>
             <div className="printer" data-reveal="print">
-              <div className="slot" aria-hidden="true" />
-              <figure className="receipt" aria-label="An example wipe receipt" data-ui>
-                <figcaption>Example receipt. Yours will carry real figures.</figcaption>
-                <dl>
-                  <div>
-                    <dt>Kitchen</dt>
-                    <dd className="mono">3f9c2e1a-7b64-4d08-9a15-c0de51ab07e2</dd>
-                  </div>
-                  <div>
-                    <dt>Asked for</dt>
-                    <dd>14-Mar-2027 09:12 · done 09:12</dd>
-                  </div>
-                  <div>
-                    <dt>Checked</dt>
-                    <dd>
-                      <span className="tick">✓</span> Keys destroyed
-                      <br />
-                      <span className="tick">✓</span> Book removed
-                      <br />
-                      <span className="tick">✓</span> Directory entry gone
-                      <br />
-                      <span className="tick">✓</span> Members, invitations and usage gone
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Counted, never read</dt>
-                    <dd>people 14 · entries 2,311 · claims 96 · settlements 11</dd>
-                  </div>
-                  <div>
-                    <dt>What remains</dt>
-                    <dd>
-                      This receipt. A count with no names. Our host’s recovery copy, for up to seven
-                      days, unreadable without the destroyed keys.
-                    </dd>
-                  </div>
-                </dl>
-                <p className="seal">
-                  Names no one. Written once: neither the app nor the database’s owner can change
-                  it.
-                </p>
-              </figure>
+              <div className="paper">
+                <figure className="receipt" aria-label="An example wipe receipt" data-ui>
+                  <figcaption>Example receipt. Yours will carry real figures.</figcaption>
+                  <dl>
+                    <div>
+                      <dt>Kitchen</dt>
+                      <dd className="mono">3f9c2e1a-7b64-4d08-9a15-c0de51ab07e2</dd>
+                    </div>
+                    <div>
+                      <dt>Asked for</dt>
+                      <dd>14-Mar-2027 09:12 · done 09:12</dd>
+                    </div>
+                    <div>
+                      <dt>Checked</dt>
+                      <dd>
+                        <span className="tick">✓</span> Keys destroyed
+                        <br />
+                        <span className="tick">✓</span> Book removed
+                        <br />
+                        <span className="tick">✓</span> Directory entry gone
+                        <br />
+                        <span className="tick">✓</span> Members, invitations and usage gone
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Counted, never read</dt>
+                      <dd>people 14 · entries 2,311 · claims 96 · settlements 11</dd>
+                    </div>
+                    <div>
+                      <dt>What remains</dt>
+                      <dd>
+                        This receipt. A count with no names. Our host’s recovery copy, for up to
+                        seven days, unreadable without the destroyed keys.
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="seal">
+                    Names no one. Written once: neither the app nor the database’s owner can change
+                    it.
+                  </p>
+                </figure>
+              </div>
             </div>
           </div>
         </section>
@@ -354,7 +336,8 @@ export function Home() {
             </nav>
           </div>
           <p className="mega" aria-hidden="true">
-            Alimentation
+            <span className="mega-sharp">Alimentation</span>
+            <span className="mega-blur">Alimentation</span>
           </p>
         </div>
       </footer>
