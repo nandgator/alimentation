@@ -105,7 +105,7 @@ One machine, one command. Tested here with Docker Compose.
 
 ```sh
 echo "DB_PASSWORD=$(openssl rand -hex 24)" > .env
-NODE_ENV=development AUTH_DEV=1 docker compose up -d     # a trial on this machine: http://localhost:8787, anyone can sign in
+NODE_ENV=development AUTH_DEV=1 docker compose up -d --build     # a trial on this machine: http://localhost:8787, anyone can sign in
 ```
 
 The default start is `production`, which refuses development sign-in and plain `http`, so a server with no identity
@@ -115,12 +115,16 @@ For real use set, in `.env`: `APP_ORIGIN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OID
 `MIGRATION_TOKEN` if kitchens will be sent here. For HTTPS, point a domain at the machine and:
 
 ```sh
-DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d
+DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d --build
 ```
 
 On the first start the server makes its master key, session secret and control database and keeps them in the `instance`
 volume (`instance.json`, readable by the server only). **That file is the master key.** Back up the `pgdata` and `instance`
 volumes together, and keep the backup as private as the data. A database backup without the file cannot be read.
+
+**Updating.** Compose builds the image only when there is none, and nothing watches the files, so after `git pull` run the same
+`up -d --build`. It rebuilds, replaces the app container, and keeps both volumes. Do not use `down -v` to update: `-v` deletes
+the volumes, which holds the database and the master key.
 
 Moving a kitchen here from the shared service: the owner opens **Your data**, chooses **My own instance**, and gives this
 address and the `MIGRATION_TOKEN`. Everyone is invited again automatically, by the email they signed in with.
