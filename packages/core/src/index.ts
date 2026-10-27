@@ -7,3 +7,4 @@ export * from './validate.ts';
 export * from './limits.ts';
 export * from './contracts.ts';
 export * from './bundle.ts';
+export * from './history.ts';

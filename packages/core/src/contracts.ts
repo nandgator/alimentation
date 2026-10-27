@@ -67,6 +67,17 @@ export interface LogEntryDto {
   note: string | null;
   loggedBy: string;
   loggedAt: string;
+  /** Who made it, as the reader may know them: "You", "The admin", "The supplier", or a name they can see. */
+  by: string;
+  /** Days between the day and the day it was really logged; 0 when it was logged in time. */
+  lateByDays: number;
+}
+
+/** One thing that was done to the reader's records, in words. */
+export interface HistoryEventDto {
+  id: number;
+  at: string;
+  text: string;
 }
 
 export type ClaimStatus = 'Pending' | 'Confirmed' | 'Disputed' | 'Reversed';
