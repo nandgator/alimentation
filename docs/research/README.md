@@ -22,3 +22,9 @@ for a commercial decision. Rows marked UNKNOWN are open questions, not findings.
 | [platform-digitalocean.md](platform-digitalocean.md)   | DigitalOcean: Droplets, App Platform, Managed PostgreSQL, with prices                                          |
 | [platforms-hyperscalers.md](platforms-hyperscalers.md) | AWS, Google Cloud, Azure: paid options priced for a tiny workload; some prices derived, some unknown           |
 | [platforms-vms.md](platforms-vms.md)                   | Oracle Always Free, Google Compute Engine, AWS, Azure, Cloudflare Containers, Codespaces                       |
+
+## Other studies
+
+| File                           | What                                                                                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [payload-cms.md](payload-cms.md) | Payload CMS's admin, run live and driven in a browser, and its source and guides: what it does well, where it falls short for a books app, and what was borrowed. |
