@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { dayName, weekdayOf, type IsoDate, type LedgerDto } from '@alimentation/core';
-import { Chip, MonthPicker, Problem, Spinner, useLoad } from '../../components/ui.tsx';
+import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from '../../components/ui.tsx';
 import { getJson } from '../../api.ts';
 import { date, money } from '../../format.ts';
 import { useWorkspace } from './context.tsx';
@@ -23,31 +23,36 @@ export function Daily() {
   const days = res.data?.days ?? [];
   return (
     <div className="stack">
-      <div className="pagehead">
-        <h1>Daily</h1>
-        <div className="row">
-          {ws.role !== 'consumer' ? (
-            <select
-              aria-label="Person"
-              value={person}
-              onChange={(e) => setPerson(e.target.value)}
-              style={{ width: 'auto' }}
-            >
-              {consumers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          ) : null}
-          <MonthPicker
-            months={boot.months.length ? boot.months : [boot.currentMonth]}
-            value={selected}
-            onChange={setSelected}
-            current={boot.currentMonth}
-          />
-        </div>
-      </div>
+      <PageHead
+        title="Daily"
+        lead={
+          ws.role === 'consumer' ? 'Your month, day by day.' : 'One person’s month, day by day.'
+        }
+        actions={
+          <>
+            {ws.role !== 'consumer' ? (
+              <select
+                aria-label="Person"
+                value={person}
+                onChange={(e) => setPerson(e.target.value)}
+                style={{ width: 'auto' }}
+              >
+                {consumers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <MonthPicker
+              months={boot.months.length ? boot.months : [boot.currentMonth]}
+              value={selected}
+              onChange={setSelected}
+              current={boot.currentMonth}
+            />
+          </>
+        }
+      />
       <Problem error={res.error} />
       {res.loading && !res.data ? <Spinner /> : null}
       {days.length > 0 ? (

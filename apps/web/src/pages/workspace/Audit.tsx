@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getJson } from '../../api.ts';
-import { Chip, Problem, Spinner, useLoad } from '../../components/ui.tsx';
+import { Chip, PageHead, Problem, Spinner, useLoad } from '../../components/ui.tsx';
 import { useWorkspace } from './context.tsx';
 
 interface Entry {
@@ -30,11 +30,10 @@ export function Audit() {
   const more = (res.data?.length ?? 0) === PAGE;
   return (
     <div className="stack">
-      <h1>Audit trail</h1>
-      <p className="muted">
-        Every change, who made it and when. Names and notes appear as “(encrypted)”: the trail
-        itself holds no readable details.
-      </p>
+      <PageHead
+        title="Audit trail"
+        lead="Every change, who made it and when. Names and notes appear as “(encrypted)”: the trail itself holds no readable details."
+      />
       <Problem error={res.error} />
       {res.loading && seen.length === 0 ? <Spinner /> : null}
       <div
