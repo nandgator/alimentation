@@ -246,7 +246,7 @@ export function Payments() {
             </p>
           ) : null}
           {pending.map((c) => (
-            <div key={c.id} className="card row" style={{ justifyContent: 'space-between' }}>
+            <div key={c.id} className="card row between">
               <div>
                 <b>{ws.nameOf(c.consumerId)}</b> · {monthLabel(c.forMonth)} ·{' '}
                 <b className="num">{money(c.amount)}</b>

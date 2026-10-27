@@ -34,7 +34,7 @@ export function ReceiptPage() {
   return (
     <>
       <AppBar />
-      <div className="narrow" style={{ padding: '48px 0' }}>
+      <div className="narrow solo">
         {r.loading && !r.data ? <Spinner /> : null}
         {r.error ? (
           <div className="stack">
@@ -45,7 +45,7 @@ export function ReceiptPage() {
           </div>
         ) : null}
         {r.data ? (
-          <figure className="receipt" style={{ transform: 'none' }}>
+          <figure className="receipt flat">
             <figcaption>Wipe receipt</figcaption>
             <dl>
               <div>
@@ -66,9 +66,7 @@ export function ReceiptPage() {
                 <dd>
                   {Object.entries(r.data.manifest.checks).map(([k, ok]) => (
                     <div key={k}>
-                      <span className="tick" style={{ color: ok ? '#2b6a4c' : '#a1362b' }}>
-                        {ok ? '✓' : '✗'}
-                      </span>
+                      <span className={`tick ${ok ? 'ok' : 'bad'}`}>{ok ? '✓' : '✗'}</span>
                       {CHECKS[k] ?? k}
                     </div>
                   ))}

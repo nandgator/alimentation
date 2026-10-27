@@ -1,0 +1,39 @@
+{
+  "title": "Alimentation documentation",
+  "sections": [
+    {
+      "title": "Overview",
+      "pages": ["index", "overview/architecture", "overview/data-model"]
+    },
+    {
+      "title": "Concepts",
+      "pages": ["concepts/billing-engine", "concepts/policy", "concepts/trust-model"]
+    },
+    { "title": "API reference", "pages": ["api/overview", "api/workspace", "api/platform"] },
+    {
+      "title": "Self-hosting",
+      "pages": [
+        "self-hosting/install",
+        "self-hosting/going-live",
+        "self-hosting/configuration",
+        "self-hosting/operating",
+        "self-hosting/cli"
+      ]
+    },
+    {
+      "title": "Data lifecycle",
+      "pages": ["lifecycle/bundle-and-move", "lifecycle/wipe-and-housekeeping"]
+    },
+    { "title": "Security", "pages": ["security/overview"] },
+    { "title": "Contributing", "pages": ["contributing/layout-and-testing"] },
+    {
+      "title": "Design system",
+      "pages": [
+        "design/principles",
+        "design/foundations",
+        "design/components",
+        "design/conformance"
+      ]
+    }
+  ]
+}

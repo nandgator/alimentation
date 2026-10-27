@@ -558,3 +558,71 @@ database.
    continuous integration and anyone who chooses to run it themselves.
 4. Nothing found is a better free database host than Neon for this model. Prisma
    and Nile are worth re-checking if Neon's terms rule out the operator model.
+
+## 11. Trust, transparency and the interface
+
+### 11.1 Honest mistakes easy, dishonesty hard to hide (ADR-11)
+
+The people using a kitchen know each other, so the system does not try to stop a determined thief. It makes sure that
+nothing can be done without a name and a time on it, that the person a change affects can read it, and that a catch-up is
+possible until the month is closed.
+
+- **Late is allowed and marked.** An entry made after its day is accepted. `lateByDays` compares the day with the time the
+  database stamped (`logged_at`) in the kitchen's own time zone, so a client cannot claim punctuality. `checkLogEntry`
+  warns (`LATE_ENTRY`); a kitchen that wants it refused sets `exceptionCutoff`, which sends a member to the admin.
+- **Everyone reads what was done to their own records.** Migration `0002` adds `audit_member_read` and
+  `audit_supplier_read`. `GET /api/w/:slug/history` turns each visible row into a sentence from the reader's side
+  (`describeAudit`); a member's sentences name no one but the reader and show other people as a role. The admin keeps the
+  raw **Audit**. `scripts/drift-db.mjs` removes each new policy to prove the tests notice.
+- **Payments are never frozen by a close,** and a pending claim never counts as paid or against the member.
+- **Not tried:** one person holding two roles, two people who agree to cheat, and whoever runs the database.
+
+The plain-language version is `docs/site/guides/fair/honest-by-design.md`, with a table of who can see what. The
+technical one is `docs/site/docs/concepts/trust-model.md`.
+
+### 11.2 The menu, and where the kitchen and the role sit (ADR-12)
+
+- The screens of a kitchen are one list (`apps/web/src/pages/workspace/sections.ts`): address, name, group and roles. The
+  menu, the routes and the "not for your role" answer are read from it.
+- From 960px the list is a sidebar in three groups. It can be hidden; it then becomes a drawer behind **Menu** in the top
+  bar, and the choice is kept on the device. Hidden, it is `inert`, and it moves with `transform` and `opacity` only, which
+  stop under reduced motion.
+- The kitchen's name and the role being acted as belong to the menu, so they sit at the head of the sidebar when there is
+  one, and in the top bar when the menu is a row (720 to 959px) or the bottom bar (720px and under). **Sign out** stays in
+  the sticky top bar at every width. **Help** opens the guides.
+- On a phone the bottom bar is five equal cells (four screens and **More**), fixed, with room for the safe area. **More**
+  opens a panel with the rest, grouped, and Help. `apps/web/e2e/layout.spec.ts` measures it at 320, 360, 390 and 430px.
+
+### 11.3 A design system that is checked (ADR-13)
+
+The tokens (colour, type, space, shape, elevation, layers, motion, breakpoints) are in `apps/web/src/styles.css` and are
+documented, with the real stylesheet, at `/docs/design/`. `scripts/check-design.mjs` (`npm run design`) fails the build
+when a stylesheet or component leaves them: a raw colour, a shadow, a z-index, a font, a size, a gap off the grid, a radius, a
+duration or curve, a breakpoint, or a `style` attribute that decides how something looks. A waiver is a comment that begins
+`design:` and gives its reason. At the time of writing there are three. The checker is run by the test suite and by the
+compose test run.
+
+## 12. Documentation
+
+Two sites, built from `docs/site` by `apps/web/scripts/build-docs.mjs` into the web build and served by the same static
+handler as the app, so they are hosted wherever the app is.
+
+| Site   | Address   | For                                              | Written as                         |
+| ------ | --------- | ------------------------------------------------ | ---------------------------------- |
+| Guides | `/guides` | People who use a kitchen: members, cooks, admins | By task, in plain words, no jargon |
+| Docs   | `/docs`   | Whoever runs, extends or audits an instance      | As reference: how it works and why |
+
+The split follows the same line as a payment company's guides for the public and its documentation for developers. A test
+keeps technical vocabulary out of the guides, and a build step fails on a broken link, an orphan page or a duplicate title.
+
+**No documentation framework, on purpose.** The content-security policy forbids inline scripts and styles. The frameworks
+considered (VitePress, Docusaurus, Starlight) emit both, so adopting one would mean weakening the policy for the whole site
+or maintaining a fork. The generator is about 330 lines over `marked`, shares the app's stylesheet (so tokens, fonts, light
+and dark come for free), makes a client-side search index per site, and is tested (`apps/web/src/docs.test.ts`,
+`apps/web/e2e/docs.spec.ts`: accessibility in light and dark on every page, search, the phone menu, headers). If the sites
+outgrow it, the Markdown moves to a framework unchanged.
+
+**Where the ideas came from.** The grouped, hideable menu, one list driving navigation and roles, and the production
+checklist (`docs/site/docs/self-hosting/going-live.md`, `docs/site/docs/security/overview.md`) were shaped by studying
+Payload CMS's admin and its deployment and abuse-prevention guides. No code or visual design was copied; the look is
+this project's own.

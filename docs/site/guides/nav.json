@@ -1,0 +1,29 @@
+{
+  "title": "Alimentation guides",
+  "sections": [
+    { "title": "Start here", "pages": ["index", "start/quickstart", "start/roles"] },
+    {
+      "title": "If you eat at a kitchen",
+      "pages": [
+        "members/your-bill",
+        "members/telling-the-kitchen",
+        "members/paying",
+        "members/history"
+      ]
+    },
+    {
+      "title": "If you cook",
+      "pages": ["supplier/confirming-payments", "supplier/days-off-and-away"]
+    },
+    {
+      "title": "If you run the books",
+      "pages": ["admin/running-the-books", "admin/month-end", "admin/kitchen-rules"]
+    },
+    { "title": "How it works", "pages": ["how/bills", "how/payments"] },
+    {
+      "title": "Fair for everyone",
+      "pages": ["fair/honest-by-design", "fair/privacy", "fair/free-tier", "fair/your-data"]
+    },
+    { "title": "Help", "pages": ["help/questions", "help/glossary"] }
+  ]
+}

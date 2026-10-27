@@ -206,7 +206,7 @@ export function LogPage() {
                       ) : null}
                     </td>
                     <td className="r">{e.qty ?? '-'}</td>
-                    <td style={{ whiteSpace: 'normal', maxWidth: 260 }}>{e.note ?? ''}</td>
+                    <td className="cell-text">{e.note ?? ''}</td>
                     <td>
                       {ws.writable ? (
                         <button

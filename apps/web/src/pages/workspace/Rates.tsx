@@ -102,8 +102,8 @@ function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void 
         <span className="label">Menu</span>
         <div className="pair">
           {WEEK.map((d) => (
-            <label key={d} className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
-              <span style={{ width: 36 }}>{dayName(d)}</span>
+            <label key={d} className="row nowrap" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+              <span className="day-label">{dayName(d)}</span>
               <select
                 aria-label={`Menu on ${dayName(d)}`}
                 value={menu[d]}
@@ -165,10 +165,9 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
         <span className="label">Meals are served on</span>
         <div className="row">
           {WEEK.map((d) => (
-            <label key={d} className="row" style={{ gap: 4 }}>
+            <label key={d} className="row" style={{ ['--gap' as string]: 'var(--space-1)' }}>
               <input
                 type="checkbox"
-                style={{ width: 18, minHeight: 18 }}
                 checked={days.has(d)}
                 onChange={(e) =>
                   setP({
@@ -443,7 +442,7 @@ export function Rates() {
           }
         />
         <div className="card">
-          <ul className="stack" style={{ margin: 0, paddingLeft: 18, ['--gap' as string]: '6px' }}>
+          <ul className="stack plain-list" style={{ ['--gap' as string]: 'var(--space-2)' }}>
             <li>Meals on {current.workingDays.map((d) => dayName(d as Weekday)).join(', ')}.</li>
             <li>
               {current.holidays.count === 'confirmed'

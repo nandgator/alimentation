@@ -17,6 +17,7 @@ First workspaces: the YMCA mess and Namrata's home kitchen.
 | [docs/RUNBOOK.md](docs/RUNBOOK.md)   | Running it: locally, on Cloudflare and Neon, as a dedicated instance, day to day |
 | [docs/HANDOFF.md](docs/HANDOFF.md)   | What is proven, what is not, and what to do next                                 |
 | [docs/DRIFT.md](docs/DRIFT.md)       | How the tests are tested                                                         |
+| [docs/site](docs/site)               | The source of the two hosted documentation sites, `/guides` and `/docs`          |
 
 ## Layout
 
@@ -24,7 +25,7 @@ First workspaces: the YMCA mess and Namrata's home kitchen.
 packages/core   billing engine, per-workspace rules, bundle format, crypto helpers (pure TypeScript)
 apps/api        Hono API; runs on Cloudflare Workers or Node; Postgres migrations
 apps/web        the installable web app and the home page
-docs            design, promises, runbooks
+docs            design, promises, runbooks, and the Markdown of the hosted guides (for people) and docs (for technicians)
 scripts         checks and the live smoke test
 ```
 
@@ -49,4 +50,5 @@ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres   # a role th
 npm test
 ```
 
-Deployment, operation and key rotation are in [docs/RUNBOOK.md](docs/RUNBOOK.md).
+Deployment, operation and key rotation are in [docs/RUNBOOK.md](docs/RUNBOOK.md). A running instance serves its own
+documentation: `/guides` for the people who use a kitchen and `/docs` for whoever runs one, including the design system.

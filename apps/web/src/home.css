@@ -11,10 +11,6 @@
   --step-head: clamp(2.1rem, 1rem + 4.3vw, 4.5rem);
   --step-lead: clamp(1.2rem, 1.05rem + 0.7vw, 1.6rem);
   --tile: color-mix(in srgb, var(--field-green) 93%, white);
-  --steel-1: #e6ece8;
-  --steel-2: #c6d0ca;
-  --steel-3: #9ba9a2;
-  --steel-4: #6e7e76;
   /* One idea of depth: whatever hangs on the wall or lies against it throws a shadow. `--lift` is for
      boxes; `--lift-cut` is for shapes with a cut edge (the receipt), where a box shadow would be clipped. */
   --lift: 0 2px 4px rgb(8 22 15 / 0.14), 0 26px 40px -18px rgb(8 22 15 / 0.5);
@@ -68,7 +64,7 @@
   fill: var(--accent);
 }
 .home svg .clip-cap {
-  fill: #c48a06;
+  fill: var(--turmeric-deep);
 }
 .home svg .clip-plain .clip {
   fill: var(--steel-4);
@@ -81,11 +77,11 @@
   fill: var(--accent);
 }
 .home svg .jar-shine {
-  fill: #f7d77a;
+  fill: var(--turmeric-pale);
 }
 /* What a shelf or a rail throws on the tiles behind it. */
 .home svg .cast {
-  fill: #000;
+  fill: var(--cast);
   opacity: 0.22;
 }
 .home svg .hole {
@@ -166,7 +162,7 @@
 .hnav {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: var(--z-bar);
   background: var(--bg);
 }
 .hnav .hwrap {
@@ -844,7 +840,7 @@
   position: relative;
   margin: 0 4%;
   background: var(--field-green-ink);
-  color: #14261d;
+  color: var(--paper-ink);
   padding: 26px 26px 34px;
   clip-path: polygon(
     0 0,
@@ -880,9 +876,9 @@
 .receipt figcaption {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #44574d;
+  color: var(--paper-ink-2);
   padding-bottom: 14px;
-  border-bottom: 1px dashed #9ba9a2;
+  border-bottom: 1px dashed var(--paper-rule);
   margin-bottom: 8px;
 }
 .receipt dl {
@@ -890,7 +886,7 @@
 }
 .receipt dl > div {
   padding: 11px 0;
-  border-bottom: 1px dashed #c6d0ca;
+  border-bottom: 1px dashed var(--paper-rule-soft);
 }
 .receipt dl > div:last-child {
   border-bottom: 0;
@@ -898,7 +894,7 @@
 .receipt dt {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #44574d;
+  color: var(--paper-ink-2);
   margin-bottom: 4px;
 }
 .receipt dd {
@@ -907,24 +903,26 @@
   line-height: 1.5;
 }
 .receipt .mono {
-  font:
-    500 0.8rem/1.4 ui-monospace,
-    'SF Mono',
-    Menlo,
-    Consolas,
-    monospace;
+  font: 500 0.8rem/1.4 var(--mono);
   word-break: break-all;
 }
 .receipt .tick {
-  color: #1f6b43;
+  color: var(--paper-good);
   font-weight: 700;
   margin-right: 6px;
+}
+.receipt .tick.bad {
+  color: var(--paper-bad);
+}
+/* On the receipt's own page it lies flat, with its torn edge, and is not tilted like the home page's. */
+.receipt.flat {
+  transform: none;
 }
 .receipt .seal {
   margin-top: 14px;
   font: 400 1.05rem/1.35 var(--serif);
   font-variant-numeric: lining-nums;
-  color: #14261d;
+  color: var(--paper-ink);
 }
 
 /* Promises: a menu of seven. */
@@ -1045,15 +1043,15 @@
   display: block;
 }
 .mega-sharp {
-  -webkit-mask-image: linear-gradient(to bottom, #000 28%, transparent 88%);
-  mask-image: linear-gradient(to bottom, #000 28%, transparent 88%);
+  -webkit-mask-image: linear-gradient(to bottom, black 28%, transparent 88%);
+  mask-image: linear-gradient(to bottom, black 28%, transparent 88%);
 }
 .mega-blur {
   position: absolute;
   inset: 0;
   filter: blur(0.03em);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 22%, #000 62%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 22%, #000 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 22%, black 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 22%, black 62%, transparent 100%);
 }
 
 /* ---------- Motion ------------------------------------------------------------ */

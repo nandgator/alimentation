@@ -64,10 +64,9 @@ export function Holidays() {
               />
             </Field>
           </div>
-          <label className="row" style={{ gap: 10 }}>
+          <label className="row" style={{ ['--gap' as string]: 'var(--space-3)' }}>
             <input
               type="checkbox"
-              style={{ width: 20, minHeight: 20 }}
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
             />
@@ -108,7 +107,7 @@ export function Holidays() {
                     </Chip>
                   </td>
                   <td>
-                    <div className="row" style={{ gap: 6 }}>
+                    <div className="row" style={{ ['--gap' as string]: 'var(--space-2)' }}>
                       <button
                         className="btn ghost small"
                         disabled={!ws.writable}
@@ -270,7 +269,7 @@ export function Settlements() {
                   <td>{monthLabel(s.forMonth)}</td>
                   <td>{s.type}</td>
                   <td className="r">{s.amount === null ? '-' : money(s.amount)}</td>
-                  <td style={{ whiteSpace: 'normal' }}>{s.note ?? ''}</td>
+                  <td className="cell-text">{s.note ?? ''}</td>
                 </tr>
               ))}
             </tbody>

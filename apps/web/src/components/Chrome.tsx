@@ -26,7 +26,7 @@ export function AppBar({
         </Link>
         <div className="grow" />
         {children}
-        <a className="small helplink" href="/docs/">
+        <a className="small helplink" href="/guides/">
           Help
         </a>
         {me?.account ? (
@@ -71,12 +71,7 @@ export function Page({
 export function RequireSignIn({ children }: { children: ReactNode }) {
   const { me } = useSession();
   const [location, go] = useLocation();
-  if (me === undefined)
-    return (
-      <p className="muted wrap" style={{ padding: 40 }}>
-        Loading…
-      </p>
-    );
+  if (me === undefined) return <p className="muted wrap waiting">Loading…</p>;
   if (!me?.account) {
     go(`/signin?next=${encodeURIComponent(location)}`, { replace: true });
     return null;

@@ -22,9 +22,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
   const act = useAction();
   return (
     <section className="card stack" aria-labelledby="new-h">
-      <h2 id="new-h" style={{ fontSize: '1.5rem' }}>
-        Start a kitchen
-      </h2>
+      <h2 id="new-h">Start a kitchen</h2>
       {cap && !cap.dedicated && !cap.open ? (
         <div className="banner warn">
           The free places are full for now. You can try again later, or run your own instance and
@@ -75,10 +73,9 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
             }}
           />
         </Field>
-        <label className="row" style={{ gap: 10 }}>
+        <label className="row" style={{ ['--gap' as string]: 'var(--space-3)' }}>
           <input
             type="checkbox"
-            style={{ width: 20, minHeight: 20 }}
             checked={supplier}
             onChange={(e) => setSupplier(e.target.checked)}
           />
@@ -116,13 +113,10 @@ export function Places() {
               sent you.
             </p>
           ) : (
-            <ul
-              className="stack"
-              style={{ listStyle: 'none', padding: 0, ['--gap' as string]: '12px' }}
-            >
+            <ul className="stack" style={{ ['--gap' as string]: 'var(--space-3)' }}>
               {list.map((w) => (
                 <li key={w.slug}>
-                  <div className="card row" style={{ justifyContent: 'space-between' }}>
+                  <div className="card row between">
                     <div>
                       <h3>{w.name}</h3>
                       <p className="muted small">

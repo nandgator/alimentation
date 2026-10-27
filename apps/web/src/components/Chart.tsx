@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { month as monthLabel, money } from '../format.ts';
 
 export interface Series {
@@ -26,7 +26,8 @@ export function BarChart({
   // Drawn at the width it is shown at, so the labels keep their size on a phone.
   const box = useRef<HTMLDivElement>(null);
   const [W, setW] = useState(640);
-  useEffect(() => {
+  // Before the first paint, so the chart is never seen at a width it is not shown at.
+  useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
     const measure = () => setW(Math.max(260, Math.floor(el.getBoundingClientRect().width)));
@@ -49,8 +50,8 @@ export function BarChart({
   const ticks = [0, 0.5, 1].map((f) => f * top);
 
   return (
-    <figure style={{ margin: 0 }} className="stack">
-      <div ref={box} style={{ width: '100%' }}>
+    <figure className="stack chart-figure">
+      <div ref={box} className="chart-box">
         <svg
           className="chart"
           width={W}
@@ -58,7 +59,6 @@ export function BarChart({
           viewBox={`0 0 ${W} ${H}`}
           role="img"
           aria-label={label}
-          style={{ display: 'block' }}
         >
           {ticks.map((t) => (
             <g key={t}>
@@ -102,27 +102,19 @@ export function BarChart({
         <div className="legend">
           {series.map((s, j) => (
             <span key={s.name}>
-              <i
-                className={`s${Math.min(j, 3)}`}
-                style={{
-                  background: `var(--${['brand', 'accent', 'ink-2', 'hair'][Math.min(j, 3)]})`,
-                }}
-              />
+              <i className={`s${Math.min(j, 3)}`} />
               {s.name}
             </span>
           ))}
         </div>
       ) : null}
       <details>
-        <summary className="muted small" style={{ cursor: 'pointer' }}>
-          Show these figures as a table
-        </summary>
+        <summary className="muted small">Show these figures as a table</summary>
         <div
-          className="tablewrap"
+          className="tablewrap chart-table"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
-          style={{ marginTop: 8 }}
         >
           <table>
             <thead>

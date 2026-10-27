@@ -5,7 +5,8 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/build-docs.mjs",
+    "docs": "node scripts/build-docs.mjs",
     "preview": "vite preview",
     "test:e2e": "npm run build:server -w @alimentation/api && npm run build && playwright test",
     "icons": "node scripts/make-icons.mjs"
@@ -24,6 +25,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "marked": "^18.1.2",
     "vite": "^8.3.5",
     "vite-plugin-pwa": "^2.0.0"
   }

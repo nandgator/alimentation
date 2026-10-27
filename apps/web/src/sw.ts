@@ -18,7 +18,7 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Pages open the app shell, which routes itself. The API and sign-in are never answered with it.
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL('/index.html'), {
-    denylist: [/^\/api\//, /^\/auth\//, /^\/_migrate\//],
+    denylist: [/^\/api\//, /^\/auth\//, /^\/_migrate\//, /^\/(docs|guides|doc-assets)(\/|$)/],
   }),
 );
 
