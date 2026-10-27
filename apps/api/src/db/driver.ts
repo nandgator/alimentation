@@ -37,13 +37,18 @@ export function dbFromPool(pool: PoolLike): Db {
     async tx(fn, opts) {
       const client = await pool.connect();
       let broken = false;
+      // A connection runs one statement at a time. Code that starts several together (Promise.all) would
+      // have pg queue them behind its back, which pg 9 refuses, so they queue here, in the order started.
+      let tail: Promise<unknown> = Promise.resolve();
       try {
         await client.query(
           opts?.snapshot ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : 'BEGIN',
         );
         const tx: Tx = {
-          async query<R extends Row = Row>(text: string, values?: unknown[]) {
-            return (await client.query(text, values)).rows as R[];
+          query<R extends Row = Row>(text: string, values?: unknown[]) {
+            const run = tail.then(async () => (await client.query(text, values)).rows as R[]);
+            tail = run.catch(() => undefined);
+            return run;
           },
         };
         const out = await fn(tx);
@@ -51,6 +56,7 @@ export function dbFromPool(pool: PoolLike): Db {
         return out;
       } catch (e) {
         try {
+          await tail; // nothing is left running when the transaction ends
           await client.query('ROLLBACK');
         } catch {
           broken = true; // a connection that cannot roll back is not reused
