@@ -617,12 +617,26 @@ keeps technical vocabulary out of the guides, and a build step fails on a broken
 
 **No documentation framework, on purpose.** The content-security policy forbids inline scripts and styles. The frameworks
 considered (VitePress, Docusaurus, Starlight) emit both, so adopting one would mean weakening the policy for the whole site
-or maintaining a fork. The generator is about 330 lines over `marked`, shares the app's stylesheet (so tokens, fonts, light
+or maintaining a fork. The generator is a few hundred lines over `marked`, shares the app's stylesheet (so tokens, fonts, light
 and dark come for free), makes a client-side search index per site, and is tested (`apps/web/src/docs.test.ts`,
 `apps/web/e2e/docs.spec.ts`: accessibility in light and dark on every page, search, the phone menu, headers). If the sites
 outgrow it, the Markdown moves to a framework unchanged.
 
-**Where the ideas came from.** The grouped, hideable menu, one list driving navigation and roles, and the production
-checklist (`docs/site/docs/self-hosting/going-live.md`, `docs/site/docs/security/overview.md`) were shaped by studying
-Payload CMS's admin and its deployment and abuse-prevention guides. No code or visual design was copied; the look is
-this project's own.
+**Front pages.** Each site opens on a front page in the manner of VitePress's: a hero (name, one line on what the site is
+for, one or two buttons) and three to six cards, with no menu or contents beside them, so a first-time reader sees where
+to go and nothing else. A page opts in with `layout: home`; what goes in the hero and the cards is the site's
+`home.json`, validated at build time, and the cards' links are checked like any other. What used to sit under the
+cards moved to its own page (`guides/start/overview`, `docs/overview/map`). The layout is imitated, not the framework.
+
+**Colours.** One choice (Auto, Light or Dark) for the whole product, kept under the `theme` key in local storage. A
+four-line script, `apps/web/public/theme.js`, applies it before the first paint on every page, the app and both sites
+alike; `src/theme.ts` and `components/ThemeSwitch.tsx` are the control's side. The control sits in the sidebar, in the
+phone's More panel, at the end of the row under the top bar on a tablet, and in the home page's footer; the sites have
+the same choice as a button in the top bar. Auto leaves the system's setting in charge. The documentation's earlier
+`docs-theme` key is still read, once.
+
+**Where the ideas came from.** The grouped, hideable menu, one list driving navigation and roles, the production
+checklist (`docs/site/docs/self-hosting/going-live.md`, `docs/site/docs/security/overview.md`) and the colour choice
+were shaped by studying Payload CMS: its admin, run live and driven in a browser, its source, and its deployment and
+abuse-prevention guides, with the findings, good and bad, in `docs/research/payload-cms.md`. No code or visual design was
+copied; the look is this project's own.

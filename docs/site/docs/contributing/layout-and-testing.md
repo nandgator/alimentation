@@ -40,7 +40,7 @@ docker compose -f compose.test.yaml run --rm test
 
 That runs formatting, types, the promise ledger, the design checker and every test, with the Postgres log readable so the check that no personal data reaches it runs for real.
 
-Without Docker, have a PostgreSQL 15 or later whose login role can create roles and databases:
+Without Docker, have Node 24 or later (`.nvmrc` says 24) and a PostgreSQL 15 or later whose login role can create roles and databases:
 
 ```sh
 npm install
@@ -99,3 +99,11 @@ Playwright's phone emulation can keep a stale viewport width after a rotation. T
 - **Words for people.** Messages are written for the person who reads them and say what to do next. They live in `packages/core/src/messages.ts` so the browser and the server say the same thing.
 - **Comments say why**, not what. A comment that restates the next line is deleted.
 - **No inline styles that decide how something looks.** See [Conformance](/docs/design/conformance/).
+
+## Writing these pages
+
+The Markdown is in `docs/site/guides` and `docs/site/docs`. A page needs a place in its site's `nav.json` (an unlisted file fails the build, so nobody is left with a page no one can find), a `title` and a `description` in its front matter, and one `#` heading. The build also fails on a broken link or `#section`, and on two pages with one title. `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and `[!IMPORTANT]` make callouts.
+
+Each site opens on a front page: `index.md` with `layout: home` and no body. What it shows is that site's `home.json`: a hero (`name`, `text`, `tagline` and one or two `actions` of kind `brand` or `alt`) and three to six `features`, each a `title`, `details` and `link`. The build checks the shape and the links. Anything written under the front matter, without a `#` heading (the hero is the page's one heading), is shown after the cards. The two front pages leave it empty so they stay minimal, and what used to sit there has a page of its own.
+
+The guides are written for people who use a kitchen, so a test refuses technical words in them (Postgres, API, Docker and the like) outside of code. Say it plainly, or put it in the docs and link there.

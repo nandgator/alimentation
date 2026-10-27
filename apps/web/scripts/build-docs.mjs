@@ -127,6 +127,62 @@ function renderer(toc) {
   return md;
 }
 
+/**
+ * The front page of a site (`layout: home` in its index.md) is a hero and a few cards, as in VitePress, with
+ * no menu beside it. What goes in them is in the site's home.json, so a page cannot be built without it.
+ */
+function readHome(srcRoot, site, file) {
+  const path = join(srcRoot, site.dir, 'home.json');
+  if (!existsSync(path))
+    throw new Error(`${file} is a home page, so ${site.dir}/home.json is needed`);
+  const h = JSON.parse(readFileSync(path, 'utf8'));
+  const need = (ok, what) => {
+    if (!ok) throw new Error(`${site.dir}/home.json: ${what}`);
+  };
+  const text = (v) => typeof v === 'string' && v.trim().length > 0;
+  need(
+    h.hero && text(h.hero.name) && text(h.hero.text) && text(h.hero.tagline),
+    'the hero needs a name, a text and a tagline',
+  );
+  need(
+    Array.isArray(h.hero.actions) && h.hero.actions.length >= 1 && h.hero.actions.length <= 2,
+    'the hero has one or two actions',
+  );
+  for (const x of h.hero.actions)
+    need(
+      text(x.text) && text(x.link) && ['brand', 'alt'].includes(x.kind),
+      'each action needs text, a link and a kind of "brand" or "alt"',
+    );
+  need(
+    Array.isArray(h.features) && h.features.length >= 3 && h.features.length <= 6,
+    'there are three to six feature cards',
+  );
+  for (const f of h.features)
+    need(
+      text(f.title) && text(f.details) && text(f.link),
+      'each card needs a title, details and a link',
+    );
+  return h;
+}
+
+function homeHtml(h) {
+  const actions = h.hero.actions
+    .map(
+      (x) =>
+        `<a class="btn${x.kind === 'alt' ? ' ghost' : ''}" href="${esc(x.link)}">${esc(x.text)}</a>`,
+    )
+    .join('');
+  const cards = h.features
+    .map(
+      (f) =>
+        `<a class="feature" href="${esc(f.link)}"><h2>${esc(f.title)}</h2><p>${esc(f.details)}</p></a>`,
+    )
+    .join('');
+  return `<section class="home-hero"><h1><span class="home-name">${esc(h.hero.name)}</span> <span class="home-text">${esc(h.hero.text)}</span></h1><p class="home-tagline">${esc(h.hero.tagline)}</p><p class="home-actions">${actions}</p></section>
+<section class="home-features" aria-label="Where to start">${cards}</section>
+`;
+}
+
 /** One site's pages in reading order, from its nav.json, each read, rendered and checked. */
 function loadSite(srcRoot, site) {
   const src = join(srcRoot, site.dir);
@@ -142,8 +198,21 @@ function loadSite(srcRoot, site) {
         throw new Error(`${site.dir}/nav.json lists ${file}, which does not exist`);
       const { meta, body } = frontMatter(readFileSync(join(srcRoot, file), 'utf8'), file);
       const toc = [];
-      const html = renderer(toc).parse(body);
-      if (!/^<h1 /.test(html)) throw new Error(`${file}: a page starts with one # heading`);
+      const rendered = renderer(toc).parse(body);
+      const layout = meta.layout ?? 'doc';
+      if (layout !== 'doc' && layout !== 'home')
+        throw new Error(`${file}: layout is "doc" or "home", not "${layout}"`);
+      if (layout === 'home' && slug !== 'index')
+        throw new Error(`${file}: only a site's index page can be a home page`);
+      let front = '';
+      if (layout === 'home') {
+        if (/<h1[ >]/.test(rendered))
+          throw new Error(`${file}: a home page takes its one heading from the hero`);
+        front = homeHtml(readHome(srcRoot, site, file));
+      } else if (!/^<h1 /.test(rendered)) {
+        throw new Error(`${file}: a page starts with one # heading`);
+      }
+      const html = front + rendered;
       pages.push({
         site,
         slug,
@@ -152,6 +221,9 @@ function loadSite(srcRoot, site) {
         title: meta.title,
         description: meta.description,
         url: slug === 'index' ? site.base : `${site.base}${slug}/`,
+        layout,
+        front,
+        body: rendered,
         html,
         toc,
       });
@@ -249,6 +321,9 @@ function pageHtml(site, page, css, index) {
   const switcher = `<nav class="docs-switch" aria-label="Documentation">${SITES.map(
     (x) => `<a href="${x.base}"${x.dir === meta.dir ? ' aria-current="true"' : ''}>${x.name}</a>`,
   ).join('')}</nav>`;
+  const home = page.layout === 'home';
+  const other = SITES.find((x) => x.dir !== meta.dir);
+  const foot = `<footer class="docs-foot"><p class="muted small">Alimentation keeps the accounts of small kitchens. <a href="/">Home</a> · <a href="/app">Open the app</a> · <a href="${other.base}">${other.name}</a></p></footer>`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -260,14 +335,14 @@ function pageHtml(site, page, css, index) {
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="${css}">
 <link rel="stylesheet" href="${ASSETS}docs.css">
-<script src="${ASSETS}theme.js"></script>
+<script src="/theme.js"></script>
 <script src="${ASSETS}docs.js" defer></script>
 </head>
-<body class="docs site-${meta.dir}">
+<body class="docs site-${meta.dir}${home ? ' is-home' : ''}">
 <a class="skip" href="#content">Skip to the page</a>
 <header class="docs-top">
   <div class="docs-top-in">
-    <button type="button" class="docs-menu" aria-expanded="false" aria-controls="docs-nav">Menu</button>
+    ${home ? '' : '<button type="button" class="docs-menu" aria-expanded="false" aria-controls="docs-nav">Menu</button>'}
     <a class="docs-brand" href="${meta.base}"><img src="/favicon.svg" alt="" width="26" height="26"><span>Alimentation <b>${meta.brand}</b></span></a>
     ${switcher}
     <div class="docs-search" role="search">
@@ -276,11 +351,16 @@ function pageHtml(site, page, css, index) {
       <ul id="docs-results" class="docs-results" role="listbox" aria-label="Search results" hidden></ul>
     </div>
     <span class="grow"></span>
-    <button type="button" class="docs-theme btn ghost small" aria-label="Switch colour theme">Theme</button>
+    <button type="button" class="docs-theme btn ghost small" aria-label="Colour theme: automatic. Press to change.">Theme: Auto</button>
     <a class="btn small docs-open" href="/app">Open the app</a>
   </div>
 </header>
-<div class="docs-shell">
+${
+  home
+    ? `<main id="content" class="docs-home" tabindex="-1">
+${page.front}${page.body.trim() ? `<article class="docs-article home-body">\n${page.body}</article>\n` : ''}${foot}
+</main>`
+    : `<div class="docs-shell">
   <nav id="docs-nav" class="docs-nav" aria-label="${esc(meta.name)} contents">${navHtml(site, page)}</nav>
   <main id="content" class="docs-main" tabindex="-1">
     <article class="docs-article">
@@ -288,10 +368,11 @@ function pageHtml(site, page, css, index) {
 ${page.html}
       ${pager}
     </article>
-    <footer class="docs-foot"><p class="muted small">Alimentation keeps the accounts of small kitchens. <a href="/">Home</a> · <a href="/app">Open the app</a> · <a href="${SITES.find((x) => x.dir !== meta.dir).base}">${SITES.find((x) => x.dir !== meta.dir).name}</a></p></footer>
+    ${foot}
   </main>
   ${toc}
-</div>
+</div>`
+}
 </body>
 </html>
 `;
@@ -316,8 +397,7 @@ export function buildDocs({
   const assets = join(dist, ASSETS);
   rmSync(assets, { recursive: true, force: true });
   mkdirSync(assets, { recursive: true });
-  for (const f of ['docs.css', 'docs.js', 'theme.js'])
-    cpSync(join(here, 'docs', f), join(assets, f));
+  for (const f of ['docs.css', 'docs.js']) cpSync(join(here, 'docs', f), join(assets, f));
   const written = [];
   for (const site of sites) {
     const out = join(dist, site.site.dir);

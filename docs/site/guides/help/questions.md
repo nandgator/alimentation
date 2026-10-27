@@ -53,6 +53,10 @@ Not by default. Some kitchens charge a share of the meal for a leave day. **Rate
 
 You hold two roles, usually admin and supplier, because you run the kitchen and cook. The switch chooses which one you are using right now.
 
+## Can I change the colours?
+
+Yes. **Colours** has three choices: **Auto** follows your phone or computer, **Light** and **Dark** stay as you set them. On a wide screen it is at the foot of the menu on the left; on a phone it is under **More**. The home page and these guides have it too, and one choice applies to all of them.
+
 ## Can I use it without a connection?
 
 You can read the last statement you opened. Adding entries and claims needs a connection.

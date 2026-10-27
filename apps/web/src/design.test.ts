@@ -76,6 +76,50 @@ describe('the design checker notices what it is for', () => {
     expect(rulesBroken('@media (max-width: 777px) { .a { gap: 4px; } }')).toEqual(['breakpoint']);
   });
 
+  describe('a select draws its own arrow, and keeps room for it', () => {
+    const shared = 'input, select, textarea { padding: 0.65rem 0.8rem; }';
+    const arrow = `select { appearance: none; padding-right: 40px; background-image: linear-gradient(to top right, transparent, var(--ink-2)); }`;
+    const why = (css: string) => checkCssText(css).map((p) => `${p.rule}: ${p.why}`);
+
+    it('accepts the shared arrow, and a narrower select that leaves its room alone', () => {
+      expect(
+        why(`${shared}\n${arrow}\n.acting select { padding-block: 0.3rem; padding-left: 0.6rem; }`),
+      ).toEqual([]);
+      expect(why('.a { color: var(--ink); }')).toEqual([]);
+    });
+
+    it('notices the browser being left to draw the arrow, wherever it likes', () => {
+      expect(why(`${shared}\nselect { min-height: 44px; }`).join('|')).toMatch(/appearance none/);
+      expect(why(`${shared}\nselect { appearance: auto; padding-right: 40px; }`).join('|')).toMatch(
+        /appearance none/,
+      );
+    });
+
+    it('notices selects that are styled with no rule to draw their arrow', () => {
+      expect(why(`${shared}\n.acting select { padding-block: 4px; }`).join('|')).toMatch(
+        /no `select` rule that draws their arrow/,
+      );
+    });
+
+    it('notices an arrow with no room: the mistake that put it against the edge', () => {
+      expect(
+        why(`${shared}\n${arrow}\n.acting select { padding: 0.3rem 0.6rem; }`).join('|'),
+      ).toMatch(/leave 40px at the right/);
+      expect(why(`${shared}\n${arrow}\nselect.fit { padding-right: 8px; }`).join('|')).toMatch(
+        /leave 40px at the right/,
+      );
+      expect(
+        why(
+          `${shared}\nselect { appearance: none; padding-right: 12px; background-image: linear-gradient(red, blue); }`,
+        ).join('|'),
+      ).toMatch(/padding-right of 40px or more/);
+    });
+
+    it('notices the select rule coming before the shared one, which would then undo its room', () => {
+      expect(why(`${arrow}\n${shared}`).join('|')).toMatch(/must come after the shared/);
+    });
+  });
+
   it('lets a line say why it is the exception, on that line only', () => {
     expect(
       rulesBroken('.a { color: #123456; /* design: a brand mark that must not change */ }'),

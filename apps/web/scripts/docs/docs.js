@@ -14,31 +14,41 @@
     });
   }
 
-  // --- the theme: the system's unless the reader has chosen
+  // --- the theme: the system's unless the reader has chosen. The same choice, under the same key, as the
+  // app's, so it applies to every page (the app's own control is in src/theme.ts).
   const themeButton = $('.docs-theme');
-  const dark = () => {
-    const t = document.documentElement.dataset.theme;
-    return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const ORDER = ['auto', 'light', 'dark'];
+  const NAMES = { auto: 'Auto', light: 'Light', dark: 'Dark' };
+  const chosen = () => {
+    try {
+      const t = localStorage.getItem('theme') || localStorage.getItem('docs-theme');
+      return t === 'light' || t === 'dark' ? t : 'auto';
+    } catch {
+      return document.documentElement.dataset.theme || 'auto';
+    }
   };
-  const labelTheme = () => {
-    if (themeButton) themeButton.textContent = dark() ? 'Light' : 'Dark';
-    if (themeButton)
-      themeButton.setAttribute(
-        'aria-label',
-        dark() ? 'Switch to the light theme' : 'Switch to the dark theme',
-      );
+  const labelTheme = (t) => {
+    if (!themeButton) return;
+    themeButton.textContent = 'Theme: ' + NAMES[t];
+    themeButton.setAttribute(
+      'aria-label',
+      'Colour theme: ' + NAMES[t].toLowerCase() + '. Press to change.',
+    );
   };
   if (themeButton) {
-    labelTheme();
+    labelTheme(chosen());
     themeButton.addEventListener('click', () => {
-      const next = dark() ? 'light' : 'dark';
-      document.documentElement.dataset.theme = next;
+      const next = ORDER[(ORDER.indexOf(chosen()) + 1) % ORDER.length];
+      if (next === 'auto') delete document.documentElement.dataset.theme;
+      else document.documentElement.dataset.theme = next;
       try {
-        localStorage.setItem('docs-theme', next);
+        localStorage.removeItem('docs-theme');
+        if (next === 'auto') localStorage.removeItem('theme');
+        else localStorage.setItem('theme', next);
       } catch {
         // The choice lasts for this page only.
       }
-      labelTheme();
+      labelTheme(next);
     });
   }
 

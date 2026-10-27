@@ -3,13 +3,16 @@
   "sections": [
     {
       "title": "Overview",
-      "pages": ["index", "overview/architecture", "overview/data-model"]
+      "pages": ["index", "overview/map", "overview/architecture", "overview/data-model"]
     },
     {
       "title": "Concepts",
       "pages": ["concepts/billing-engine", "concepts/policy", "concepts/trust-model"]
     },
-    { "title": "API reference", "pages": ["api/overview", "api/workspace", "api/platform"] },
+    {
+      "title": "API reference",
+      "pages": ["api/overview", "api/workspace", "api/platform"]
+    },
     {
       "title": "Self-hosting",
       "pages": [
@@ -24,8 +27,14 @@
       "title": "Data lifecycle",
       "pages": ["lifecycle/bundle-and-move", "lifecycle/wipe-and-housekeeping"]
     },
-    { "title": "Security", "pages": ["security/overview"] },
-    { "title": "Contributing", "pages": ["contributing/layout-and-testing"] },
+    {
+      "title": "Security",
+      "pages": ["security/overview"]
+    },
+    {
+      "title": "Contributing",
+      "pages": ["contributing/layout-and-testing"]
+    },
     {
       "title": "Design system",
       "pages": [

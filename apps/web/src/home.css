@@ -1025,6 +1025,26 @@
   display: inline-flex;
   align-items: center;
 }
+/* The colour choice, on the green of the close: the control's own colours are for the page, so here it is
+   drawn in the close's. */
+.hfoot .foot-theme {
+  margin-top: 24px;
+}
+.hfoot .foot-theme legend {
+  color: inherit;
+  opacity: 0.8;
+}
+.hfoot .theme-opts {
+  background: transparent;
+  border-color: var(--field-green-ink);
+}
+.hfoot .theme-opts span {
+  color: var(--field-green-ink);
+}
+.hfoot .theme-opts input:checked + span {
+  background: var(--field-green-ink);
+  color: var(--field-green);
+}
 /* The name, set to the width of the page and dissolving at its foot: sharp at the top, then a blurred
    copy takes over as the letters fade. It is decoration, so it cannot be selected. */
 .mega {

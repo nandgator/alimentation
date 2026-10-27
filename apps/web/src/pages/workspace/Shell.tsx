@@ -3,6 +3,7 @@ import { Link, Route, Switch, useLocation, useParams } from 'wouter';
 import type { BootstrapDto, Role } from '@alimentation/core';
 import { api, setActingAs } from '../../api.ts';
 import { AppBar, RequireSignIn } from '../../components/Chrome.tsx';
+import { ThemeSwitch } from '../../components/ThemeSwitch.tsx';
 import { Problem, Spinner, useLoad } from '../../components/ui.tsx';
 import { useMedia } from '../../home/motion.tsx';
 import { Audit } from './Audit.tsx';
@@ -311,6 +312,7 @@ function Loaded({
                   </div>
                 ))}
               </nav>
+              <ThemeSwitch />
             </aside>
             <main className="page">{content}</main>
           </div>
@@ -352,6 +354,7 @@ function Loaded({
                   <a className="extras-help" href="/guides/">
                     Help and guides
                   </a>
+                  <ThemeSwitch className="extras-theme" />
                 </div>
               </nav>
             </div>
