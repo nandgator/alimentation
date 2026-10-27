@@ -7,7 +7,7 @@ import {
 } from '@alimentation/core';
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
-import { z, ZodError } from 'zod';
+import * as z from 'zod';
 import { OidcClient, OidcError } from './auth/oidc.ts';
 import { SESSION_TTL, TokenSigner } from './auth/session.ts';
 import type { Config } from './config.ts';
@@ -139,7 +139,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         e.status as 400,
       );
     }
-    if (e instanceof ZodError) {
+    if (e instanceof z.ZodError) {
       return c.json(
         {
           error: {

@@ -36,6 +36,6 @@ RUN mkdir /data && chown node:node /data
 USER node
 VOLUME /data
 EXPOSE 8787
-HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=4 \
-  CMD wget -qO- "http://127.0.0.1:${PORT}/api/health" >/dev/null || exit 1
+# The health check is in compose.yaml, not here: an image built in the OCI format (podman's default) cannot
+# carry one, and says so on every build.
 CMD ["node", "node.mjs"]

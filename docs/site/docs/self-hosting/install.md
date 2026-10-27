@@ -23,7 +23,7 @@ Open `http://localhost:8787`. In this mode **anyone can sign in with any email**
 
 Compose builds the image only when there is none, so after you pull new code, run the same command with `--build` again. It is quick when nothing changed.
 
-Podman works the same (`podman compose`). Every image name is fully qualified, so no registry setup is needed.
+Podman works the same (`podman compose`). Every image name is fully qualified, so no registry setup is needed. The app's health check is defined in `compose.yaml`, not in the image (an image built in the OCI format, which is podman's default, cannot carry one), so `docker compose ps` and `podman ps` show the app as healthy once `/api/health` answers. Run the image some other way and give that runner the same probe: a request to `/api/health` on port 8787.
 
 ## What you get
 

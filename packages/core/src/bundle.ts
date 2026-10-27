@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { monthOf } from './dates.ts';
 import { buildStatements, consumers, monthRange, prepare, type EngineData } from './engine.ts';
 import { PolicySchema } from './policy.ts';
