@@ -13,6 +13,7 @@ import {
   Chip,
   Field,
   Form,
+  PageHead,
   Problem,
   Spinner,
   toast,
@@ -72,7 +73,7 @@ export function LogPage() {
 
   return (
     <div className="stack" style={{ ['--gap' as string]: '20px' }}>
-      <h1>{mayManage ? 'Log' : 'My log'}</h1>
+      <PageHead title={mayManage ? 'Log' : 'My log'} />
       <section className="card stack" aria-label="Add an entry">
         <Form
           error={act.error}
@@ -160,7 +161,7 @@ export function LogPage() {
       </section>
 
       <section className="stack">
-        <h3>Recent entries</h3>
+        <h2>Recent entries</h2>
         <Problem error={list.error} />
         {list.loading && !list.data ? <Spinner /> : null}
         {list.data && list.data.length === 0 ? <p className="muted">Nothing logged yet.</p> : null}
@@ -177,6 +178,7 @@ export function LogPage() {
                   <th>Date</th>
                   <th>Who</th>
                   <th>Change</th>
+                  <th>Added by</th>
                   <th className="r">Qty</th>
                   <th>Note</th>
                   <th />
@@ -192,6 +194,17 @@ export function LogPage() {
                     <td>
                       <Chip tone={e.change === 'Leave' ? 'warn' : undefined}>{e.change}</Chip>
                     </td>
+                    <td>
+                      {e.by}
+                      {e.lateByDays > 0 ? (
+                        <>
+                          {' '}
+                          <Chip tone="warn">
+                            Late: {e.lateByDays} {e.lateByDays === 1 ? 'day' : 'days'} after
+                          </Chip>
+                        </>
+                      ) : null}
+                    </td>
                     <td className="r">{e.qty ?? '-'}</td>
                     <td style={{ whiteSpace: 'normal', maxWidth: 260 }}>{e.note ?? ''}</td>
                     <td>
@@ -205,7 +218,7 @@ export function LogPage() {
                                 list.reload();
                                 ws.reload();
                               },
-                              (err: Error) => toast(err.message),
+                              (err: Error) => toast(err.message, 'bad'),
                             )
                           }
                         >

@@ -11,7 +11,9 @@ import {
   Dialog,
   Field,
   Form,
+  PageHead,
   Problem,
+  SectionHead,
   Spinner,
   toast,
   useAction,
@@ -239,7 +241,11 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
         </Field>
       </div>
       <div className="pair">
-        <Field label="Month close" id="pol-c">
+        <Field
+          label="Month close"
+          id="pol-c"
+          hint="The window for everyone to catch up. After it, meals and leave freeze; payments carry on."
+        >
           <select
             id="pol-c"
             value={close.mode}
@@ -309,7 +315,11 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
         </Field>
       </div>
       <div className="pair">
-        <Field label="Exceptions due, days before" id="pol-x" hint="Empty means any time.">
+        <Field
+          label="Exceptions due, days before"
+          id="pol-x"
+          hint="Empty means any time. Anything added after its day is always marked late."
+        >
           <input
             id="pol-x"
             type="number"
@@ -367,17 +377,20 @@ export function Rates() {
       : (ws.boot.policy ?? DEFAULT_POLICY);
   return (
     <div className="stack" style={{ ['--gap' as string]: '24px' }}>
-      <div className="pagehead">
-        <h1>Rates and rules</h1>
-      </div>
+      <PageHead
+        title="Rates and rules"
+        lead="What a meal costs, and the rules each bill follows."
+      />
       <Problem error={cards.error ?? pols.error} />
       <section className="stack" aria-label="Rate cards">
-        <div className="pagehead">
-          <h3>Rate cards</h3>
-          <button className="btn small" disabled={!ws.writable} onClick={() => setDlg('card')}>
-            New rate card
-          </button>
-        </div>
+        <SectionHead
+          title="Rate cards"
+          actions={
+            <button className="btn small" disabled={!ws.writable} onClick={() => setDlg('card')}>
+              New rate card
+            </button>
+          }
+        />
         {cards.loading && !cards.data ? <Spinner /> : null}
         {list.length > 0 ? (
           <div
@@ -421,12 +434,14 @@ export function Rates() {
       </section>
 
       <section className="stack" aria-label="Rules">
-        <div className="pagehead">
-          <h3>Rules for this kitchen</h3>
-          <button className="btn small" disabled={!ws.writable} onClick={() => setDlg('policy')}>
-            Change rules
-          </button>
-        </div>
+        <SectionHead
+          title="Rules for this kitchen"
+          actions={
+            <button className="btn small" disabled={!ws.writable} onClick={() => setDlg('policy')}>
+              Change rules
+            </button>
+          }
+        />
         <div className="card">
           <ul className="stack" style={{ margin: 0, paddingLeft: 18, ['--gap' as string]: '6px' }}>
             <li>Meals on {current.workingDays.map((d) => dayName(d as Weekday)).join(', ')}.</li>
@@ -458,12 +473,11 @@ export function Rates() {
                 ? 'Members claim a payment and the supplier confirms it.'
                 : 'Payments are recorded directly.'}
             </li>
-            {current.exceptionCutoff ? (
-              <li>
-                Exceptions are due {current.exceptionCutoff.daysBefore} day(s) before, by{' '}
-                {current.exceptionCutoff.time}.
-              </li>
-            ) : null}
+            <li>
+              {current.exceptionCutoff
+                ? `Exceptions are due ${current.exceptionCutoff.daysBefore} day(s) before, by ${current.exceptionCutoff.time}. After that, the admin can still add one for you, marked late.`
+                : 'Exceptions can be added at any time. One added after its day is marked late, so everyone can see.'}
+            </li>
           </ul>
         </div>
       </section>

@@ -1,7 +1,15 @@
 import { useMemo, useState } from 'react';
 import { STATUS_LABEL, addMonths, type StatementDto } from '@alimentation/core';
 import { BarChart } from '../../components/Chart.tsx';
-import { Chip, MonthPicker, Problem, Spinner, Tile, useLoad } from '../../components/ui.tsx';
+import {
+  Chip,
+  MonthPicker,
+  PageHead,
+  Problem,
+  Spinner,
+  Tile,
+  useLoad,
+} from '../../components/ui.tsx';
 import { getJson } from '../../api.ts';
 import { date, money, month as monthLabel } from '../../format.ts';
 import { useWorkspace } from './context.tsx';
@@ -57,41 +65,57 @@ export function Dashboard() {
 
   return (
     <div className="stack" style={{ ['--gap' as string]: '20px' }}>
-      <div className="pagehead">
-        <div>
-          <p className="eyebrow">
-            {ws.role === 'consumer' ? `Hello, ${boot.me.name}` : boot.workspace.name}
-          </p>
-          <h1>Dashboard</h1>
-        </div>
-        <div className="row">
-          <Chip tone={projected ? undefined : 'good'}>{projected ? 'Projected' : 'Actual'}</Chip>
-          <MonthPicker
-            months={boot.months.length ? boot.months : [boot.currentMonth]}
-            value={selected}
-            onChange={setSelected}
-            current={boot.currentMonth}
-          />
-        </div>
-      </div>
+      <PageHead
+        title="Dashboard"
+        lead={
+          single
+            ? `Hello, ${boot.me.name}. What you owe, and what you have paid.`
+            : 'Who owes what, and what has been paid.'
+        }
+        actions={
+          <>
+            <Chip tone={projected ? undefined : 'good'}>{projected ? 'Projected' : 'Actual'}</Chip>
+            <MonthPicker
+              months={boot.months.length ? boot.months : [boot.currentMonth]}
+              value={selected}
+              onChange={setSelected}
+              current={boot.currentMonth}
+            />
+          </>
+        }
+      />
       <Problem error={stm.error} />
       {stm.loading && !stm.data ? <Spinner /> : null}
 
       {mine.length > 0 ? (
-        <div className="tiles">
-          <Tile label="Bill" value={money(sum(mine, (s) => s.billed))} projected={projected} />
-          <Tile label="Actual to date" value={money(sum(mine, (s) => s.actualToDate))} />
-          <Tile label="Paid" value={money(sum(mine, (s) => s.paid))} />
-          <Tile label="Claimed" value={money(sum(mine, (s) => s.claimedPending))} />
-          <Tile label="Balance" value={money(sum(mine, (s) => s.balance))} projected={projected} />
-          <Tile label="Earlier unpaid" value={money(sum(mine, (s) => s.earlierUnpaid))} />
-          {single && mine[0] ? (
+        <div className="tilegroups">
+          <div className="tiles lead">
             <Tile
-              label="Status"
-              value={<span style={{ fontSize: '1.05rem' }}>{STATUS_LABEL[mine[0].status]}</span>}
+              lead
+              label="Bill"
+              value={money(sum(mine, (s) => s.billed))}
+              projected={projected}
             />
-          ) : null}
-          {!single ? <Tile label="To confirm" value={boot.pendingClaims || '-'} /> : null}
+            <Tile lead label="Paid" value={money(sum(mine, (s) => s.paid))} />
+            <Tile
+              lead
+              label="Balance"
+              value={money(sum(mine, (s) => s.balance))}
+              projected={projected}
+            />
+          </div>
+          <div className="tiles">
+            <Tile label="Actual to date" value={money(sum(mine, (s) => s.actualToDate))} />
+            <Tile label="Claimed" value={money(sum(mine, (s) => s.claimedPending))} />
+            <Tile label="Earlier unpaid" value={money(sum(mine, (s) => s.earlierUnpaid))} />
+            {single && mine[0] ? (
+              <Tile
+                label="Status"
+                value={<span style={{ fontSize: '1.05rem' }}>{STATUS_LABEL[mine[0].status]}</span>}
+              />
+            ) : null}
+            {!single ? <Tile label="To confirm" value={boot.pendingClaims || '-'} /> : null}
+          </div>
         </div>
       ) : !stm.loading && boot.rateCard ? (
         <p className="muted">Nothing to show for {monthLabel(selected)} yet.</p>
@@ -166,7 +190,7 @@ export function Dashboard() {
 
       {series.length > 0 ? (
         <section className="card stack" aria-label="Monthly bill">
-          <h3>Monthly bill</h3>
+          <h2>Monthly bill</h2>
           <BarChart
             categories={range}
             projected={range.map((m) =>

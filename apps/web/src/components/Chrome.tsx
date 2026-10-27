@@ -2,19 +2,33 @@ import type { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useSession } from '../session.tsx';
 import { Mark } from './Mark.tsx';
+import { PageHead } from './ui.tsx';
 
 /** The bar across the top of every page that is not the home page. */
-export function AppBar({ children }: { children?: ReactNode }) {
+export function AppBar({
+  children,
+  wide,
+  lead,
+}: {
+  children?: ReactNode;
+  wide?: boolean;
+  /** A control before the name, such as the button that opens a hidden menu. */
+  lead?: ReactNode;
+}) {
   const { me, signOut } = useSession();
   const [, go] = useLocation();
   return (
     <header className="topbar">
-      <div className="wrap">
+      <div className={wide ? 'wrap wide' : 'wrap'}>
+        {lead}
         <Link href={me?.account ? '/app' : '/'} className="brand">
           <Mark /> <span className="brand-text">Alimentation</span>
         </Link>
         <div className="grow" />
         {children}
+        <a className="small helplink" href="/docs/">
+          Help
+        </a>
         {me?.account ? (
           <>
             <span className="muted small account who" title={me.account.email}>
@@ -46,10 +60,7 @@ export function Page({
   return (
     <div className="page">
       <div className="wrap">
-        <div className="pagehead">
-          <h1>{title}</h1>
-          {actions ? <div className="row">{actions}</div> : null}
-        </div>
+        <PageHead title={title} actions={actions} />
         {children}
       </div>
     </div>

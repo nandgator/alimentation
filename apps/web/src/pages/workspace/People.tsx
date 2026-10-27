@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { PersonDto, Role } from '@alimentation/core';
 import { api, postJson } from '../../api.ts';
-import { Chip, Dialog, Field, Form, toast, useAction } from '../../components/ui.tsx';
+import { Chip, Dialog, Field, Form, PageHead, toast, useAction } from '../../components/ui.tsx';
 import { date } from '../../format.ts';
 import { useWorkspace } from './context.tsx';
 
@@ -82,6 +82,32 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
           Save
         </button>
       </div>
+      {person ? (
+        <div className="dlg-foot">
+          <p className="muted small">
+            {person.status === 'ACTIVE'
+              ? 'Disabling keeps their history and stops new entries.'
+              : 'Disabled: their history is kept and no new entries can be made.'}
+          </p>
+          <button
+            type="button"
+            className="btn ghost small"
+            disabled={act.busy}
+            onClick={() =>
+              void act.run(async () => {
+                await api.patch(`${ws.api}/people/${person.id}`, {
+                  status: person.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
+                });
+                toast(person.status === 'ACTIVE' ? 'Disabled.' : 'Enabled.');
+                onDone();
+                ws.reload();
+              })
+            }
+          >
+            {person.status === 'ACTIVE' ? 'Disable' : 'Enable'} {person.name}
+          </button>
+        </div>
+      ) : null}
     </Form>
   );
 }
@@ -146,12 +172,15 @@ export function People() {
   const [invite, setInvite] = useState<PersonDto | null>(null);
   return (
     <div className="stack">
-      <div className="pagehead">
-        <h1>People</h1>
-        <button className="btn" disabled={!ws.writable} onClick={() => setEdit('new')}>
-          Add a person
-        </button>
-      </div>
+      <PageHead
+        title="People"
+        lead="Everyone you feed, and the people who help run the kitchen."
+        actions={
+          <button className="btn" disabled={!ws.writable} onClick={() => setEdit('new')}>
+            Add a person
+          </button>
+        }
+      />
       <div
         className="tablewrap"
         tabIndex={0}
@@ -173,58 +202,33 @@ export function People() {
           <tbody>
             {ws.boot.people.map((p) => (
               <tr key={p.id} className={p.status === 'DISABLED' ? 'projected' : ''}>
-                <td>
-                  {p.name} {p.status === 'DISABLED' ? <Chip>Disabled</Chip> : null}
+                <td className="linked">
+                  <button
+                    type="button"
+                    disabled={!ws.writable}
+                    aria-label={`Edit ${p.name}`}
+                    onClick={() => setEdit(p)}
+                  >
+                    <span className="nm">{p.name}</span>
+                    {p.status === 'DISABLED' ? <Chip>Disabled</Chip> : null}
+                  </button>
                 </td>
                 <td>{LABEL[p.role]}</td>
                 <td>{p.linked ? <Chip tone="good">Yes</Chip> : <Chip>Not yet</Chip>}</td>
                 <td>{p.contact ?? '-'}</td>
                 <td>{p.activeFrom ? date(p.activeFrom) : '-'}</td>
                 <td>{p.activeTo ? date(p.activeTo) : '-'}</td>
-                <td>
-                  <div className="row" style={{ gap: 6 }}>
+                <td className="r">
+                  {!p.linked && p.status === 'ACTIVE' ? (
                     <button
-                      className="btn ghost small"
+                      type="button"
+                      className="quiet"
                       disabled={!ws.writable}
-                      onClick={() => setEdit(p)}
+                      onClick={() => setInvite(p)}
                     >
-                      Edit
+                      Invite
                     </button>
-                    {!p.linked && p.status === 'ACTIVE' ? (
-                      <button
-                        className="btn ghost small"
-                        disabled={!ws.writable}
-                        onClick={() => setInvite(p)}
-                      >
-                        Invite
-                      </button>
-                    ) : null}
-                    {p.status === 'ACTIVE' ? (
-                      <button
-                        className="btn ghost small"
-                        disabled={!ws.writable}
-                        onClick={() =>
-                          void api
-                            .patch(`${ws.api}/people/${p.id}`, { status: 'DISABLED' })
-                            .then(ws.reload, (e: Error) => toast(e.message))
-                        }
-                      >
-                        Disable
-                      </button>
-                    ) : (
-                      <button
-                        className="btn ghost small"
-                        disabled={!ws.writable}
-                        onClick={() =>
-                          void api
-                            .patch(`${ws.api}/people/${p.id}`, { status: 'ACTIVE' })
-                            .then(ws.reload, (e: Error) => toast(e.message))
-                        }
-                      >
-                        Enable
-                      </button>
-                    )}
-                  </div>
+                  ) : null}
                 </td>
               </tr>
             ))}

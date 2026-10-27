@@ -12,6 +12,7 @@ import {
   Field,
   Form,
   MonthPicker,
+  PageHead,
   Problem,
   Spinner,
   toast,
@@ -30,7 +31,7 @@ export function Holidays() {
   const list = [...ws.boot.holidays].sort((a, b) => (a.date < b.date ? 1 : -1));
   return (
     <div className="stack" style={{ ['--gap' as string]: '20px' }}>
-      <h1>Holidays</h1>
+      <PageHead title="Holidays" />
       <section className="card stack">
         <Form
           error={act.error}
@@ -114,7 +115,7 @@ export function Holidays() {
                         onClick={() =>
                           void api
                             .patch(`${ws.api}/holidays/${h.id}`, { confirmed: !h.confirmed })
-                            .then(ws.reload, (e: Error) => toast(e.message))
+                            .then(ws.reload, (e: Error) => toast(e.message, 'bad'))
                         }
                       >
                         {h.confirmed ? 'Make tentative' : 'Confirm'}
@@ -125,7 +126,7 @@ export function Holidays() {
                         onClick={() =>
                           void api
                             .del(`${ws.api}/holidays/${h.id}`)
-                            .then(ws.reload, (e: Error) => toast(e.message))
+                            .then(ws.reload, (e: Error) => toast(e.message, 'bad'))
                         }
                       >
                         Remove
@@ -155,11 +156,10 @@ export function Settlements() {
   const needsAmount = type !== 'Query';
   return (
     <div className="stack" style={{ ['--gap' as string]: '20px' }}>
-      <h1>Settlements</h1>
-      <p className="muted">
-        An admin’s own entries: payments taken outside the app, queries raised, queries resolved.
-        They are added, never changed.
-      </p>
+      <PageHead
+        title="Settlements"
+        lead="An admin’s own entries: payments taken outside the app, queries raised, queries resolved. They are added, never changed."
+      />
       <section className="card stack">
         <Form
           error={act.error}
@@ -300,19 +300,18 @@ export function CloseMonths() {
   const open = rows.filter((s) => !s.closed);
   return (
     <div className="stack" style={{ ['--gap' as string]: '20px' }}>
-      <div className="pagehead">
-        <h1>Month close</h1>
-        <MonthPicker
-          months={boot.months.length ? boot.months : [boot.currentMonth]}
-          value={selected}
-          onChange={setSelected}
-          current={boot.currentMonth}
-        />
-      </div>
-      <p className="muted">
-        Closing freezes what each person is billed. Entries changed later show up as “changed after
-        close” with the difference, and never alter the bill.
-      </p>
+      <PageHead
+        title="Month close"
+        lead="Closing freezes what each person is billed. Entries changed later show up as “changed after close” with the difference, and never alter the bill."
+        actions={
+          <MonthPicker
+            months={boot.months.length ? boot.months : [boot.currentMonth]}
+            value={selected}
+            onChange={setSelected}
+            current={boot.currentMonth}
+          />
+        }
+      />
       <Problem error={act.error ?? res.error} />
       {res.loading && !res.data ? <Spinner /> : null}
       {rows.length > 0 ? (
@@ -329,6 +328,7 @@ export function CloseMonths() {
                 <th className="r">Live total</th>
                 <th className="r">Billed</th>
                 <th>State</th>
+                <th>Still waiting</th>
                 <th />
               </tr>
             </thead>
@@ -343,6 +343,17 @@ export function CloseMonths() {
                     {s.changedAfterClose !== 0 ? (
                       <Chip tone="bad">Changed after close {money(s.changedAfterClose)}</Chip>
                     ) : null}
+                  </td>
+                  <td>
+                    {s.claimedPending > 0 ? (
+                      <Chip tone="warn">{money(s.claimedPending)} claimed, not decided</Chip>
+                    ) : null}
+                    {s.openQueries > 0 ? (
+                      <Chip tone="bad">
+                        {s.openQueries} {s.openQueries === 1 ? 'query' : 'queries'} open
+                      </Chip>
+                    ) : null}
+                    {s.claimedPending === 0 && s.openQueries === 0 ? '-' : null}
                   </td>
                   <td>
                     {s.closed ? (
@@ -384,6 +395,12 @@ export function CloseMonths() {
           </table>
         </div>
       ) : null}
+      {rows.length > 0 ? (
+        <p className="muted small">
+          Closing freezes meals, leave and extras. Payments are not frozen: a claim can still be
+          made, confirmed or settled after the month is closed, so nobody has to rush the supplier.
+        </p>
+      ) : null}
       {open.length > 1 ? (
         <div>
           <button
@@ -403,6 +420,9 @@ export function CloseMonths() {
         <p>
           This freezes {open.length} bills. You can reopen any of them afterwards, and the reopening
           is recorded.
+          {open.some((s) => s.claimedPending > 0 || s.openQueries > 0)
+            ? ' Some of them still have a claim waiting for the supplier, or a query open. Those carry on after the close.'
+            : ''}
         </p>
         <div className="row">
           <button

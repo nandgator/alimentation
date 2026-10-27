@@ -18,6 +18,11 @@ async function go(p: Page, name: string | RegExp) {
   if (!(await link.isVisible())) await nav.getByRole('button', { name: 'More' }).click();
   await link.click();
 }
+/** The kitchen's own date, as the page itself prints it at the foot of every screen. */
+async function kitchenToday(p: Page): Promise<string> {
+  const line = await p.getByText(/^Times are in .*\. \d{4}-\d{2}-\d{2}\.$/).innerText();
+  return /\d{4}-\d{2}-\d{2}/.exec(line)![0];
+}
 const tile = (page: Page, label: string) =>
   page
     .locator('.tile', { has: page.locator('.k', { hasText: new RegExp(`^${label}$`) }) })
@@ -48,6 +53,16 @@ test('a kitchen from its first day to its last: set up, use, go offline, move, a
       await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
       await expect(page.getByText('Add a rate card to start billing.')).toBeVisible();
       await expectAccessible(page, 'new kitchen');
+      // The menu is a grouped column beside the page on a wide screen, and a bar at the bottom on a phone.
+      const menu = page.getByRole('navigation', { name: 'Sections' });
+      if ((page.viewportSize()?.width ?? 0) >= 960) {
+        for (const g of ['Day to day', 'The kitchen', 'The books'])
+          await expect(menu.getByRole('group', { name: g })).toBeVisible();
+        await expect(menu.getByRole('button', { name: 'More' })).toHaveCount(0);
+      } else {
+        await expect(menu.getByRole('group')).toHaveCount(0);
+        await expect(menu.getByRole('button', { name: 'More' })).toBeVisible();
+      }
       await shot(page, info, '1-new-kitchen');
     });
 
@@ -95,6 +110,24 @@ test('a kitchen from its first day to its last: set up, use, go offline, move, a
       await shot(page, info, '3-people');
     });
 
+    await test.step('a person is disabled and enabled again from their own dialog, in either theme', async () => {
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await page.getByRole('button', { name: 'Edit Jovial' }).click();
+      const dlg = page.getByRole('dialog', { name: 'Edit person' });
+      await expectAccessible(page, 'edit person, dark');
+      await shot(page, info, '3b-edit-person-dark');
+      await page.emulateMedia({ colorScheme: 'light' });
+      await expectAccessible(page, 'edit person');
+      await dlg.getByRole('button', { name: 'Disable Jovial' }).click();
+      const row = page.getByRole('row', { name: /Jovial/ });
+      await expect(row.getByText('Disabled', { exact: true })).toBeVisible();
+      await expect(row.getByRole('button', { name: 'Invite' })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Edit Jovial' }).click();
+      await dlg.getByRole('button', { name: 'Enable Jovial' }).click();
+      await expect(row.getByText('Disabled', { exact: true })).toHaveCount(0);
+      await expect(row.getByRole('button', { name: 'Invite' })).toBeVisible();
+    });
+
     await test.step('the member signs in with the link and sees their own bill', async () => {
       await signIn(jovial, 'jovial@example.org', 'Jovial');
       await jovial.goto(inviteLink);
@@ -113,10 +146,15 @@ test('a kitchen from its first day to its last: set up, use, go offline, move, a
 
     await test.step('the member logs a leave day and claims a payment', async () => {
       await go(jovial, 'My log');
-      await jovial.getByLabel('Date').fill(aWorkingDayThisMonth());
+      const leaveDay = aWorkingDayThisMonth();
+      const afterTheDay = leaveDay < (await kitchenToday(jovial));
+      await jovial.getByLabel('Date').fill(leaveDay);
       await jovial.getByLabel('Change').selectOption('Leave');
+      // After its day an entry is allowed, but it says so before it is made, and shows as late after.
+      if (afterTheDay) await expect(jovial.getByText(/already passed/)).toBeVisible();
       await jovial.getByRole('button', { name: 'Add', exact: true }).click();
       await expect(jovial.getByRole('cell', { name: 'Leave', exact: true })).toBeVisible();
+      if (afterTheDay) await expect(jovial.getByText(/Late: \d+ days? after/)).toBeVisible();
 
       await go(jovial, 'Payments');
       await jovial.getByLabel('Amount (₹)').fill('1000');
@@ -147,8 +185,36 @@ test('a kitchen from its first day to its last: set up, use, go offline, move, a
       await expect(page.getByRole('row', { name: /Jovial/ })).toBeVisible();
       await expectAccessible(page, 'admin dashboard');
       await shot(page, info, '6-admin-dashboard');
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await expectAccessible(page, 'admin dashboard, dark');
+      await shot(page, info, '6b-admin-dashboard-dark');
+      await page.emulateMedia({ colorScheme: 'light' });
       await jovial.reload();
       await expect(tile(jovial, 'Paid')).toHaveText('₹1,000');
+    });
+
+    await test.step('the admin removes the member’s leave, and the member can see who did it and when', async () => {
+      await go(page, 'My log');
+      await page
+        .getByRole('row', { name: /Jovial Leave/ })
+        .getByRole('button', { name: 'Remove' })
+        .click();
+      await expect(page.getByRole('row', { name: /Jovial Leave/ })).toHaveCount(0);
+      await go(jovial, 'History');
+      await expect(jovial.getByRole('heading', { name: 'History', level: 1 })).toBeVisible();
+      await expect(jovial.getByText(/^You logged Leave on /)).toBeVisible();
+      await expect(jovial.getByText(/^The admin removed your Leave entry for /)).toBeVisible();
+      await expect(
+        jovial.getByText(/^You claimed ₹1,000 for \w{3}-\d{2} \(UPI\)\.$/),
+      ).toBeVisible();
+      await expect(
+        jovial.getByText(/^The supplier confirmed your claim of ₹1,000 for \w{3}-\d{2}\.$/),
+      ).toBeVisible();
+      // Nothing about anyone else, and no name but their own.
+      await expect(jovial.locator('ol.history')).not.toContainText(/Owner|Namrata|owner@/);
+      await expectAccessible(jovial, 'member history');
+      await shot(jovial, info, '5b-member-history');
+      await go(jovial, 'Dashboard');
     });
 
     await test.step('with no signal, the member still sees the last statement', async () => {

@@ -35,6 +35,37 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
   return { ...state, reload: run };
 }
 
+/** The top of a screen: its name, a line on what it is for, and the things to do here. */
+export function PageHead({
+  title,
+  lead,
+  actions,
+}: {
+  title: string;
+  lead?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="pagehead">
+      <div className="pagehead-text">
+        <h1>{title}</h1>
+        {lead ? <p className="lead">{lead}</p> : null}
+      </div>
+      {actions ? <div className="row">{actions}</div> : null}
+    </div>
+  );
+}
+
+/** The top of one part of a screen. */
+export function SectionHead({ title, actions }: { title: string; actions?: ReactNode }) {
+  return (
+    <div className="sechead">
+      <h2>{title}</h2>
+      {actions ? <div className="row">{actions}</div> : null}
+    </div>
+  );
+}
+
 export const Spinner = ({ label = 'Loading' }: { label?: string }) => (
   <p className="muted small" role="status" aria-live="polite">
     {label}…
@@ -141,23 +172,55 @@ export function Dialog({
   );
 }
 
-const toastListeners = new Set<(m: string) => void>();
-export const toast = (message: string) => toastListeners.forEach((l) => l(message));
+type ToastTone = 'good' | 'bad';
+interface ToastMessage {
+  text: string;
+  tone: ToastTone;
+}
+const toastListeners = new Set<(m: ToastMessage) => void>();
+/** A short note that something happened. A refusal says so with `'bad'`, and is announced at once. */
+export const toast = (text: string, tone: ToastTone = 'good') =>
+  toastListeners.forEach((l) => l({ text, tone }));
 export function Toaster() {
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<ToastMessage | null>(null);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
-    const on = (m: string) => {
+    const on = (m: ToastMessage) => {
       setMessage(m);
       clearTimeout(timer);
-      timer = setTimeout(() => setMessage(null), 3500);
+      // A refusal stays long enough to be read.
+      timer = setTimeout(() => setMessage(null), m.tone === 'bad' ? 6000 : 3500);
     };
     toastListeners.add(on);
     return () => void toastListeners.delete(on);
   }, []);
   return message ? (
-    <div className="toast" role="status" aria-live="polite">
-      {message}
+    <div
+      className={`toast ${message.tone}`}
+      role={message.tone === 'bad' ? 'alert' : 'status'}
+      aria-live={message.tone === 'bad' ? 'assertive' : 'polite'}
+    >
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+        {message.tone === 'bad' ? (
+          <path
+            d="M8 3v6M8 12v.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        ) : (
+          <path
+            d="m3.5 8.5 3 3 6-7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+      </svg>
+      {message.text}
     </div>
   ) : null;
 }
@@ -170,16 +233,19 @@ export const Chip = ({
   children: ReactNode;
 }) => <span className={`chip ${tone ?? ''}`}>{children}</span>;
 
+/** One figure. The few that answer “where do I stand?” are `lead` and sit larger above the rest. */
 export const Tile = ({
   label,
   value,
   projected,
+  lead,
 }: {
   label: string;
   value: ReactNode;
   projected?: boolean;
+  lead?: boolean;
 }) => (
-  <div className={`tile ${projected ? 'projected' : ''}`}>
+  <div className={`tile${lead ? ' lead' : ''}${projected ? ' projected' : ''}`}>
     <div className="k">{label}</div>
     <div className="v">{value}</div>
   </div>

@@ -1,11 +1,19 @@
 import { useState } from 'react';
-import { PAY_METHODS, type ClaimDto, type ClaimStatus, type PayMethod } from '@alimentation/core';
+import {
+  PAY_METHODS,
+  diffDays,
+  localNow,
+  type ClaimDto,
+  type ClaimStatus,
+  type PayMethod,
+} from '@alimentation/core';
 import { api, getJson, postJson } from '../../api.ts';
 import {
   Chip,
   Dialog,
   Field,
   Form,
+  PageHead,
   Problem,
   Spinner,
   toast,
@@ -14,6 +22,13 @@ import {
 } from '../../components/ui.tsx';
 import { date, money, month as monthLabel, toPaise } from '../../format.ts';
 import { useWorkspace } from './context.tsx';
+
+/** How long a claim has waited for a decision, by the kitchen's own calendar. */
+const waited = (createdAt: string, today: string, timeZone: string): string => {
+  const n = diffDays(today, localNow(new Date(createdAt), timeZone).date);
+  if (n <= 0) return 'waiting since today';
+  return n === 1 ? 'waiting since yesterday' : `waiting ${n} days`;
+};
 
 const TONE: Record<ClaimStatus, 'good' | 'warn' | 'bad' | undefined> = {
   Pending: 'warn',
@@ -37,7 +52,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
   const paise = toPaise(amount);
   return (
     <section className="card stack" aria-label="Claim a payment">
-      <h3>I paid</h3>
+      <h2>I paid</h2>
       <Form
         error={act.error}
         onSubmit={() =>
@@ -193,6 +208,7 @@ function Decide({
 
 export function Payments() {
   const ws = useWorkspace();
+  const tz = ws.boot.workspace.timeZone;
   const claims = useLoad(() => getJson<ClaimDto[]>(`${ws.api}/claims`), [ws.api]);
   const [dialog, setDialog] = useState<{ claim: ClaimDto; mode: 'dispute' | 'reverse' } | null>(
     null,
@@ -209,17 +225,17 @@ export function Payments() {
         claims.reload();
         ws.reload();
       },
-      (e: Error) => toast(e.message),
+      (e: Error) => toast(e.message, 'bad'),
     );
 
   return (
     <div className="stack" style={{ ['--gap' as string]: '20px' }}>
-      <h1>{seesAll ? 'Payments' : 'My payments'}</h1>
+      <PageHead title={seesAll ? 'Payments' : 'My payments'} />
       <Problem error={claims.error} />
 
       {seesAll ? (
         <section className="stack" aria-label="To confirm">
-          <h3>To confirm {pending.length ? `(${pending.length})` : ''}</h3>
+          <h2>To confirm {pending.length ? `(${pending.length})` : ''}</h2>
           {pending.length === 0 ? <p className="muted">Nothing is waiting for you.</p> : null}
           {!decider && pending.length > 0 ? (
             <p className="muted small">
@@ -236,7 +252,7 @@ export function Payments() {
                 <b className="num">{money(c.amount)}</b>
                 <div className="muted small">
                   {c.method} · paid {date(c.paidAt.slice(0, 10))}
-                  {c.refNote ? ` · ${c.refNote}` : ''}
+                  {c.refNote ? ` · ${c.refNote}` : ''} · {waited(c.createdAt, ws.boot.today, tz)}
                 </div>
               </div>
               {decider ? (
@@ -265,7 +281,7 @@ export function Payments() {
       {ws.role === 'consumer' || ws.role === 'admin' ? <NewClaim onDone={claims.reload} /> : null}
 
       <section className="stack" aria-label="All claims">
-        <h3>{seesAll ? 'All claims' : 'My claims'}</h3>
+        <h2>{seesAll ? 'All claims' : 'My claims'}</h2>
         {claims.loading && !claims.data ? <Spinner /> : null}
         {list.length === 0 && !claims.loading ? <p className="muted">No claims yet.</p> : null}
         {list.length > 0 ? (
@@ -297,6 +313,12 @@ export function Payments() {
                     <td>{date(c.paidAt.slice(0, 10))}</td>
                     <td>
                       <Chip tone={TONE[c.status]}>{c.status}</Chip>
+                      {c.status === 'Pending' ? (
+                        <span className="muted small">
+                          {' '}
+                          · {waited(c.createdAt, ws.boot.today, tz)}
+                        </span>
+                      ) : null}
                       {c.decisionNote ? (
                         <span className="muted small"> · {c.decisionNote}</span>
                       ) : null}
@@ -315,7 +337,7 @@ export function Payments() {
                                 claims.reload();
                                 ws.reload();
                               },
-                              (e: Error) => toast(e.message),
+                              (e: Error) => toast(e.message, 'bad'),
                             )
                           }
                         >

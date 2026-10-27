@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { GRACE_DAYS } from '@alimentation/core';
 import { postJson } from '../../api.ts';
-import { Field, Form, Problem, toast, useAction } from '../../components/ui.tsx';
+import { Field, Form, PageHead, Problem, toast, useAction } from '../../components/ui.tsx';
 import { date } from '../../format.ts';
 import { useWorkspace } from './context.tsx';
 
@@ -39,7 +39,7 @@ function Usage() {
     m.state === 'OVER' ? 'bad' : m.state === 'ASK' ? 'warn' : m.state === 'WATCH' ? 'warn' : '';
   return (
     <section className="card stack" aria-label="Usage">
-      <h3>Free tier</h3>
+      <h2>Free tier</h2>
       {m.state === 'OK' ? <p className="muted">Well within the free tier.</p> : null}
       {m.state === 'WATCH' ? (
         <div className="banner warn">
@@ -105,7 +105,7 @@ function Move() {
   if (done)
     return (
       <section className="card stack" aria-label="Moved">
-        <h3>Moved</h3>
+        <h2>Moved</h2>
         <div className="banner good">
           {done.target === 'database'
             ? 'Your kitchen now lives in your own database, and is served from there.'
@@ -129,7 +129,7 @@ function Move() {
 
   return (
     <section className="card stack" aria-label="Move">
-      <h3>Move to a place of your own</h3>
+      <h2>Move to a place of your own</h2>
       <p className="muted">
         Nothing changes here until the copy has been checked. Everyone signs in as before, with the
         same email. This copy stays read-only for seven days, in case you change your mind.
@@ -266,7 +266,7 @@ function Export() {
   const act = useAction();
   return (
     <section className="card stack" aria-label="Export">
-      <h3>Take a copy</h3>
+      <h2>Take a copy</h2>
       <p className="muted">
         Everything in this kitchen, in an open format, with a checksum. It works at any time,
         including when you are over the limit.
@@ -305,7 +305,7 @@ function Wipe() {
   if (receipt)
     return (
       <section className="card stack" aria-label="Deleted">
-        <h3>Deleted</h3>
+        <h2>Deleted</h2>
         <div className="banner good">
           The keys are destroyed and the kitchen is gone. Nothing of it can be read.
         </div>
@@ -321,7 +321,7 @@ function Wipe() {
     );
   return (
     <section className="card stack" aria-label="Delete" style={{ borderColor: 'var(--bad)' }}>
-      <h3>Delete everything</h3>
+      <h2>Delete everything</h2>
       <p>
         The keys are destroyed first, so from that moment nothing in this kitchen can be read by
         anyone, including us. Then the database is removed, then every record of who was in it. This
@@ -367,10 +367,10 @@ export function YourData() {
   const ws = useWorkspace();
   return (
     <div className="stack" style={{ ['--gap' as string]: '20px' }}>
-      <h1>Your data</h1>
-      <p className="muted">
-        {ws.boot.workspace.name} · /w/{ws.slug}. This is yours: take it, move it, or delete it.
-      </p>
+      <PageHead
+        title="Your data"
+        lead={`${ws.boot.workspace.name} · /w/${ws.slug}. This is yours: take it, move it, or delete it.`}
+      />
       <Usage />
       <Export />
       {ws.boot.workspace.state === 'ACTIVE' ? <Move /> : null}
