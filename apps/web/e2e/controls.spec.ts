@@ -135,4 +135,52 @@ test.describe('the controls as drawn', () => {
       expect(seen.length, 'selects measured').toBeGreaterThanOrEqual(5);
     });
   }
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`the open list of a select is drawn from the design tokens, not the browser's own menu (${scheme})`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto('/docs/design/components/');
+      const drawable = await page.evaluate(() => CSS.supports('appearance', 'base-select'));
+      test.skip(
+        !drawable,
+        'this browser has no way to restyle the open list, so it shows its own (Firefox, for now)',
+      );
+      const select = page.locator('#demo-day');
+      await select.scrollIntoViewIfNeeded();
+      await select.click();
+      const painted = await page.evaluate(() => {
+        const s = document.querySelector<HTMLSelectElement>('#demo-day')!;
+        const picker = getComputedStyle(s, '::picker(select)');
+        const chosen = getComputedStyle(s.querySelector('option:checked')!);
+        // What a token resolves to, by asking the browser to paint with it.
+        const token = (name: string, prop: 'backgroundColor' | 'color' = 'backgroundColor') => {
+          const probe = document.createElement('i');
+          probe.style.setProperty(prop === 'color' ? 'color' : 'background-color', `var(${name})`);
+          document.body.append(probe);
+          const v = getComputedStyle(probe)[prop];
+          probe.remove();
+          return v;
+        };
+        return {
+          open: s.matches(':open'),
+          background: picker.backgroundColor,
+          card: token('--card'),
+          radius: picker.borderTopLeftRadius,
+          shadow: picker.boxShadow,
+          chosenBackground: chosen.backgroundColor,
+          brand: token('--brand'),
+        };
+      });
+      expect(painted.open, 'the list is open').toBe(true);
+      expect(painted.background, 'the list is on the card colour').toBe(painted.card);
+      expect(painted.radius, 'the list has the medium radius').toBe('12px');
+      expect(painted.shadow, 'the list floats, so it has a shadow').not.toBe('none');
+      expect(painted.chosenBackground, 'the chosen option is in the brand colour').toBe(
+        painted.brand,
+      );
+      await select.press('Escape');
+    });
+  }
 });
