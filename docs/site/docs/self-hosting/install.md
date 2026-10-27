@@ -35,7 +35,7 @@ On the first start the server makes its own master key, session secret and contr
 
 ## Without Docker
 
-You need Node 22.18 or later and a PostgreSQL 15 or later whose login role can create roles and databases (Postgres 18 is recommended).
+You need Node 24 or later and a PostgreSQL 15 or later whose login role can create roles and databases (Postgres 18 is recommended).
 
 ```sh
 npm install

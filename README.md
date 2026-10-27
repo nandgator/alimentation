@@ -31,7 +31,7 @@ scripts         checks and the live smoke test
 
 ## Running it
 
-Requires Node 22.18 or later and a PostgreSQL 15 or later server (18 recommended), or just Docker:
+Requires Node 24 or later and a PostgreSQL 15 or later server (18 recommended), or just Docker:
 
 ```sh
 docker compose -f compose.test.yaml run --rm test           # every check, on Postgres 18, in containers
