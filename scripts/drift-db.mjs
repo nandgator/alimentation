@@ -64,10 +64,28 @@ const defects = [
     'only their own claims',
   ],
   [
-    'rls: consumers read the audit trail',
+    'rls: everyone reads the whole audit trail',
     'owner',
     `ALTER POLICY audit_admin_read ON audit_log USING (true)`,
-    'shows the supplier every consumer',
+    'trail of their own records',
+  ],
+  [
+    'rls: members read the trail of other members',
+    'owner',
+    `ALTER POLICY audit_member_read ON audit_log USING (app_role() = 'consumer')`,
+    'trail of their own records',
+  ],
+  [
+    'rls: members cannot read the trail of their own records',
+    'owner',
+    `DROP POLICY audit_member_read ON audit_log`,
+    'trail of their own records',
+  ],
+  [
+    'rls: the supplier reads the trail of people',
+    'owner',
+    `ALTER POLICY audit_supplier_read ON audit_log USING (app_role() = 'supplier')`,
+    'not of people or the workspace',
   ],
   [
     'rls: row security off on person',

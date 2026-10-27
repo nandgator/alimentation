@@ -24,9 +24,15 @@ import {
   prepare,
   EngineError,
   STATUS_LABEL,
+  describeAudit,
+  lateByDays,
+  whoLabel,
+  type AuditRow,
   type BootstrapDto,
   type ClaimDto,
   type EngineData,
+  type HistoryContext,
+  type HistoryEventDto,
   type Issue,
   type LedgerDto,
   type Limits,
@@ -542,11 +548,17 @@ export class WorkspaceService {
   async listLog(actor: Actor, range: { from: string; to: string }): Promise<LogEntryDto[]> {
     for (const d of [range.from, range.to])
       if (!isValidDate(d)) throw invalid(`"${d}" is not a date`);
-    return this.run(actor, async (tx) => {
+    return this.run(actor, async (tx, load) => {
       const rows = await tx.query<R>(
         `SELECT id, on_date, person_id, all_consumers, change, qty, note_enc, logged_by, logged_at
            FROM log_entry WHERE on_date BETWEEN $1 AND $2 ORDER BY on_date, logged_at LIMIT 2000`,
         [range.from, range.to],
+      );
+      const ctx = await this.historyContext(
+        tx,
+        actor,
+        await load(),
+        rows.map((r) => r.logged_by),
       );
       return Promise.all(
         rows.map(async (r): Promise<LogEntryDto> => ({
@@ -559,8 +571,90 @@ export class WorkspaceService {
           note: await this.d.cipher.dec('log_entry', 'note_enc', r.id, r.note_enc),
           loggedBy: r.logged_by,
           loggedAt: r.logged_at,
+          by: whoLabel(r.logged_by, ctx),
+          lateByDays: lateByDays(r.on_date, r.logged_at, this.tz),
         })),
       );
+    });
+  }
+
+  /** What a reader may know about the people named in what they are reading. */
+  private async historyContext(
+    tx: Tx,
+    actor: Actor,
+    data: EngineData,
+    ids: Iterable<string | null>,
+    claims: ReadonlyMap<
+      string,
+      { consumerId: string; amount: number; forMonth: string }
+    > = new Map(),
+  ): Promise<HistoryContext> {
+    const names = new Map(data.people.map((x) => [x.id, x.name]));
+    const roles = new Map<string, Role>();
+    for (const id of new Set(ids)) {
+      if (id === null) continue;
+      // The role of a person is no secret from the people they act on; their name can be.
+      const [r] = await tx.query<R>('SELECT role FROM person_billing($1)', [id]);
+      if (r) roles.set(id, r.role as Role);
+    }
+    return {
+      viewerId: actor.personId,
+      timeZone: this.tz,
+      nameOf: (id) => names.get(id),
+      roleOf: (id) => roles.get(id),
+      claimOf: (id) => claims.get(id),
+    };
+  }
+
+  /**
+   * What has been done to the reader's own records, newest first, in words. The database decides
+   * which rows of the trail a person may read; this only words them.
+   */
+  async history(
+    actor: Actor,
+    opts: { before?: number; limit?: number } = {},
+  ): Promise<{ events: HistoryEventDto[]; next: number | null }> {
+    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+    return this.run(actor, async (tx, load) => {
+      const rows = await tx.query<R>(
+        `SELECT id, table_name, row_id, action, actor, at, before, after FROM audit_log
+          WHERE ($1::bigint IS NULL OR id < $1) ORDER BY id DESC LIMIT $2`,
+        [opts.before ?? null, limit],
+      );
+      const claimRows = await tx.query<R>('SELECT id, consumer_id, amount, for_month FROM claim');
+      const claims = new Map(
+        claimRows.map((c) => [
+          c.id as string,
+          {
+            consumerId: c.consumer_id as string,
+            amount: c.amount as number,
+            forMonth: c.for_month as string,
+          },
+        ]),
+      );
+      const ctx = await this.historyContext(
+        tx,
+        actor,
+        await load(),
+        rows.map((r) => r.actor),
+        claims,
+      );
+      const events: HistoryEventDto[] = [];
+      for (const r of rows) {
+        const row: AuditRow = {
+          id: Number(r.id),
+          table: r.table_name,
+          rowId: r.row_id,
+          action: r.action,
+          actor: r.actor,
+          at: r.at,
+          before: r.before,
+          after: r.after,
+        };
+        const text = describeAudit(row, ctx);
+        if (text !== null) events.push({ id: row.id, at: row.at, text });
+      }
+      return { events, next: rows.length === limit ? Number(rows[rows.length - 1]!.id) : null };
     });
   }
 

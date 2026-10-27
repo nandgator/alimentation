@@ -299,7 +299,7 @@ describe('closing a month', () => {
       });
     expect((await thrown(add(jovial, '2026-10-14'))).code).toBe('invalid');
     const { warnings } = await add(fx.admin, '2026-10-14'); // Wednesday, Non Veg: 170 off
-    expect(warnings.map((w) => w.code)).toEqual(['CHANGES_AFTER_CLOSE']);
+    expect(warnings.map((w) => w.code)).toEqual(['CHANGES_AFTER_CLOSE', 'LATE_ENTRY']);
     const s = (await fx.svc.statements(fx.admin, ['2026-10'], jovial.personId))[0]!;
     expect(s.billed).toBe(rupees(3260));
     expect(s.liveTotal).toBe(rupees(3090));
@@ -523,5 +523,143 @@ describe('limits and states', () => {
     } finally {
       await fx.close();
     }
+  });
+});
+
+describe('seeing what has been done to you, and when it was done', () => {
+  let fx: Fixture;
+  let jovial: Actor;
+  let smruti: Actor;
+  beforeAll(async () => {
+    fx = await makeFixture();
+    ({ jovial, smruti } = await seedSpec(fx));
+  });
+  afterAll(async () => fx.close());
+
+  const entry = (who: Actor, date: string, change: 'Leave' | 'Extra Chapati' = 'Leave') => ({
+    date,
+    personId: who.personId,
+    allConsumers: false,
+    change,
+    qty: change === 'Leave' ? null : 2,
+  });
+  const words = async (who: Actor, opts = {}) =>
+    (await fx.svc.history(who, { limit: 200, ...opts })).events.map((e) => e.text);
+
+  it('marks an entry made after its day as late, and one made ahead of it as on time', async () => {
+    const past = await fx.svc.addLog(jovial, entry(jovial, '2026-10-05'));
+    expect(past.warnings.map((w) => w.code)).toEqual(['LATE_ENTRY']);
+    const ahead = await fx.svc.addLog(jovial, entry(jovial, '2099-12-30'));
+    expect(ahead.warnings).toEqual([]);
+    const log = await fx.svc.listLog(jovial, { from: '2026-10-01', to: '2099-12-31' });
+    const late = log.find((e) => e.id === past.id)!;
+    const onTime = log.find((e) => e.id === ahead.id)!;
+    expect(late.lateByDays).toBeGreaterThan(0);
+    expect(late.by).toBe('You');
+    expect(onTime.lateByDays).toBe(0);
+  });
+
+  it('says who made each entry, in words the reader may know, and never names a member to another', async () => {
+    await fx.svc.addLog(fx.supplier, {
+      date: '2099-12-29',
+      personId: null,
+      allConsumers: true,
+      change: 'Supplier Off',
+      qty: null,
+    });
+    const seen = await fx.svc.listLog(jovial, { from: '2026-10-01', to: '2099-12-31' });
+    expect(seen.find((e) => e.change === 'Supplier Off')!.by).toBe('The supplier');
+    const bySupplier = await fx.svc.listLog(fx.supplier, { from: '2026-10-01', to: '2026-10-31' });
+    expect(bySupplier.find((e) => e.note === 'WFH')!.by).toBe('Smruti');
+    const byAdmin = await fx.svc.listLog(fx.admin, { from: '2026-10-01', to: '2026-10-31' });
+    expect(byAdmin.find((e) => e.change === 'Extra Bhakri')!.by).toBe('Jovial');
+  });
+
+  it('tells a member, in words, what they did and what someone else did to their records', async () => {
+    const mine = await fx.svc.addLog(jovial, entry(jovial, '2026-10-21', 'Extra Chapati'));
+    await fx.svc.removeLog(fx.admin, mine.id);
+    const claim = await fx.svc.addClaim(jovial, {
+      consumerId: jovial.personId,
+      paidAt: '2026-11-01',
+      forMonth: '2026-10',
+      amount: rupees(500),
+      method: 'UPI',
+    });
+    await fx.svc.withdrawClaim(fx.admin, claim.id);
+    const text = await words(jovial);
+    expect(text.some((t) => t.startsWith('You logged Extra Chapati ×2 on 21-Oct-2026.'))).toBe(
+      true,
+    );
+    expect(text).toContain('The admin removed your Extra Chapati ×2 entry for 21-Oct-2026.');
+    expect(text).toContain('You claimed ₹500 for Oct-26 (UPI).');
+    expect(text).toContain('The admin withdrew your claim of ₹500 for Oct-26.');
+    expect(text.some((t) => t.includes('days after the day itself'))).toBe(true);
+    // Newest first.
+    expect(text.indexOf('The admin withdrew your claim of ₹500 for Oct-26.')).toBeLessThan(
+      text.indexOf('You claimed ₹500 for Oct-26 (UPI).'),
+    );
+  });
+
+  it('shows a member nothing about anyone else, and no name but their own', async () => {
+    const text = (await words(jovial)).join('\n');
+    expect(text).not.toMatch(/Smruti|WFH|Owner|Namrata/);
+    expect(text).not.toContain('16-Oct-2026');
+    const hers = (await words(smruti)).join('\n');
+    expect(hers).toContain('You logged Leave on 16-Oct-2026.');
+    expect(hers).not.toMatch(/Jovial|500/);
+  });
+
+  it('words a decision from the supplier and its reversal, to the member it is about', async () => {
+    const { id } = await fx.svc.addClaim(smruti, {
+      consumerId: smruti.personId,
+      paidAt: '2026-11-02',
+      forMonth: '2026-10',
+      amount: rupees(250),
+      method: 'Cash',
+    });
+    await fx.svc.decide(fx.supplier, id, 'Confirmed', null);
+    await fx.svc.reverse(fx.admin, id, 'Counted twice');
+    const text = await words(smruti);
+    expect(text).toContain('The supplier confirmed your claim of ₹250 for Oct-26.');
+    expect(text).toContain(
+      'The admin reversed the decision on your claim of ₹250 for Oct-26. It no longer counts.',
+    );
+  });
+
+  it('words a month closed and reopened, to the member whose month it is', async () => {
+    await fx.svc.closeMonth(fx.admin, '2026-10', jovial.personId);
+    await fx.svc.reopenMonth(fx.admin, '2026-10', jovial.personId);
+    const text = await words(jovial);
+    expect(text.some((t) => /^The admin closed your Oct-26 bill at ₹[\d,]+\.$/.test(t))).toBe(true);
+    expect(text).toContain('The admin reopened your Oct-26 bill.');
+    expect(await words(smruti)).not.toContain('The admin reopened your Oct-26 bill.');
+  });
+
+  it('shows the supplier members by name and the admin everything', async () => {
+    const text = await words(fx.supplier);
+    expect(text.some((t) => t.startsWith('Jovial logged Extra Bhakri ×2 on 01-Oct-2026.'))).toBe(
+      true,
+    );
+    expect(text).toContain('You marked the kitchen off on 29-Dec-2099.');
+    const all = await words(fx.admin);
+    expect(all.length).toBeGreaterThanOrEqual(text.length);
+    expect(all.some((t) => t.includes('added Jovial to the kitchen'))).toBe(true);
+  });
+
+  it('pages through the trail without repeating or skipping', async () => {
+    const first = await fx.svc.history(jovial, { limit: 3 });
+    expect(first.events).toHaveLength(3);
+    expect(first.next).not.toBeNull();
+    const second = await fx.svc.history(jovial, { limit: 3, before: first.next! });
+    const ids = [...first.events, ...second.events].map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(Math.max(...second.events.map((e) => e.id))).toBeLessThan(
+      Math.min(...first.events.map((e) => e.id)),
+    );
+  });
+
+  it('still keeps the raw audit trail to the admin', async () => {
+    expect((await thrown(fx.svc.audit(jovial))).status).toBe(403);
+    expect((await thrown(fx.svc.audit(fx.supplier))).status).toBe(403);
   });
 });

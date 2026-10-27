@@ -367,3 +367,28 @@ describe('rate cards', () => {
     expect(codes(checkRateCard(p, 'next month', menu))).toEqual(['NOT_A_DATE']);
   });
 });
+
+describe('adding an entry after its day', () => {
+  const p = prep();
+  it('is allowed, with a warning that it will show as late, to anyone who may add it', () => {
+    const past = leave({ date: '2026-10-12' });
+    expect(codes(checkLogEntry(p, consumer, past, NOW), 'error')).toEqual([]);
+    expect(codes(checkLogEntry(p, consumer, past, NOW), 'warning')).toEqual(['LATE_ENTRY']);
+    expect(codes(checkLogEntry(p, admin, past, NOW), 'warning')).toEqual(['LATE_ENTRY']);
+    expect(codes(checkLogEntry(p, supplier, off({ date: '2026-10-12' }), NOW), 'warning')).toEqual([
+      'LATE_ENTRY',
+    ]);
+  });
+  it('says nothing on the day itself or before it', () => {
+    expect(checkLogEntry(p, consumer, leave({ date: '2026-10-13' }), NOW)).toEqual([]);
+    expect(checkLogEntry(p, consumer, leave({ date: '2026-10-15' }), NOW)).toEqual([]);
+  });
+  it('is refused, not warned about, where the kitchen has set a cut-off', () => {
+    const strict = prep({
+      policies: [policyWith({ exceptionCutoff: { daysBefore: 1, time: '18:00' } })],
+    });
+    const issues = checkLogEntry(strict, consumer, leave({ date: '2026-10-12' }), NOW);
+    expect(codes(issues, 'error')).toEqual(['CUTOFF_PASSED']);
+    expect(codes(issues)).not.toContain('LATE_ENTRY');
+  });
+});

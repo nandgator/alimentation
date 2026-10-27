@@ -172,6 +172,14 @@ export function localNow(now: Date, timeZone: string): LocalNow {
   };
 }
 
+/**
+ * How many days after its day an entry was made, by the workspace's own calendar: 0 for an entry made
+ * on the day or before it.
+ */
+export function lateByDays(date: IsoDate, loggedAt: string, timeZone: string): number {
+  return Math.max(0, diffDays(localNow(new Date(loggedAt), timeZone).date, date));
+}
+
 /** `YYYY-MM-DD HH:MM` strings compare correctly as text. */
 export function wallClock(date: IsoDate, time: string): string {
   return `${date} ${time}`;

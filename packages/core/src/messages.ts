@@ -27,7 +27,10 @@ export const MSG = {
   duplicate: 'That is already logged for this day.',
   holiday: 'That day is a holiday, so no meal is billed anyway.',
   onlyAuthor: 'Only the person who logged this can change it.',
-  cutoffPassed: 'The cut-off for that day has passed.',
+  cutoffPassed:
+    'The cut-off for that day has passed. Ask the admin to add it for you: it will be marked late.',
+  lateEntry:
+    'That day has already passed. You can still add this, and it will be marked late so the supplier can see it was added afterwards.',
   roleCannot3: 'The supplier decides on claims; they do not file them.',
   claimsDisabled: 'This workspace records payments directly. Ask the supplier.',
   forSelfOnly2: 'You can only claim for yourself.',
@@ -54,5 +57,5 @@ export const MSG = {
   duplicate2: 'A rate card already starts on that date.',
   backdatedRateCard: 'New rates cannot start in a month that has already begun or closed.',
   cutoffPassedOn: (date: string, time: string, daysBefore: number): string =>
-    `Exceptions for ${date} had to be logged by ${time} ${daysBefore === 0 ? 'that day' : `${daysBefore} day(s) before`}.`,
+    `Exceptions for ${date} had to be logged by ${time} ${daysBefore === 0 ? 'that day' : `${daysBefore} day(s) before`}. Ask the admin to add it for you: it will be marked late.`,
 } as const;

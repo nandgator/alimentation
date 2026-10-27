@@ -189,10 +189,26 @@ describe('[P5] personal data reaches the database only as ciphertext', () => {
       ).rows[0]!.actor;
     });
     expect(actor).toBe(s.admin.personId);
-    // And a consumer cannot read the trail at all.
-    expect(
-      await asActor(ws.app, s.jovial, async (c) => (await c.query('SELECT * FROM audit_log')).rows),
-    ).toEqual([]);
+    // A consumer reads the trail of their own records and of what everyone is billed by, and nothing else:
+    // none of the workspace's own settings, none of anyone else's rows.
+    const mine = await asActor(
+      ws.app,
+      s.jovial,
+      async (c) =>
+        (await c.query('SELECT table_name, row_id, before, after FROM audit_log')).rows as {
+          table_name: string;
+          row_id: string;
+          before: Record<string, string> | null;
+          after: Record<string, string> | null;
+        }[],
+    );
+    const about = (r: (typeof mine)[number]) => r.after ?? r.before ?? {};
+    for (const r of mine) {
+      expect(r.table_name).not.toBe('workspace');
+      if (r.table_name === 'person') expect(r.row_id).toBe(s.jovial.personId);
+      for (const k of ['person_id', 'consumer_id'] as const)
+        if (about(r)[k]) expect(about(r)[k]).toBe(s.jovial.personId);
+    }
   });
 });
 

@@ -607,6 +607,15 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     qty: z.number().int().nullable().default(null),
     note: z.string().max(500).nullish(),
   });
+  w.get('/history', async (c) => {
+    const q = z
+      .object({
+        before: z.coerce.number().int().optional(),
+        limit: z.coerce.number().int().optional(),
+      })
+      .parse(c.req.query());
+    return c.json(await svc(c).history(who(c), q));
+  });
   w.get('/log', async (c) => {
     const q = z.object({ from: IsoDate, to: IsoDate }).parse(c.req.query());
     return c.json(await svc(c).listLog(who(c), q));

@@ -56,12 +56,11 @@ describe("[P7] one person's rows are invisible to everyone else", () => {
     expect((await rows(s.jovial, 'SELECT * FROM month_close')).length).toBe(1);
   });
 
-  it('shows the supplier every consumer and every claim, but not the admin and not the audit trail', async () => {
+  it('shows the supplier every consumer and every claim, but not the admin', async () => {
     const people = await rows(s.supplier, 'SELECT role FROM person ORDER BY role');
     expect(people.map((r) => r.role)).toEqual(['consumer', 'consumer', 'supplier']);
     expect((await rows(s.supplier, 'SELECT id FROM claim')).length).toBe(2);
     expect((await rows(s.supplier, 'SELECT id FROM log_entry')).length).toBe(3);
-    expect(await rows(s.supplier, 'SELECT * FROM audit_log')).toEqual([]);
   });
 
   it('shows the admin everything', async () => {
@@ -496,5 +495,107 @@ describe('closed months', () => {
     );
     await ws2.owner.query(`UPDATE person SET active_to = NULL WHERE id = $1`, [t.jovial.personId]);
     await entry(t.jovial, t.jovial.personId, '2026-11-17');
+  });
+});
+
+describe('everyone can see what was done to their own records', () => {
+  type Actor = Parameters<typeof asActor>[1] & object;
+  const tables = async (actor: Parameters<typeof asActor>[1]) =>
+    (await rows(actor, 'SELECT DISTINCT table_name FROM audit_log ORDER BY 1')).map(
+      (r) => r.table_name,
+    );
+
+  const CORE = ['claim', 'claim_decision', 'log_entry', 'month_close', 'rate_card', 'settlement'];
+
+  it('shows a member the trail of their own records and of what everyone is billed by, and nothing of anyone else', async () => {
+    const seen = await tables(s.jovial);
+    expect(seen).toEqual(expect.arrayContaining([...CORE, 'person']));
+    // Earlier tests in this file also reversed a decision and added rules: those are theirs to see too.
+    expect(
+      seen.every((t) =>
+        [...CORE, 'person', 'claim_reversal', 'policy_version', 'holiday'].includes(t),
+      ),
+    ).toBe(true);
+    expect(seen).not.toContain('workspace');
+    const about = (id: string) =>
+      rows(
+        s.jovial,
+        `SELECT table_name FROM audit_log
+          WHERE coalesce(after, before) ->> 'person_id' = $1
+             OR coalesce(after, before) ->> 'consumer_id' = $1 OR row_id = $1`,
+        [id],
+      );
+    expect((await about(s.jovial.personId)).length).toBeGreaterThan(0);
+    expect(await about(s.smruti.personId)).toEqual([]);
+    // Decisions: his claims' are his, hers are hers, and neither sees the other's.
+    const claimsOf = async (id: string) =>
+      (await ws.owner.query('SELECT id FROM claim WHERE consumer_id = $1', [id])).rows.map(
+        (r) => r.id as string,
+      );
+    const decisionsSeenBy = async (actor: Actor) =>
+      (await rows(actor, `SELECT row_id FROM audit_log WHERE table_name = 'claim_decision'`)).map(
+        (r) => r.row_id as string,
+      );
+    const his = await decisionsSeenBy(s.jovial);
+    const hers = await decisionsSeenBy(s.smruti);
+    expect(his).toContain(s.claimJ);
+    const jovialClaims = await claimsOf(s.jovial.personId);
+    const smrutiClaims = await claimsOf(s.smruti.personId);
+    expect(his.every((id) => jovialClaims.includes(id))).toBe(true);
+    expect(hers.every((id) => smrutiClaims.includes(id))).toBe(true);
+    expect(hers).toContain(s.claimS);
+  });
+
+  it('shows the supplier the trail of what they can already read, and not of people or the workspace', async () => {
+    const seen = await tables(s.supplier);
+    expect(seen).toEqual(expect.arrayContaining(CORE));
+    expect(seen).not.toContain('person');
+    expect(seen).not.toContain('workspace');
+  });
+
+  it('shows the admin all of it, and nobody anything when no one has said who is asking', async () => {
+    expect(await tables(s.admin)).toEqual(expect.arrayContaining([...CORE, 'person', 'workspace']));
+    expect(await rows(null, 'SELECT * FROM audit_log')).toEqual([]);
+  });
+
+  it('shows a member that the admin removed their entry, and who did it', async () => {
+    const id = randomUUID();
+    await asActor(ws.app, s.jovial, (c) =>
+      c.query(
+        `INSERT INTO log_entry (id, on_date, person_id, change, logged_by) VALUES ($1, '2026-10-20', $2, 'Leave', $2)`,
+        [id, s.jovial.personId],
+      ),
+    );
+    await asActor(ws.app, s.admin, (c) => c.query('DELETE FROM log_entry WHERE id = $1', [id]));
+    const trail = await rows(
+      s.jovial,
+      `SELECT action, actor FROM audit_log WHERE table_name = 'log_entry' AND row_id = $1 ORDER BY id`,
+      [id],
+    );
+    expect(trail).toEqual([
+      { action: 'INSERT', actor: s.jovial.personId },
+      { action: 'DELETE', actor: s.admin.personId },
+    ]);
+    // Smruti, who is not party to it, sees none of it.
+    expect(
+      await rows(
+        s.smruti,
+        `SELECT 1 FROM audit_log WHERE table_name = 'log_entry' AND row_id = $1`,
+        [id],
+      ),
+    ).toEqual([]);
+  });
+
+  it('still lets nobody write to, change or remove the trail', async () => {
+    for (const actor of [s.jovial, s.supplier, s.admin]) {
+      const err = await dbError(
+        asActor(ws.app, actor, (c) =>
+          c.query(
+            `INSERT INTO audit_log (table_name, row_id, action) VALUES ('claim', 'x', 'DELETE')`,
+          ),
+        ),
+      );
+      expect(err.code).toBe('42501');
+    }
   });
 });

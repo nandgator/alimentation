@@ -43,6 +43,7 @@ export type IssueCode =
   | 'INACTIVE_ON_DATE'
   | 'MONTH_CLOSED'
   | 'CUTOFF_PASSED'
+  | 'LATE_ENTRY'
   | 'DUPLICATE'
   | 'HOLIDAY'
   | 'CHANGES_AFTER_CLOSE'
@@ -217,6 +218,12 @@ export function checkLogEntry(p: Prepared, actor: Actor, e: NewLogEntry, now: Lo
       );
     }
   }
+
+  // After the fact is allowed, because people forget and people travel, but it is never quiet: the
+  // entry carries the day it was really made (stamped by the database), and shows as late to
+  // everyone who can see it. A kitchen that wants it refused sets a cut-off instead.
+  if (e.date < now.date && !out.some((i) => i.code === 'CUTOFF_PASSED'))
+    out.push(warn('LATE_ENTRY', MSG.lateEntry));
   return out;
 }
 
