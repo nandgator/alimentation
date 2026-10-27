@@ -6,7 +6,7 @@ import { Mark } from '../components/Mark.tsx';
 import { ThemeSwitch } from '../components/ThemeSwitch.tsx';
 import { Defs, HeroScene } from '../home/art.tsx';
 import { Month } from '../home/Month.tsx';
-import { Figure, Lines, useReveal } from '../home/motion.tsx';
+import { Figure, Lines, useLight, useLive, useReveal } from '../home/motion.tsx';
 import { Stage } from '../home/Stage.tsx';
 import { useSession } from '../session.tsx';
 
@@ -60,6 +60,12 @@ export function Home() {
   const [cap, setCap] = useState<Capacity | null>(null);
   const root = useRef<HTMLDivElement>(null);
   useReveal(root);
+  // What moves by itself: a slow light behind the first screen, and another that follows a pointer over the name.
+  const hero = useRef<HTMLElement>(null);
+  const close = useRef<HTMLElement>(null);
+  const name = useRef<HTMLParagraphElement>(null);
+  useLive(hero);
+  useLight(close, name);
   useEffect(() => {
     getJson<Capacity>('/api/public/capacity').then(setCap, () => setCap(null));
   }, []);
@@ -89,10 +95,14 @@ export function Home() {
       </header>
 
       <main>
-        <section className="hero">
+        <section className="hero" ref={hero}>
           <svg className="wall" aria-hidden="true" focusable="false">
             <rect width="100%" height="100%" fill="url(#tiles)" />
           </svg>
+          <div className="hero-glow" aria-hidden="true">
+            <i className="a" />
+            <i className="b" />
+          </div>
           <div className="hwrap hero-grid">
             <div className="hero-copy">
               <Lines as="h1" first lines={['Who ate, what it', 'cost, who paid']} />
@@ -320,7 +330,7 @@ export function Home() {
         </section>
       </main>
 
-      <footer className="hfoot">
+      <footer className="hfoot" ref={close}>
         <svg className="wall" aria-hidden="true" focusable="false">
           <rect width="100%" height="100%" fill="url(#tiles)" />
         </svg>
@@ -340,9 +350,9 @@ export function Home() {
             </nav>
           </div>
           <ThemeSwitch className="foot-theme" />
-          <p className="mega" aria-hidden="true">
-            <span className="mega-sharp">Alimentation</span>
-            <span className="mega-blur">Alimentation</span>
+          <p className="mega" aria-hidden="true" ref={name}>
+            <span className="mega-base">Alimentation</span>
+            <span className="mega-lit">Alimentation</span>
           </p>
         </div>
       </footer>

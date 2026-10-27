@@ -150,21 +150,92 @@ test.describe('the home page', () => {
     }
   });
 
-  test('ends on the name, dissolving at its foot, and it cannot be selected', async ({ page }) => {
+  test('ends on the name, dim and cut off at its foot, lit only where a light passes, and it cannot be selected', async ({
+    page,
+  }) => {
     await page.goto('/');
     const mega = page.locator('.mega');
     await expect(mega).toHaveAttribute('aria-hidden', 'true');
     const style = await mega.evaluate((el) => {
       const c = getComputedStyle(el);
-      const sharp = getComputedStyle(el.querySelector('.mega-sharp')!);
-      const blur = getComputedStyle(el.querySelector('.mega-blur')!);
+      const base = getComputedStyle(el.querySelector('.mega-base')!);
+      const lit = getComputedStyle(el.querySelector('.mega-lit')!);
       return {
         select: c.userSelect,
-        fade: sharp.maskImage.includes('linear-gradient'),
-        blurred: blur.filter.startsWith('blur('),
+        fade: base.maskImage.includes('linear-gradient'),
+        // The lit copy shows only inside a round patch, and only above the foot.
+        patch:
+          lit.maskImage.includes('radial-gradient') && lit.maskImage.includes('linear-gradient'),
+        both: lit.maskComposite,
       };
     });
-    expect(style).toEqual({ select: 'none', fade: true, blurred: true });
+    expect(style).toEqual({
+      select: 'none',
+      fade: true,
+      patch: true,
+      both: 'intersect, intersect',
+    });
+  });
+
+  test('has a light that follows the pointer across the name', async ({ page, isMobile }, info) => {
+    test.skip(isMobile, 'there is no pointer to follow on a phone');
+    await page.goto('/');
+    const foot = page.locator('.hfoot');
+    await foot.scrollIntoViewIfNeeded();
+    const mega = page.locator('.mega');
+    const box = (await mega.boundingBox())!;
+    const lx = async () =>
+      parseFloat(await mega.evaluate((e) => e.style.getPropertyValue('--lx') || '50'));
+    await page.mouse.move(box.x + box.width * 0.12, box.y + box.height * 0.5, { steps: 6 });
+    await expect.poll(lx, { message: 'the light goes to the left' }).toBeLessThan(25);
+    await foot.screenshot({ path: info.outputPath('desktop-name-lit-left.png') });
+    await page.mouse.move(box.x + box.width * 0.88, box.y + box.height * 0.5, { steps: 6 });
+    await expect.poll(lx, { message: 'and to the right' }).toBeGreaterThan(75);
+    await foot.screenshot({ path: info.outputPath('desktop-name-lit-right.png') });
+  });
+
+  test('has a light that wanders on its own when motion is allowed, and rests when it is not', async ({
+    page,
+  }) => {
+    const lx = () =>
+      page.locator('.mega').evaluate((e) => parseFloat(e.style.getPropertyValue('--lx') || '50'));
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+    await page.locator('.hfoot').scrollIntoViewIfNeeded();
+    const first = await lx();
+    await expect
+      .poll(async () => Math.abs((await lx()) - first), { timeout: 8000 })
+      .toBeGreaterThan(3);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await page.locator('.hfoot').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(1500);
+    expect(await lx(), 'it rests in the middle').toBeCloseTo(50, 0);
+  });
+
+  test('has a slow light behind the first screen that stops when it is out of view or motion is reduced', async ({
+    page,
+  }) => {
+    const glow = () =>
+      page.evaluate(() => {
+        const a = getComputedStyle(document.querySelector('.hero-glow .a')!);
+        return {
+          name: a.animationName,
+          state: a.animationPlayState,
+          live: document.querySelector<HTMLElement>('.hero')!.dataset.live,
+        };
+      });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+    await expect.poll(async () => (await glow()).live).toBe('true');
+    expect(await glow()).toEqual({ name: 'drift-a', state: 'running', live: 'true' });
+    await page.locator('.hfoot').scrollIntoViewIfNeeded();
+    await expect.poll(async () => (await glow()).live).toBe('false');
+    expect((await glow()).state, 'it does not run where nobody can see it').toBe('paused');
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect((await glow()).name, 'with reduced motion it does not move').toBe('none');
   });
 
   for (const scheme of ['light', 'dark'] as const) {
