@@ -385,6 +385,72 @@ select {
     calc(100% - 22px) 50%,
     calc(100% - 16px) 50%;
 }
+/* The open list. Where the browser lets a page draw it (Chrome and Edge from 135, Safari from 27) it is drawn here,
+   from the same tokens as everything else, and the select keeps being the browser's own control underneath, so the
+   keyboard, typing to find an option and the phone's behaviour are unchanged. Where it does not, the closed select is
+   ours and the list is the browser's. */
+@supports (appearance: base-select) {
+  select,
+  ::picker(select) {
+    appearance: base-select;
+  }
+  select::picker-icon {
+    display: none;
+  }
+  ::picker(select) {
+    box-sizing: border-box;
+    margin-block: var(--space-1);
+    padding: var(--space-1);
+    background: var(--card);
+    color: var(--ink);
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elev-menu);
+    font: 500 var(--text-md)/1.3 var(--sans);
+    max-block-size: min(22rem, 50svh);
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity var(--dur-1) ease,
+      transform var(--dur-1) var(--ease-out),
+      overlay var(--dur-1) allow-discrete,
+      display var(--dur-1) allow-discrete;
+  }
+  /* It fades in as it opens. Closing is immediate: the build's CSS minifier does not accept a pseudo-class after
+     ::picker(), which is how a closing state would be named. */
+  @starting-style {
+    ::picker(select) {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+  select option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--control-sm);
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-sm);
+  }
+  select option:hover,
+  select option:focus-visible {
+    background: var(--paper-2);
+  }
+  select option:checked {
+    background: var(--brand);
+    color: var(--brand-ink);
+  }
+  select option::checkmark {
+    color: currentColor;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @supports (appearance: base-select) {
+    ::picker(select) {
+      transition: none;
+    }
+  }
+}
 input:focus,
 select:focus,
 textarea:focus {

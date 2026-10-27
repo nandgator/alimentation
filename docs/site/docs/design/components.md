@@ -32,7 +32,7 @@ A button says what it does (_Save the rates_, _Close the month_), never _OK_ or 
 
 ## Fields and forms
 
-A label above, a hint below, one column on a phone. Fields are 44px high. A select draws its own arrow, 16px in from the right edge and in the ink colour, so it follows the theme; a rule that sets a select's padding keeps the 40px at the right that the arrow needs.
+A label above, a hint below, one column on a phone. Fields are 44px high. A select draws its own arrow, 16px in from the right edge and in the ink colour, so it follows the theme; a rule that sets a select's padding keeps the 40px at the right that the arrow needs. The open list is drawn from the same tokens too (surface, hairline, radius, menu shadow, the chosen option in the brand colour), in Chrome, Edge and Safari 27 and later, which let a page draw it; the select underneath is still the browser's own, so the keyboard and a phone's behaviour are unchanged. In Firefox, which has this only behind a flag, the list is the browser's own.
 
 <div class="demo">
 <div class="field"><label for="demo-name">Name</label><input id="demo-name" type="text" autocomplete="off" value="Anita"><span class="hint">As you want it to show on the bill.</span></div>

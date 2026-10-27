@@ -88,6 +88,18 @@ describe('the design checker notices what it is for', () => {
       expect(why('.a { color: var(--ink); }')).toEqual([]);
     });
 
+    it('accepts drawing the open list as well, where the browser allows it', () => {
+      expect(
+        why(
+          `${shared}\n${arrow}\n@supports (appearance: base-select) { select, ::picker(select) { appearance: base-select; } select::picker-icon { display: none; } }`,
+        ),
+      ).toEqual([]);
+      // But a select cannot be handed back to the browser's own drawing.
+      expect(why(`${shared}\n${arrow}\nselect.fit { appearance: auto; }`).join('|')).toMatch(
+        /appearance stays none/,
+      );
+    });
+
     it('notices the browser being left to draw the arrow, wherever it likes', () => {
       expect(why(`${shared}\nselect { min-height: 44px; }`).join('|')).toMatch(/appearance none/);
       expect(why(`${shared}\nselect { appearance: auto; padding-right: 40px; }`).join('|')).toMatch(

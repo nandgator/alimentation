@@ -90,6 +90,7 @@ function selectProblems(rule, shared) {
   const d = rule.decls;
   const bare = sels.length === 1 && sels[0] === 'select';
   const out = [];
+  if (bare && d.appearance === 'base-select') return out; // the open list: the arrow rule above still draws the closed select
   if (bare) {
     if (d.appearance !== 'none')
       out.push(
@@ -108,7 +109,7 @@ function selectProblems(rule, shared) {
       );
     return out;
   }
-  if (d.appearance && d.appearance !== 'none')
+  if (d.appearance && d.appearance !== 'none' && d.appearance !== 'base-select')
     out.push('a select keeps the shared arrow: appearance stays none');
   if (sels.length === 1) {
     // A list that names several controls (input, select, textarea) is the shared rule; the select rule overrides its padding.
