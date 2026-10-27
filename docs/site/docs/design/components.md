@@ -32,7 +32,7 @@ A button says what it does (_Save the rates_, _Close the month_), never _OK_ or 
 
 ## Fields and forms
 
-A label above, a hint below, one column on a phone. Fields are 44px high.
+A label above, a hint below, one column on a phone. Fields are 44px high. A select draws its own arrow, 16px in from the right edge and in the ink colour, so it follows the theme; a rule that sets a select's padding keeps the 40px at the right that the arrow needs.
 
 <div class="demo">
 <div class="field"><label for="demo-name">Name</label><input id="demo-name" type="text" autocomplete="off" value="Anita"><span class="hint">As you want it to show on the bill.</span></div>
@@ -114,6 +114,10 @@ The kitchen's screens are one list ([Layout and testing](/docs/contributing/layo
 The kitchen's name and the role being acted as (a switch, for someone who holds more than one role) belong to the menu, because they decide what every screen in it means. So they travel with it: at the head of the sidebar when there is one, and in the top bar when the menu is a row or a bottom bar. The top bar always holds what is about the person and the place: the mark, **Help** (which opens the guides), the account name and **Sign out**. The bar is sticky, so **Sign out** is always at the top right and never scrolls away, and on a phone the account name and Help give way to make room (Help is in the panel behind **More**).
 
 The menu hides and shows by sliding with `transform` and `opacity` only, is `inert` while hidden so the keyboard cannot reach what the eye cannot see, and does not move when motion is reduced.
+
+## Colour choice
+
+`ThemeSwitch` is a group of three radio buttons (Auto, Light, Dark) in a pill. It is the one control for the colour theme, and the choice is kept under the `theme` key in local storage, so the app, the home page, the guides and the docs all answer to it. `public/theme.js` applies it before the first paint. Auto removes the `data-theme` attribute and the stylesheet follows the system again. The control sits at the foot of the sidebar, in the phone's More panel, at the end of the row under the top bar on a tablet, and in the home page's footer; the documentation sites have the same choice as one button in the top bar that steps through the three.
 
 ## Charts
 

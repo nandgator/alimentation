@@ -1,7 +1,10 @@
 {
   "title": "Alimentation guides",
   "sections": [
-    { "title": "Start here", "pages": ["index", "start/quickstart", "start/roles"] },
+    {
+      "title": "Start here",
+      "pages": ["index", "start/overview", "start/quickstart", "start/roles"]
+    },
     {
       "title": "If you eat at a kitchen",
       "pages": [
@@ -19,11 +22,17 @@
       "title": "If you run the books",
       "pages": ["admin/running-the-books", "admin/month-end", "admin/kitchen-rules"]
     },
-    { "title": "How it works", "pages": ["how/bills", "how/payments"] },
+    {
+      "title": "How it works",
+      "pages": ["how/bills", "how/payments"]
+    },
     {
       "title": "Fair for everyone",
       "pages": ["fair/honest-by-design", "fair/privacy", "fair/free-tier", "fair/your-data"]
     },
-    { "title": "Help", "pages": ["help/questions", "help/glossary"] }
+    {
+      "title": "Help",
+      "pages": ["help/questions", "help/glossary"]
+    }
   ]
 }

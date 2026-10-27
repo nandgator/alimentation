@@ -1,0 +1,51 @@
+{
+  "hero": {
+    "name": "Alimentation",
+    "text": "Documentation",
+    "tagline": "How it is built, how to run it, and what it promises about your data. For whoever runs, extends or audits a kitchen's server.",
+    "actions": [
+      {
+        "text": "Run it yourself",
+        "link": "/docs/self-hosting/install/",
+        "kind": "brand"
+      },
+      {
+        "text": "How it is built",
+        "link": "/docs/overview/architecture/",
+        "kind": "alt"
+      }
+    ]
+  },
+  "features": [
+    {
+      "title": "How trust is enforced",
+      "details": "What the database refuses, whatever the application does.",
+      "link": "/docs/concepts/trust-model/"
+    },
+    {
+      "title": "The API",
+      "details": "Every route, who may call it, and how it fails.",
+      "link": "/docs/api/overview/"
+    },
+    {
+      "title": "Settings and commands",
+      "details": "Every setting the server reads and every command it ships with.",
+      "link": "/docs/self-hosting/configuration/"
+    },
+    {
+      "title": "Move or leave",
+      "details": "The export format, the move protocol, and how a deletion erases down to the keys.",
+      "link": "/docs/lifecycle/bundle-and-move/"
+    },
+    {
+      "title": "Security",
+      "details": "Sign-in, requests from other sites, floods, what is written down, and what to do before going live.",
+      "link": "/docs/security/overview/"
+    },
+    {
+      "title": "The design system",
+      "details": "Tokens, components, and the check that keeps the app to them.",
+      "link": "/docs/design/principles/"
+    }
+  ]
+}

@@ -2,7 +2,9 @@
 //
 // The system is written down in docs/site/docs/design/ (rendered at /docs/design/). This checks
 // the parts of it a machine can: that colour, shadow, layering, motion, type, shape and
-// spacing come from the shared tokens, and that nothing is styled inline. A line that
+// spacing come from the shared tokens, that a select draws its own arrow with room left for it,
+// and that nothing is styled inline. (What a page looks like once drawn, such as how far an arrow sits
+// from an edge, is measured in the browser: apps/web/e2e/controls.spec.ts.) A line that
 // has a good reason to break a rule says so, in the same line: /* design: the reason */.
 // Run by `npm run design`, and by the test suite.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -69,6 +71,58 @@ function statements(text) {
   return { out, waived };
 }
 
+/** How far in from its right edge a select keeps its text, at least: the arrow's width and the gaps either side. */
+const SELECT_ROOM_PX = 40;
+
+/** The right padding a `padding` shorthand gives, in pixels, or null when it is not a plain length. */
+function rightPadding(value) {
+  const parts = value.trim().split(/\s+/);
+  const right = parts.length === 1 ? parts[0] : parts[1];
+  const m = /^(-?[\d.]+)(px|rem)$/.exec(right ?? '');
+  return m ? Number(m[1]) * (m[2] === 'rem' ? 16 : 1) : null;
+}
+
+/** What a rule must do if it styles a select: draw the arrow, or leave the arrow's room alone. */
+function selectProblems(rule, shared) {
+  const sels = rule.selector.split(',').map((x) => x.trim());
+  const styles = sels.some((x) => /(^|[\s>+~])select(\.[\w-]+)*$/.test(x));
+  if (!styles) return [];
+  const d = rule.decls;
+  const bare = sels.length === 1 && sels[0] === 'select';
+  const out = [];
+  if (bare) {
+    if (d.appearance !== 'none')
+      out.push(
+        'a select draws its own arrow: appearance none, so the browser does not put one where it likes',
+      );
+    if (!/gradient\(|url\(/.test(d['background-image'] ?? ''))
+      out.push('a select with no arrow of its own has none: give it a background-image');
+    const room = /^[\d.]+px$/.test(d['padding-right'] ?? '') ? parseFloat(d['padding-right']) : 0;
+    if (room < SELECT_ROOM_PX)
+      out.push(
+        `the arrow needs padding-right of ${SELECT_ROOM_PX}px or more, so the text stays clear of it`,
+      );
+    if (shared && rule.start < shared.start)
+      out.push(
+        'the select rule must come after the shared input, select, textarea rule, or that padding wins',
+      );
+    return out;
+  }
+  if (d.appearance && d.appearance !== 'none')
+    out.push('a select keeps the shared arrow: appearance stays none');
+  if (sels.length === 1) {
+    // A list that names several controls (input, select, textarea) is the shared rule; the select rule overrides its padding.
+    const px = d['padding-right'] ? rightPadding(`0 ${d['padding-right']}`) : null;
+    const sh = d.padding ? rightPadding(d.padding) : null;
+    const right = px ?? sh;
+    if (right !== null && right < SELECT_ROOM_PX)
+      out.push(
+        `padding on a select must leave ${SELECT_ROOM_PX}px at the right for its arrow: use padding-block and padding-left`,
+      );
+  }
+  return out;
+}
+
 /** The rules of one stylesheet's text. `rules` is `all`, or the names of those that apply. */
 export function checkCssText(text, file = 'a.css', rules = 'all') {
   const problems = [];
@@ -76,15 +130,26 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
   const { out, waived } = statements(text);
   let depth = 0;
   let reduced = 0; // the depth inside a reduced-motion block, while we are in one
+  const open = []; // the rules we are inside, with what each declares
+  const selectRules = [];
   for (const st of out) {
     if (st.close) {
       depth--;
       if (reduced && depth < reduced) reduced = 0;
+      const rule = open.pop();
+      if (
+        rule &&
+        want('control') &&
+        /^[^@]/.test(rule.selector) &&
+        /\bselect\b/.test(rule.selector)
+      )
+        selectRules.push(rule);
       continue;
     }
     const line = st.text.replace(/\s+/g, ' ');
     if (st.open) {
       depth++;
+      open.push({ selector: line, decls: {}, start: st.start });
       if (/@media[^{]*prefers-reduced-motion:\s*reduce/.test(line)) reduced = depth;
       const media = /@media\s*\(\s*(?:max|min)-width:\s*(\d+)px\s*\)/.exec(line);
       let isWaived = false;
@@ -107,6 +172,7 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
     const add = (rule, why) =>
       problems.push({ file, line: st.start, rule, why, text: line.slice(0, 110) });
     const [, prop, value] = decl;
+    if (open.length) open[open.length - 1].decls[prop] = value.trim();
     const isToken = prop.startsWith('--');
     const inReduced = reduced > 0;
 
@@ -176,6 +242,27 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
         if (!SCALES.easing.has(word)) add('motion', `${word} is not an easing`);
       if (/cubic-bezier\(/.test(value)) add('motion', 'an easing curve that is not a token');
     }
+  }
+  if (selectRules.length) {
+    const shared = selectRules.find((r) => r.selector.split(',').length > 1 && r.decls.padding);
+    const bare = selectRules.find((r) => r.selector.trim() === 'select');
+    if (!bare)
+      problems.push({
+        file,
+        line: selectRules[0].start,
+        rule: 'control',
+        why: 'selects are styled but there is no `select` rule that draws their arrow',
+        text: selectRules[0].selector.slice(0, 110),
+      });
+    for (const r of selectRules)
+      for (const why of selectProblems(r, shared))
+        problems.push({
+          file,
+          line: r.start,
+          rule: 'control',
+          why,
+          text: r.selector.slice(0, 110),
+        });
   }
   return problems;
 }

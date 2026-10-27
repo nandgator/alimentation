@@ -16,19 +16,20 @@ At the time of writing the app has **no departures** and **three waivers**.
 
 ## What it enforces
 
-| Rule         | What it refuses                                                                                                                                                         | Use instead                                                 |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `colour`     | A hex, `rgb()`, `hsl()`, `oklch()` or `lab()` colour outside the definition of a token.                                                                                 | A colour token, or `color-mix()` of tokens.                 |
-| `shadow`     | A `box-shadow` or `drop-shadow()` that is not `none` or a token.                                                                                                        | `--elev-menu`, `--elev-toast`, `--elev-dialog`.             |
-| `layer`      | A `z-index` outside `-2` to `2` (for a component's own parts) that is not a `--z-*` token, optionally plus or minus a small number.                                     | `--z-nav`, `--z-bar`, `--z-drawer`, `--z-pop`, `--z-toast`. |
-| `important`  | `!important`, anywhere but the `prefers-reduced-motion: reduce` block.                                                                                                  | A selector that wins on its own.                            |
-| `font`       | A `font-family`, or a `font` shorthand, that does not use `--serif`, `--sans` or `--mono`.                                                                              | The font tokens.                                            |
-| `type`       | A `font-size` that is not a `--text-*` token, `inherit`, `em` or `%`, `clamp()` or `calc()`; or a `rem`/`px` size inside a `font` shorthand.                            | `--text-2xs` … `--text-2xl`.                                |
-| `space`      | A `padding`, `margin` or `gap` in pixels off the two-pixel grid (to 24px), or not one of 28, 32, 40, 48, 56, 64, 80, 96.                                                | Multiples of two, or `--space-*`.                           |
-| `radius`     | A `border-radius` other than 0, 4, 8, 12, 16, 999px, 50%, or a variable.                                                                                                | `--radius-xs` … `--radius-pill`.                            |
-| `motion`     | A `transition` or `animation` with a duration in milliseconds, a `cubic-bezier()`, or an easing keyword outside `ease`, `ease-in`, `ease-out`, `ease-in-out`, `linear`. | `--dur-1..3`, `--ease-*`.                                   |
-| `breakpoint` | An `@media (max-width)` or `min-width` that is not 480, 560, 720, 959, 960, 1199 or 1200.                                                                               | One of those ([Foundations](/docs/design/foundations/)).    |
-| `inline`     | A `style={{ … }}` in a component that sets anything but a custom property. Multi-line style objects are refused.                                                        | A class, or `style={{ '--gap': '8px' }}`.                   |
+| Rule         | What it refuses                                                                                                                                                                                            | Use instead                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `colour`     | A hex, `rgb()`, `hsl()`, `oklch()` or `lab()` colour outside the definition of a token.                                                                                                                    | A colour token, or `color-mix()` of tokens.                   |
+| `shadow`     | A `box-shadow` or `drop-shadow()` that is not `none` or a token.                                                                                                                                           | `--elev-menu`, `--elev-toast`, `--elev-dialog`.               |
+| `layer`      | A `z-index` outside `-2` to `2` (for a component's own parts) that is not a `--z-*` token, optionally plus or minus a small number.                                                                        | `--z-nav`, `--z-bar`, `--z-drawer`, `--z-pop`, `--z-toast`.   |
+| `important`  | `!important`, anywhere but the `prefers-reduced-motion: reduce` block.                                                                                                                                     | A selector that wins on its own.                              |
+| `font`       | A `font-family`, or a `font` shorthand, that does not use `--serif`, `--sans` or `--mono`.                                                                                                                 | The font tokens.                                              |
+| `type`       | A `font-size` that is not a `--text-*` token, `inherit`, `em` or `%`, `clamp()` or `calc()`; or a `rem`/`px` size inside a `font` shorthand.                                                               | `--text-2xs` … `--text-2xl`.                                  |
+| `space`      | A `padding`, `margin` or `gap` in pixels off the two-pixel grid (to 24px), or not one of 28, 32, 40, 48, 56, 64, 80, 96.                                                                                   | Multiples of two, or `--space-*`.                             |
+| `radius`     | A `border-radius` other than 0, 4, 8, 12, 16, 999px, 50%, or a variable.                                                                                                                                   | `--radius-xs` … `--radius-pill`.                              |
+| `motion`     | A `transition` or `animation` with a duration in milliseconds, a `cubic-bezier()`, or an easing keyword outside `ease`, `ease-in`, `ease-out`, `ease-in-out`, `linear`.                                    | `--dur-1..3`, `--ease-*`.                                     |
+| `breakpoint` | An `@media (max-width)` or `min-width` that is not 480, 560, 720, 959, 960, 1199 or 1200.                                                                                                                  | One of those ([Foundations](/docs/design/foundations/)).      |
+| `control`    | A select that leaves the browser to draw its arrow, a select rule with no arrow of its own, padding on a select that leaves under 40px at the right, or a select rule placed before the shared field rule. | The shared `select` rule; `padding-block` and `padding-left`. |
+| `inline`     | A `style={{ … }}` in a component that sets anything but a custom property. Multi-line style objects are refused.                                                                                           | A class, or `style={{ '--gap': '8px' }}`.                     |
 
 The last rule is also a requirement of the content-security policy, which forbids inline styles: a `style` attribute that sets how something looks would be blocked in production, so the check keeps the code from ever relying on one.
 
@@ -60,13 +61,14 @@ In CSS the comment sits on the same line, or on a line of the same declaration. 
 
 A script can tell that a value is a token. It cannot tell that the token is right. These are judged elsewhere:
 
-| Matter                                                           | Where it is judged                                                     |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Contrast, labels, focus, headings in order                       | axe in the end-to-end journey, in light and dark.                      |
-| A layout that fits at 320 to 430px, a bar that is not off-screen | `apps/web/e2e/layout.spec.ts`, which names the element that overflows. |
-| The right component for the job                                  | Review, against [Components](/docs/design/components/).                |
-| Words a member would use                                         | Review, against [Principles](/docs/design/principles/).                |
-| Only `transform` and `opacity` move                              | Convention; reviewed.                                                  |
+| Matter                                                                 | Where it is judged                                                                                                                                                                |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contrast, labels, focus, headings in order                             | axe in the end-to-end journey, in light and dark.                                                                                                                                 |
+| A layout that fits at 320 to 430px, a bar that is not off-screen       | `apps/web/e2e/layout.spec.ts`, which names the element that overflows.                                                                                                            |
+| Where a control's arrow lands, in light and dark, on desktop and phone | `apps/web/e2e/controls.spec.ts` finds the arrow in a picture of each select on every screen of a kitchen, and requires it to be 12 to 24px from the edge and level with the text. |
+| The right component for the job                                        | Review, against [Components](/docs/design/components/).                                                                                                                           |
+| Words a member would use                                               | Review, against [Principles](/docs/design/principles/).                                                                                                                           |
+| Only `transform` and `opacity` move                                    | Convention; reviewed.                                                                                                                                                             |
 
 ## Changing the system
 
@@ -78,3 +80,5 @@ A script can tell that a value is a token. It cannot tell that the token is righ
 ## The checker is itself tested
 
 `apps/web/src/design.test.ts` runs the check over the real application and requires an empty list. It also feeds the checker small stylesheets that break each rule, in each notation, and requires it to notice; and feeds it ones written in tokens and requires it to stay quiet. The checker reads statements, not lines, so a `transition` spread over several lines is read as one.
+
+A rule that reads declarations cannot see a picture. A browser's own arrow on a select sits where the browser puts it, a few pixels from the edge, and nothing in the stylesheet says so; that is why the `control` rule makes the stylesheet draw the arrow itself, and why `controls.spec.ts` measures the pixels. That test was first run against the stylesheet from before the arrow was drawn, and failed in both themes (the arrow was 4px from the edge), which is how to know it would have caught it.

@@ -28,6 +28,12 @@ const page = (title: string, body: string) =>
   `---\ntitle: ${title}\ndescription: About ${title}.\n---\n\n# ${title}\n\n${body}\n`;
 const nav = (...slugs: string[]) => ({ title: 't', sections: [{ title: 'All', pages: slugs }] });
 
+/** The Markdown files of a source, as navigation lists them. */
+const pagesOf = (files: Record<string, string>) =>
+  Object.keys(files)
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => f.replace(/\.md$/, ''));
+
 /** A small documentation source with both sites, for the checks that need something wrong in it. */
 function smallSite(
   guides: Record<string, string>,
@@ -43,12 +49,8 @@ function smallSite(
       writeFileSync(join(src, dir, file), text);
     }
   };
-  put(
-    'guides',
-    guides,
-    navs.guides ?? nav(...Object.keys(guides).map((f) => f.replace(/\.md$/, ''))),
-  );
-  put('docs', docs, navs.docs ?? nav(...Object.keys(docs).map((f) => f.replace(/\.md$/, ''))));
+  put('guides', guides, navs.guides ?? nav(...pagesOf(guides)));
+  put('docs', docs, navs.docs ?? nav(...pagesOf(docs)));
   return src;
 }
 const ok = { 'index.md': page('Home', 'a') };
@@ -71,7 +73,7 @@ describe('the documentation sites', () => {
   it('gives every page one title, one heading and the app’s own stylesheet', () => {
     for (const url of built.pages) {
       const h = html(url);
-      expect(h.match(/<h1 /g), url).toHaveLength(1);
+      expect(h.match(/<h1[ >]/g), url).toHaveLength(1);
       expect(h).toContain('<link rel="stylesheet" href="/assets/index-test.css">');
       expect(h).toMatch(/<title>[^<]+<\/title>/);
       expect(h).toMatch(/<meta name="description" content="[^"]+">/);
@@ -91,7 +93,10 @@ describe('the documentation sites', () => {
   it('marks the current page, and the site it is in, and links to the other site', () => {
     for (const url of built.pages) {
       const h = html(url);
-      expect(h.match(/aria-current="page"/g), url).toHaveLength(1);
+      // A front page has no menu beside it, so there is no current entry to mark.
+      expect(h.match(/aria-current="page"/g) ?? [], url).toHaveLength(
+        url === '/guides/' || url === '/docs/' ? 0 : 1,
+      );
       const dir = url.split('/')[1]!;
       const switcher = /<nav class="docs-switch"[^>]*>(.*?)<\/nav>/.exec(h)![1]!;
       expect(switcher, url).toContain(`<a href="/${dir}/" aria-current="true">`);
@@ -117,15 +122,13 @@ describe('the documentation sites', () => {
   });
 
   it('shares one stylesheet and two scripts between the sites', () => {
-    expect(readdirSync(join(dist, 'doc-assets')).sort()).toEqual([
-      'docs.css',
-      'docs.js',
-      'theme.js',
-    ]);
+    expect(readdirSync(join(dist, 'doc-assets')).sort()).toEqual(['docs.css', 'docs.js']);
     for (const url of built.pages) {
       const h = html(url);
       expect(h).toContain('href="/doc-assets/docs.css"');
       expect(h).toContain('src="/doc-assets/docs.js"');
+      // The theme script is the app's own, so a choice made anywhere applies everywhere.
+      expect(h).toContain('src="/theme.js"');
     }
   });
 
@@ -134,9 +137,32 @@ describe('the documentation sites', () => {
       'class="tablewrap" tabindex="0" role="region"',
     );
     expect(html('/guides/start/roles/')).toContain('callout callout-warning');
-    expect(html('/guides/')).toContain('callout callout-note');
+    expect(html('/guides/start/overview/')).toContain('callout callout-note');
     expect(html('/guides/start/quickstart/')).toContain('callout callout-tip');
     expect(html('/docs/self-hosting/going-live/')).toContain('class="tick"');
+  });
+
+  it('opens each site on a front page: a hero and a few cards, with no menu or contents beside them', () => {
+    for (const dir of ['guides', 'docs']) {
+      const h = html(`/${dir}/`);
+      expect(h).toContain('class="docs-home"');
+      expect(h).not.toContain('class="docs-shell"');
+      expect(h).not.toContain('class="docs-nav"');
+      expect(h).not.toContain('class="docs-menu"');
+      expect(h).not.toContain('class="docs-toc"');
+      expect(h.match(/<section class="home-hero">/g), dir).toHaveLength(1);
+      expect(h.match(/class="btn( ghost)?" href="\/[^"]+"/g)?.length, dir).toBeGreaterThanOrEqual(
+        1,
+      );
+      expect(
+        h.match(/<a class="feature" href="\/[^"]+"><h2>/g)?.length,
+        dir,
+      ).toBeGreaterThanOrEqual(3);
+      // The pages every other page links to are not lost: the old front page's reading moved to a page.
+      expect(h.match(/<a class="feature"/g)!.length, dir).toBeLessThanOrEqual(6);
+    }
+    // Both sites use the app's own theme script, so one choice of colours applies to every page.
+    for (const url of built.pages) expect(html(url), url).toContain('<script src="/theme.js">');
   });
 
   it('keeps each audience in its own place: no jargon in the guides, and a way across to the docs', () => {
@@ -209,6 +235,69 @@ describe('the documentation build refuses what would let a reader down', () => {
     expect(() =>
       build({ 'index.md': '---\ntitle: T\ndescription: D\n---\n\njust text\n' }),
     ).toThrow(/starts with one # heading/);
+  });
+
+  describe('a front page', () => {
+    const home = (extra = '') =>
+      `---\ntitle: Home\ndescription: About.\nlayout: home\n---\n${extra}`;
+    const content = (n = 3) =>
+      JSON.stringify({
+        hero: {
+          name: 'Name',
+          text: 'Text',
+          tagline: 'A tagline.',
+          actions: [{ text: 'Go', link: '/guides/', kind: 'brand' }],
+        },
+        features: Array.from({ length: n }, (_, i) => ({
+          title: `Card ${i}`,
+          details: 'Details.',
+          link: '/guides/',
+        })),
+      });
+    const files = (md: string, json?: string) => ({
+      'index.md': md,
+      ...(json ? { 'home.json': json } : {}),
+    });
+
+    it('builds from its home.json and takes its one heading from the hero', () => {
+      const r = build(files(home(), content()));
+      expect(r.sites[0]!.pages).toEqual(['/guides/']);
+    });
+
+    it('refuses a home page with nothing to show, too few cards, or a bad action', () => {
+      expect(() => build(files(home()))).toThrow(/home\.json is needed/);
+      expect(() => build(files(home(), content(2)))).toThrow(/three to six feature cards/);
+      expect(() => build(files(home(), content(7)))).toThrow(/three to six feature cards/);
+      const bad = JSON.parse(content()) as { hero: { actions: { kind: string }[] } };
+      bad.hero.actions[0]!.kind = 'loud';
+      expect(() => build(files(home(), JSON.stringify(bad)))).toThrow(/kind of "brand" or "alt"/);
+    });
+
+    it('refuses a second heading, an unknown layout, and a home page that is not the index', () => {
+      expect(() => build(files(home('\n# Another heading\n'), content()))).toThrow(
+        /takes its one heading from the hero/,
+      );
+      expect(() =>
+        build(files('---\ntitle: T\ndescription: D\nlayout: wide\n---\n\n# T\n')),
+      ).toThrow(/layout is "doc" or "home"/);
+      expect(() =>
+        build(
+          {
+            'index.md': page('Home', 'a'),
+            'other.md': `---\ntitle: O\ndescription: D\nlayout: home\n---\n`,
+          },
+          ok,
+        ),
+      ).toThrow(/only a site's index page can be a home page/);
+    });
+
+    it('checks the links in its cards like any other link', () => {
+      const broken = JSON.parse(content()) as { features: { link: string }[] };
+      broken.features[0]!.link = '/guides/gone/';
+      expect(() => build(files(home(), JSON.stringify(broken)))).toThrow(
+        /\/guides\/gone\/ is not a page/,
+      );
+    });
   });
 
   it('needs the web app built first', () => {

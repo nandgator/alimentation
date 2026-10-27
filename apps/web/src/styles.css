@@ -358,6 +358,33 @@ textarea {
   min-height: 84px;
   resize: vertical;
 }
+/* A select draws its own arrow. The browser's sits wherever the browser puts it, a few pixels from the edge, and
+   cannot be moved. This one is two short strokes in the ink colour, so it follows the theme, 16px in from the
+   right edge, with room kept clear of the text. Any rule that sets a select's padding keeps padding-right. */
+select {
+  appearance: none;
+  padding-right: 40px;
+  background-image:
+    linear-gradient(
+      to top right,
+      transparent calc(50% - 1.5px),
+      var(--ink-2) calc(50% - 0.5px),
+      var(--ink-2) calc(50% + 0.5px),
+      transparent calc(50% + 1.5px)
+    ),
+    linear-gradient(
+      to top left,
+      transparent calc(50% - 1.5px),
+      var(--ink-2) calc(50% - 0.5px),
+      var(--ink-2) calc(50% + 0.5px),
+      transparent calc(50% + 1.5px)
+    );
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+  background-position:
+    calc(100% - 22px) 50%,
+    calc(100% - 16px) 50%;
+}
 input:focus,
 select:focus,
 textarea:focus {
@@ -937,7 +964,8 @@ dialog::backdrop {
 .acting select {
   width: 100%;
   min-height: var(--control-sm);
-  padding: 0.3rem 0.6rem;
+  padding-block: 0.3rem;
+  padding-left: 0.6rem;
   font-weight: 500;
 }
 .topbar .acting span {
@@ -958,6 +986,66 @@ dialog::backdrop {
   justify-self: start;
   color: var(--ink-2);
   font-size: var(--text-sm);
+}
+/* Colours: automatic, light or dark, as one group. The choice lives in theme.ts and applies to every page. */
+.theme-switch {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.theme-switch legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font: 600 var(--text-xs)/1.2 var(--sans);
+  color: var(--ink-2);
+}
+.theme-opts {
+  display: inline-flex;
+  justify-self: start;
+  padding: 2px;
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-pill);
+}
+.theme-opts label {
+  position: relative;
+  display: inline-flex;
+}
+.theme-opts input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.theme-opts span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  font: 600 var(--text-sm)/1 var(--sans);
+  color: var(--ink-2);
+  transition:
+    background-color var(--dur-1) ease,
+    color var(--dur-1) ease;
+}
+.theme-opts input:checked + span {
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+.theme-opts input:focus-visible + span {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .theme-opts input:not(:checked):hover + span {
+    color: var(--ink);
+  }
 }
 @media (max-width: 959px) {
   .menu-toggle {
@@ -1083,6 +1171,19 @@ dialog::backdrop {
 .nav .more {
   display: none;
 }
+/* In the row under the top bar the colour choice sits at the end; in the bottom bar's More panel it follows Help. */
+.nav .extras-theme {
+  margin-left: auto;
+  padding-left: var(--space-3);
+  align-self: center;
+}
+.nav .extras-theme legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
 @media (max-width: 720px) {
   .subnav {
     position: fixed;
@@ -1203,6 +1304,17 @@ dialog::backdrop {
     padding: 0 6px;
     color: var(--ink-2);
     font-size: var(--text-sm);
+  }
+  .nav .extras-theme {
+    margin-left: 0;
+    padding: var(--space-2) 6px var(--space-3);
+  }
+  .nav .extras-theme legend {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
   }
 }
 @media (max-width: 720px) and (prefers-reduced-motion: no-preference) {

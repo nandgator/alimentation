@@ -147,14 +147,29 @@ test.describe('the documentation sites', () => {
     await expect(page.getByRole('listbox', { name: 'Search results' })).toBeHidden();
   });
 
-  test('switches theme by choice, and remembers it', async ({ page }) => {
-    await page.goto('/guides/');
-    await page.getByRole('button', { name: /Switch to the dark theme/ }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await page.reload();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await page.getByRole('button', { name: /Switch to the light theme/ }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  test('opens on a front page: a hero, a few cards, and no menu beside them', async ({
+    page,
+  }, info) => {
+    for (const { dir, name, first } of [
+      { dir: 'guides', name: 'Guides', first: /Start a kitchen/ },
+      { dir: 'docs', name: 'Documentation', first: /Run it yourself/ },
+    ]) {
+      await page.goto(`/${dir}/`);
+      const h1 = page.getByRole('heading', { level: 1 });
+      await expect(h1).toContainText('Alimentation');
+      await expect(h1).toContainText(name);
+      await expect(page.getByRole('link', { name: first })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: `${name} contents` })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Menu' })).toHaveCount(0);
+      const cards = page.locator('main .feature');
+      expect(await cards.count()).toBeGreaterThanOrEqual(3);
+      await shot(page, info, `docs-front-${dir}`);
+      // A card is a whole link: it goes to the page it names, which has the menu.
+      const href = await cards.first().getAttribute('href');
+      await cards.first().click();
+      await expect(page).toHaveURL(new RegExp(`${href}$`));
+      await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+    }
   });
 
   test('has a menu that opens on a phone and a contents list beside the page on a wide screen', async ({

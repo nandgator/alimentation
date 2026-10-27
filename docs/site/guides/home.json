@@ -1,0 +1,51 @@
+{
+  "hero": {
+    "name": "Alimentation",
+    "text": "Guides",
+    "tagline": "The accounts of a small kitchen, in plain words. Short guides for the people who eat, cook and keep the books, one job at a time.",
+    "actions": [
+      {
+        "text": "Start a kitchen",
+        "link": "/guides/start/quickstart/",
+        "kind": "brand"
+      },
+      {
+        "text": "The idea in one minute",
+        "link": "/guides/start/overview/",
+        "kind": "alt"
+      }
+    ]
+  },
+  "features": [
+    {
+      "title": "I eat at a kitchen",
+      "details": "See your bill, tell the kitchen when you will not eat, and say you have paid.",
+      "link": "/guides/members/your-bill/"
+    },
+    {
+      "title": "I cook",
+      "details": "Confirm the payments you receive, and mark the days you do not cook.",
+      "link": "/guides/supplier/confirming-payments/"
+    },
+    {
+      "title": "I keep the books",
+      "details": "People, prices, holidays, settlements and closing, and what each screen is for.",
+      "link": "/guides/admin/running-the-books/"
+    },
+    {
+      "title": "Closing the month",
+      "details": "What to check, how long everyone has to catch up, and how to close.",
+      "link": "/guides/admin/month-end/"
+    },
+    {
+      "title": "Is it fair to everyone?",
+      "details": "How it keeps honest people honest, without locking anyone out.",
+      "link": "/guides/fair/honest-by-design/"
+    },
+    {
+      "title": "I have a question",
+      "details": "Short answers to what people ask first.",
+      "link": "/guides/help/questions/"
+    }
+  ]
+}
