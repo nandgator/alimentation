@@ -36,6 +36,9 @@ export default defineConfig({
         ],
       },
       injectManifest: {
+        // A classic script, which is how it is registered. The module build the plugin offers by default passes an
+        // option that the bundler now deprecates, so the warning is removed by not using it, not by hiding it.
+        rollupFormat: 'iife',
         // Only the Latin letters of the fonts are kept for offline use.
         globPatterns: ['**/*.{js,css,html,svg,png}', '**/*-latin-*.woff2'],
       },

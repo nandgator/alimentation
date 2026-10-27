@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { addDays, monthEnd, monthOf, monthStart, type IsoDate, type Month } from './dates.ts';
 
 /**

@@ -27,10 +27,22 @@ wait_healthy() {
   echo "the instance did not become healthy" >&2
   return 1
 }
+# The health check is in compose.yaml (an image cannot carry one when it is built in the OCI format), so the
+# container itself must come to report healthy, not only answer the request.
+wait_reported_healthy() {
+  for _ in $(seq 1 40); do
+    if [ "$("${compose[@]}" ps app --format '{{.Health}}')" = healthy ]; then return 0; fi
+    sleep 3
+  done
+  "${compose[@]}" ps >&2
+  echo "the container never reported healthy" >&2
+  return 1
+}
 post() { curl -fsS -c "$jar" -b "$jar" -H "Origin: $APP_ORIGIN" -H 'content-type: application/json' -d "$2" "$base$1"; }
 
 "${compose[@]}" up -d ${SMOKE_BUILD_FLAG---build}
 wait_healthy
+wait_reported_healthy
 
 post /auth/dev-login '{"email":"smoke@example.org","name":"Smoke"}' >/dev/null
 post /api/workspaces '{"slug":"smoke-kitchen","name":"Smoke Kitchen","alsoSupplier":true}' >/dev/null
