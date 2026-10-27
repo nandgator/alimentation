@@ -111,7 +111,7 @@ export function Dashboard() {
             {single && mine[0] ? (
               <Tile
                 label="Status"
-                value={<span style={{ fontSize: '1.05rem' }}>{STATUS_LABEL[mine[0].status]}</span>}
+                value={<span className="tile-text">{STATUS_LABEL[mine[0].status]}</span>}
               />
             ) : null}
             {!single ? <Tile label="To confirm" value={boot.pendingClaims || '-'} /> : null}

@@ -22,11 +22,11 @@ export function SignIn() {
   return (
     <>
       <AppBar />
-      <div className="narrow" style={{ padding: '64px 0' }}>
+      <div className="narrow solo">
         <div className="card stack" style={{ ['--gap' as string]: '18px' }}>
           <div>
             <p className="eyebrow">Welcome</p>
-            <h1 style={{ fontSize: '2rem', marginTop: 8 }}>Sign in</h1>
+            <h1>Sign in</h1>
           </div>
           {me?.signInWithProvider ? (
             <a className="btn" href={`/auth/login?returnTo=${encodeURIComponent(next)}`}>

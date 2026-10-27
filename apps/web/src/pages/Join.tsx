@@ -23,9 +23,9 @@ function Accept() {
     );
   }, [go]);
   return (
-    <div className="narrow" style={{ padding: '64px 0' }}>
+    <div className="narrow solo">
       <div className="card stack">
-        <h1 style={{ fontSize: '1.8rem' }}>Joining your kitchen</h1>
+        <h1>Joining your kitchen</h1>
         {error ? <Problem error={error} /> : <p className="muted">One moment…</p>}
       </div>
     </div>

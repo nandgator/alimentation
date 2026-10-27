@@ -13,13 +13,17 @@ including its owner in six months.
 | Leaving                          | Done. Export; move to a database of your own or to your own instance, verified to the paisa; wipe with keys destroyed first, receipt, resumable; housekeeping; master-key rotation. |
 | Placements                       | `pg-database` and `external`: done and tested on real Postgres. `neon-project`: written against Neon's published API and tested against a stand-in only.                            |
 | Web app (`apps/web`)             | Done. Home page, role screens, offline reading, installable. Tested in a real browser on desktop and phone, with accessibility checks.                                              |
+| Trust and transparency           | Done. Late entries are marked, never refused unless a kitchen sets a cut-off; members and the supplier read, in words, what was done to their own records (**History**).            |
+| Menu and layout                  | Done. One list of screens drives the menu, routes and role guards; a grouped sidebar that can be hidden; a bottom bar tested at four phone widths.                                  |
+| Design system                    | Done. Tokens in `styles.css`, documented at `/docs/design/`, enforced by `npm run design`.                                                                                          |
+| Documentation                    | Done. Two hosted sites built from `docs/site`: `/guides` for people, `/docs` for technicians. No framework (see `docs/DESIGN.md` section 12).                                       |
 | Deployment                       | Cloudflare Worker (`apps/api/wrangler.jsonc`), one container image, Compose files for a dedicated instance and for the tests, CI.                                                   |
 
 ## How to know it still works
 
 ```sh
-docker compose -f compose.test.yaml run --rm test      # format, types, promises, ~400 tests on Postgres 18
-npm run test:e2e                                       # 34 browser checks
+docker compose -f compose.test.yaml run --rm test      # format, types, promises, design, every test on Postgres 18
+npm run test:e2e                                       # the app and both documentation sites, in a real browser, desktop and phone
 npm run drift:db                                       # 69 database guards removed in turn; each must be noticed
 npm run smoke:compose && npm run smoke:worker          # the image, and the Worker in the Workers runtime
 ```
@@ -71,6 +75,16 @@ These need accounts, keys or real traffic that the build did not have. Each has 
   places is a Web Animations call (a ride and a separate lift, so the top of the arc is smooth), not a scroll-linked effect, so it
   behaves the same in every browser.
 
+- **Trust is tamper-evident, not tamper-proof.** Every record carries who and when, stamped by the database; the people a
+  change affects can read it; a catch-up is allowed until the month closes and is marked late. One person holding two roles,
+  collusion and the instance's operator are deliberately out of scope (`docs/site/docs/concepts/trust-model.md`).
+- **The design system is enforced, not advised.** `scripts/check-design.mjs` fails the build on a raw colour, shadow, layer,
+  font, size, off-grid gap, radius, duration, breakpoint, or an inline style that decides a look. A waiver is a comment that
+  begins `design:` with a reason.
+- **Two documentation sites, one generator, no framework.** The content-security policy forbids the inline script and style
+  that documentation frameworks emit. The build and its tests are in `apps/web/scripts/build-docs.mjs`,
+  `apps/web/src/docs.test.ts` and `apps/web/e2e/docs.spec.ts`.
+
 ## What to do next
 
 1. Decide the questions only the owner can: a licence (none is chosen), whether to publish, the domain name.
@@ -87,6 +101,8 @@ packages/core/src      engine.ts (statements), policy.ts (per-kitchen rules), va
 apps/api/migrations    workspace/ and control/ SQL; src/db/migrations.generated.ts is built from them (npm run build:server does it)
 apps/api/src           app.ts (routes), workspace/ (service), lifecycle/ (move, receive, wipe, rewrap, housekeeping),
                        placement/ (pg-database, neon, external), limits/ (gate), crypto/, worker.ts, node.ts, cli.ts
-apps/web/src           pages/Home.tsx, pages/workspace/*, sw.ts (offline), styles.css
-scripts                drift-db.mjs, check-promises.mjs, smoke-*.sh, smoke-live.mts
+apps/web/src           pages/Home.tsx, pages/workspace/* (sections.ts lists the screens), sw.ts (offline), styles.css (the tokens)
+apps/web/scripts       build-docs.mjs and docs/ (the generator, stylesheet and scripts of the two documentation sites)
+docs/site              guides/ (for people) and docs/ (for technicians), each with a nav.json
+scripts                drift-db.mjs, check-promises.mjs, check-design.mjs, smoke-*.sh, smoke-live.mts
 ```

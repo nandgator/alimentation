@@ -42,7 +42,11 @@ services:
       ALIMENTATION_TEST_PG_LOG: /pg/18/docker/log/postgres.log
       ALIMENTATION_REQUIRE_PG_LOG: '1'
     command:
-      ['sh', '-c', 'npm run format:check && npm run typecheck && npm run promises && npm test']
+      [
+        'sh',
+        '-c',
+        'npm run format:check && npm run typecheck && npm run promises && npm run design && npm test',
+      ]
     volumes:
       - pg:/pg:ro
 

@@ -65,7 +65,7 @@ function Usage() {
         const pct = Math.min(100, Math.round((m.ratios[k] ?? 0) * 100));
         return (
           <div key={k}>
-            <div className="row" style={{ justifyContent: 'space-between' }}>
+            <div className="row between">
               <span>{NAMES[k]}</span>
               <span className="muted small num">
                 {k === 'bytes' ? size(m.usage[k]) : nf.format(m.usage[k])} · {pct}%
@@ -76,7 +76,7 @@ function Usage() {
               role="img"
               aria-label={`${NAMES[k]}: ${pct} percent of the free allowance`}
             >
-              <i style={{ width: `${pct}%` }} />
+              <i style={{ ['--pct' as string]: `${pct}%` }} />
             </div>
           </div>
         );
@@ -210,7 +210,7 @@ function Move() {
         preview.ok ? (
           <div className="stack">
             <div className="banner good">It will work. Nothing has been changed.</div>
-            <ol className="stack" style={{ paddingLeft: 20, ['--gap' as string]: '4px' }}>
+            <ol className="stack plain-list" style={{ ['--gap' as string]: 'var(--space-1)' }}>
               {preview.steps.map((s) => (
                 <li key={s}>{s}</li>
               ))}
@@ -320,7 +320,7 @@ function Wipe() {
       </section>
     );
   return (
-    <section className="card stack" aria-label="Delete" style={{ borderColor: 'var(--bad)' }}>
+    <section className="card stack danger" aria-label="Delete">
       <h2>Delete everything</h2>
       <p>
         The keys are destroyed first, so from that moment nothing in this kitchen can be read by

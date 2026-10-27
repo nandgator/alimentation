@@ -268,7 +268,7 @@ export function MonthPicker({
       aria-label="Month"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      style={{ width: 'auto' }}
+      className="fit"
     >
       {[...months].reverse().map((m) => (
         <option key={m} value={m}>

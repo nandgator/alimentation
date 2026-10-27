@@ -36,7 +36,50 @@
   --board: #16251e;
   --board-ink: #eef1ec;
   --board-dim: #9fb3a6;
-  --radius: 14px;
+  /* Shape: four steps and a pill. A card is the large one. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --radius: var(--radius-lg);
+  /* Type: eight sizes. Headings are fluid and say so where they are set. */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.625rem;
+  --text-2xl: 2.25rem;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* Space, on a grid of two pixels: these are the steps the layout reaches for. Anything between is
+     written as a multiple of two. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  /* Tones that do not change with the theme, because what they colour is a thing, not a mood:
+     the steel of the kitchen, the turmeric on it, the receipt's paper, and the ink of a shadow. */
+  --steel-1: #e6ece8;
+  --steel-2: #c6d0ca;
+  --steel-3: #9ba9a2;
+  --steel-4: #6e7e76;
+  --turmeric-deep: #c48a06;
+  --turmeric-pale: #f7d77a;
+  --cast: #000;
+  --paper-ink: #14261d;
+  --paper-ink-2: #44574d;
+  --paper-rule: #9ba9a2;
+  --paper-rule-soft: #c6d0ca;
+  --paper-good: #1f6b43;
+  --paper-bad: #a1362b;
+  /* Text on the red of a danger button or a refusal: white on the light theme's red, dark on the lighter red of dark mode. */
+  --bad-ink: #fff;
   /* Sizes every control shares, so a button, a field and a menu row line up. */
   --control: 44px;
   --control-sm: 36px;
@@ -89,6 +132,7 @@
     --bad-soft: #3a1b18;
     --field-green: #1a4331;
     --board: #1b2d25;
+    --bad-ink: #1a1206;
     --elev-menu: 0 0 0 1px rgb(255 255 255 / 0.1), 0 14px 28px -8px rgb(0 0 0 / 0.6);
     --elev-toast: 0 14px 28px -10px rgb(0 0 0 / 0.65);
     --elev-dialog: 0 0 0 1px rgb(255 255 255 / 0.09), 0 28px 64px -16px rgb(0 0 0 / 0.75);
@@ -96,6 +140,7 @@
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --bad-ink: #1a1206;
   --elev-menu: 0 0 0 1px rgb(255 255 255 / 0.1), 0 14px 28px -8px rgb(0 0 0 / 0.6);
   --elev-toast: 0 14px 28px -10px rgb(0 0 0 / 0.65);
   --elev-dialog: 0 0 0 1px rgb(255 255 255 / 0.09), 0 28px 64px -16px rgb(0 0 0 / 0.75);
@@ -137,7 +182,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 400 1.0625rem/1.55 var(--sans);
+  font: 400 var(--text-base)/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   /* Young Serif's own figures are old-style (a "10" reads as "IO"); money wants the lining ones. */
@@ -158,7 +203,7 @@ h2 {
   font-size: clamp(1.9rem, 4.2vw, 2.9rem);
 }
 h3 {
-  font-size: 1.3rem;
+  font-size: var(--text-lg);
   letter-spacing: -0.005em;
 }
 p {
@@ -173,7 +218,7 @@ a {
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 ::selection {
   background: var(--accent);
@@ -211,13 +256,13 @@ a {
   color: var(--ink-2);
 }
 .small {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 .num {
   font-variant-numeric: lining-nums tabular-nums;
 }
 .eyebrow {
-  font: 600 0.8125rem/1.2 var(--sans);
+  font: 600 var(--text-sm)/1.2 var(--sans);
   color: var(--ink-2);
 }
 
@@ -225,10 +270,10 @@ a {
 .btn {
   appearance: none;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.7rem 1.35rem;
   min-height: var(--control);
-  font: 600 1rem/1 var(--sans);
+  font: 600 var(--text-md)/1 var(--sans);
   cursor: pointer;
   background: var(--brand);
   color: var(--brand-ink);
@@ -238,10 +283,10 @@ a {
   justify-content: center;
   gap: 0.5rem;
   transition:
-    transform 140ms var(--ease-out),
-    background-color 180ms ease,
-    border-color 180ms ease,
-    color 180ms ease;
+    transform var(--dur-1) var(--ease-out),
+    background-color var(--dur-1) ease,
+    border-color var(--dur-1) ease,
+    color var(--dur-1) ease;
 }
 .btn:active {
   transform: scale(0.97);
@@ -262,16 +307,7 @@ a {
 }
 .btn.danger {
   background: var(--bad);
-  color: #fff;
-}
-/* The lighter red of dark mode needs dark text to stay readable. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .btn.danger {
-    color: #1a1206;
-  }
-}
-:root[data-theme='dark'] .btn.danger {
-  color: #1a1206;
+  color: var(--bad-ink);
 }
 /* A button answers a pointer only where there is one: on a touch screen a tap would leave it stuck. */
 @media (hover: hover) and (pointer: fine) {
@@ -291,7 +327,7 @@ a {
 .btn.small {
   min-height: var(--control-sm);
   padding: 0.45rem 0.9rem;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 .field {
   display: grid;
@@ -299,11 +335,11 @@ a {
 }
 .field > label,
 .field > .label {
-  font: 600 0.8rem/1.2 var(--sans);
+  font: 600 var(--text-sm)/1.2 var(--sans);
   color: var(--ink-2);
 }
 .field .hint {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--ink-2);
 }
 input,
@@ -313,7 +349,7 @@ textarea {
   color: var(--ink);
   background: var(--card);
   border: 1px solid var(--hair);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.65rem 0.8rem;
   min-height: var(--control);
   width: 100%;
@@ -339,6 +375,60 @@ textarea:focus {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
+/* ---------- Utilities: the few things a screen needs to say about its own layout ---------- */
+.between {
+  justify-content: space-between;
+}
+.nowrap {
+  flex-wrap: nowrap;
+}
+select.fit {
+  width: auto;
+}
+.plain-list {
+  margin: 0;
+  padding-left: 20px;
+}
+.bare-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cell-text {
+  white-space: normal;
+  max-width: 260px;
+}
+.json {
+  margin: 0;
+  white-space: pre-wrap;
+  max-width: 420px;
+}
+.day-label {
+  display: inline-block;
+  width: 2.25rem;
+}
+summary {
+  cursor: pointer;
+}
+input[type='checkbox'] {
+  width: 20px;
+  min-height: 20px;
+  accent-color: var(--brand);
+}
+/* A page that is one thing in the middle: sign-in, a joining link, a receipt, a miss. */
+.solo {
+  padding-block: var(--space-8);
+}
+.solo > * + * {
+  margin-top: var(--space-4);
+}
+.solo h1 {
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+}
+.waiting {
+  padding: 40px;
+}
+
 /* ---------- Surfaces ------------------------------------------------------- */
 .card {
   background: var(--card);
@@ -346,10 +436,13 @@ textarea:focus {
   border-radius: var(--radius);
   padding: 20px;
 }
+.card.danger {
+  border-color: var(--bad);
+}
 .banner {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 12px 14px;
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
   border: 1px solid transparent;
   display: flex;
   gap: 10px;
@@ -374,9 +467,9 @@ textarea:focus {
 .chip {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  padding: 3px 10px;
-  font: 600 0.75rem/1.4 var(--sans);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font: 600 var(--text-xs)/1.4 var(--sans);
   background: var(--paper-2);
   color: var(--ink-2);
   white-space: nowrap;
@@ -409,17 +502,17 @@ textarea:focus {
 .tile {
   background: var(--card);
   border: 1px solid var(--hair);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 14px 16px;
 }
 .tile .k {
-  font: 600 0.72rem/1.2 var(--sans);
+  font: 600 var(--text-xs)/1.2 var(--sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
 }
 .tile .v {
-  font: 400 1.7rem/1.2 var(--serif);
+  font: 400 var(--text-xl)/1.2 var(--serif);
   margin-top: 6px;
   font-variant-numeric: lining-nums tabular-nums;
 }
@@ -430,8 +523,11 @@ textarea:focus {
 .tile.lead {
   padding: 18px 20px;
 }
+.tile .tile-text {
+  font-size: var(--text-md);
+}
 .tile.lead .v {
-  font-size: 2.3rem;
+  font-size: var(--text-2xl);
   margin-top: 8px;
 }
 @media (max-width: 560px) {
@@ -444,7 +540,7 @@ textarea:focus {
     padding: 14px 16px;
   }
   .tiles.lead .tile .v {
-    font-size: 1.6rem;
+    font-size: var(--text-xl);
     margin-top: 0;
   }
 }
@@ -452,13 +548,13 @@ textarea:focus {
 .tablewrap {
   overflow-x: auto;
   border: 1px solid var(--hair);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--card);
 }
 table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 th,
 td {
@@ -468,7 +564,7 @@ td {
   white-space: nowrap;
 }
 th {
-  font: 600 0.72rem/1.2 var(--sans);
+  font: 600 var(--text-xs)/1.2 var(--sans);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -533,10 +629,10 @@ td.linked > button[disabled] .nm {
   min-height: var(--control-sm);
   padding: 6px 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--brand);
-  font: 600 0.9rem/1 var(--sans);
+  font: 600 var(--text-sm)/1 var(--sans);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -560,7 +656,7 @@ td.linked > button[disabled] .nm {
   padding: 0;
   background: var(--card);
   border: 1px solid var(--hair);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 .history li {
   display: grid;
@@ -574,7 +670,7 @@ td.linked > button[disabled] .nm {
 }
 .history time {
   color: var(--ink-2);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-variant-numeric: lining-nums tabular-nums;
 }
 .dlg-foot {
@@ -592,14 +688,15 @@ td.linked > button[disabled] .nm {
 
 .meter {
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--paper-2);
   overflow: hidden;
 }
 .meter > i {
   display: block;
+  width: var(--pct, 0%);
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--brand);
 }
 .meter.warn > i {
@@ -611,7 +708,7 @@ td.linked > button[disabled] .nm {
 
 dialog {
   border: 1px solid var(--hair);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: var(--card);
   color: var(--ink);
   padding: 24px;
@@ -680,7 +777,7 @@ dialog::backdrop {
   font-weight: 600;
 }
 .brand {
-  font: 400 1.3rem/1 var(--serif);
+  font: 400 var(--text-lg)/1 var(--serif);
   font-variant-numeric: lining-nums;
   color: var(--ink);
   text-decoration: none;
@@ -700,11 +797,11 @@ dialog::backdrop {
 }
 .nav a {
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--ink-2);
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 .nav a[aria-current='page'] {
@@ -735,7 +832,7 @@ dialog::backdrop {
   margin-top: 6px;
   max-width: 64ch;
   color: var(--ink-2);
-  font-size: 1rem;
+  font-size: var(--text-md);
   line-height: 1.45;
 }
 .sechead {
@@ -746,7 +843,7 @@ dialog::backdrop {
   flex-wrap: wrap;
 }
 .page h2 {
-  font-size: 1.3rem;
+  font-size: var(--text-lg);
   letter-spacing: -0.005em;
 }
 .page .view {
@@ -768,9 +865,9 @@ dialog::backdrop {
   max-width: min(92vw, 440px);
   background: var(--ink);
   color: var(--bg);
-  padding: 11px 16px;
-  border-radius: 14px;
-  font-size: 0.9rem;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
   line-height: 1.35;
   box-shadow: var(--elev-toast);
   z-index: var(--z-toast);
@@ -780,19 +877,11 @@ dialog::backdrop {
 }
 .toast.bad {
   background: var(--bad);
-  color: #fff;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .toast.bad {
-    color: #1a1206;
-  }
-}
-:root[data-theme='dark'] .toast.bad {
-  color: #1a1206;
+  color: var(--bad-ink);
 }
 @media (prefers-reduced-motion: no-preference) {
   .toast {
-    animation: toast-in 240ms var(--ease-out);
+    animation: toast-in var(--dur-2) var(--ease-out);
   }
   @keyframes toast-in {
     from {
@@ -835,14 +924,14 @@ dialog::backdrop {
   border-radius: var(--radius);
 }
 .kitchen-name {
-  font: 400 1.2rem/1.15 var(--serif);
+  font: 400 var(--text-lg)/1.15 var(--serif);
   font-variant-numeric: lining-nums;
   overflow-wrap: anywhere;
 }
 .acting {
   display: grid;
   gap: 4px;
-  font: 600 0.75rem/1.2 var(--sans);
+  font: 600 var(--text-xs)/1.2 var(--sans);
   color: var(--ink-2);
 }
 .acting select {
@@ -868,7 +957,7 @@ dialog::backdrop {
 .side-pin {
   justify-self: start;
   color: var(--ink-2);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 @media (max-width: 959px) {
   .menu-toggle {
@@ -929,7 +1018,7 @@ dialog::backdrop {
 }
 .side-title {
   padding: 0 12px 6px;
-  font: 600 0.72rem/1.2 var(--sans);
+  font: 600 var(--text-xs)/1.2 var(--sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -941,11 +1030,11 @@ dialog::backdrop {
   gap: 8px;
   min-height: var(--control-sm);
   padding: 6px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--ink-2);
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--text-md);
 }
 .side nav a[aria-current='page'] {
   background: var(--brand);
@@ -966,10 +1055,10 @@ dialog::backdrop {
   height: 1.4rem;
   padding: 0 6px;
   margin-left: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-ink);
-  font: 700 0.75rem/1 var(--sans);
+  font: 700 var(--text-xs)/1 var(--sans);
 }
 .side .count {
   margin-left: 0;
@@ -1026,7 +1115,7 @@ dialog::backdrop {
     min-height: calc(var(--bar-h) - 8px);
     padding: 0 6px;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--ink-2);
     font: 600 clamp(0.75rem, 3.4vw, 0.9rem) / 1.1 var(--sans);
@@ -1054,7 +1143,7 @@ dialog::backdrop {
     height: 1rem;
     padding: 0 4px;
     margin: 0;
-    font-size: 0.65rem;
+    font-size: var(--text-2xs);
   }
   .subnav ~ .page {
     padding-bottom: calc(var(--bar-h) + 32px + env(safe-area-inset-bottom));
@@ -1076,7 +1165,7 @@ dialog::backdrop {
     overflow-y: auto;
     background: var(--card);
     border: 1px solid var(--hair);
-    border-radius: 18px;
+    border-radius: var(--radius-lg);
     box-shadow: var(--elev-menu);
   }
   .nav[data-open='true'] .extras {
@@ -1097,10 +1186,10 @@ dialog::backdrop {
     align-items: center;
     min-height: 48px;
     padding: 0 12px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--paper-2);
     color: var(--ink);
-    font-size: 0.95rem;
+    font-size: var(--text-md);
     white-space: normal;
   }
   .nav .extras-group a[aria-current='page'] {
@@ -1113,12 +1202,12 @@ dialog::backdrop {
     min-height: 44px;
     padding: 0 6px;
     color: var(--ink-2);
-    font-size: 0.9rem;
+    font-size: var(--text-sm);
   }
 }
 @media (max-width: 720px) and (prefers-reduced-motion: no-preference) {
   .nav[data-open='true'] .extras {
-    animation: panel-in 180ms var(--ease-out);
+    animation: panel-in var(--dur-2) var(--ease-out);
   }
   @keyframes panel-in {
     from {
@@ -1129,8 +1218,20 @@ dialog::backdrop {
 }
 
 /* ---------- Chart ---------------------------------------------------------- */
+.chart-figure {
+  margin: 0;
+}
+.chart-box {
+  width: 100%;
+}
+.chart {
+  display: block;
+}
+.chart-table {
+  margin-top: var(--space-2);
+}
 .chart text {
-  font: 500 11px var(--sans);
+  font: 500 var(--text-2xs) var(--sans);
   fill: var(--ink-2);
 }
 .chart .grid {
@@ -1156,14 +1257,26 @@ dialog::backdrop {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--ink-2);
+}
+.legend i.s0 {
+  background: var(--brand);
+}
+.legend i.s1 {
+  background: var(--accent);
+}
+.legend i.s2 {
+  background: var(--ink-2);
+}
+.legend i.s3 {
+  background: var(--hair);
 }
 .legend i {
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   margin-right: 6px;
 }
 

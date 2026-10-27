@@ -72,13 +72,8 @@ export function Audit() {
                 <td>{e.table.replace(/_/g, ' ')}</td>
                 <td>
                   <details>
-                    <summary className="muted small" style={{ cursor: 'pointer' }}>
-                      show
-                    </summary>
-                    <pre
-                      className="small"
-                      style={{ margin: 0, whiteSpace: 'pre-wrap', maxWidth: 420 }}
-                    >
+                    <summary className="muted small">show</summary>
+                    <pre className="small json">
                       {JSON.stringify(
                         e.action === 'UPDATE'
                           ? { before: e.before, after: e.after }

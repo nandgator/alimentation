@@ -77,9 +77,18 @@ export function Stage() {
             aria-hidden="true"
             focusable="false"
           >
-            <g className="camera" style={{ transform: world }}>
+            <g
+              className="camera"
+              // design: a place taken from where the page is scrolled, so it cannot be a class
+              style={{ transform: world }}
+            >
               <StageWorld />
-              <g ref={mover} className="mover" style={{ transform: pose(0) }}>
+              <g
+                ref={mover}
+                className="mover"
+                // design: where the carrier starts, set once; after that the animation moves it
+                style={{ transform: pose(0) }}
+              >
                 <g ref={lifter}>
                   <Carrier clip="mine" />
                 </g>

@@ -35,7 +35,7 @@ export function Daily() {
                 aria-label="Person"
                 value={person}
                 onChange={(e) => setPerson(e.target.value)}
-                style={{ width: 'auto' }}
+                className="fit"
               >
                 {consumers.map((c) => (
                   <option key={c.id} value={c.id}>

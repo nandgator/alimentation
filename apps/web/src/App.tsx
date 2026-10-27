@@ -11,11 +11,9 @@ import { SessionProvider } from './session.tsx';
 
 function NotFound() {
   return (
-    <div className="narrow" style={{ padding: '96px 0' }}>
-      <h1 style={{ fontSize: '2.4rem' }}>Nothing here</h1>
-      <p className="muted" style={{ margin: '12px 0 24px' }}>
-        That address does not lead anywhere.
-      </p>
+    <div className="narrow solo">
+      <h1>Nothing here</h1>
+      <p className="muted">That address does not lead anywhere.</p>
       <Link href="/" className="btn">
         Home
       </Link>

@@ -41,4 +41,6 @@ curl -fsS -b "$jar" "$base/api/w/smoke-kitchen/bootstrap" | grep -q '"slug":"smo
 wait_healthy
 curl -fsS -b "$jar" "$base/api/w/smoke-kitchen/bootstrap" | grep -q '"slug":"smoke-kitchen"'
 curl -fsS "$base/api/public/capacity" | grep -q '"dedicated":true'
-echo "ok: the image starts, sets itself up, serves, and keeps a workspace across a restart"
+curl -fsS "$base/guides/" | grep -q 'Alimentation <b>guides</b>'
+curl -fsS "$base/docs/" | grep -q 'Alimentation <b>docs</b>'
+echo "ok: the image starts, sets itself up, serves the app and its documentation, and keeps a workspace across a restart"

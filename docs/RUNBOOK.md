@@ -25,6 +25,9 @@ All settings are environment variables (Worker variables and secrets on Cloudfla
 | `FREE_LIMITS_JSON`, `CAPACITY_JSON`, `HARD_CAP_FACTOR`          | Change the free-tier numbers when a host changes its terms. The home page and the meter follow.                           |
 | `AUTH_DEV`                                                      | `1` signs anyone in with any email. Refused when `NODE_ENV=production`.                                                   |
 
+The same settings, with what the server refuses, are in the hosted documentation (`/docs/self-hosting/configuration/`); a test
+fails if a setting the server reads is missing from that page.
+
 Make the two secrets with `node apps/api/dist/cli.mjs keys:generate` (after `npm run build:server -w @alimentation/api`).
 
 ## On your machine
@@ -41,6 +44,7 @@ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
 npm test                                                 # unit and database tests
 npm run test:e2e                                         # the app in a real browser, desktop and phone
 npm run drift:db                                         # breaks each database guard on purpose; see docs/DRIFT.md
+npm run design                                           # the application keeps to its design system (also part of npm test)
 ```
 
 The browser tests need Chromium (`npx playwright install chromium`, or `PLAYWRIGHT_CHROMIUM_PATH`).
@@ -130,6 +134,14 @@ Moving a kitchen here from the shared service: the owner opens **Your data**, ch
 address and the `MIGRATION_TOKEN`. Everyone is invited again automatically, by the email they signed in with.
 
 Docker Hub rate-limits anonymous pulls. If a pull is refused, log in (`docker login`) or use a mirror.
+
+## Documentation
+
+`npm run build:web` builds the app and then the two documentation sites into `apps/web/dist/guides` and `apps/web/dist/docs`
+(`npm run docs -w @alimentation/web` rebuilds only them, after the app has been built once). The source is the Markdown in
+`docs/site/guides` (for people who use a kitchen) and `docs/site/docs` (for whoever runs or builds on it); each site's
+`nav.json` is its contents. The build fails on a broken link, an orphan page, a duplicate title or a missing heading. The server
+that serves the app serves them, so nothing more is deployed.
 
 ## Operating
 

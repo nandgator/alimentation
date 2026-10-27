@@ -23,6 +23,7 @@
     "build:web": "npm run build -w @alimentation/web",
     "test:e2e": "npm run test:e2e -w @alimentation/web",
     "promises": "node scripts/check-promises.mjs",
+    "design": "node scripts/check-design.mjs",
     "promises:write": "node scripts/check-promises.mjs --write",
     "smoke:compose": "scripts/smoke-compose.sh",
     "smoke:worker": "scripts/smoke-worker.sh",

@@ -386,7 +386,7 @@ export function WorkspaceShell() {
       {res.error && !res.data ? (
         <>
           <AppBar />
-          <div className="narrow" style={{ padding: '48px 0' }}>
+          <div className="narrow solo">
             <Problem
               error={
                 res.error.status === 404
@@ -398,7 +398,7 @@ export function WorkspaceShell() {
                       : res.error
               }
             />
-            <p style={{ marginTop: 16 }}>
+            <p>
               <Link href="/app">← Your kitchens</Link>
             </p>
           </div>
@@ -406,7 +406,7 @@ export function WorkspaceShell() {
       ) : !res.data ? (
         <>
           <AppBar />
-          <div className="wrap" style={{ padding: 40 }}>
+          <div className="wrap waiting">
             <Spinner />
           </div>
         </>

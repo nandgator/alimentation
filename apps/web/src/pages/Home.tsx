@@ -79,7 +79,7 @@ export function Home() {
             <a href="#moving">Moving</a>
             <a href="#leaving">Leaving</a>
             <a href="#promises">Promises</a>
-            <a href="/docs/">Docs</a>
+            <a href="/guides/">Guides</a>
           </nav>
           <Link href={start} className="btn ghost small">
             {signedIn ? 'Open your kitchens' : 'Sign in'}
@@ -334,6 +334,7 @@ export function Home() {
               <a href="#try">Try it</a>
               <a href="#promises">Promises</a>
               <a href="#leaving">Leaving</a>
+              <a href="/guides/">Guides</a>
               <a href="/docs/">Docs</a>
             </nav>
           </div>
