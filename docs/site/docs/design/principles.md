@@ -33,6 +33,8 @@ A card lies on the page, held by a hairline. A shadow means _this is above the p
 
 Things move to show where they came from or went: a menu slides from the edge it lives on, a toast rises from the bottom. Motion is limited to `transform` and `opacity`, uses three durations and three curves, and stops when the person has asked for less motion.
 
+The home page is the one exception, because it is the one place that persuades rather than serves. It has two slow lights: patches that drift behind the first screen, and a warm light over the name at the foot that follows a pointer and otherwise wanders. The drifting patches move by `transform` only. The light over the name moves a mask, in one small area, from two numbers the stylesheet reads. Neither ever moves text, both run only while in view, and with reduced motion they are still: the light over the name rests in the middle and goes on following a pointer, which is the person's own movement.
+
 ### 6. One way to do each job
 
 A screen exists once, in a list (`sections.ts`), and the menu, the routes and the _not for your role_ answer are all read from it. A control has one look in one place. A new need is first a question of which existing piece does it, and only then of a new piece.

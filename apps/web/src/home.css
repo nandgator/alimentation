@@ -1045,9 +1045,13 @@
   background: var(--field-green-ink);
   color: var(--field-green);
 }
-/* The name, set to the width of the page and dissolving at its foot: sharp at the top, then a blurred
-   copy takes over as the letters fade. It is decoration, so it cannot be selected. */
+/* The name, set to the width of the page and cut off at its foot, engraved in the wall: dim until a light passes
+   over it, the warm light of a stove, which follows a pointer and otherwise wanders along it (see useLight).
+   The light is two custom properties, --lx and --ly; with no script it rests in the middle. It is decoration,
+   so it cannot be selected. */
 .mega {
+  --lx: 50%;
+  --ly: 58%;
   position: relative;
   font: 400 calc(100cqw / 6.34) / 1 var(--serif);
   font-variant-numeric: lining-nums;
@@ -1062,20 +1066,67 @@
 .mega span {
   display: block;
 }
-.mega-sharp {
-  -webkit-mask-image: linear-gradient(to bottom, black 28%, transparent 88%);
-  mask-image: linear-gradient(to bottom, black 28%, transparent 88%);
+.mega-base {
+  color: color-mix(in srgb, var(--field-green-ink) 15%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black 28%, transparent 92%);
+  mask-image: linear-gradient(to bottom, black 28%, transparent 92%);
 }
-.mega-blur {
+.mega-lit {
   position: absolute;
   inset: 0;
-  filter: blur(0.03em);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 22%, black 62%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 22%, black 62%, transparent 100%);
+  color: color-mix(in srgb, var(--accent) 58%, var(--field-green-ink));
+  text-shadow: 0 0 0.1em color-mix(in srgb, var(--accent) 45%, transparent);
+  -webkit-mask-image:
+    radial-gradient(circle 20cqw at var(--lx) var(--ly), black 0%, transparent 100%),
+    linear-gradient(to bottom, black 28%, transparent 92%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle 20cqw at var(--lx) var(--ly), black 0%, transparent 100%),
+    linear-gradient(to bottom, black 28%, transparent 92%);
+  mask-composite: intersect;
+}
+
+/* Behind the first screen: two soft patches of light that drift slowly, at speeds that do not meet, like steam
+   over a stove. They only move while the screen is in view (data-live, from useLive), only by transform, and not
+   at all when motion is reduced, when they rest where they start. */
+.hero-glow {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+.hero-glow i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--glow), transparent);
+}
+.hero-glow .a {
+  --glow: color-mix(in srgb, var(--accent) 24%, transparent);
+  left: 6%;
+  top: 14%;
+  width: 64vmin;
+  height: 64vmin;
+}
+.hero-glow .b {
+  --glow: color-mix(in srgb, var(--field-green-soft) 20%, transparent);
+  right: 2%;
+  bottom: -10%;
+  width: 50vmin;
+  height: 50vmin;
 }
 
 /* ---------- Motion ------------------------------------------------------------ */
 @media (prefers-reduced-motion: no-preference) {
+  .hero-glow .a {
+    animation: drift-a 41s ease-in-out infinite alternate;
+  }
+  .hero-glow .b {
+    animation: drift-b 57s ease-in-out infinite alternate;
+  }
+  .hero:not([data-live='true']) .hero-glow i {
+    animation-play-state: paused;
+  }
   /* The first screen, in about a second: the lines rise, the carrier is stacked, the rest settles. */
   .hero h1 .line-in {
     transform: translateY(108%);
@@ -1158,6 +1209,22 @@
 
   .board-bill .total b {
     animation: tick 260ms var(--ease-out);
+  }
+}
+@keyframes drift-a {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(14vmin, 6vmin, 0) scale(1.18);
+  }
+}
+@keyframes drift-b {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-12vmin, -8vmin, 0) scale(0.9);
   }
 }
 @keyframes line-up {

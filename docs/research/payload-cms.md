@@ -89,12 +89,37 @@ Against ours: the wordmark footer is already in the home page (it was built from
 were not: the **theme choice in the footer**, and the **ruled columns** that give a long link list some order. The
 theme choice is the one adopted; see `DESIGN.md` section 12.
 
+## The landing page and footer, looked at in a browser
+
+Run against the public site, at 1440 pixels, in dark, with the pointer driven by the test and with reduced motion
+emulated. Described here for what each thing does; none of it was copied.
+
+- **The wordmark responds to the pointer.** The very large name at the foot is a faint, grain-textured grey set
+  into black. A soft round light, about 1100 pixels across, follows the pointer (two custom properties, `--mouse-x`
+  and `--mouse-y`, updated as it moves) and the letters come up only where it passes. Away from it the name is
+  nearly invisible. The name is cropped at the bottom edge.
+- **What keeps moving on the landing page** is one looped, muted background video behind the headline, 30 seconds
+  long, of slow bands of blue and amber light, under a fine dotted texture and a hairline column grid. It fades
+  in over two seconds. Further down, the product mock-ups are drawn mid-action (a text selection in progress, a
+  labelled collaborator's cursor, a focused field), which is where the page shows what the product does.
+- **It does not honour reduced motion for that video.** With the preference set, the video kept playing at normal
+  speed (its clock advanced three seconds in three). That is a flaw to avoid, not a thing to learn from.
+- **Layout:** ruled columns in the hero and the footer, a sticky top bar with the repository's star count and a
+  search icon, and a theme select in the footer.
+
+What was made of it here, in this project's own terms: the name dims into the wall and a **warm light, the colour of
+the turmeric accent, follows a pointer across it and wanders along it on its own when nobody is pointing**; two soft
+patches of light drift behind the first screen at 41 and 57 seconds, so the pattern never visibly repeats. Both move
+only while in view, stop when the tab is hidden, and stay still under reduced motion (the name's light then rests in
+the middle and still follows a hand, which is the person's own movement). No video: a looped video is megabytes the
+page does not need, and a stylesheet can draw the same slow light.
+
 ## Borrowed, left, and candidates
 
 | Decision      | Item                                                                                                                                                                       |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Borrowed once | Grouped, hideable menu; one list driving navigation and roles; production checklist; abuse-prevention checklist.                                                           |
-| Adopted now   | One theme choice (Automatic, Light, Dark) kept in one place and used by the app, the home page, the guides and the docs, with the control in the footer and in the app.    |
+| Adopted now   | A pointer-following light over the footer name, and a slow ambient light behind the first screen, drawn in this project's colours and stopping under reduced motion. One theme choice (Automatic, Light, Dark) kept in one place and used by the app, the home page, the guides and the docs, with the control in the footer and in the app.    |
 | Left          | Server-side saved layout preferences; a bottom-less phone layout; silent field dropping; permanent delete; a lock that refuses the right password; flat grey dark mode.    |
 | Candidates    | A "recent" strip on the kitchen home; a field filter on the ledger and orders lists; "changed fields only" in History; ruled columns in the footer; rejecting unknown keys in request bodies. |
 
