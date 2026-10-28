@@ -196,6 +196,63 @@ test.describe('the documentation sites', () => {
     }
   });
 
+  test('opens only the part being read in the contents, and any other part at a touch or a key', async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto('/docs/api/workspace/');
+    if (isMobile) await page.getByRole('button', { name: 'Menu' }).click();
+    const nav = page.getByRole('navigation', { name: 'Docs contents' });
+    await expect(nav.locator('details.docs-group[open]')).toHaveCount(1);
+    await expect(nav.getByRole('link', { name: 'Workspace routes' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Install a trial instance' })).toBeHidden();
+
+    // A part is opened by its heading, with the keyboard as well as a touch.
+    const heading = nav.getByText('Self-hosting', { exact: true });
+    await heading.focus();
+    await page.keyboard.press('Enter');
+    await expect(nav.getByRole('link', { name: 'Install a trial instance' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(nav.getByRole('link', { name: 'Install a trial instance' })).toBeHidden();
+  });
+
+  test('keeps a path in the API tables whole where it fits, and a table never pushes the page sideways', async ({
+    page,
+  }) => {
+    await page.goto('/docs/api/workspace/');
+    const broken = await page.evaluate(() =>
+      [...document.querySelectorAll('.docs-article td:first-child code')]
+        .filter((c) => !c.querySelector('wbr'))
+        .filter((c) => c.getClientRects().length > 1)
+        .map((c) => c.textContent),
+    );
+    expect(broken, 'a short piece of code is not broken across lines').toEqual([]);
+    await expectNoSidewaysScroll(page, 'the API reference');
+  });
+
+  test('has the same tiffin in its bar as the home page, packed as the page is read', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/guides/how/bills/');
+    const can = await page.evaluate(() => CSS.supports('animation-timeline: scroll()'));
+    test.skip(!can, 'this browser cannot tie an animation to the scroll');
+    const packed = () =>
+      page.evaluate(() =>
+        [1, 2, 3, 4].map((n) => {
+          const m = new DOMMatrix(
+            getComputedStyle(document.querySelector(`.docs-mark .mark-fill-${n}`)!).transform,
+          );
+          return Math.round(m.a * 100) / 100;
+        }),
+      );
+    await expect.poll(packed).toEqual([0, 0, 0, 0]);
+    await page.evaluate(() =>
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }),
+    );
+    await expect.poll(packed).toEqual([1, 1, 1, 1]);
+  });
+
   test('copies code, and scrolls a wide table inside itself rather than the page', async ({
     page,
     context,

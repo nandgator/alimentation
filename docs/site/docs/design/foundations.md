@@ -102,6 +102,19 @@ Components that need a gap between tokens set it with `--gap` (see `.stack` and 
 | `--bar-h`      | 56px  | The bottom bar on a phone.                            |
 | `--topbar-h`   | 58px  | The top bar.                                          |
 
+### Reading
+
+Running text, which is what the guides and the docs are, has three tokens of its own and takes the rest from the scale above. They were set once, so a long page is as easy to follow at its end as at its start, and a table or a list never feels crowded against the text around it.
+
+| Token            | Value | For                                                                                          |
+| ---------------- | ----- | -------------------------------------------------------------------------------------------- |
+| `--measure`      | 46rem | The widest a line of running text runs. Longer lines are harder to follow back to the start. |
+| `--leading`      | 1.7   | The height of a line of running text, as a multiple of its size.                             |
+| `--leading-lede` | 1.55  | The same for the larger opening paragraph of a page, which is set quieter and bigger.        |
+| `--flow`         | 20px  | The rest between paragraphs, lists, tables and code, about three quarters of a line.         |
+
+A heading is set off from what came before by `--space-7` and from what it introduces by `--space-3`, so it belongs to its text. Nothing in a stylesheet is sized in `rem` for space: a `rem` is read as the pixels it comes to and must land on the grid like any other, so a gap cannot be made roomier by stepping around the scale.
+
 ## Shape
 
 Anything round is a pill. Everything else uses one of five radii.

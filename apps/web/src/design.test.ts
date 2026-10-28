@@ -69,6 +69,10 @@ describe('the design checker notices what it is for', () => {
     expect(rulesBroken('.a { border-radius: 7px; }')).toEqual(['radius']);
     expect(rulesBroken('.a { padding: 7px; }')).toEqual(['space']);
     expect(rulesBroken('.a { gap: 26px; }')).toEqual(['space']);
+    // A rem is the pixels it comes to, so stepping round the grid in rem does not get past.
+    expect(rulesBroken('.a { margin: 1.2rem 0; }')).toEqual(['space']);
+    expect(rulesBroken('.a { padding: 0.4rem; }')).toEqual(['space']);
+    expect(rulesBroken('.a { margin: 0.5rem 1.5rem 3rem; }')).toEqual([]);
   });
 
   it('notices !important outside reduced motion, and a breakpoint that is not one of ours', () => {
@@ -77,13 +81,13 @@ describe('the design checker notices what it is for', () => {
   });
 
   describe('a select draws its own arrow, and keeps room for it', () => {
-    const shared = 'input, select, textarea { padding: 0.65rem 0.8rem; }';
+    const shared = 'input, select, textarea { padding: 10px 12px; }';
     const arrow = `select { appearance: none; padding-right: 40px; background-image: linear-gradient(to top right, transparent, var(--ink-2)); }`;
     const why = (css: string) => checkCssText(css).map((p) => `${p.rule}: ${p.why}`);
 
     it('accepts the shared arrow, and a narrower select that leaves its room alone', () => {
       expect(
-        why(`${shared}\n${arrow}\n.acting select { padding-block: 0.3rem; padding-left: 0.6rem; }`),
+        why(`${shared}\n${arrow}\n.acting select { padding-block: 4px; padding-left: 10px; }`),
       ).toEqual([]);
       expect(why('.a { color: var(--ink); }')).toEqual([]);
     });

@@ -108,6 +108,43 @@ describe('the documentation sites', () => {
     }
   });
 
+  it('shows the contents as a heading for each part, with only the part being read open', () => {
+    for (const url of built.pages) {
+      if (url === '/guides/' || url === '/docs/') continue;
+      const h = html(url);
+      const dir = url.split('/')[1]!;
+      const groups = h.match(/<details class="docs-group"[^>]*>/g) ?? [];
+      const parts = (JSON.parse(read(`${dir}/nav.json`)) as { sections: unknown[] }).sections;
+      expect(groups, url).toHaveLength(parts.length);
+      expect(
+        groups.filter((g) => g.includes(' open')),
+        url,
+      ).toHaveLength(1);
+      // The open one is the one that holds the page being read.
+      const open = /<details class="docs-group" open>(.*?)<\/details>/.exec(h)![1]!;
+      expect(open, url).toContain('aria-current="page"');
+      expect(h, url).toContain('<summary class="docs-group-title">');
+    }
+  });
+
+  it('draws the badge in the page, so that it can be packed as the page is read', () => {
+    for (const url of built.pages) {
+      const h = html(url);
+      expect(h, url).toContain('class="docs-mark"');
+      expect(h.match(/class="mark-fill mark-fill-\d"/g), url).toHaveLength(4);
+      expect(h, url).not.toContain('<img src="/favicon.svg"');
+    }
+  });
+
+  it('lets a long path in code break after its slashes and queries, and still shows what is in angle brackets', () => {
+    const h = html('/docs/api/workspace/');
+    expect(h).toContain('statements?<wbr>months=<wbr>');
+    expect(h).toContain('&lt;id&gt;');
+    expect(h).not.toMatch(/<id>/);
+    // A short piece of code is left whole.
+    expect(h).toContain('<code>GET /bootstrap</code>');
+  });
+
   it('writes a search index for each site with one entry per page of that site only', () => {
     for (const dir of ['guides', 'docs']) {
       const index = JSON.parse(readFileSync(join(dist, dir, 'search-index.json'), 'utf8')) as {
