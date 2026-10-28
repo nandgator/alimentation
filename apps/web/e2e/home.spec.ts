@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { expectAccessible, shot, watchPage } from './support.ts';
 
 test.describe('the home page', () => {
@@ -214,28 +214,64 @@ test.describe('the home page', () => {
     expect(await lx(), 'it rests in the middle').toBeCloseTo(50, 0);
   });
 
-  test('has a slow light behind the first screen that stops when it is out of view or motion is reduced', async ({
+  test('has steam coming out from behind the lids, that stops when it is out of view or motion is reduced', async ({
     page,
   }) => {
-    const glow = () =>
+    const steam = () =>
       page.evaluate(() => {
-        const a = getComputedStyle(document.querySelector('.hero-glow .a')!);
+        const path = document.querySelector('.hero-scene .steam path')!;
+        const c = getComputedStyle(path);
         return {
-          name: a.animationName,
-          state: a.animationPlayState,
+          name: c.animationName,
+          state: c.animationPlayState,
           live: document.querySelector<HTMLElement>('.hero')!.dataset.live,
         };
       });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/');
-    await expect.poll(async () => (await glow()).live).toBe('true');
-    expect(await glow()).toEqual({ name: 'drift-a', state: 'running', live: 'true' });
+    await expect.poll(async () => (await steam()).live).toBe('true');
+    expect(await steam()).toEqual({ name: 'wisp-flow', state: 'running', live: 'true' });
     await page.locator('.hfoot').scrollIntoViewIfNeeded();
-    await expect.poll(async () => (await glow()).live).toBe('false');
-    expect((await glow()).state, 'it does not run where nobody can see it').toBe('paused');
+    await expect.poll(async () => (await steam()).live).toBe('false');
+    expect((await steam()).state, 'it does not run where nobody can see it').toBe('paused');
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    expect((await glow()).name, 'with reduced motion it does not move').toBe('none');
+    expect((await steam()).name, 'with reduced motion it does not move').toBe('none');
+  });
+
+  test('draws the steam as something that comes out of a lid, and no two wisps keep the same time', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const found = await page.evaluate(() => {
+      const wisps = [...document.querySelectorAll<SVGGElement>('.hero-scene .steam .wisp')];
+      const lids = [
+        // The carrier's steam is drawn before the carrier, and the pot's before the pot.
+        ['.hero-carrier .steam', '.hero-carrier .carrier'],
+        ['.pot .steam', '.pot > rect'],
+      ].map(([steam, lid]) => {
+        const s = document.querySelector(steam!)!;
+        const l = document.querySelector(lid!)!;
+        return !!(s.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+      const ids = [...document.querySelectorAll('[id^="steam-"]')].map((e) => e.id);
+      return {
+        count: wisps.length,
+        lids,
+        lives: new Set(wisps.map((w) => getComputedStyle(w).getPropertyValue('--life'))).size,
+        swings: new Set(wisps.map((w) => getComputedStyle(w).getPropertyValue('--swing'))).size,
+        uniqueIds: new Set(ids).size === ids.length,
+        masked: document.querySelectorAll('.hero-scene .steam g[mask]').length,
+      };
+    });
+    expect(found).toEqual({
+      count: 6,
+      lids: [true, true],
+      lives: 6,
+      swings: 6,
+      uniqueIds: true,
+      masked: 2,
+    });
   });
 
   for (const scheme of ['light', 'dark'] as const) {
@@ -387,6 +423,194 @@ test.describe('the home page', () => {
           .toBe(pose);
         await expect(page.locator('.steps li').nth(i)).toHaveClass(/on/);
       }
+    });
+
+    test('the carrier glides and never snaps, however hard the page is scrolled back and forth', async ({
+      page,
+    }, info) => {
+      await page.goto('/');
+      await page.locator('.moving').scrollIntoViewIfNeeded();
+      const trail = await page.evaluate(async () => {
+        const stage = document.querySelector('.stage')!;
+        const mover = document.querySelector('.mover')!;
+        const items = [...document.querySelectorAll('.steps li')];
+        const centre = (i: number) => {
+          const r = items[i]!.getBoundingClientRect();
+          return r.top + r.height / 2 - window.innerHeight / 2 + window.scrollY;
+        };
+        const from = centre(0);
+        const to = centre(2);
+        const seen: { t: number; x: number; y: number }[] = [];
+        const t0 = performance.now();
+        await new Promise<void>((done) => {
+          const frame = (now: number) => {
+            const t = (now - t0) / 1000;
+            // Across all three places and back, over a second each way: a hand flicking a trackpad.
+            const phase = (Math.sin(t * Math.PI * 2 * 0.9) + 1) / 2;
+            window.scrollTo({ top: from + (to - from) * phase, behavior: 'instant' });
+            const s = stage.getBoundingClientRect();
+            const m = mover.getBoundingClientRect();
+            seen.push({ t, x: m.left + m.width / 2 - s.left, y: m.top + m.height / 2 - s.top });
+            if (t < 4) requestAnimationFrame(frame);
+            else done();
+          };
+          requestAnimationFrame(frame);
+        });
+        return seen;
+      });
+      let fastest = 0;
+      let travelled = 0;
+      for (let i = 1; i < trail.length; i++) {
+        const d = Math.hypot(trail[i]!.x - trail[i - 1]!.x, trail[i]!.y - trail[i - 1]!.y);
+        const dt = Math.max(trail[i]!.t - trail[i - 1]!.t, 1 / 120);
+        travelled += d;
+        fastest = Math.max(fastest, d / dt);
+      }
+      info.annotations.push({ type: 'fastest', description: `${Math.round(fastest)} px/s` });
+      expect(travelled, 'the carrier did travel').toBeGreaterThan(600);
+      // A hop crosses the picture in about a second: a few hundred pixels a second. A snap back to where it
+      // last landed is the whole picture in one frame, tens of thousands.
+      expect(fastest, `the carrier jumped (${Math.round(fastest)} px/s)`).toBeLessThan(3000);
+    });
+
+    // Where the browser can follow the scroll with an animation, the page is one motion: the parts arrive by how
+    // far up the screen they are, the sheets ease flat as they come up, and the mark in the bar is packed as it is read.
+    test.describe('tied to the scroll', () => {
+      test.beforeEach(async ({ page }) => {
+        await page.goto('/');
+        const can = await page.evaluate(() => CSS.supports('animation-timeline: view()'));
+        test.skip(
+          !can,
+          'this browser cannot tie an animation to the scroll, so the parts arrive timed',
+        );
+      });
+      /** Scrolls so that the top of `selector` is `f` of the way down the screen, and says what `read` finds. */
+      const at = <T>(page: Page, selector: string, f: number, read: (el: Element) => T) =>
+        page
+          .evaluate(
+            ([sel, f]) => {
+              const el = document.querySelector(sel as string)!;
+              const top = el.getBoundingClientRect().top + window.scrollY;
+              window.scrollTo({
+                top: top - (f as number) * window.innerHeight,
+                behavior: 'instant',
+              });
+              return new Promise<unknown>((done) =>
+                requestAnimationFrame(() => requestAnimationFrame(() => done(el))),
+              );
+            },
+            [selector, f],
+          )
+          .then(async () => page.locator(selector).first().evaluate(read));
+
+      test('every part arrives as far as it has come up the screen, and goes back as the page goes back', async ({
+        page,
+      }) => {
+        const opacity = (f: number) =>
+          at(page, '#free .statement', f, (el) => Number(getComputedStyle(el).opacity));
+        const far = await opacity(0.98);
+        const half = await opacity(0.9);
+        const near = await opacity(0.55);
+        expect(far, 'at the foot of the screen it has not come').toBeLessThan(0.4);
+        expect(half, 'part-way up it is part-way there').toBeGreaterThan(far);
+        expect(half).toBeLessThan(1);
+        expect(near, 'higher up it is all there').toBe(1);
+        expect(await opacity(0.98), 'and scrolled back, it goes').toBeLessThan(0.4);
+      });
+
+      test('the sheets lie over one another with rounded corners that ease flat as each comes up', async ({
+        page,
+      }) => {
+        const radius = (f: number) =>
+          at(page, '#free', f, (el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
+        expect(await radius(0.98), 'rounded as it comes in').toBeGreaterThan(20);
+        const mid = await radius(0.85);
+        expect(mid).toBeGreaterThan(0);
+        expect(mid).toBeLessThan(await radius(0.98));
+        expect(await radius(0.2), 'flat by the time it has come up').toBe(0);
+        // Each sheet is drawn over the bottom of the one before, which is paid for in padding, so nothing moves.
+        const overlap = await page.evaluate(() => {
+          const free = document.querySelector('#free')!.getBoundingClientRect().top;
+          const before = document.querySelector('#try')!.getBoundingClientRect().bottom;
+          return Math.round(before - free);
+        });
+        expect(overlap).toBeGreaterThan(20);
+      });
+
+      test('the bar names the chapter being read, and its mark is packed tier by tier as the page is read', async ({
+        page,
+      }) => {
+        const bar = page.locator('.hnav nav');
+        await expect(bar.locator('[aria-current]')).toHaveCount(0);
+        await at(page, '#free', 0.2, () => 0);
+        await expect(bar.locator('a[aria-current="location"]')).toHaveText('Free');
+        await at(page, '#leaving', 0.2, () => 0);
+        await expect(bar.locator('a[aria-current="location"]')).toHaveText('Leaving');
+
+        const packed = () =>
+          page.evaluate(() =>
+            [1, 2, 3, 4].map((n) => {
+              const m = new DOMMatrix(
+                getComputedStyle(document.querySelector(`.hnav .mark-fill-${n}`)!).transform,
+              );
+              return Math.round(m.a * 100) / 100;
+            }),
+          );
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+        await expect.poll(packed).toEqual([0, 0, 0, 0]);
+        await page.evaluate(() =>
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: 'instant',
+          }),
+        );
+        await expect.poll(packed).toEqual([1, 1, 1, 1]);
+        await page.evaluate(() =>
+          window.scrollTo({
+            top: (document.documentElement.scrollHeight - window.innerHeight) * 0.43,
+            behavior: 'instant',
+          }),
+        );
+        const some = await packed();
+        expect(some[0], 'the first tier is full by then').toBe(1);
+        expect(some[3], 'and the lid is not yet').toBe(0);
+      });
+
+      test('the first screen lets go in layers, and the light over the name comes on as the foot comes up', async ({
+        page,
+      }) => {
+        const lift = (f: number) =>
+          at(page, '.hfoot', f, () => 0).then(() =>
+            page.evaluate(() => getComputedStyle(document.querySelector('.hero-scene')!).translate),
+          );
+        expect(await lift(5)).not.toBe('none');
+        const lit = (f: number) =>
+          at(page, '.mega-lit', f, (el) => Number(getComputedStyle(el).opacity));
+        expect(await lit(0.98)).toBeLessThan(0.3);
+        expect(await lit(0.4), 'and is on by the foot of the page').toBeGreaterThan(0.95);
+      });
+    });
+
+    test('the carrier steams when it is set down, and not while it is in the air', async ({
+      page,
+    }) => {
+      await page.goto('/');
+      const moving = page.locator('.moving');
+      await page.evaluate(() => {
+        const r = document.querySelectorAll('.steps li')[2]!.getBoundingClientRect();
+        window.scrollBy({
+          top: r.top + r.height / 2 - window.innerHeight / 2,
+          behavior: 'instant',
+        });
+      });
+      await expect(moving).toHaveAttribute('data-hop', 'true');
+      const air = () =>
+        page.locator('.stage .steam').evaluate((e) => Number(getComputedStyle(e).opacity));
+      await expect
+        .poll(air, { message: 'it is gone while the carrier is lifted' })
+        .toBeLessThan(0.1);
+      await expect(moving).toHaveAttribute('data-hop', 'false');
+      await expect.poll(air, { message: 'and back once it is down' }).toBeGreaterThan(0.95);
     });
   });
 });

@@ -185,6 +185,11 @@
   text-underline-offset: 0.35em;
   transition: text-decoration-color 180ms ease;
 }
+/* The chapter being read is underlined in turmeric: where you are, always shown. */
+.hnav nav a[aria-current] {
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 0.12em;
+}
 @media (hover: hover) and (pointer: fine) {
   .hnav nav a:hover {
     text-decoration-color: currentColor;
@@ -265,8 +270,42 @@
 }
 
 /* ---------- Sections --------------------------------------------------------- */
+/* The sections are sheets laid one over the next: each slides up over the bottom of the one before with its top
+   corners rounded, so the colour below shows in them and the two are joined, not cut. (Where the browser can tie
+   it to the scroll, the corners ease flat as the sheet comes up, see below.) The overlap is paid for in padding,
+   so nothing moves. */
+.home {
+  --seam: clamp(28px, 4vw, 64px);
+}
+main > section:not(.hero),
+.hfoot {
+  position: relative;
+  margin-top: calc(var(--seam) * -1);
+  border-top-left-radius: var(--seam);
+  border-top-right-radius: var(--seam);
+}
+main > section.section:not(.hero) {
+  padding-top: calc(var(--section) + var(--seam));
+}
+/* A sheet has a colour of its own, the page's paper unless a section names another, or its corners would show
+   nothing. (`:where` so that a section's own field wins.) */
+:where(main > section:not(.hero)) {
+  background: var(--bg);
+}
+.hero {
+  padding-bottom: var(--seam);
+}
 .section {
   padding-block: var(--section);
+}
+
+/* The mark in the bar is the page's one constant: a tiffin that is packed as the page is read. A stripe in each
+   tier fills, one after the other and the lid last. With no way to follow the scroll it simply stays empty. */
+.mark-fill {
+  fill: var(--accent);
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
 }
 .steel {
   background: var(--paper-2);
@@ -722,9 +761,6 @@
     justify-content: flex-start;
   }
 }
-.camera {
-  transition: transform 1000ms var(--ease-in-out);
-}
 /* Free: a whole field of turmeric. */
 .free {
   background: var(--field-yellow);
@@ -1086,46 +1122,50 @@
   mask-composite: intersect;
 }
 
-/* Behind the first screen: two soft patches of light that drift slowly, at speeds that do not meet, like steam
-   over a stove. They only move while the screen is in view (data-live, from useLive), only by transform, and not
-   at all when motion is reduced, when they rest where they start. */
-.hero-glow {
-  position: absolute;
-  inset: 0;
-  overflow: clip;
-  pointer-events: none;
+/* Steam over a lid (see steam.tsx). A wisp is a thin line the colour of the wall's own light, round at its ends,
+   and the air mask in the picture takes it a little higher up. At rest, which is also how it looks when motion
+   is reduced, each is drawn in full, so the still picture is a drawn one and not a frame caught half done. */
+.steam path {
+  fill: none;
+  stroke: var(--field-green-ink);
+  stroke-width: calc(var(--thick) * 1px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: calc(var(--peak) * 0.8);
 }
-.hero-glow i {
-  position: absolute;
-  display: block;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, var(--glow), transparent);
-}
-.hero-glow .a {
-  --glow: color-mix(in srgb, var(--accent) 24%, transparent);
-  left: 6%;
-  top: 14%;
-  width: 64vmin;
-  height: 64vmin;
-}
-.hero-glow .b {
-  --glow: color-mix(in srgb, var(--field-green-soft) 20%, transparent);
-  right: 2%;
-  bottom: -10%;
-  width: 50vmin;
-  height: 50vmin;
+.steam .air {
+  mask-type: alpha;
 }
 
 /* ---------- Motion ------------------------------------------------------------ */
 @media (prefers-reduced-motion: no-preference) {
-  .hero-glow .a {
-    animation: drift-a 41s ease-in-out infinite alternate;
+  /* A stretch of each wisp's line travels up it, in about a third of its length, easing in and out, then it rests
+     before the next; the whole line sways on a different clock from its trip, so no two moments are alike. Only
+     the lit stretch and a rotation change, in a few thin lines. The picture waits for the carrier to be
+     stacked, then the steam comes up slowly. */
+  .hero-scene .steam {
+    animation: steam-in 3200ms var(--ease-out) 1500ms both;
   }
-  .hero-glow .b {
-    animation: drift-b 57s ease-in-out infinite alternate;
+  .steam path {
+    stroke-dasharray: var(--dash) 2;
+    animation: wisp-flow var(--life) ease-in-out var(--at) infinite;
   }
-  .hero:not([data-live='true']) .hero-glow i {
+  .steam .wisp {
+    animation: wisp-sway var(--swing) ease-in-out var(--at) infinite alternate;
+  }
+  /* Only while it can be seen. */
+  .hero:not([data-live='true']) .steam *,
+  .moving:not([data-live='true']) .steam * {
     animation-play-state: paused;
+  }
+  /* On the shelf of the Moving stage the carrier steams when it is set down, and not while it is in the air. */
+  .stage .steam {
+    transition: opacity 1600ms ease 300ms;
+  }
+  .moving[data-hop='true'] .stage .steam {
+    opacity: 0;
+    transition-duration: 240ms;
+    transition-delay: 0s;
   }
   /* The first screen, in about a second: the lines rise, the carrier is stacked, the rest settles. */
   .hero h1 .line-in {
@@ -1207,24 +1247,143 @@
     transition: clip-path 1600ms var(--ease-in-out);
   }
 
+  /* Between the home page and the guides and docs, the pages hand over to one another where the browser can do it,
+     the bar staying put, and are simply loaded where it cannot. */
+  @view-transition {
+    navigation: auto;
+  }
+  .hnav {
+    view-transition-name: docs-bar;
+  }
+
+  /* Where the browser can tie an animation to how far a thing has come up the screen, what is below the first
+     screen arrives by that and not by a clock: a hard scroll sweeps each part in as fast as it goes and a scroll
+     back lets it go, where a timed arrival is always a beat behind a fast hand and snaps. The same arrivals,
+     timed, are what the rules above give a browser that cannot. */
+  @supports (animation-timeline: view()) {
+    .reveal-on [data-reveal='true'],
+    .reveal-on [data-reveal='row'],
+    .reveal-on [data-reveal='board'] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      animation: arrive linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+    .reveal-on [data-reveal='row'] {
+      --rise: 16px;
+    }
+    .reveal-on [data-reveal='board'] {
+      --rise: 40px;
+      animation-range: entry 0% cover 21%;
+    }
+    /* The receipt prints as the page is read down to it, and each check is stamped as it comes into view. */
+    .reveal-on [data-reveal='print'] .paper {
+      clip-path: none;
+      transition: none;
+      animation: print linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 40%;
+    }
+    .reveal-on .receipt .tick {
+      display: inline-block;
+      animation: stamp linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+    /* The light over the name at the foot comes on as the foot comes into view. */
+    .reveal-on .mega-lit {
+      animation: lights-on linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+    /* The corners of each sheet ease flat as it comes up the screen. */
+    main > section:not(.hero),
+    .hfoot {
+      animation: seam linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+    .mark-fill {
+      animation: pack linear both;
+      animation-timeline: scroll(root block);
+    }
+    .mark-fill-1 {
+      animation-range: 4% 30%;
+    }
+    .mark-fill-2 {
+      animation-range: 30% 56%;
+    }
+    .mark-fill-3 {
+      animation-range: 56% 80%;
+    }
+    .mark-fill-4 {
+      animation-range: 80% 98%;
+    }
+    /* Headings: each line rises from behind its baseline as the heading comes up the screen, one a little after
+       the other. Rests as the timed rules above leave it, which is risen. */
+    .reveal-on [data-reveal='lines'] .line-in,
+    .reveal-on [data-reveal='lines'].is-in .line-in {
+      transform: none;
+      transition: none;
+      animation: line-rise linear both;
+      animation-timeline: view();
+      animation-range: entry calc(var(--i) * 12%) entry calc(70% + var(--i) * 12%);
+    }
+    /* Figures: the digits roll up, one column after another, as the figure comes into view. A column is one digit
+       tall; the strip inside it is ten, so it is the column's place on the screen that is followed. */
+    .reveal-on .roll-col {
+      view-timeline: --roll block;
+    }
+    .reveal-on .roll:not(.is-in) .roll-strip,
+    .reveal-on .roll.is-in .roll-strip {
+      transform: translateY(calc(var(--d) * -1em));
+      transition: none;
+      animation: roll-up linear both;
+      animation-timeline: --roll;
+      animation-range: entry calc(var(--i) * 8%) entry calc(80% + var(--i) * 8%);
+    }
+    /* The first screen lets go of the page in layers: its words fall a little behind the scroll, its picture rises
+       a little ahead, so the picture seems nearer than the wall. */
+    .hero-copy {
+      animation: copy-lag linear both;
+      animation-timeline: view();
+      animation-range: exit 0% exit 100%;
+    }
+    .hero-scene {
+      animation: scene-lift linear both;
+      animation-timeline: view();
+      animation-range: exit 0% exit 100%;
+    }
+  }
+
   .board-bill .total b {
     animation: tick 260ms var(--ease-out);
   }
 }
-@keyframes drift-a {
+@keyframes steam-in {
   from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(14vmin, 6vmin, 0) scale(1.18);
+    opacity: 0;
   }
 }
-@keyframes drift-b {
+/* The lit stretch starts wholly before the line and ends wholly past it, with a little over for the round ends, so
+   at rest nothing of it is left at either end. */
+@keyframes wisp-flow {
   from {
-    transform: translate3d(0, 0, 0) scale(1.1);
+    stroke-dashoffset: var(--before);
+  }
+  72%,
+  to {
+    stroke-dashoffset: -1.1;
+  }
+}
+@keyframes wisp-sway {
+  from {
+    rotate: calc(var(--sway) * -1deg);
   }
   to {
-    transform: translate3d(-12vmin, -8vmin, 0) scale(0.9);
+    rotate: calc(var(--sway) * 1deg);
   }
 }
 @keyframes line-up {
@@ -1244,6 +1403,59 @@
     transform: translateY(-36px);
   }
 }
+@keyframes seam {
+  to {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+}
+@keyframes line-rise {
+  from {
+    transform: translateY(108%);
+  }
+}
+@keyframes roll-up {
+  from {
+    transform: none;
+  }
+}
+@keyframes copy-lag {
+  to {
+    translate: 0 40px;
+  }
+}
+@keyframes scene-lift {
+  to {
+    translate: 0 -32px;
+  }
+}
+@keyframes pack {
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise, 24px));
+  }
+}
+@keyframes print {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+}
+@keyframes stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.8) rotate(-14deg);
+  }
+}
+@keyframes lights-on {
+  from {
+    opacity: 0;
+  }
+}
 @keyframes tick {
   from {
     opacity: 0;
@@ -1251,7 +1463,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .camera,
   .steps li {
     transition: none;
   }

@@ -125,7 +125,7 @@ export function Figure({ value }: { value: string }) {
 
 /**
  * Says whether a part of the page is in view and the tab is showing it, as `data-live` on it, so that what
- * moves on its own (a slow light, for instance) can stop when nobody could see it.
+ * moves on its own (steam, for instance) can stop when nobody could see it.
  */
 export function useLive(root: RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -230,4 +230,62 @@ export function useLight(
       if (raf) cancelAnimationFrame(raf);
     };
   }, [area, target]);
+}
+
+/**
+ * One step of a critically damped spring: from `x` toward `goal` with velocity `v`, over `dt` seconds, taking about
+ * three times `smooth` to arrive. It starts and ends gently, never passes the goal, and when the goal moves
+ * in mid-flight (a page scrolled back and forth) both position and velocity carry on unbroken, which a
+ * timed animation that is cancelled and restarted cannot do.
+ */
+export function smoothDamp(
+  x: number,
+  goal: number,
+  v: number,
+  smooth: number,
+  dt: number,
+): [x: number, v: number] {
+  const w = 2 / smooth;
+  const k = w * dt;
+  const decay = 1 / (1 + k + 0.48 * k * k + 0.235 * k * k * k);
+  const d = x - goal;
+  const t = (v + w * d) * dt;
+  const next = goal + (d + t) * decay;
+  // The spring is exact; the polynomial above is not, so it is not allowed to cross the goal.
+  if (x < goal === next > goal) return [goal, 0];
+  return [next, (v - w * t) * decay];
+}
+
+/**
+ * The section the reader is in: the last of `ids`, in page order, whose top has passed 40% of the way down the
+ * screen; none while the first has not been reached. Read from where the page is, on each frame of a scroll, so the
+ * answer is right however fast the page was moved.
+ */
+export function useChapter(ids: readonly string[]): string | null {
+  const [now, setNow] = useState<string | null>(null);
+  useEffect(() => {
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      const line = window.innerHeight * 0.4;
+      let found: string | null = null;
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= line) found = id;
+      }
+      setNow(found);
+    };
+    const soon = () => {
+      if (!raf) raf = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener('scroll', soon, { passive: true });
+    window.addEventListener('resize', soon);
+    return () => {
+      window.removeEventListener('scroll', soon);
+      window.removeEventListener('resize', soon);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [ids]);
+  return now;
 }

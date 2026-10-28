@@ -156,7 +156,7 @@ Things move to show where they came from. By convention only `transform` and `op
 | `--ease-expo`   | `cubic-bezier(0.16, 1, 0.3, 1)`  | Large movements.                            |
 | `--ease-in-out` | `cubic-bezier(0.76, 0, 0.24, 1)` | Things that go and come back.               |
 
-Plain `ease`, `linear` and friends are allowed for colour changes. Anything that moves is inside `@media (prefers-reduced-motion: no-preference)` or switched off in a `prefers-reduced-motion: reduce` block, where `!important` is permitted for this one purpose. The end-to-end tests run with reduced motion so that nothing is measured halfway through a fade.
+Plain `ease`, `linear` and friends are allowed for colour changes. Anything that moves is inside `@media (prefers-reduced-motion: no-preference)` or switched off in a `prefers-reduced-motion: reduce` block, where `!important` is permitted for this one purpose. The end-to-end tests run with reduced motion so that nothing is measured halfway through a fade; a test that is about the motion turns it back on for itself.
 
 ## Breakpoints
 

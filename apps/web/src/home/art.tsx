@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
+import { CARRIER_VENT, POT_VENT, Steam } from './steam.tsx';
 
 /*
  * The home page's pictures, drawn in code from the subject itself: a tiffin carrier, a steel shelf,
- * tiled walls. Flat colour only. The steel tones are fixed (not themed) because every picture sits on
- * a green tiled wall in both light and dark mode.
+ * tiled walls. Flat colour only (the steam is flat too, only thinner). The steel tones are fixed
+ * (not themed) because every picture sits on a green tiled wall in both light and dark mode.
  */
 
 /** The tile pattern every wall uses. Mounted once, referenced by id. */
@@ -153,6 +154,7 @@ export function HeroScene() {
           <rect x="196" y="396" width="8" height="34" rx="4" className="jar-shine" />
         </g>
         <g className="pot">
+          <Steam vent={POT_VENT} />
           <rect x="462" y="380" width="78" height="60" rx="9" className="s3" />
           <rect x="454" y="392" width="12" height="9" rx="4" className="s4" />
           <rect x="536" y="392" width="12" height="9" rx="4" className="s4" />
@@ -162,6 +164,7 @@ export function HeroScene() {
         </g>
       </g>
       <g className="hero-carrier" transform="translate(250 134)">
+        <Steam vent={CARRIER_VENT} />
         <Carrier />
       </g>
     </svg>
@@ -176,16 +179,24 @@ export const STATIONS = [
   { name: 'A kitchen of your own', x: 800 },
 ] as const;
 
-/** Where the traveller stands at each station, as an SVG transform. */
+/** Where the traveller stands at each station. */
 export const POSES = [
   { x: 178, y: 330, s: 0.34 },
   { x: 538, y: 213, s: 0.62 },
   { x: 930, y: 265, s: 0.62 },
 ] as const;
 
-export const pose = (i: number) => {
-  const p = POSES[i]!;
-  return `translate(${p.x}px, ${p.y}px) scale(${p.s})`;
+/**
+ * Where the traveller stands, as an SVG transform, at a place along its way: a whole number is a station, and
+ * a number between two is between them.
+ */
+export const poseAt = (p: number) => {
+  const i = Math.min(POSES.length - 2, Math.max(0, Math.floor(p)));
+  const f = Math.min(1, Math.max(0, p - i));
+  const a = POSES[i]!;
+  const b = POSES[i + 1]!;
+  const mix = (m: number, n: number) => Math.round((m + (n - m) * f) * 100) / 100;
+  return `translate(${mix(a.x, b.x)}px, ${mix(a.y, b.y)}px) scale(${mix(a.s, b.s)})`;
 };
 
 function Row({ y, skip }: { y: number; skip?: number }) {

@@ -33,7 +33,17 @@ A card lies on the page, held by a hairline. A shadow means _this is above the p
 
 Things move to show where they came from or went: a menu slides from the edge it lives on, a toast rises from the bottom. Motion is limited to `transform` and `opacity`, uses three durations and three curves, and stops when the person has asked for less motion.
 
-The home page is the one exception, because it is the one place that persuades rather than serves. It has two slow lights: patches that drift behind the first screen, and a warm light over the name at the foot that follows a pointer and otherwise wanders. The drifting patches move by `transform` only. The light over the name moves a mask, in one small area, from two numbers the stylesheet reads. Neither ever moves text, both run only while in view, and with reduced motion they are still: the light over the name rests in the middle and goes on following a pointer, which is the person's own movement.
+The home page is the one exception, because it is the one place that persuades rather than serves. What it does is one motion, read from top to bottom, and not a set of effects. Its parts:
+
+- **One constant.** The tiffin in the bar is packed as the page is read, a stripe in each tier filling one after the other and the lid last. The guides and docs have the same tiffin, packed by the same scroll.
+- **Sheets.** Each section lies over the bottom of the one before with its top corners rounded, and the corners ease flat as it comes up the screen, so one colour is poured into the next and not cut off from it.
+- **Arrivals follow the scroll.** What is below the first screen arrives by how far up the screen it has come: headings rise line by line, figures roll, the receipt prints and stamps its checks, and the light over the name at the foot comes on. A hard scroll sweeps them in as fast as it goes and a scroll back lets them go. Where a browser cannot tie an animation to the scroll, the same arrivals are timed, once.
+- **Steam.** A few lines of steam are drawn from behind the lids of the carrier and the pot, each its own length, thickness and pace, so the whole never visibly repeats. The carrier on the Moving stage steams when it is set down, and not while it is in the air.
+- **A carrier that cannot snap.** Where the carrier is, is one number that a spring follows, and the page only says where it should be. A page scrolled back and forth turns the carrier round in the air; a timed hop that is cancelled and restarted would put it back where it last landed.
+- **The first screen lets go in layers**: its words fall a little behind the scroll and its picture rises a little ahead. The chapter being read is underlined in the bar.
+- **A light over the name** at the foot that follows a pointer and otherwise wanders.
+
+Beyond `transform` and `opacity` the home page may move a mask, a clip, a corner radius and a line's dash, each in a small area and none of them text. Everything on it runs only while in view, and with reduced motion nothing moves: the steam is drawn in full, the sheets keep their corners, the mark stays empty, the light over the name rests in the middle and still follows a pointer, which is the person's own movement.
 
 ### 6. One way to do each job
 
