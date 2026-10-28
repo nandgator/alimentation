@@ -71,18 +71,26 @@ These need accounts, keys or real traffic that the build did not have. Each has 
 - **One idea of depth on the home page.** Whatever hangs on the wall or lies against it throws a shadow (the chalkboard, the
   picture of the kitchen, the step in view, the receipt, the shelves); flat things (buttons, day tiles, text) do not. It is two
   tokens in `home.css`, `--lift` and `--lift-cut`, deeper in dark mode, and a browser test keeps them equal.
-- **Motion on the home page is small and never hides anything.** Transform, opacity and clip-path only. Parts below the first
-  screen arrive once, as they are reached; the class that hides them is added only after the observer is running, and never under
-  reduced motion. A browser test scrolls the whole page and fails if anything is left waiting. The carrier's hop between the three
-  places is a Web Animations call (a ride and a separate lift, so the top of the arc is smooth), not a scroll-linked effect, so it
-  behaves the same in every browser.
+- **The home page is one motion, and none of it hides anything.** Parts below the first screen arrive by how far up the screen
+  they are, through CSS scroll-linked animation (`animation-timeline: view()`), so a fast scroll cannot leave one a beat behind;
+  where a browser cannot, the same arrivals are timed once, by the observer in `useReveal`, and the class that hides them is
+  added only after it is running and never under reduced motion. A browser test scrolls the whole page and fails if anything is
+  left waiting. The carrier's place on the Moving stage is one number (`smoothDamp` in `home/motion.tsx`) that every frame draws
+  from, never a timed hop that is cancelled and restarted; a browser test scrolls the page hard back and forth and fails if the
+  carrier ever moves faster than a hop does (it fails on the old stage, at 13,000 px/s). The steam is drawn in `home/steam.tsx`:
+  lines from behind the lids, thinned by a mask, each on its own clock. The bar's tiffin (`Mark packing`) is packed by the
+  scroll, and the guides and docs share it. See principle 5 in the design docs.
+- **The docs open one part of the contents at a time.** The contents is a `details` for each part with only the part being
+  read open, long paths in code may break after a slash, and the pages hand over to one another with a view transition where the
+  browser has them. How roomy a page reads is the design system's, not the docs stylesheet's: `--measure`, `--leading`,
+  `--leading-lede` and `--flow` in `styles.css`, set out under Foundations, Reading.
 
 - **Trust is tamper-evident, not tamper-proof.** Every record carries who and when, stamped by the database; the people a
   change affects can read it; a catch-up is allowed until the month closes and is marked late. One person holding two roles,
   collusion and the instance's operator are deliberately out of scope (`docs/site/docs/concepts/trust-model.md`).
 - **The design system is enforced, not advised.** `scripts/check-design.mjs` fails the build on a raw colour, shadow, layer,
-  font, size, off-grid gap, radius, duration, breakpoint, or an inline style that decides a look. A waiver is a comment that
-  begins `design:` with a reason.
+  font, size, off-grid gap (a `rem` counts as the pixels it comes to), radius, duration, breakpoint, or an inline style that
+  decides a look. A waiver is a comment that begins `design:` with a reason.
 - **Two documentation sites, one generator, no framework.** The content-security policy forbids the inline script and style
   that documentation frameworks emit. The build and its tests are in `apps/web/scripts/build-docs.mjs`,
   `apps/web/src/docs.test.ts` and `apps/web/e2e/docs.spec.ts`.

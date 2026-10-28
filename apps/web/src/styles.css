@@ -63,6 +63,12 @@
   --space-6: 32px;
   --space-7: 48px;
   --space-8: 64px;
+  /* Reading: the widest a line of running text runs, how far apart its lines sit, and the rest between its
+     paragraphs, lists and tables. The guides and the docs are set with these; a longer or tighter line is harder to follow. */
+  --measure: 46rem;
+  --leading: 1.7;
+  --leading-lede: 1.55;
+  --flow: 20px;
   /* Tones that do not change with the theme, because what they colour is a thing, not a mood:
      the steel of the kitchen, the turmeric on it, the receipt's paper, and the ink of a shadow. */
   --steel-1: #e6ece8;
@@ -271,7 +277,7 @@ a {
   appearance: none;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
-  padding: 0.7rem 1.35rem;
+  padding: 12px 22px;
   min-height: var(--control);
   font: 600 var(--text-md)/1 var(--sans);
   cursor: pointer;
@@ -326,7 +332,7 @@ a {
 }
 .btn.small {
   min-height: var(--control-sm);
-  padding: 0.45rem 0.9rem;
+  padding: 8px 14px;
   font-size: var(--text-sm);
 }
 .field {
@@ -350,7 +356,7 @@ textarea {
   background: var(--card);
   border: 1px solid var(--hair);
   border-radius: var(--radius-md);
-  padding: 0.65rem 0.8rem;
+  padding: 10px 12px;
   min-height: var(--control);
   width: 100%;
 }
@@ -1030,8 +1036,8 @@ dialog::backdrop {
 .acting select {
   width: 100%;
   min-height: var(--control-sm);
-  padding-block: 0.3rem;
-  padding-left: 0.6rem;
+  padding-block: 4px;
+  padding-left: 10px;
   font-weight: 500;
 }
 .topbar .acting span {

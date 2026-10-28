@@ -119,6 +119,17 @@ function renderer(toc) {
         const cls = lang ? ` class="language-${esc(lang.split(/\s/)[0])}"` : '';
         return `<pre tabindex="0"><code${cls}>${esc(text)}</code></pre>\n`;
       },
+      codespan({ text }) {
+        // A long path or query may break after its separators, which reads better than breaking mid-word.
+        const safe = esc(text);
+        const soft =
+          text.length > 22
+            ? safe.replace(/(&(?:amp|lt|gt|quot|#39);)|([/?,=])/g, (m, ent, ch) =>
+                ent ? (ent === '&amp;' ? `${ent}<wbr>` : ent) : `${ch}<wbr>`,
+              )
+            : safe;
+        return `<code>${soft}</code>`;
+      },
       checkbox({ checked }) {
         return `<span class="tick" aria-hidden="true">${checked ? '&#9745;' : '&#9744;'}</span> `;
       },
@@ -286,17 +297,25 @@ const searchEntry = (p) => ({
   x: plain(p.html).slice(0, 6000),
 });
 
+/**
+ * The app's badge, drawn in the page and not as an image, so that its tiers can be filled as the page is read (see
+ * `.mark-fill` in docs.css): the same tiffin as the mark in the home page's bar, on the brand's own green.
+ */
+const MARK = `<svg class="docs-mark" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="5.3" class="mark-badge"/><g transform="translate(12 12.4) scale(0.8) translate(-12 -12.5)"><g class="mark-body"><rect x="7" y="2.4" width="10" height="1.8" rx="0.9"/><rect x="8.6" y="3.8" width="1.6" height="3.2"/><rect x="13.8" y="3.8" width="1.6" height="3.2"/><rect x="4.6" y="6.8" width="14.8" height="3" rx="1.5"/><rect x="5.6" y="10.8" width="12.8" height="3.4" rx="1.7"/><rect x="5.6" y="15.2" width="12.8" height="3.4" rx="1.7"/><rect x="5.6" y="19.6" width="12.8" height="3" rx="1.5"/></g><g class="mark-clip"><rect x="3.6" y="7" width="1.8" height="14.4" rx="0.9"/><rect x="18.6" y="7" width="1.8" height="14.4" rx="0.9"/></g><rect class="mark-fill mark-fill-1" x="6.4" y="11.6" width="11.2" height="1.8" rx="0.9"/><rect class="mark-fill mark-fill-2" x="6.4" y="16" width="11.2" height="1.8" rx="0.9"/><rect class="mark-fill mark-fill-3" x="6.4" y="20.3" width="11.2" height="1.6" rx="0.8"/><rect class="mark-fill mark-fill-4" x="5.6" y="7.6" width="12.8" height="1.4" rx="0.7"/></g></svg>`;
+
 function navHtml(site, current) {
   return site.sections
-    .map(
-      (s) =>
-        `<div class="docs-group" role="group" aria-label="${esc(s.title)}"><p class="docs-group-title" aria-hidden="true">${esc(s.title)}</p>${s.pages
-          .map((slug) => {
-            const p = site.pages.find((x) => x.slug === slug);
-            return `<a href="${p.url}"${p.slug === current.slug ? ' aria-current="page"' : ''}>${esc(p.title)}</a>`;
-          })
-          .join('')}</div>`,
-    )
+    .map((s) => {
+      const links = s.pages
+        .map((slug) => {
+          const p = site.pages.find((x) => x.slug === slug);
+          return `<a href="${p.url}"${p.slug === current.slug ? ' aria-current="page"' : ''}>${esc(p.title)}</a>`;
+        })
+        .join('');
+      // Only the section being read is open: the rest are a heading each, so the contents fit on a screen.
+      const open = s.pages.includes(current.slug) ? ' open' : '';
+      return `<details class="docs-group"${open}><summary class="docs-group-title">${esc(s.title)}</summary><div class="docs-links">${links}</div></details>`;
+    })
     .join('');
 }
 
@@ -343,7 +362,7 @@ function pageHtml(site, page, css, index) {
 <header class="docs-top">
   <div class="docs-top-in">
     ${home ? '' : '<button type="button" class="docs-menu" aria-expanded="false" aria-controls="docs-nav">Menu</button>'}
-    <a class="docs-brand" href="${meta.base}"><img src="/favicon.svg" alt="" width="26" height="26"><span>Alimentation <b>${meta.brand}</b></span></a>
+    <a class="docs-brand" href="${meta.base}">${MARK}<span>Alimentation <b>${meta.brand}</b></span></a>
     ${switcher}
     <div class="docs-search" role="search">
       <label class="sr" for="docs-q">Search the ${meta.brand}</label>

@@ -224,10 +224,11 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
       /^(padding|margin|gap|row-gap|column-gap)(-[a-z]+)*$/.test(prop) &&
       !isToken
     ) {
-      for (const px of value.matchAll(/(?<![\w.#-])(-?\d+(?:\.\d+)?)px/g)) {
-        const n = Math.abs(Number(px[1]));
+      // A `rem` is checked as the pixels it comes to at the browser's own size, so it cannot step round the grid.
+      for (const len of value.matchAll(/(?<![\w.#-])(-?\d+(?:\.\d+)?)(px|rem)\b/g)) {
+        const n = Math.round(Math.abs(Number(len[1])) * (len[2] === 'rem' ? 16 : 1) * 1000) / 1000;
         if (!(Number.isInteger(n) && ((n <= 24 && n % 2 === 0) || SCALES.space.has(n))))
-          add('space', `${px[1]}px is off the two-pixel grid`);
+          add('space', `${len[1]}${len[2]} is off the two-pixel grid`);
       }
     }
     if (want('radius') && /^border(-[a-z]+)*-radius$/.test(prop)) {
