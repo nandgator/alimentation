@@ -6,7 +6,7 @@ import { Mark } from '../components/Mark.tsx';
 import { ThemeSwitch } from '../components/ThemeSwitch.tsx';
 import { Defs, HeroScene } from '../home/art.tsx';
 import { Month } from '../home/Month.tsx';
-import { Figure, Lines, useLight, useLive, useReveal } from '../home/motion.tsx';
+import { Figure, Lines, useChapter, useLight, useLive, useReveal } from '../home/motion.tsx';
 import { Stage } from '../home/Stage.tsx';
 import { useSession } from '../session.tsx';
 
@@ -55,16 +55,21 @@ const PROMISES: { title: string; how: string; limit: string }[] = [
 
 const fmt = new Intl.NumberFormat('en-IN');
 
+/** The sections the bar names, in page order. */
+const CHAPTERS = ['try', 'free', 'moving', 'leaving', 'promises'] as const;
+
 export function Home() {
   const { me } = useSession();
   const [cap, setCap] = useState<Capacity | null>(null);
   const root = useRef<HTMLDivElement>(null);
   useReveal(root);
-  // What moves by itself: a slow light behind the first screen, and another that follows a pointer over the name.
+  // What moves by itself: steam over the first screen's lids, and a light that follows a pointer over the name.
   const hero = useRef<HTMLElement>(null);
   const close = useRef<HTMLElement>(null);
   const name = useRef<HTMLParagraphElement>(null);
   useLive(hero);
+  const chapter = useChapter(CHAPTERS);
+  const here = (id: (typeof CHAPTERS)[number]) => (chapter === id ? 'location' : undefined);
   useLight(close, name);
   useEffect(() => {
     getJson<Capacity>('/api/public/capacity').then(setCap, () => setCap(null));
@@ -78,14 +83,24 @@ export function Home() {
       <header className="hnav">
         <div className="hwrap">
           <Link href="/" className="brand">
-            <Mark /> <span className="brand-text">Alimentation</span>
+            <Mark packing /> <span className="brand-text">Alimentation</span>
           </Link>
           <nav aria-label="Sections">
-            <a href="#try">Try it</a>
-            <a href="#free">Free</a>
-            <a href="#moving">Moving</a>
-            <a href="#leaving">Leaving</a>
-            <a href="#promises">Promises</a>
+            <a href="#try" aria-current={here('try')}>
+              Try it
+            </a>
+            <a href="#free" aria-current={here('free')}>
+              Free
+            </a>
+            <a href="#moving" aria-current={here('moving')}>
+              Moving
+            </a>
+            <a href="#leaving" aria-current={here('leaving')}>
+              Leaving
+            </a>
+            <a href="#promises" aria-current={here('promises')}>
+              Promises
+            </a>
             <a href="/guides/">Guides</a>
           </nav>
           <Link href={start} className="btn ghost small">
@@ -99,10 +114,6 @@ export function Home() {
           <svg className="wall" aria-hidden="true" focusable="false">
             <rect width="100%" height="100%" fill="url(#tiles)" />
           </svg>
-          <div className="hero-glow" aria-hidden="true">
-            <i className="a" />
-            <i className="b" />
-          </div>
           <div className="hwrap hero-grid">
             <div className="hero-copy">
               <Lines as="h1" first lines={['Who ate, what it', 'cost, who paid']} />

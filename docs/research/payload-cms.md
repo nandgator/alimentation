@@ -108,18 +108,19 @@ emulated. Described here for what each thing does; none of it was copied.
   search icon, and a theme select in the footer.
 
 What was made of it here, in this project's own terms: the name dims into the wall and a **warm light, the colour of
-the turmeric accent, follows a pointer across it and wanders along it on its own when nobody is pointing**; two soft
-patches of light drift behind the first screen at 41 and 57 seconds, so the pattern never visibly repeats. Both move
-only while in view, stop when the tab is hidden, and stay still under reduced motion (the name's light then rests in
-the middle and still follows a hand, which is the person's own movement). No video: a looped video is megabytes the
-page does not need, and a stylesheet can draw the same slow light.
+the turmeric accent, follows a pointer across it and wanders along it on its own when nobody is pointing**. For the
+motion on the first screen, Payload's looped video became **steam drawn from behind the lids of the carrier and the pot**,
+a few lines each with its own length, thickness and pace, so the whole never visibly repeats. Both move only while in view,
+stop when the tab is hidden, and stay still under reduced motion (the name's light then rests in the middle and still
+follows a hand, which is the person's own movement; the steam is drawn in full). No video: a looped video is megabytes the
+page does not need, and a stylesheet can draw the same slow motion.
 
 ## Borrowed, left, and candidates
 
 | Decision      | Item                                                                                                                                                                       |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Borrowed once | Grouped, hideable menu; one list driving navigation and roles; production checklist; abuse-prevention checklist.                                                           |
-| Adopted now   | A pointer-following light over the footer name, and a slow ambient light behind the first screen, drawn in this project's colours and stopping under reduced motion. One theme choice (Automatic, Light, Dark) kept in one place and used by the app, the home page, the guides and the docs, with the control in the footer and in the app.    |
+| Adopted now   | A pointer-following light over the footer name, and steam from behind the lids on the first screen, drawn in this project's colours and stopping under reduced motion. One theme choice (Automatic, Light, Dark) kept in one place and used by the app, the home page, the guides and the docs, with the control in the footer and in the app.    |
 | Left          | Server-side saved layout preferences; a bottom-less phone layout; silent field dropping; permanent delete; a lock that refuses the right password; flat grey dark mode.    |
 | Candidates    | A "recent" strip on the kitchen home; a field filter on the ledger and orders lists; "changed fields only" in History; ruled columns in the footer; rejecting unknown keys in request bodies. |
 
