@@ -5,6 +5,7 @@ import { getJson, type Capacity } from '../api.ts';
 import { Mark } from '../components/Mark.tsx';
 import { ThemeSwitch } from '../components/ThemeSwitch.tsx';
 import { Defs, HeroScene } from '../home/art.tsx';
+import { Dock } from '../home/Dock.tsx';
 import { Month } from '../home/Month.tsx';
 import { Figure, Lines, useChapter, useLight, useLive, useReveal } from '../home/motion.tsx';
 import { Stage } from '../home/Stage.tsx';
@@ -80,6 +81,7 @@ export function Home() {
   return (
     <div className="home" ref={root}>
       <Defs />
+      <Dock chapters={CHAPTERS} />
       <header className="hnav">
         <div className="hwrap">
           <Link href="/" className="brand">

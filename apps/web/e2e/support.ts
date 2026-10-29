@@ -32,10 +32,16 @@ export async function expectNoSidewaysScroll(page: Page, where: string) {
 
 export async function shot(page: Page, info: TestInfo, name: string) {
   await expectNoSidewaysScroll(page, name);
-  await page.screenshot({
-    path: info.outputPath(`${info.project.name}-${name}.png`),
-    fullPage: true,
-  });
+  const take = () =>
+    page.screenshot({ path: info.outputPath(`${info.project.name}-${name}.png`), fullPage: true });
+  try {
+    await take();
+  } catch (e) {
+    // Now and then the browser itself fails to capture a very tall page ("Unable to capture screenshot", a protocol
+    // error that says nothing about the page, and passes when taken again). Only that is tried a second time.
+    if (!/Unable to capture screenshot/.test(String(e))) throw e;
+    await take();
+  }
 }
 
 export const firstOfMonth = () => {

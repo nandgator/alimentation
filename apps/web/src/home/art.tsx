@@ -66,6 +66,12 @@ export function Carrier({ clip = 'mine' }: { clip?: Clip }) {
   );
 }
 
+/** What a carrier fills in its own units, clips and all: the box to find on the screen when it is somewhere. */
+export const CARRIER_BOX = { x: 4, y: 4, width: 192, height: 302 } as const;
+
+/** The hero picture's frame, and where its carrier stands in it, in the picture's own units (see `HeroScene`). */
+export const HERO = { width: 560, height: 496, carrierAt: { x: 250, y: 134 } } as const;
+
 /** A steel plank on two brackets, `w` wide, with its top edge at `y`. */
 export function Shelf({ x, y, w }: { x: number; y: number; w: number }) {
   return (
@@ -130,7 +136,7 @@ export function HeroScene() {
   return (
     <svg
       className="hero-scene"
-      viewBox="0 0 560 496"
+      viewBox={`0 0 ${HERO.width} ${HERO.height}`}
       preserveAspectRatio="xMaxYMax meet"
       aria-hidden="true"
       focusable="false"
@@ -163,7 +169,7 @@ export function HeroScene() {
           <rect x="470" y="388" width="8" height="46" rx="4" className="s2" />
         </g>
       </g>
-      <g className="hero-carrier" transform="translate(250 134)">
+      <g className="hero-carrier" transform={`translate(${HERO.carrierAt.x} ${HERO.carrierAt.y})`}>
         <Steam vent={CARRIER_VENT} />
         <Carrier />
       </g>

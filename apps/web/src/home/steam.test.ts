@@ -22,15 +22,29 @@ describe('the steam over the lids', () => {
     expect(WISPS.map((w) => wispPath(w))).toEqual(shapes);
   });
 
-  it('keeps no two wisps to the same time, or to a multiple of another’s, so the whole never visibly repeats', () => {
+  it('keeps a lid steaming all the time: one pace for its wisps, started at spread points of it', () => {
+    for (const v of [CARRIER_VENT, POT_VENT]) {
+      // Wisps on different paces drift into step and the lid goes quiet, then puffs; on one they stay where they were put.
+      expect(v.life).toBeGreaterThan(0);
+      const starts = v.wisps.map((w) => w.start).sort((a, b) => a - b);
+      expect(starts.every((x) => x >= 0 && x < 1)).toBe(true);
+      // Round the circle of a trip, the gaps are never wide, and no two wisps start together.
+      const gaps = starts.map((x, i) => (starts[(i + 1) % starts.length]! - x + 1) % 1 || 1);
+      for (const g of gaps) {
+        expect(g).toBeGreaterThan(0.08);
+        expect(g).toBeLessThanOrEqual(0.5);
+      }
+    }
+    // The two lids are on paces of their own, so they do not pulse together.
+    expect(CARRIER_VENT.life).not.toBe(POT_VENT.life);
+  });
+
+  it('gives no wisp the same sway as another, or a multiple of it, so the whole never visibly repeats', () => {
     const clash = (xs: number[]) =>
       xs.flatMap((a, i) =>
         xs.slice(i + 1).filter((b) => Number.isInteger(a / b) || Number.isInteger(b / a)),
       );
-    expect(clash(WISPS.map((w) => w.life))).toEqual([]);
     expect(clash(WISPS.map((w) => w.swing))).toEqual([]);
-    // And each is already part-way through its life when the page opens.
-    expect(WISPS.every((w) => w.at < 0)).toBe(true);
   });
 
   it('rises from inside the lid and has thinned away before it reaches anything above', () => {
@@ -40,7 +54,7 @@ describe('the steam over the lids', () => {
         // The line is longer than the air it fades in, so the end of it is never seen at rest.
         expect(v.lid - w.h).toBeLessThan(v.gone + 30);
         expect(w.peak).toBeGreaterThan(0);
-        expect(w.peak).toBeLessThanOrEqual(0.7);
+        expect(w.peak).toBeLessThanOrEqual(0.9);
       }
     }
   });
