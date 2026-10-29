@@ -110,10 +110,11 @@
   --serif: 'Young Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
   --sans: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --gutter: 16px;
-  /* How long things take: a press, a slide, an arrival. */
+  /* How long things take: a press, a slide, an arrival, and a change of colours. */
   --dur-1: 140ms;
   --dur-2: 220ms;
   --dur-3: 400ms;
+  --dur-4: 600ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
@@ -987,6 +988,15 @@ dialog::backdrop {
       opacity: 0;
       transform: translate(-50%, 10px);
     }
+  }
+}
+
+/* A theme chosen by hand dissolves into the other (public/theme.js holds the page's picture while it changes, and
+   this is how long the two take to cross). Everything that has a name of its own in a transition crosses with it. */
+@media (prefers-reduced-motion: no-preference) {
+  :root.theme-fading::view-transition-group(*) {
+    animation-duration: var(--dur-4);
+    animation-timing-function: ease-in-out;
   }
 }
 
