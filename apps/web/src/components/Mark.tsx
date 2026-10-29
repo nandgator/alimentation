@@ -1,10 +1,20 @@
+/** The mark's square, and the box the tiffin fills inside it, in the mark's own units. */
+export const MARK_BOX = { size: 24, x: 3.6, y: 2.4, width: 16.8, height: 20.2 } as const;
+
 /**
  * A tiffin carrier: a handle, a lid, three tiers, and the clips that hold them together. With `packing`, each tier
  * has a turmeric stripe inside it that a page can fill, one tier after another, as it is read (see `.mark-fill`).
  */
 export function Mark({ size = 26, packing = false }: { size?: number; packing?: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false">
+    <svg
+      className="mark"
+      viewBox={`0 0 ${MARK_BOX.size} ${MARK_BOX.size}`}
+      width={size}
+      height={size}
+      aria-hidden="true"
+      focusable="false"
+    >
       <rect x="7" y="2.4" width="10" height="1.8" rx="0.9" fill="currentColor" />
       <rect x="8.6" y="3.8" width="1.6" height="3.2" fill="currentColor" />
       <rect x="13.8" y="3.8" width="1.6" height="3.2" fill="currentColor" />

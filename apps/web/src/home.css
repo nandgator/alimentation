@@ -299,6 +299,22 @@ main > section.section:not(.hero) {
   padding-block: var(--section);
 }
 
+/* The carrier on its way from the first screen's shelf to the bar (see Dock.tsx): drawn from the scroll alone, above
+   the bar, and never in the way. While it is away the shelf shows no carrier, and its steam goes with it. */
+.flyer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: calc(var(--z-bar) + 1);
+  transform-origin: 0 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.hero[data-lifted='true'] .hero-carrier .carrier,
+.hero[data-lifted='true'] .hero-carrier .steam {
+  opacity: 0;
+}
+
 /* The mark in the bar is the page's one constant: a tiffin that is packed as the page is read. A stripe in each
    tier fills, one after the other and the lid last. With no way to follow the scroll it simply stays empty. */
 .mark-fill {
@@ -1122,16 +1138,17 @@ main > section.section:not(.hero) {
   mask-composite: intersect;
 }
 
-/* Steam over a lid (see steam.tsx). A wisp is a thin line the colour of the wall's own light, round at its ends,
-   and the air mask in the picture takes it a little higher up. At rest, which is also how it looks when motion
-   is reduced, each is drawn in full, so the still picture is a drawn one and not a frame caught half done. */
+/* Steam over a lid (see steam.tsx). The picture is drawn flat and a little bold, so the steam is too: a wisp is a
+   thick soft line the colour of the wall's own light, round at its ends, and the air mask in the picture takes it
+   thinner higher up. At rest, which is also how it looks when motion is reduced, each is drawn in full, so the
+   still picture is a drawn one and not a frame caught half done. */
 .steam path {
   fill: none;
   stroke: var(--field-green-ink);
   stroke-width: calc(var(--thick) * 1px);
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: calc(var(--peak) * 0.8);
+  opacity: var(--peak);
 }
 .steam .air {
   mask-type: alpha;
@@ -1139,16 +1156,17 @@ main > section.section:not(.hero) {
 
 /* ---------- Motion ------------------------------------------------------------ */
 @media (prefers-reduced-motion: no-preference) {
-  /* A stretch of each wisp's line travels up it, in about a third of its length, easing in and out, then it rests
-     before the next; the whole line sways on a different clock from its trip, so no two moments are alike. Only
-     the lit stretch and a rotation change, in a few thin lines. The picture waits for the carrier to be
-     stacked, then the steam comes up slowly. */
+  /* A stretch of each wisp's line travels up it at a steady pace, in about half of its length, a trip in about
+     three and a half seconds, and swells as it climbs. The wisps are started part-way through their trips, spread
+     round the lid, so there is always some steam coming out and never a puff and a pause. The whole line sways on
+     a different clock from its trip, so no two moments are alike. Only the lit stretch, its thickness and a
+     rotation change. The picture waits for the carrier to be stacked, then the steam comes up. */
   .hero-scene .steam {
-    animation: steam-in 3200ms var(--ease-out) 1500ms both;
+    animation: steam-in 2000ms var(--ease-out) 1500ms both;
   }
   .steam path {
     stroke-dasharray: var(--dash) 2;
-    animation: wisp-flow var(--life) ease-in-out var(--at) infinite;
+    animation: wisp-flow var(--life) linear var(--at) infinite;
   }
   .steam .wisp {
     animation: wisp-sway var(--swing) ease-in-out var(--at) infinite alternate;
@@ -1361,6 +1379,18 @@ main > section.section:not(.hero) {
   .board-bill .total b {
     animation: tick 260ms var(--ease-out);
   }
+  /* The tiffin is received into the bar with a small swell, and the steam over the empty shelf fades. */
+  .mark.is-docked {
+    animation: dock-pop var(--dur-3) var(--ease-out);
+  }
+  .hero-carrier .steam {
+    transition: opacity var(--dur-3) ease;
+  }
+}
+@keyframes dock-pop {
+  45% {
+    transform: scale(1.22);
+  }
 }
 @keyframes steam-in {
   from {
@@ -1372,10 +1402,11 @@ main > section.section:not(.hero) {
 @keyframes wisp-flow {
   from {
     stroke-dashoffset: var(--before);
+    stroke-width: calc(var(--thick) * 0.7px);
   }
-  72%,
   to {
     stroke-dashoffset: -1.1;
+    stroke-width: calc(var(--thick) * 1.25px);
   }
 }
 @keyframes wisp-sway {

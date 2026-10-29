@@ -6,8 +6,12 @@ import { useId, type CSSProperties } from 'react';
  * on. The curve is made here from a few numbers; the stylesheet moves the travelling stretch (`.wisp` in home.css).
  *
  * What keeps it from looking mechanical: it starts behind the lid, so it comes out of something; each wisp has its
- * own length, thickness, pace, rest and sway, none of them a multiple of another, so the whole never repeats in
- * view; and it thins by a mask fixed to the scene, so a stretch is solid by the lid and gone higher up, as steam is.
+ * own length, thickness, lean and sway, so no two are alike; and it thins by a mask fixed to the scene, so a stretch
+ * is solid by the lid and gone higher up, as steam is.
+ *
+ * What keeps it steady: the wisps of one lid all take the same time for a trip and are started at evenly spread
+ * points of it. Wisps on different times drift into step every so often and the lid goes quiet for a moment, then
+ * puffs; on one time they stay where they were put, so there is always steam coming out.
  */
 
 export interface Wisp {
@@ -20,14 +24,13 @@ export interface Wisp {
   bend: number;
   lean: number;
   phase: number;
-  /** How much of its length is lit as it travels (0 to 1), and how long a trip and its rest take, in seconds. */
+  /** How much of its length is lit as it travels (0 to 1). */
   dash: number;
-  life: number;
   /** How far it swings to either side, in degrees, and how long a swing takes, in seconds. */
   sway: number;
   swing: number;
-  /** Where in its life it is when the page loads (negative seconds), and how dense it is. */
-  at: number;
+  /** How far along its trip it is when the page loads (0 to 1, spread round the lid), and how dense it is. */
+  start: number;
   peak: number;
 }
 
@@ -35,6 +38,8 @@ export interface Vent {
   /** Where the lid's top edge is, and where the steam has all but gone, in the same units. */
   lid: number;
   gone: number;
+  /** How long one trip up a wisp takes, in seconds, the same for every wisp of the lid. */
+  life: number;
   wisps: Wisp[];
 }
 
@@ -47,14 +52,13 @@ type Row = [
   lean: number,
   phase: number,
   dash: number,
-  life: number,
   sway: number,
   swing: number,
-  at: number,
+  start: number,
   peak: number,
 ];
 const wisps = (rows: Row[]): Wisp[] =>
-  rows.map(([x, h, thick, bend, lean, phase, dash, life, sway, swing, at, peak]) => ({
+  rows.map(([x, h, thick, bend, lean, phase, dash, sway, swing, start, peak]) => ({
     x,
     h,
     thick,
@@ -62,35 +66,36 @@ const wisps = (rows: Row[]): Wisp[] =>
     lean,
     phase,
     dash,
-    life,
     sway,
     swing,
-    at,
+    start,
     peak,
   }));
 
 /**
  * The carrier's lid, in the carrier's own coordinates (200 wide, the lid's top edge at 42), clear of its handle. The
- * two sides are not alike: one plume is taller and slower, and lives on a clock of its own.
+ * two sides are not alike: one plume is taller and thicker, and sways on a clock of its own.
  */
 export const CARRIER_VENT: Vent = {
   lid: 42,
   gone: -62,
+  life: 4,
   wisps: wisps([
-    [42, 138, 9, 13, -9, 0.4, 0.62, 12, 3.0, 9.7, -3, 0.62],
-    [56, 108, 6, 10, 7, 2.7, 0.5, 15, 2.4, 12.1, -9, 0.44],
-    [152, 126, 8, 12, 8, 1.9, 0.58, 13.5, 3.2, 10.9, -6, 0.56],
-    [164, 92, 5.5, 8, -6, 4.0, 0.46, 17, 2.2, 13.3, -12, 0.4],
+    [40, 150, 12, 17, -10, 0.4, 0.66, 4.0, 3.6, 0.05, 0.86],
+    [58, 118, 8, 12, 8, 2.7, 0.58, 3.0, 4.3, 0.5, 0.7],
+    [156, 140, 11, 16, 9, 1.9, 0.64, 4.0, 3.9, 0.25, 0.8],
+    [170, 104, 8, 11, -7, 4.0, 0.54, 3.0, 4.8, 0.75, 0.68],
   ]),
 };
 
-/** The pot's lid, in the hero picture's own coordinates, either side of its knob. */
+/** The pot's lid, in the hero picture's own coordinates, either side of its knob. Its own pace, so the two lids do not pulse together. */
 export const POT_VENT: Vent = {
   lid: 368,
   gone: 270,
+  life: 3.6,
   wisps: wisps([
-    [478, 118, 7, 9, -7, 1.0, 0.58, 11, 3.0, 8.7, -4, 0.54],
-    [524, 96, 5, 7, 6, 3.4, 0.48, 14, 2.4, 11.3, -9, 0.4],
+    [478, 122, 9, 12, -8, 1.0, 0.64, 4.0, 3.3, 0.08, 0.82],
+    [526, 98, 7, 9, 7, 3.4, 0.54, 3.0, 4.1, 0.58, 0.66],
   ]),
 };
 
@@ -160,8 +165,8 @@ export function Steam({ vent }: { vent: Vent }) {
                 {
                   '--sway': w.sway,
                   '--swing': `${w.swing}s`,
-                  '--life': `${w.life}s`,
-                  '--at': `${w.at}s`,
+                  '--life': `${vent.life}s`,
+                  '--at': `${-w.start * vent.life}s`,
                   '--dash': w.dash,
                   // Wholly before the line, with a little over for the round end.
                   '--before': w.dash + 0.1,

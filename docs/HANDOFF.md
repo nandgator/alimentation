@@ -78,8 +78,13 @@ These need accounts, keys or real traffic that the build did not have. Each has 
   left waiting. The carrier's place on the Moving stage is one number (`smoothDamp` in `home/motion.tsx`) that every frame draws
   from, never a timed hop that is cancelled and restarted; a browser test scrolls the page hard back and forth and fails if the
   carrier ever moves faster than a hop does (it fails on the old stage, at 13,000 px/s). The steam is drawn in `home/steam.tsx`:
-  lines from behind the lids, thinned by a mask, each on its own clock. The bar's tiffin (`Mark packing`) is packed by the
-  scroll, and the guides and docs share it. See principle 5 in the design docs.
+  bold lines from behind the lids, thinned by a mask, the wisps of one lid on one pace and started at spread points of it (on
+  paces of their own they drift into step and the lid goes quiet, then puffs). The first screen's carrier is lifted off its shelf, carried to the first chapter's heading, put into the bar as that heading
+  goes up and taken out again for the next, chapter by chapter (`home/Dock.tsx`, the arithmetic in `home/dock.ts`): a copy of it,
+  placed from the scroll alone, that is the bar's tiffin while it is in the bar; the tiffin is packed by the scroll, and the
+  guides and docs share the packing. A heading the page holds in place (the Moving stage's) is stood on where it is met, in the
+  page's flow. A change of theme, from any page, dissolves (`fadeTheme` in `public/theme.js`, `--dur-4`) and is
+  instant under reduced motion. See principle 5 in the design docs.
 - **The docs open one part of the contents at a time.** The contents is a `details` for each part with only the part being
   read open, long paths in code may break after a slash, and the pages hand over to one another with a view transition where the
   browser has them. How roomy a page reads is the design system's, not the docs stylesheet's: `--measure`, `--leading`,

@@ -239,7 +239,7 @@ test.describe('the home page', () => {
     expect((await steam()).name, 'with reduced motion it does not move').toBe('none');
   });
 
-  test('draws the steam as something that comes out of a lid, and no two wisps keep the same time', async ({
+  test('draws the steam as something that comes out of a lid, on one pace a lid so it never goes quiet', async ({
     page,
   }) => {
     await page.goto('/');
@@ -267,7 +267,7 @@ test.describe('the home page', () => {
     expect(found).toEqual({
       count: 6,
       lids: [true, true],
-      lives: 6,
+      lives: 2,
       swings: 6,
       uniqueIds: true,
       masked: 2,
@@ -372,6 +372,24 @@ test.describe('the home page', () => {
     await page.goto('/receipt/not-a-real-receipt');
     await expect(page.getByText('There is no receipt with that address.')).toBeVisible();
   });
+  test('keeps the carrier on its shelf and the tiffin in the bar when motion is reduced', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }));
+    const seen = await page.evaluate(() => {
+      const opacity = (sel: string) =>
+        Number(getComputedStyle(document.querySelector(sel)!).opacity);
+      return {
+        flyer: opacity('.flyer'),
+        mark: opacity('.hnav .mark'),
+        shelf: opacity('.hero-carrier .carrier'),
+        lifted: document.querySelector<HTMLElement>('.hero')!.dataset.lifted,
+      };
+    });
+    expect(seen).toEqual({ flyer: 0, mark: 1, shelf: 1, lifted: undefined });
+  });
+
   test.describe('with motion on', () => {
     test.use({ reducedMotion: 'no-preference' });
 
@@ -571,9 +589,16 @@ test.describe('the home page', () => {
             behavior: 'instant',
           }),
         );
-        const some = await packed();
-        expect(some[0], 'the first tier is full by then').toBe(1);
-        expect(some[3], 'and the lid is not yet').toBe(0);
+        // (Polled: what is drawn follows the scroll a frame later, and the last look was at the foot of the page.)
+        await expect
+          .poll(
+            async () => {
+              const some = await packed();
+              return [some[0], some[3]];
+            },
+            { message: 'the first tier is full by then, and the lid is not yet' },
+          )
+          .toEqual([1, 0]);
       });
 
       test('the first screen lets go in layers, and the light over the name comes on as the foot comes up', async ({
@@ -589,6 +614,150 @@ test.describe('the home page', () => {
         expect(await lit(0.98)).toBeLessThan(0.3);
         expect(await lit(0.4), 'and is on by the foot of the page').toBeGreaterThan(0.95);
       });
+    });
+
+    test('one carrier goes through the page: off the first screen’s shelf, onto each chapter’s heading, and into the bar between, and back as the page goes back', async ({
+      page,
+    }) => {
+      await page.goto('/');
+      // The carrier has finished stacking itself on the shelf.
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .querySelector('.hero-carrier .carrier')!
+            .getAnimations({ subtree: true })
+            .map((a) => a.finished),
+        ),
+      );
+      const go = async (y: number) => {
+        await page.evaluate((to) => window.scrollTo({ top: to, behavior: 'instant' }), y);
+        await page.evaluate(
+          () =>
+            new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+        );
+      };
+      /** Scrolls so that a chapter's heading is `f` of a screen from the top. The Moving stage's heading is held at the
+       * top while its steps are read, so the place it is met is the top of its section, which it is the first thing in. */
+      const toHeading = async (id: string, f: number) => {
+        const y = await page.evaluate(
+          ([id, f]) => {
+            const met =
+              id === 'moving'
+                ? document.querySelector('.moving')!
+                : document.getElementById(`${id}-title`)!;
+            return met.getBoundingClientRect().top + window.scrollY - f! * window.innerHeight;
+          },
+          [id, f] as const,
+        );
+        await go(y);
+      };
+      const state = (heading?: string) =>
+        page.evaluate((heading) => {
+          const opacity = (sel: string) =>
+            Number(getComputedStyle(document.querySelector(sel)!).opacity);
+          const rect = (el: Element) => {
+            const r = el.getBoundingClientRect();
+            return {
+              x: r.left + r.width / 2,
+              y: r.top + r.height / 2,
+              w: r.width,
+              left: r.left,
+              top: r.top,
+              bottom: r.bottom,
+            };
+          };
+          return {
+            flyer: opacity('.flyer'),
+            mark: opacity('.hnav .mark'),
+            shelf: opacity('.hero-carrier .carrier'),
+            docked: document.querySelector('.hnav .mark')!.classList.contains('is-docked'),
+            at: rect(document.querySelector('.flyer')!),
+            was: rect(document.querySelector('.hero-carrier .carrier')!),
+            bar: rect(document.querySelector('.hnav .mark')!),
+            // Where the heading is met (see `toHeading`).
+            on: heading
+              ? (() => {
+                  const h = rect(document.getElementById(`${heading}-title`)!);
+                  return heading === 'moving'
+                    ? { ...h, top: document.querySelector('.moving')!.getBoundingClientRect().top }
+                    : h;
+                })()
+              : null,
+          };
+        }, heading);
+
+      await go(0);
+      expect(await state(), 'on its shelf, with no tiffin in the bar yet').toMatchObject({
+        flyer: 0,
+        mark: 0,
+        shelf: 1,
+        docked: false,
+      });
+
+      // The first moment it is off the shelf, it is exactly where the shelf's carrier was: nothing jumps.
+      let first = -1;
+      for (let y = 0; y <= 900 && first < 0; y += 4) {
+        await go(y);
+        if ((await state()).flyer > 0) first = y;
+      }
+      expect(first, 'it lets go of the shelf').toBeGreaterThanOrEqual(0);
+      const lifted = await state();
+      expect(lifted.shelf, 'the shelf is empty while it is away').toBe(0);
+      expect(Math.abs(lifted.at.x - lifted.was.x)).toBeLessThan(12);
+      expect(Math.abs(lifted.at.y - lifted.was.y)).toBeLessThan(12);
+      expect(Math.abs(lifted.at.w - lifted.was.w)).toBeLessThan(12);
+
+      // Each chapter's heading, read half way up the screen, has the carrier standing on it, small, with the bar
+      // keeping only a ghost of its tiffin; the heading gone, the carrier is in the bar and the tiffin whole.
+      for (const id of ['try', 'free', 'moving', 'leaving', 'promises']) {
+        await toHeading(id, 0.5);
+        const s = await state(`${id}`);
+        expect(s.flyer, `${id}: the carrier is out`).toBe(1);
+        expect(s.docked).toBe(false);
+        expect(s.mark, `${id}: the bar keeps a ghost`).toBeGreaterThan(0.2);
+        expect(s.mark).toBeLessThan(0.4);
+        expect(Math.abs(s.at.left - s.on!.left), `${id}: at the heading's left`).toBeLessThan(3);
+        expect(s.on!.top - s.at.bottom, `${id}: standing just above the heading`).toBeGreaterThan(
+          6,
+        );
+        expect(s.on!.top - s.at.bottom).toBeLessThan(24);
+        expect(s.at.w).toBeLessThan(lifted.at.w);
+        expect(s.at.w).toBeGreaterThan(s.bar.w);
+
+        await toHeading(id, -0.05);
+        const gone = await state();
+        expect(gone.flyer, `${id}: put into the bar`).toBeLessThan(0.05);
+        expect(gone.mark, `${id}: and the tiffin whole`).toBeGreaterThan(0.95);
+      }
+
+      // It never leaps: stepping through the whole page, no step moves it far, wherever it is.
+      const widest = await page.evaluate(async () => {
+        const frames = () =>
+          new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+        const where = () => {
+          const r = document.querySelector('.flyer')!.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        };
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        await frames();
+        let last = where();
+        let most = 0;
+        for (let y = 8; y <= document.documentElement.scrollHeight; y += 8) {
+          window.scrollTo({ top: y, behavior: 'instant' });
+          await frames();
+          const now = where();
+          most = Math.max(most, Math.hypot(now.x - last.x, now.y - last.y));
+          last = now;
+        }
+        return most;
+      });
+      expect(widest, 'the longest step of the carrier, for eight pixels of scrolling').toBeLessThan(
+        45,
+      );
+
+      // Scrolled back, it is lifted out of the bar and set down on the shelf again.
+      await go(0);
+      expect(await state()).toMatchObject({ flyer: 0, mark: 0, shelf: 1, docked: false });
     });
 
     test('the carrier steams when it is set down, and not while it is in the air', async ({
