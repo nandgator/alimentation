@@ -39,8 +39,6 @@
     labelTheme(chosen());
     themeButton.addEventListener('click', () => {
       const next = ORDER[(ORDER.indexOf(chosen()) + 1) % ORDER.length];
-      if (next === 'auto') delete document.documentElement.dataset.theme;
-      else document.documentElement.dataset.theme = next;
       try {
         localStorage.removeItem('docs-theme');
         if (next === 'auto') localStorage.removeItem('theme');
@@ -48,7 +46,14 @@
       } catch {
         // The choice lasts for this page only.
       }
-      labelTheme(next);
+      // Kept at once, shown as a dissolve (public/theme.js) where the browser can.
+      const show = () => {
+        if (next === 'auto') delete document.documentElement.dataset.theme;
+        else document.documentElement.dataset.theme = next;
+        labelTheme(next);
+      };
+      if (window.fadeTheme) window.fadeTheme(show);
+      else show();
     });
   }
 

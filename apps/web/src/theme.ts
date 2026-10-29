@@ -10,6 +10,13 @@ export type Theme = 'auto' | 'light' | 'dark';
 export const THEMES: readonly Theme[] = ['auto', 'light', 'dark'];
 export const THEME_LABEL: Record<Theme, string> = { auto: 'Auto', light: 'Light', dark: 'Dark' };
 
+declare global {
+  interface Window {
+    /** Makes a change of theme as a dissolve where the browser can (defined by `public/theme.js`). */
+    fadeTheme?: (apply: () => void) => void;
+  }
+}
+
 const KEY = 'theme';
 /** The key the documentation used before the choice was shared; read once, then dropped. */
 const LEGACY_KEY = 'docs-theme';
@@ -35,7 +42,6 @@ export function showTheme(t: Theme): void {
 }
 
 export function setTheme(t: Theme): void {
-  showTheme(t);
   try {
     localStorage.removeItem(LEGACY_KEY);
     if (t === 'auto') localStorage.removeItem(KEY);
@@ -43,7 +49,10 @@ export function setTheme(t: Theme): void {
   } catch {
     // The choice lasts for this page only.
   }
+  // The control answers at once; the colours follow as a dissolve, where the browser can.
   notify();
+  if (window.fadeTheme) window.fadeTheme(() => showTheme(t));
+  else showTheme(t);
 }
 
 function subscribe(onChange: () => void): () => void {
