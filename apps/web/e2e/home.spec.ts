@@ -150,6 +150,24 @@ test.describe('the home page', () => {
     }
   });
 
+  test('lists the sections in the footer as the top bar does, in the order of the page, and then the rest', async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto('/');
+    const links = (name: string) =>
+      page.getByRole('navigation', { name, exact: true }).getByRole('link').allInnerTexts();
+    const sections = ['Try it', 'Free', 'Moving', 'Leaving', 'Promises'];
+    // On a phone the top bar keeps only the name and the way in, so the footer is where the sections are.
+    if (!isMobile) expect(await links('Sections')).toEqual([...sections, 'Guides']);
+    expect(await links('Footer'), 'the sections in the order of the page, then the rest').toEqual([
+      ...sections,
+      'Guides',
+      'Docs',
+      'Sign in',
+    ]);
+  });
+
   test('ends on the name, dim and cut off at its foot, lit only where a light passes, and it cannot be selected', async ({
     page,
   }) => {

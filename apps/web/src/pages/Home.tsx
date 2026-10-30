@@ -354,12 +354,14 @@ export function Home() {
               out.
             </p>
             <nav aria-label="Footer">
-              <Link href={start}>{signedIn ? 'Your kitchens' : 'Sign in'}</Link>
               <a href="#try">Try it</a>
-              <a href="#promises">Promises</a>
+              <a href="#free">Free</a>
+              <a href="#moving">Moving</a>
               <a href="#leaving">Leaving</a>
+              <a href="#promises">Promises</a>
               <a href="/guides/">Guides</a>
               <a href="/docs/">Docs</a>
+              <Link href={start}>{signedIn ? 'Your kitchens' : 'Sign in'}</Link>
             </nav>
           </div>
           <ThemeSwitch className="foot-theme" />
