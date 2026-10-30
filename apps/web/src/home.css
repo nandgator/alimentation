@@ -1077,6 +1077,14 @@ main > section.section:not(.hero) {
   display: inline-flex;
   align-items: center;
 }
+/* The bar, which stays at the top of the screen, already has the sections and the guides wherever it has room for
+   them, so the foot does not say them again; on a phone, where the bar has only the name and the way in, the foot is
+   where they are. */
+@media (min-width: 861px) {
+  .foot-top nav .in-bar {
+    display: none;
+  }
+}
 /* The theme choice, on the green of the close: the control's own colours are for the page, so here it is
    drawn in the close's. */
 .hfoot .foot-theme {
