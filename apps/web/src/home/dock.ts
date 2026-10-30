@@ -212,7 +212,7 @@ export function courierAt(where: Where): Courier {
 }
 
 /** How long the page must have stood still, in milliseconds, before the carrier is brought to a rest. */
-export const STILL = 140;
+export const STILL = 200;
 /** How quickly the carrier follows the page when it is being moved again, and how gently it comes to a rest (spring times, in seconds). */
 const FOLLOW = 0.14;
 const SETTLE = 0.2;

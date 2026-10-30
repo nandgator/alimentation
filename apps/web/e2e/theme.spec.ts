@@ -4,6 +4,23 @@ import { expectAccessible, shot, signIn } from './support.ts';
 const stored = (page: import('@playwright/test').Page) =>
   page.evaluate(() => localStorage.getItem('theme'));
 
+/**
+ * Waits until the dissolve is over. A scan made before that is made on a page that is a picture of itself, and is
+ * answered wrongly in some browsers.
+ */
+const overAndStill = async (page: import('@playwright/test').Page) => {
+  await expect(page.locator('html')).not.toHaveClass(/theme-fading/);
+  // And a few frames more: what a scan finds under a point is stale for a moment after a dissolve in some browsers.
+  await page.evaluate(
+    () =>
+      new Promise<void>((done) => {
+        let frames = 0;
+        const next = () => (++frames < 8 ? requestAnimationFrame(next) : done());
+        requestAnimationFrame(next);
+      }),
+  );
+};
+
 test.describe('the theme choice', () => {
   test('is one choice for every page: the home page, the guides and the docs', async ({
     page,
@@ -16,6 +33,7 @@ test.describe('the theme choice', () => {
     await theme.getByRole('radio', { name: 'Dark' }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     expect(await stored(page)).toBe('dark');
+    await overAndStill(page);
     await expectAccessible(page, 'the home page in the dark, with the choice open');
     await shot(page, info, 'theme-home-dark');
 
@@ -114,6 +132,7 @@ test.describe('the theme choice', () => {
     await expect(theme).toBeVisible();
     await theme.getByRole('radio', { name: 'Dark' }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await overAndStill(page);
     await expectAccessible(page, 'a kitchen in the dark');
     await shot(page, info, 'theme-kitchen-dark');
     await theme.getByRole('radio', { name: 'Auto' }).check();

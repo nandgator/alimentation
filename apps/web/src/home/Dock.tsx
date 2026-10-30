@@ -62,8 +62,8 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
     let headings = find();
     let raf = 0;
     let timer = 0;
-    // When the page last moved, when the last frame was, and how far the carrier is from where the page says.
-    let moved = -Infinity;
+    // Whether the page has stopped, when the last frame was, and how far the carrier is from where the page says.
+    let still = true;
     let before = 0;
     let hand: Hand = { gap: 0, speed: 0 };
 
@@ -87,7 +87,6 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
     const place = (now: number) => {
       raf = 0;
       const trip = journey();
-      const still = now - moved >= STILL;
       const step = carried(
         hand,
         trip.progress,
@@ -104,11 +103,16 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
     const soon = () => {
       if (!raf) raf = requestAnimationFrame(place);
     };
-    // The page has moved: the carrier follows it, and is put down if the page does not move again for a moment.
+    // The page has moved: the carrier follows it, and is put down if the page does not move again for a moment. It is
+    // the moment that says so, and not a frame that happened to come late: a slow screen must not put the carrier
+    // down in the middle of a scroll.
     const scrolled = () => {
-      moved = performance.now();
+      still = false;
       clearTimeout(timer);
-      timer = window.setTimeout(soon, STILL + 20);
+      timer = window.setTimeout(() => {
+        still = true;
+        soon();
+      }, STILL);
       soon();
     };
 
