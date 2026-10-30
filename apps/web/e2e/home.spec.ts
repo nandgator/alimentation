@@ -687,21 +687,40 @@ test.describe('the home page', () => {
         }, heading);
 
       await go(0);
-      expect(await state(), 'on its shelf, with no tiffin in the bar yet').toMatchObject({
+      expect(
+        await state(),
+        'on its shelf, with a ghost of the tiffin in the bar already',
+      ).toMatchObject({
         flyer: 0,
-        mark: 0,
+        mark: 0.28,
         shelf: 1,
         docked: false,
       });
 
-      // The first moment it is off the shelf, it is exactly where the shelf's carrier was: nothing jumps.
-      let first = -1;
-      for (let y = 0; y <= 900 && first < 0; y += 4) {
-        await go(y);
-        if ((await state()).flyer > 0) first = y;
-      }
-      expect(first, 'it lets go of the shelf').toBeGreaterThanOrEqual(0);
-      const lifted = await state();
+      // The first moment it is off the shelf, it is exactly where the shelf's carrier was: nothing jumps. (Each
+      // step is made and read in the page itself, so that the page is never still long enough for it to be put down.)
+      const peek = (y: number) =>
+        page.evaluate(async (to) => {
+          window.scrollTo({ top: to, behavior: 'instant' });
+          await new Promise<void>((r) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => r())),
+          );
+          const rect = (el: Element) => {
+            const r = el.getBoundingClientRect();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
+          };
+          return {
+            flyer: Number(getComputedStyle(document.querySelector('.flyer')!).opacity),
+            shelf: Number(
+              getComputedStyle(document.querySelector('.hero-carrier .carrier')!).opacity,
+            ),
+            at: rect(document.querySelector('.flyer')!),
+            was: rect(document.querySelector('.hero-carrier .carrier')!),
+          };
+        }, y);
+      let lifted = await peek(0);
+      for (let y = 4; y <= 900 && lifted.flyer === 0; y += 4) lifted = await peek(y);
+      expect(lifted.flyer, 'it lets go of the shelf').toBeGreaterThan(0);
       expect(lifted.shelf, 'the shelf is empty while it is away').toBe(0);
       expect(Math.abs(lifted.at.x - lifted.was.x)).toBeLessThan(12);
       expect(Math.abs(lifted.at.y - lifted.was.y)).toBeLessThan(12);
@@ -757,7 +776,196 @@ test.describe('the home page', () => {
 
       // Scrolled back, it is lifted out of the bar and set down on the shelf again.
       await go(0);
-      expect(await state()).toMatchObject({ flyer: 0, mark: 0, shelf: 1, docked: false });
+      expect(await state()).toMatchObject({ flyer: 0, mark: 0.28, shelf: 1, docked: false });
+    });
+
+    test('the carrier is never left in the air: when the page stops, it goes on to the rest it was nearer', async ({
+      page,
+    }) => {
+      test.setTimeout(90_000);
+      await page.goto('/');
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .querySelector('.hero-carrier .carrier')!
+            .getAnimations({ subtree: true })
+            .map((a) => a.finished),
+        ),
+      );
+      const frames = () =>
+        page.evaluate(
+          () =>
+            new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+        );
+      const go = async (y: number) => {
+        await page.evaluate((to) => window.scrollTo({ top: to, behavior: 'instant' }), y);
+        await frames();
+      };
+      const along = () =>
+        page.evaluate(() => Number(document.querySelector<HTMLElement>('.flyer')!.dataset.at));
+
+      // Where on the page each part of the journey is: a sweep down it, a frame or two a step, so that the page is
+      // never still long enough for the carrier to be put down, and the carrier is where the page says.
+      const sweep = await page.evaluate(async () => {
+        const seen: [number, number][] = [];
+        const next = () =>
+          new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+        const free = document.getElementById('free-title')!;
+        const end = free.getBoundingClientRect().top + window.scrollY;
+        for (let y = 0; y <= end; y += 24) {
+          window.scrollTo({ top: y, behavior: 'instant' });
+          await next();
+          seen.push([y, Number(document.querySelector<HTMLElement>('.flyer')!.dataset.at)]);
+        }
+        return seen;
+      });
+      /** A place on the page where the carrier is this far along its journey. */
+      const yFor = (progress: number) => {
+        const i = sweep.findIndex(([, a]) => a >= progress);
+        expect(i, `the page has a place where the carrier is ${progress} along`).toBeGreaterThan(0);
+        const [y0, a0] = sweep[i - 1]!;
+        const [y1, a1] = sweep[i]!;
+        return Math.round(y0 + ((progress - a0) / (a1 - a0)) * (y1 - y0));
+      };
+      const plateau = (rest: number) => {
+        const found = sweep.find(([, a]) => a === rest);
+        expect(found, `the page has a place where the carrier is at rest ${rest}`).toBeDefined();
+        return found![0];
+      };
+      /** Waits for the carrier to stop, and says where. */
+      const rested = async () => {
+        let at = Number.NaN;
+        await expect
+          .poll(
+            async () => {
+              const was = at;
+              at = await along();
+              return Number.isInteger(at) && at === was;
+            },
+            { message: 'it comes to rest', timeout: 5000, intervals: [120] },
+          )
+          .toBe(true);
+        return at;
+      };
+      const seen = () =>
+        page.evaluate(() => {
+          const flyer = document.querySelector('.flyer')!.getBoundingClientRect();
+          const on = document.getElementById('try-title')!.getBoundingClientRect();
+          const free = document.getElementById('free-title')!.getBoundingClientRect();
+          return {
+            flyer: Number(getComputedStyle(document.querySelector('.flyer')!).opacity),
+            mark: Number(getComputedStyle(document.querySelector('.hnav .mark')!).opacity),
+            shelf: Number(
+              getComputedStyle(document.querySelector('.hero-carrier .carrier')!).opacity,
+            ),
+            standing: { left: flyer.left, bottom: flyer.bottom },
+            tryTitle: { left: on.left, top: on.top },
+            freeTitle: { left: free.left, top: free.top },
+          };
+        });
+
+      // From a rest, the page is moved part of the way to the next and stopped. The carrier goes to whichever rest
+      // the page left it nearer: back to the one it came from, or on to the one it was going to.
+      const trials = [
+        { from: 0, part: 0.3, to: 0 },
+        { from: 0, part: 0.7, to: 1 },
+        { from: 2, part: 2.3, to: 2 },
+        { from: 2, part: 2.7, to: 3 },
+        { from: 3, part: 3.3, to: 3 },
+        { from: 3, part: 3.7, to: 4 },
+      ];
+      for (const t of trials) {
+        await go(plateau(t.from));
+        expect(await rested(), `at rest ${t.from}`).toBe(t.from);
+        await go(yFor(t.part));
+        const air = await along();
+        expect(air, `moved to ${t.part}, it is in the air`).toBeGreaterThan(t.part - 0.06);
+        expect(air).toBeLessThan(t.part + 0.06);
+        expect(await rested(), `stopped at ${t.part}, it goes to ${t.to}`).toBe(t.to);
+
+        const s = await seen();
+        if (t.to === 0) {
+          expect(s, 'back on the shelf, with the ghost in the bar').toMatchObject({
+            flyer: 0,
+            shelf: 1,
+            mark: 0.28,
+          });
+        } else if (t.to === 1 || t.to === 3) {
+          const heading = t.to === 1 ? s.tryTitle : s.freeTitle;
+          expect(s.flyer, 'standing on its heading').toBe(1);
+          expect(Math.abs(s.standing.left - heading.left)).toBeLessThan(3);
+          expect(heading.top - s.standing.bottom).toBeGreaterThan(6);
+          expect(heading.top - s.standing.bottom).toBeLessThan(24);
+        } else {
+          expect(s.flyer, 'in the bar').toBeLessThan(0.05);
+          expect(s.mark).toBeGreaterThan(0.95);
+        }
+      }
+
+      // And it is let go of again when the page moves on, with nothing pulled: from where it was put down, a step of
+      // the page moves it by a step.
+      await go(yFor(0.7));
+      await rested();
+      let last = await page.evaluate(() => {
+        const r = document.querySelector('.flyer')!.getBoundingClientRect();
+        return { x: r.left, y: r.top };
+      });
+      let widest = 0;
+      for (let y = yFor(0.7); y < yFor(0.7) + 120; y += 6) {
+        await go(y);
+        const now = await page.evaluate(() => {
+          const r = document.querySelector('.flyer')!.getBoundingClientRect();
+          return { x: r.left, y: r.top };
+        });
+        widest = Math.max(widest, Math.hypot(now.x - last.x, now.y - last.y));
+        last = now;
+      }
+      expect(widest, 'the longest step of the carrier, for six pixels of scrolling').toBeLessThan(
+        45,
+      );
+    });
+
+    test('keeps the light under the pointer while a theme dissolves, and it does not wander off across the name', async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(isMobile, 'there is no pointer to follow on a phone');
+      await page.goto('/');
+      await page.locator('.hfoot').scrollIntoViewIfNeeded();
+      const lx = () =>
+        page.locator('.mega').evaluate((e) => parseFloat(e.style.getPropertyValue('--lx') || '50'));
+      const dark = page.getByRole('group', { name: 'Theme', exact: true }).getByRole('radio', {
+        name: 'Dark',
+      });
+      const box = (await dark.boundingBox())!;
+      // Over the control, which is above the name and a little to its left: the light comes to the left, under the hand.
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 });
+      await expect.poll(lx, { message: 'the light is under the hand' }).toBeLessThan(30);
+      await expect
+        .poll(
+          async () => {
+            const was = await lx();
+            await page.waitForTimeout(150);
+            return Math.abs((await lx()) - was);
+          },
+          { message: 'and has settled there' },
+        )
+        .toBeLessThan(0.3);
+      const under = await lx();
+
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+      await expect(page.locator('html')).not.toHaveClass(/theme-fading/);
+      await page.waitForTimeout(1200);
+      expect(Math.abs((await lx()) - under), 'the light has stayed where the hand is').toBeLessThan(
+        3,
+      );
+
+      // Once the hand is gone from the footer it is let go of, and goes on its way.
+      await page.mouse.move(box.x + box.width / 2, 120, { steps: 6 });
+      await expect
+        .poll(async () => Math.abs((await lx()) - under), { timeout: 10_000 })
+        .toBeGreaterThan(6);
     });
 
     test('the carrier steams when it is set down, and not while it is in the air', async ({
