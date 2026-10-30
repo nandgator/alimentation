@@ -370,7 +370,7 @@ function pageHtml(site, page, css, index) {
       <ul id="docs-results" class="docs-results" role="listbox" aria-label="Search results" hidden></ul>
     </div>
     <span class="grow"></span>
-    <button type="button" class="docs-theme btn ghost small" aria-label="Colour theme: automatic. Press to change.">Theme: Auto</button>
+    <button type="button" class="docs-theme btn ghost small" aria-label="Theme: auto. Press to change.">Theme: Auto</button>
     <a class="btn small docs-open" href="/app">Open the app</a>
   </div>
 </header>

@@ -115,9 +115,9 @@ The kitchen's name and the role being acted as (a switch, for someone who holds 
 
 The menu hides and shows by sliding with `transform` and `opacity` only, is `inert` while hidden so the keyboard cannot reach what the eye cannot see, and does not move when motion is reduced.
 
-## Colour choice
+## Theme choice
 
-`ThemeSwitch` is a group of three radio buttons (Auto, Light, Dark) in a pill. It is the one control for the colour theme, and the choice is kept under the `theme` key in local storage, so the app, the home page, the guides and the docs all answer to it. `public/theme.js` applies it before the first paint. Auto removes the `data-theme` attribute and the stylesheet follows the system again. The control sits at the foot of the sidebar, in the phone's More panel, at the end of the row under the top bar on a tablet, and in the home page's footer; the documentation sites have the same choice as one button in the top bar that steps through the three.
+`ThemeSwitch` is a group of three radio buttons (Auto, Light, Dark) in a pill. It is the one control for the theme, and the choice is kept under the `theme` key in local storage, so the app, the home page, the guides and the docs all answer to it. `public/theme.js` applies it before the first paint. Auto removes the `data-theme` attribute and the stylesheet follows the system again. The control sits at the foot of the sidebar, in the phone's More panel, at the end of the row under the top bar on a tablet, and in the home page's footer; the documentation sites have the same choice as one button in the top bar that steps through the three.
 
 ## Charts
 
