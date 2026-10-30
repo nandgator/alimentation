@@ -196,7 +196,23 @@ export function useLight(
       if (!raf && inView && !document.hidden) raf = requestAnimationFrame(frame);
     };
 
+    // A theme that is dissolving puts a picture of the page between the pointer and the page for as long as it lasts
+    // (see theme.js): the pointer has not left, and it is not reading anything either, so nothing is taken from it.
+    const html = document.documentElement;
+    const dissolving = () => html.classList.contains('theme-fading');
+    const release = () => {
+      if (!pointer) return;
+      pointer = null;
+      run();
+    };
+    // Heard on the window, so a pointer that went out while the page was held (and so never said so) is let go of the
+    // next time it moves.
     const move = (e: PointerEvent) => {
+      if (dissolving()) return;
+      if (!(e.target instanceof Node && root.contains(e.target))) {
+        release();
+        return;
+      }
       const r = el.getBoundingClientRect();
       pointer = {
         x: clamp(((e.clientX - r.left) / r.width) * 100, -5, 105),
@@ -205,8 +221,7 @@ export function useLight(
       run();
     };
     const leave = () => {
-      pointer = null;
-      run();
+      if (!dissolving()) release();
     };
     const io = new IntersectionObserver((entries) => {
       inView = entries.some((e) => e.isIntersecting);
@@ -217,13 +232,13 @@ export function useLight(
       }
     });
     io.observe(root);
-    root.addEventListener('pointermove', move);
+    window.addEventListener('pointermove', move, { passive: true });
     root.addEventListener('pointerleave', leave);
     document.addEventListener('visibilitychange', run);
     reduced.addEventListener('change', run);
     return () => {
       io.disconnect();
-      root.removeEventListener('pointermove', move);
+      window.removeEventListener('pointermove', move);
       root.removeEventListener('pointerleave', leave);
       document.removeEventListener('visibilitychange', run);
       reduced.removeEventListener('change', run);

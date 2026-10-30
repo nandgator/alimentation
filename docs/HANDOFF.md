@@ -81,8 +81,12 @@ These need accounts, keys or real traffic that the build did not have. Each has 
   bold lines from behind the lids, thinned by a mask, the wisps of one lid on one pace and started at spread points of it (on
   paces of their own they drift into step and the lid goes quiet, then puffs). The first screen's carrier is lifted off its shelf, carried to the first chapter's heading, put into the bar as that heading
   goes up and taken out again for the next, chapter by chapter (`home/Dock.tsx`, the arithmetic in `home/dock.ts`): a copy of it,
-  placed from the scroll alone, that is the bar's tiffin while it is in the bar; the tiffin is packed by the scroll, and the
-  guides and docs share the packing. A heading the page holds in place (the Moving stage's) is stood on where it is met, in the
+  placed from the scroll alone while the page moves, that is the bar's tiffin while it is in the bar; the tiffin is packed by
+  the scroll, and the guides and docs share the packing. Its place is one number along a line of rests (shelf, heading, bar,
+  heading, bar, ...; `journeyAt`), and it is never left between two: after `STILL` ms with no scroll, `carried` (a spring)
+  brings it to the nearest rest, and it follows the page again, without a pull, when the page moves. The bar's mark is a ghost
+  from the first screen on. The number is on the flyer as `data-at`, which the browser tests read. The footer's light
+  (`useLight`) ignores the pointer events a theme dissolve swallows, so it stays under the hand while the page changes. A heading the page holds in place (the Moving stage's) is stood on where it is met, in the
   page's flow. A change of theme, from any page, dissolves (`fadeTheme` in `public/theme.js`, `--dur-4`) and is
   instant under reduced motion. See principle 5 in the design docs.
 - **The docs open one part of the contents at a time.** The contents is a `details` for each part with only the part being

@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { carrierIn, courierAt, standOn, tiffinIn, type Box } from './dock.ts';
+import {
+  carried,
+  carrierIn,
+  courierAt,
+  journeyAt,
+  standOn,
+  STILL,
+  tiffinIn,
+  type Box,
+  type Hand,
+  type Where,
+} from './dock.ts';
 
 // The hero's picture, drawn at its own size under a bar 64 tall, a mark of 26 in the bar, and five chapters, each
 // with a heading 400 wide, at these places on the page.
@@ -13,14 +24,15 @@ const heading = (pageTop: number, y: number): Box => ({
   width: 400,
   height: 120,
 });
+const where = (y: number, tops: (number | null)[] = TOPS, scene: Box = SCENE, vh = VH): Where => ({
+  scene: { ...scene, top: scene.top - y },
+  mark: MARK,
+  headings: tops.map((t) => (t === null ? null : heading(t, y))),
+  scrollY: y,
+  vh,
+});
 const at = (y: number, tops: (number | null)[] = TOPS, scene: Box = SCENE, vh = VH) =>
-  courierAt({
-    scene: { ...scene, top: scene.top - y },
-    mark: MARK,
-    headings: tops.map((t) => (t === null ? null : heading(t, y))),
-    scrollY: y,
-    vh,
-  });
+  courierAt(where(y, tops, scene, vh));
 const centre = (b: Box) => ({ x: b.left + b.width / 2, y: b.top + b.height / 2 });
 const near = (a: Box, b: Box, px = 0.01) => {
   expect(a.left).toBeCloseTo(b.left, 1);
@@ -53,8 +65,12 @@ describe('where the hero’s carrier is, and where the tiffin is', () => {
 });
 
 describe('the carrier’s journey through the page', () => {
-  it('is on its shelf when the page is at the top, with no tiffin in the bar yet', () => {
-    expect(at(0)).toMatchObject({ flyer: 0, mark: 0, lifted: false, docked: false });
+  it('is on its shelf when the page is at the top, with a ghost of the tiffin in the bar already', () => {
+    expect(at(0)).toMatchObject({ flyer: 0, mark: 0.28, lifted: false, docked: false });
+  });
+
+  it('keeps that ghost in the bar all the way to the first heading, and does not bring it in on arriving', () => {
+    for (let y = 0; y <= 600; y += 10) expect(at(y).mark, `at ${y}`).toBeCloseTo(0.28, 6);
   });
 
   it('lets go of the shelf as soon as the page moves, and starts from exactly where the shelf’s carrier is', () => {
@@ -151,5 +167,147 @@ describe('the carrier’s journey through the page', () => {
     const reach = rest.top + rest.height / 2 - vh * 0.62;
     expect(at(reach - 1, TOPS, phone, vh).lifted).toBe(false);
     expect(at(reach + 40, TOPS, phone, vh).lifted).toBe(true);
+  });
+});
+
+describe('the carrier’s place along its journey', () => {
+  const trip = (y: number) => journeyAt(where(y));
+
+  it('is a whole number at each rest: the shelf, a heading, the bar, the next heading, the bar', () => {
+    expect(trip(0).progress).toBe(0);
+    expect(trip(500).progress).toBe(1);
+    expect(trip(900).progress).toBe(2);
+    expect(trip(TOPS[1]! - VH * 0.5).progress).toBe(3);
+    expect(trip(TOPS[1]! - 20).progress).toBe(4);
+    expect(trip(TOPS[4]! - 20).progress).toBe(10);
+    expect(trip(5400).progress).toBe(10);
+  });
+
+  it('only ever goes on as the page goes on, and a step of the page is a small step along it', () => {
+    let prev = trip(0).progress;
+    for (let y = 1; y <= 5400; y++) {
+      const now = trip(y).progress;
+      expect(now, `at ${y}`).toBeGreaterThanOrEqual(prev);
+      expect(now - prev, `at ${y}`).toBeLessThan(0.02);
+      prev = now;
+    }
+  });
+
+  it('draws the page’s own place the same as the carrier it is given at that place', () => {
+    for (const y of [0, 40, 150, 330, 700, 1000, 1500, 2300, 3300, 4300]) {
+      const j = trip(y);
+      expect(j.courier(j.progress)).toEqual(at(y));
+    }
+  });
+
+  it('is on each rest where that rest is, whatever the page is doing', () => {
+    const w = where(150);
+    const j = journeyAt(w);
+    // The shelf is where the page has left it by now, and the carrier is put back there.
+    near(j.courier(0).box, carrierIn(w.scene));
+    expect(j.courier(0)).toMatchObject({ flyer: 0, lifted: false, docked: false, mark: 0.28 });
+    near(j.courier(1).box, standOn(w.headings[0]!));
+    near(j.courier(2).box, tiffinIn(MARK));
+    expect(j.courier(2)).toMatchObject({ flyer: 0, mark: 1, docked: true });
+    near(j.courier(3).box, standOn(w.headings[1]!));
+    expect(j.courier(3)).toMatchObject({ flyer: 1, docked: false });
+    expect(j.courier(10)).toMatchObject({ flyer: 0, mark: 1, docked: true });
+    // And no further than the last.
+    expect(j.courier(11)).toEqual(j.courier(10));
+    expect(j.courier(-1)).toEqual(j.courier(0));
+  });
+
+  it('is carried back to the shelf in its place now, and not to where it let go', () => {
+    const w = where(150);
+    const j = journeyAt(w);
+    const home = carrierIn(w.scene);
+    let prev = centre(j.courier(0.3).box);
+    for (let at = 0.28; at >= 0; at -= 0.02) {
+      const here = centre(j.courier(at).box);
+      expect(Math.hypot(here.x - prev.x, here.y - prev.y), `at ${at}`).toBeLessThan(40);
+      prev = here;
+    }
+    near(j.courier(0).box, home);
+  });
+});
+
+describe('the carrier is never left in the air', () => {
+  const FRAME = 1 / 60;
+  /** Lets go of the page at this place on the journey, and steps until the carrier has come to rest. */
+  const settle = (from: number, hand: Hand = { gap: 0, speed: 0 }) => {
+    const seen = [from + hand.gap];
+    let now: Hand = hand;
+    for (let frame = 0; frame < 600; frame++) {
+      const step = carried(now, from, true, FRAME);
+      now = step;
+      seen.push(from + step.gap);
+      if (step.done) return { seen, frames: frame + 1, at: from + step.gap };
+    }
+    throw new Error('it never came to rest');
+  };
+
+  it('goes on to the rest it was nearer, forward from more than half way and back from less', () => {
+    for (let whole = 0; whole < 10; whole++) {
+      expect(settle(whole + 0.2).seen.at(-1)).toBe(whole);
+      expect(settle(whole + 0.4).seen.at(-1)).toBe(whole);
+      expect(settle(whole + 0.5).seen.at(-1)).toBe(whole + 1);
+      expect(settle(whole + 0.8).seen.at(-1)).toBe(whole + 1);
+    }
+  });
+
+  it('stays where it is when it is already on a rest', () => {
+    const r = settle(3);
+    expect(r.frames).toBe(1);
+    expect(r.at).toBe(3);
+  });
+
+  it('eases: it starts slowly, goes steadily one way, never passes the rest and comes to it gently', () => {
+    for (const from of [0.3, 0.7, 2.45, 5.55]) {
+      const { seen, frames } = settle(from);
+      const to = Math.round(from);
+      const dir = Math.sign(to - from);
+      const steps = seen.slice(1).map((x, i) => (x - seen[i]!) * dir);
+      for (const [i, step] of steps.entries())
+        expect(step, `${from} frame ${i}`).toBeGreaterThanOrEqual(0);
+      for (const x of seen) expect((x - to) * dir, `${from} overshoots`).toBeLessThanOrEqual(0);
+      // Slow to start and slow to end, quicker between.
+      expect(steps[0]!).toBeLessThan(Math.max(...steps) / 3);
+      expect(steps.at(-2)!).toBeLessThan(Math.max(...steps) / 3);
+      // About half a second, and never more than a second.
+      expect(frames / 60).toBeGreaterThan(0.3);
+      expect(frames / 60).toBeLessThan(1);
+    }
+  });
+
+  it('follows the page when it moves again, without being pulled, and is then the page’s own', () => {
+    // Left on the shelf, from a page stopped at 0.3 of the way; the page then moves on, a step a frame.
+    let hand: Hand = { gap: -0.3, speed: 0 };
+    let page = 0.3;
+    let prev = page + hand.gap;
+    let widest = 0;
+    for (let frame = 0; frame < 120; frame++) {
+      page += 0.004;
+      hand = carried(hand, page, false, FRAME);
+      const shown = page + hand.gap;
+      widest = Math.max(widest, Math.abs(shown - prev));
+      prev = shown;
+    }
+    // It does not jump to the page: the biggest step is a small part of the gap, not the whole of it.
+    expect(widest).toBeLessThan(0.035);
+    expect(hand.gap).toBeCloseTo(0, 3);
+    expect(prev).toBeCloseTo(page, 3);
+  });
+
+  it('is put down in the middle of a move, from where it is and how fast it was going', () => {
+    // Moving a gap away, then the page stops: it carries on from there, with no jolt in its speed.
+    let hand: Hand = { gap: 0.2, speed: -0.5 };
+    const before = 3.6 + hand.gap;
+    hand = carried(hand, 3.6, true, FRAME);
+    expect(Math.abs(3.6 + hand.gap - before)).toBeLessThan(0.02);
+  });
+
+  it('waits for the page to have been still for longer than the gap between a hand’s scrolls, and not much longer', () => {
+    expect(STILL).toBeGreaterThan(100);
+    expect(STILL).toBeLessThan(250);
   });
 });
