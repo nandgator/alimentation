@@ -32,7 +32,7 @@
     themeButton.textContent = 'Theme: ' + NAMES[t];
     themeButton.setAttribute(
       'aria-label',
-      'Colour theme: ' + NAMES[t].toLowerCase() + '. Press to change.',
+      'Theme: ' + NAMES[t].toLowerCase() + '. Press to change.',
     );
   };
   if (themeButton) {

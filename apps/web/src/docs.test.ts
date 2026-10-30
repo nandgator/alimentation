@@ -198,7 +198,7 @@ describe('the documentation sites', () => {
       // The pages every other page links to are not lost: the old front page's reading moved to a page.
       expect(h.match(/<a class="feature"/g)!.length, dir).toBeLessThanOrEqual(6);
     }
-    // Both sites use the app's own theme script, so one choice of colours applies to every page.
+    // Both sites use the app's own theme script, so one theme choice applies to every page.
     for (const url of built.pages) expect(html(url), url).toContain('<script src="/theme.js">');
   });
 

@@ -49,7 +49,7 @@ export function setTheme(t: Theme): void {
   } catch {
     // The choice lasts for this page only.
   }
-  // The control answers at once; the colours follow as a dissolve, where the browser can.
+  // The control answers at once; the theme follows as a dissolve, where the browser can.
   notify();
   if (window.fadeTheme) window.fadeTheme(() => showTheme(t));
   else showTheme(t);

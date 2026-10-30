@@ -17,7 +17,7 @@ including its owner in six months.
 | Menu and layout                  | Done. One list of screens drives the menu, routes and role guards; a grouped sidebar that can be hidden; a bottom bar tested at four phone widths.                                  |
 | Design system                    | Done. Tokens in `styles.css`, documented at `/docs/design/`, enforced by `npm run design`.                                                                                          |
 | Documentation                    | Done. Two hosted sites built from `docs/site`: `/guides` for people, `/docs` for technicians, each opening on a short front page. No framework (see `docs/DESIGN.md` section 12).   |
-| Colours                          | Done. One choice (Auto, Light, Dark) for the app, the home page and both sites, applied before the first paint by `public/theme.js`.                                                |
+| Theme                            | Done. One choice (Auto, Light, Dark) for the app, the home page and both sites, applied before the first paint by `public/theme.js`.                                                |
 | Runtime                          | Node 24 or later (`engines`, `.nvmrc`, the image and CI). Statements on one transaction queue in `db/driver.ts`, so nothing depends on `pg` queueing them behind its back.          |
 | Deployment                       | Cloudflare Worker (`apps/api/wrangler.jsonc`), one container image, Compose files for a dedicated instance and for the tests, CI.                                                   |
 

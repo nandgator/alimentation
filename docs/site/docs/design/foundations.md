@@ -165,7 +165,7 @@ Things move to show where they came from. By convention only `transform` and `op
 | `--dur-1`       | 140ms                            | A press or a hover.                         |
 | `--dur-2`       | 220ms                            | A slide: a drawer, a panel, a toast.        |
 | `--dur-3`       | 400ms                            | An arrival: a figure, a picture.            |
-| `--dur-4`       | 600ms                            | A change of colours: the theme dissolving.  |
+| `--dur-4`       | 600ms                            | A change of theme: the dissolve.            |
 | `--ease-out`    | `cubic-bezier(0.22, 1, 0.36, 1)` | Most things. Fast to start, gentle to land. |
 | `--ease-expo`   | `cubic-bezier(0.16, 1, 0.3, 1)`  | Large movements.                            |
 | `--ease-in-out` | `cubic-bezier(0.76, 0, 0.24, 1)` | Things that go and come back.               |

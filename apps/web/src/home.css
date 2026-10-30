@@ -1077,7 +1077,7 @@ main > section.section:not(.hero) {
   display: inline-flex;
   align-items: center;
 }
-/* The colour choice, on the green of the close: the control's own colours are for the page, so here it is
+/* The theme choice, on the green of the close: the control's own colours are for the page, so here it is
    drawn in the close's. */
 .hfoot .foot-theme {
   margin-top: 24px;

@@ -628,7 +628,7 @@ to go and nothing else. A page opts in with `layout: home`; what goes in the her
 `home.json`, validated at build time, and the cards' links are checked like any other. What used to sit under the
 cards moved to its own page (`guides/start/overview`, `docs/overview/map`). The layout is imitated, not the framework.
 
-**Colours.** One choice (Auto, Light or Dark) for the whole product, kept under the `theme` key in local storage. A
+**Theme.** One choice (Auto, Light or Dark) for the whole product, kept under the `theme` key in local storage. A
 four-line script, `apps/web/public/theme.js`, applies it before the first paint on every page, the app and both sites
 alike; `src/theme.ts` and `components/ThemeSwitch.tsx` are the control's side. The control sits in the sidebar, in the
 phone's More panel, at the end of the row under the top bar on a tablet, and in the home page's footer; the sites have
@@ -636,7 +636,7 @@ the same choice as a button in the top bar. Auto leaves the system's setting in 
 `docs-theme` key is still read, once.
 
 **Where the ideas came from.** The grouped, hideable menu, one list driving navigation and roles, the production
-checklist (`docs/site/docs/self-hosting/going-live.md`, `docs/site/docs/security/overview.md`) and the colour choice
+checklist (`docs/site/docs/self-hosting/going-live.md`, `docs/site/docs/security/overview.md`) and the theme choice
 were shaped by studying Payload CMS: its admin, run live and driven in a browser, its source, and its deployment and
 abuse-prevention guides, with the findings, good and bad, in `docs/research/payload-cms.md`. No code or visual design was
 copied; the look is this project's own.

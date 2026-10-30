@@ -110,7 +110,7 @@
   --serif: 'Young Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
   --sans: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --gutter: 16px;
-  /* How long things take: a press, a slide, an arrival, and a change of colours. */
+  /* How long things take: a press, a slide, an arrival, and a change of theme. */
   --dur-1: 140ms;
   --dur-2: 220ms;
   --dur-3: 400ms;
@@ -1069,7 +1069,7 @@ dialog::backdrop {
   color: var(--ink-2);
   font-size: var(--text-sm);
 }
-/* Colours: automatic, light or dark, as one group. The choice lives in theme.ts and applies to every page. */
+/* Theme: automatic, light or dark, as one group. The choice lives in theme.ts and applies to every page. */
 .theme-switch {
   display: grid;
   gap: var(--space-1);
@@ -1253,7 +1253,7 @@ dialog::backdrop {
 .nav .more {
   display: none;
 }
-/* In the row under the top bar the colour choice sits at the end; in the bottom bar's More panel it follows Help. */
+/* In the row under the top bar the theme choice sits at the end; in the bottom bar's More panel it follows Help. */
 .nav .extras-theme {
   margin-left: auto;
   padding-left: var(--space-3);

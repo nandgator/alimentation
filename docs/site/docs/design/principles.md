@@ -42,7 +42,7 @@ The home page is the one exception, because it is the one place that persuades r
 - **A carrier that cannot snap.** Where the carrier is, is one number that a spring follows, and the page only says where it should be. A page scrolled back and forth turns the carrier round in the air; a timed hop that is cancelled and restarted would put it back where it last landed.
 - **The first screen lets go in layers**: its words fall a little behind the scroll and its picture rises a little ahead. The chapter being read is underlined in the bar.
 - **A light over the name** at the foot that follows a pointer and otherwise wanders.
-- **A change of colours dissolves.** Choosing another theme, from any page, cross-fades the whole page over `--dur-4` instead of switching it, and with reduced motion switches at once.
+- **A change of theme dissolves.** Choosing another theme, from any page, cross-fades the whole page over `--dur-4` instead of switching it, and with reduced motion switches at once.
 
 Beyond `transform` and `opacity` the home page may move a mask, a clip, a corner radius and a line's dash, each in a small area and none of them text. Everything on it runs only while in view, and with reduced motion nothing moves: the steam is drawn in full, the sheets keep their corners, the mark stays empty, the light over the name rests in the middle and still follows a pointer, which is the person's own movement.
 

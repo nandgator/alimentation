@@ -4,16 +4,16 @@ import { expectAccessible, shot, signIn } from './support.ts';
 const stored = (page: import('@playwright/test').Page) =>
   page.evaluate(() => localStorage.getItem('theme'));
 
-test.describe('the colour choice', () => {
+test.describe('the theme choice', () => {
   test('is one choice for every page: the home page, the guides and the docs', async ({
     page,
   }, info) => {
     await page.goto('/');
-    const colours = page.getByRole('group', { name: 'Colours' });
-    await expect(colours.getByRole('radio', { name: 'Auto' })).toBeChecked();
+    const theme = page.getByRole('group', { name: 'Theme', exact: true });
+    await expect(theme.getByRole('radio', { name: 'Auto' })).toBeChecked();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
 
-    await colours.getByRole('radio', { name: 'Dark' }).check();
+    await theme.getByRole('radio', { name: 'Dark' }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     expect(await stored(page)).toBe('dark');
     await expectAccessible(page, 'the home page in the dark, with the choice open');
@@ -23,18 +23,18 @@ test.describe('the colour choice', () => {
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(
-      page.getByRole('group', { name: 'Colours' }).getByRole('radio', { name: 'Dark' }),
+      page.getByRole('group', { name: 'Theme', exact: true }).getByRole('radio', { name: 'Dark' }),
     ).toBeChecked();
 
     // The documentation answers to the same choice, and the same button changes it.
     await page.goto('/guides/');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    const button = page.getByRole('button', { name: /Colour theme: dark/ });
+    const button = page.getByRole('button', { name: /Theme: dark/ });
     await expect(button).toHaveText('Theme: Dark');
     await button.click(); // Dark, then Auto
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
     expect(await stored(page)).toBeNull();
-    await page.getByRole('button', { name: /Colour theme: auto/ }).click();
+    await page.getByRole('button', { name: /Theme: auto/ }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     expect(await stored(page)).toBe('light');
 
@@ -42,7 +42,7 @@ test.describe('the colour choice', () => {
     await page.goto('/');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(
-      page.getByRole('group', { name: 'Colours' }).getByRole('radio', { name: 'Light' }),
+      page.getByRole('group', { name: 'Theme', exact: true }).getByRole('radio', { name: 'Light' }),
     ).toBeChecked();
   });
 
@@ -67,18 +67,18 @@ test.describe('the colour choice', () => {
     await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
     await page.goto('/');
     await watchFade(page);
-    const colours = page.getByRole('group', { name: 'Colours' });
-    await colours.getByRole('radio', { name: 'Dark' }).check();
+    const theme = page.getByRole('group', { name: 'Theme', exact: true });
+    await theme.getByRole('radio', { name: 'Dark' }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(page.locator('html')).not.toHaveClass(/theme-fading/);
-    // It was held in a transition, as long as the design system says a change of colours takes (--dur-4).
+    // It was held in a transition, as long as the design system says a change of theme takes (--dur-4).
     expect(await fade(page)).toEqual({ seen: true, ms: 600 });
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await watchFade(page);
-    await colours.getByRole('radio', { name: 'Light' }).check();
+    await theme.getByRole('radio', { name: 'Light' }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-    expect(await fade(page), 'reduced motion changes the colours with no dissolve').toEqual({
+    expect(await fade(page), 'reduced motion changes the theme with no dissolve').toEqual({
       seen: false,
       ms: 0,
     });
@@ -88,7 +88,7 @@ test.describe('the colour choice', () => {
     await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
     await page.goto('/guides/');
     await watchFade(page);
-    await page.getByRole('button', { name: /Colour theme: auto/ }).click();
+    await page.getByRole('button', { name: /Theme: auto/ }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(page.locator('html')).not.toHaveClass(/theme-fading/);
     expect(await fade(page)).toEqual({ seen: true, ms: 600 });
@@ -98,7 +98,7 @@ test.describe('the colour choice', () => {
     await page.addInitScript(() => localStorage.setItem('docs-theme', 'dark'));
     await page.goto('/docs/');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await page.getByRole('button', { name: /Colour theme: dark/ }).click();
+    await page.getByRole('button', { name: /Theme: dark/ }).click();
     expect(await page.evaluate(() => localStorage.getItem('docs-theme'))).toBeNull();
   });
 
@@ -106,17 +106,17 @@ test.describe('the colour choice', () => {
     const slug = `col-${Date.now().toString(36)}`;
     await signIn(page, `owner-${slug}@example.org`, 'Owner');
     await page.request.post('/api/workspaces', {
-      data: { slug, name: `Colours ${slug}`, alsoSupplier: true },
+      data: { slug, name: `Theme ${slug}`, alsoSupplier: true },
     });
     await page.goto(`/w/${slug}`);
     if (isMobile) await page.getByRole('button', { name: 'More' }).click();
-    const colours = page.getByRole('group', { name: 'Colours' });
-    await expect(colours).toBeVisible();
-    await colours.getByRole('radio', { name: 'Dark' }).check();
+    const theme = page.getByRole('group', { name: 'Theme', exact: true });
+    await expect(theme).toBeVisible();
+    await theme.getByRole('radio', { name: 'Dark' }).check();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expectAccessible(page, 'a kitchen in the dark');
     await shot(page, info, 'theme-kitchen-dark');
-    await colours.getByRole('radio', { name: 'Auto' }).check();
+    await theme.getByRole('radio', { name: 'Auto' }).check();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
   });
 });
