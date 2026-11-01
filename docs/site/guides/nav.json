@@ -33,7 +33,13 @@
     },
     {
       "title": "Fair for everyone",
-      "pages": ["fair/honest-by-design", "fair/privacy", "fair/free-tier", "fair/your-data"]
+      "pages": [
+        "fair/honest-by-design",
+        "fair/privacy",
+        "fair/free-tier",
+        "fair/your-data",
+        "fair/ai-agents"
+      ]
     },
     {
       "title": "Help",

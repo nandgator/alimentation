@@ -452,7 +452,7 @@ Decided with the owner. An agent is a way for a person to have software act for 
 - **How it is recorded.** In the kitchen's own record. The database writes who an agent acted for and which agent (`audit_log.via`, set from `app.via` beside `app.role`), and History says it in words ("You, through the agent “Lunch bot”, logged Leave on 5 Nov."), to the people the change affects, like any other change. A moved kitchen takes the marks with it.
 - **What shape.** An MCP server in the app at `/mcp` (Streamable HTTP, JSON-RPC, tools only), made from the same operation table, so it cannot list what the API would refuse; each tool call is an ordinary request to the kitchen and counts against its day. And documentation written for language models: `/llms.txt` and `/llms-full.txt`.
 
-Not built: a kitchen's admin widening or narrowing what agents may do there (the scopes are the person's choice, inside the list above), and a screen for keys outside the admin's page; a member makes one through the API.
+Built: the API (`/api/w/:slug/agents`), the MCP server, `llms.txt`, and a card under **Your data** (the admin's page). Not built: a kitchen's admin widening or narrowing what agents may do there (the scopes are the person's choice, inside the list above), and a screen for a member's own keys, which a member makes through the API. Neither is a technical step from here; each is a decision about who may let software act for them.
 
 ## 6. Technology
 

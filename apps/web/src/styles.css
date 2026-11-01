@@ -551,6 +551,17 @@ input[type='checkbox'] {
 .card.danger {
   border-color: var(--bad);
 }
+/* A banner that holds more than a sentence (a heading, a field, a button) stacks it, in a column that may shrink. */
+.banner > .stack {
+  flex: 1;
+  min-width: 0;
+}
+/* A field beside a button takes what the button leaves; a tick box beside its words stays a tick box. */
+.row > input:not([type='checkbox'], [type='radio']) {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
 .banner {
   border-radius: var(--radius-md);
   padding: 12px 14px;

@@ -22,7 +22,7 @@ import {
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
-import { createBlocks } from './docs-blocks.mjs';
+import { createBlocks, expandExcerpts } from './docs-blocks.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -235,6 +235,7 @@ function loadSite(srcRoot, site, blocks) {
         layout,
         front,
         body: rendered,
+        markdown: body,
         html,
         toc,
       });
@@ -407,6 +408,67 @@ function appStylesheet(dist) {
   return m[1];
 }
 
+/** What a page says about itself to a reader that is a program: a line in `llms.txt`. */
+const llmsLine = (p) => `- [${p.title}](${p.url}): ${p.description}`;
+
+/**
+ * Documentation for language models (https://llmstxt.org): `llms.txt`, a short map of the pages with a line
+ * each, and `llms-full.txt`, every page's Markdown in one file, with the lines of any excerpt of the code put in.
+ * Paths are on the same host as the file.
+ */
+function llmsFiles(sites) {
+  const head = [
+    '# Alimentation',
+    '',
+    '> Alimentation keeps the accounts of small kitchens and messes: who ate what, what each person owes and what has been paid. It is open source, and anyone can run their own.',
+    '',
+    "Paths below are on the same host as this file. Amounts in the API are whole paise (hundredths of a rupee), dates are `YYYY-MM-DD` in the kitchen's own time zone, and no password is ever involved: a person signs in with an identity provider, and an agent uses a key a person gave it.",
+    '',
+    '## For an AI agent',
+    '',
+    '- [AI agents and MCP](/docs/api/agents/): how a person gives an agent a key, what the key may and may not do, how what it does is recorded, and the MCP server at `/mcp`',
+    '- [API reference](/reference/): every route, with who may call it, what it takes and what it returns, and whether an agent may call it (served only where the reference site is running)',
+    '- [llms-full.txt](/llms-full.txt): all the pages below, in one file',
+    '',
+  ];
+  const sections = sites.flatMap((x) => {
+    const bySection = new Map();
+    for (const p of x.pages) {
+      if (p.layout === 'home') continue;
+      if (!bySection.has(p.section)) bySection.set(p.section, []);
+      bySection.get(p.section).push(p);
+    }
+    return [...bySection].flatMap(([name, pages]) => [
+      `## ${x.site.name}: ${name}`,
+      '',
+      ...pages.map(llmsLine),
+      '',
+    ]);
+  });
+  const full = [
+    '# Alimentation: the whole documentation',
+    '',
+    'Every page of the guides (for people who use a kitchen) and the docs (for people who run or build it), in order. Paths are on the same host as this file.',
+    '',
+    ...sites.flatMap((x) =>
+      x.pages
+        .filter((p) => p.layout !== 'home')
+        .flatMap((p) => [
+          '---',
+          '',
+          `Source: ${p.url}`,
+          '',
+          expandExcerpts(p.markdown, REPO, p.file).trim(),
+          '',
+        ]),
+    ),
+  ];
+  return {
+    short: `${[...head, ...sections].join('\n').trim()}\n`,
+    full: `${full.join('\n').trim()}\n`,
+  };
+}
+
 export function buildDocs({
   src = join(REPO, 'docs', 'site'),
   dist = join(REPO, 'apps', 'web', 'dist'),
@@ -425,6 +487,9 @@ export function buildDocs({
     join(assets, 'docs.css'),
     `${readFileSync(join(here, 'docs', 'docs.css'), 'utf8')}\n/* What the diagrams drawn in these pages came with, scoped to them. */\n${blocks.diagramCss()}\n`,
   );
+  const llms = llmsFiles(sites);
+  writeFileSync(join(dist, 'llms.txt'), llms.short);
+  writeFileSync(join(dist, 'llms-full.txt'), llms.full);
   const written = [];
   for (const site of sites) {
     const out = join(dist, site.site.dir);
