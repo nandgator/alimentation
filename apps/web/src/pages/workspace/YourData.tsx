@@ -5,6 +5,7 @@ import { postJson } from '../../api.ts';
 import { Field, Form, PageHead, Problem, toast, useAction } from '../../components/ui.tsx';
 import { date } from '../../format.ts';
 import { useWorkspace } from './context.tsx';
+import { AgentKeys } from './AgentKeys.tsx';
 import { HeadOffice } from './HeadOffice.tsx';
 
 interface Preview {
@@ -375,6 +376,7 @@ export function YourData() {
       <Usage />
       <Export />
       {ws.boot.workspace.state === 'ACTIVE' ? <HeadOffice /> : null}
+      <AgentKeys />
       {ws.boot.workspace.state === 'ACTIVE' ? <Move /> : null}
       <Wipe />
     </div>

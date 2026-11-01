@@ -38,6 +38,16 @@ Three things are there for someone who runs several kitchens, and a person with 
 - **Copy a setup.** From a kitchen you run to others you run: prices, rules and holidays from this month on. It shows what would be added first, leaves what the other kitchen already has, and adds through that kitchen's own pages, so each still refuses what its own rules refuse.
 - **A head office.** An organisation is a head office over kitchens that agreed to it. Its people see each kitchen's totals for the month (people, meals, billed, paid, owed, claims waiting) and nothing that names anyone, and they are not members of the kitchens. A kitchen joins by its own admin's choice, from a link its head office made, or directly when the same person runs both; either side can stop. Everyone in a kitchen is told who receives its totals. See [Behind a proxy](/docs/self-hosting/behind-a-proxy/) for the API reference at the same address, and [the trust model](/docs/concepts/trust-model/#what-a-head-office-can-see) for what is and is not read.
 
+## Keys for AI agents
+
+A person gives an agent a key under **Your data** (see [AI agents and MCP](/docs/api/agents/)). The keys are in the control database, in `agent_key`, and only as hashes: nobody, including you, can read one back. To end one, its person or the kitchen's admin ends it there. To end every key at once, for a kitchen or the whole instance, as the database's owner:
+
+```sql
+UPDATE agent_key SET revoked_at = now() WHERE revoked_at IS NULL;
+```
+
+Add `AND workspace_id = '…'` for one kitchen. Nothing else needs to change: the next request with a key finds it ended. What an agent did is in each kitchen's own record, not here; the platform's record notes only that a key was made or ended, with no names.
+
 ## Housekeeping
 
 It finishes interrupted deletions, removes kitchens seven days after they moved away, clears the old copies a move leaves, and frees moves that stalled before sending anything. It runs every 15 minutes on a Node server, and `/operator` has a button to run it now.

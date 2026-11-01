@@ -661,6 +661,47 @@ describe('moving between the pages', () => {
   });
 });
 
+describe('documentation for language models', () => {
+  const dist = fakeDist();
+  const built = buildDocs({ dist });
+  const short = readFileSync(join(dist, 'llms.txt'), 'utf8');
+  const full = readFileSync(join(dist, 'llms-full.txt'), 'utf8');
+
+  it('has a short map in the shape llms.txt asks for: a title, a summary, and links with a line each', () => {
+    expect(short).toMatch(/^# Alimentation\n\n> /);
+    expect(short).toMatch(/^## For an AI agent$/m);
+    expect(short).toContain('[AI agents and MCP](/docs/api/agents/)');
+    expect(short).toContain('(/llms-full.txt)');
+  });
+
+  it('lists every page of both sites once, with what it is about, and no front page', () => {
+    const pages = built.pages.filter((u) => u !== '/guides/' && u !== '/docs/');
+    expect(pages.length).toBeGreaterThan(40);
+    for (const url of pages) {
+      const lines = short.split('\n').filter((l) => l.includes(`](${url}):`));
+      // The page about agents is also named at the top, where an agent looks first.
+      expect(lines, url).toHaveLength(url === '/docs/api/agents/' ? 2 : 1);
+      expect(lines[0], url).toMatch(/^- \[[^\]]+\]\(\/[^)]+\): \S/);
+    }
+    expect(short).not.toMatch(/\]\(\/(guides|docs)\/\):/);
+  });
+
+  it('has every page in full, with the lines of a code excerpt put in and none of the front matter', () => {
+    for (const url of built.pages.filter((u) => u !== '/guides/' && u !== '/docs/'))
+      expect(full, url).toContain(`Source: ${url}\n`);
+    expect(full).not.toMatch(/^title: /m);
+    expect(full).not.toMatch(/^description: /m);
+    // The billing page shows lines of the engine by naming them; here they are.
+    expect(full).toContain('// packages/core/src/engine.ts, lines 28 to 39');
+    expect(full).toContain('export interface EngineData');
+  });
+
+  it('says nothing that is not in the pages: an agent is told what the guides tell a person', () => {
+    expect(full).toContain('through the agent “Lunch bot”');
+    expect(full).toContain('stays with a person');
+  });
+});
+
 describe('what the documentation says is still what the app does', () => {
   it('states the free-tier numbers the app enforces', () => {
     const text = read('guides/fair/free-tier.md');

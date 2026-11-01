@@ -213,6 +213,20 @@ const barOf = (label, range) =>
     ? `<figcaption class="code-bar"><span class="code-name">${esc(label)}</span>${range ? `<span class="code-range">${range}</span>` : ''}</figcaption>`
     : '';
 
+/**
+ * The Markdown of a page with the lines of every `file=` excerpt put in, for a reader that gets the text and
+ * not the page (a language model, `llms-full.txt`): an empty block that says "lines 28 to 39 of a file" would tell
+ * it nothing. The same excerpt, with the same refusals, as the page itself.
+ */
+export function expandExcerpts(markdown, repo, where) {
+  return markdown.replace(/^```([^\n]*)\n([\s\S]*?)^```[ \t]*$/gm, (whole, info, text) => {
+    const { lang, settings } = parseFence(info);
+    if (!settings.file) return whole;
+    const found = excerpt(settings.file, where, repo);
+    return `\`\`\`${lang}\n// ${found.name}, lines ${found.first} to ${found.last}\n${found.text}\n\`\`\``;
+  });
+}
+
 export function createBlocks({ repo }) {
   /** Each distinct stylesheet a diagram came with, scoped to diagrams, to be added to the site's. */
   const diagramStyles = new Set();

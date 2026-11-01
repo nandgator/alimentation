@@ -11,7 +11,7 @@
     },
     {
       "title": "API reference",
-      "pages": ["api/reference"]
+      "pages": ["api/reference", "api/agents"]
     },
     {
       "title": "Self-hosting",
