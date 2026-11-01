@@ -16,6 +16,7 @@ All settings are environment variables (Worker variables and secrets on Cloudfla
 | `MASTER_KEYS`                                                   | `1:base64,2:base64`. The highest number wraps new keys; the others still open what they wrapped.                          |
 | `CONTROL_DATABASE_URL`                                          | The control database (who is in which kitchen, where each lives). The application role, not the owner.                    |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`           | Sign-in through any OpenID Connect provider (Google works). The redirect address is `$APP_ORIGIN/auth/callback`.          |
+| `OIDC_EMAIL_VERIFIED_CLAIM`                                     | `xms_edov` to trust Microsoft Entra's claim in place of `email_verified`; the issuer must then name one tenant.           |
 | `OPERATOR_EMAILS`                                               | Verified emails that may use `/operator` and the platform endpoints.                                                      |
 | `PLACEMENT_ADMIN_URL`                                           | A Postgres that may create roles and databases. Used on Node to give each kitchen its own database.                       |
 | `NEON_API_KEY`, `NEON_REGION`, `NEON_ORG_ID`, `NEON_QUOTA_JSON` | Workers only: each kitchen gets its own Neon project. `NEON_ORG_ID` only for an organisation's key.                       |
@@ -132,9 +133,13 @@ provider configured will not start. That is on purpose.
 For real use set, in `.env`: `APP_ORIGIN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OPERATOR_EMAILS`, and
 `MIGRATION_TOKEN` if kitchens will be sent here. For HTTPS, point a domain at the machine and:
 
-```sh
-DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d --build
+```console
+$ DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d --build
 ```
+
+To have the API reference at the same address (at `/reference/`) on a machine or a test deployment, with Caddy in front
+and no domain: `docker compose -f compose.yaml -f compose.proxy.yaml up -d --build`. Not run in the sandbox this was
+written in; see `/docs/self-hosting/behind-a-proxy/` for what to check and for Nginx, HAProxy and Traefik.
 
 On the first start the server makes its master key, session secret and control database and keeps them in the `instance`
 volume (`instance.json`, readable by the server only). **That file is the master key.** Back up the `pgdata` and `instance`

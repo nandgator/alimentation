@@ -431,21 +431,17 @@ adds each manager as an admin of theirs, and sees every kitchen's state and size
 `/operator` and no one's names. A manager sees their own kitchen only. A test pins
 all of this (`apps/api/test/accounts.test.ts`).
 
-What does not exist: a figure that adds up the kitchens, a rate card, rules or
-holidays shared between them, and a head-office role that is an admin of a kitchen
-by being head office. The plan, in this order:
+Built since, in the order planned, each as small as it could be, and none of it shown or charged to someone with one kitchen:
 
-1. **Your kitchens, with their numbers.** The page that lists a person's kitchens
-   shows each one's pending claims and what is owed, fetched by the browser from
-   each kitchen's own `bootstrap`. No new server surface: each call is checked as
-   that person in that kitchen and counted against that kitchen's budget.
-2. **Copy a setup to the others.** Rate cards, holidays and rules, to the kitchens
-   where the person is an admin, by each kitchen's own endpoints, so each still
-   refuses what its own rules refuse.
-3. **A head-office role.** Needs an organisation in the control database and a
-   decision that is not technical: may head office read every kitchen's people?
-   Today only the admin of a kitchen can, and a head office that is not one cannot.
-   Not to be built before a chain asks for it.
+1. **Your kitchens, with their numbers.** The page that lists a person's kitchens shows each one's owed amount, claims waiting and whether it needs setting up, with a line across them all, when there are two or more. The browser asks each kitchen's own `bootstrap`, so each call is checked as that person in that kitchen and counted against that kitchen's budget, and the figures are `headline()` in `packages/core`. With one kitchen nothing is asked and nothing is drawn (a browser test pins it).
+2. **Copy a setup to the others.** Prices, rules and holidays from this month on, from one kitchen to others where the person is admin. `planCopy` works out what would be added, what is the same and what differs (and so is left); it is shown before anything is done, and the adding goes through each kitchen's own endpoints, so each still refuses what its own rules refuse. Rules go first, because a price list has to cover the days the rules work.
+3. **A head office, totals only.** Decided with the owner: it sees counts and money for the month and no name. Migration `control/0002` adds `organisation`, `organisation_member` and `organisation_kitchen`. A head-office account is not a member of any kitchen, and is not deleted when its last kitchen goes (it is not an orphan). A kitchen is in one organisation at most, and only because its admin agreed: from a signed seven-day link its head office made (the admin is shown the organisation's name before anything is shared), or directly when the same person is admin of the kitchen and in the head office. Either side ends it at once, every person in the kitchen is told who receives its totals, and the name comes with the kitchen's cached record so a kitchen with none costs no extra query.
+
+   The totals are `WorkspaceService.totals()`: a read-only transaction, as an admin who is no one in particular, building the statements in memory and returning numbers. It stores nothing, not even the closes that are due, which it counts as they will stand. A test fails if any name, contact, note or ledger line is in the answer, if it has any key other than the stated ones, or if reading changes a row. A read is a request to the kitchen and is counted against its day.
+
+   Rejected: a head-office role inside each kitchen (it would have to read people to be an admin), and a total kept in the control database (it would be a second copy of money, to keep right).
+
+   Not built: shared price lists that stay linked (a copy is made, and the kitchens then go their own ways, as a copy does), and a head office that reads individual ledgers. That is a different promise to the people in the kitchens, and not a technical step from this one.
 
 ## 6. Technology
 

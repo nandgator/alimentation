@@ -37,6 +37,7 @@ Requires Node 24 or later and a PostgreSQL 15 or later server (18 recommended), 
 ```sh
 docker compose -f compose.test.yaml run --rm test           # every check, on Postgres 18, in containers
 NODE_ENV=development AUTH_DEV=1 DB_PASSWORD=change-me docker compose up -d --build   # a trial instance on http://localhost:8787
+NODE_ENV=development AUTH_DEV=1 DB_PASSWORD=change-me docker compose -f compose.yaml -f compose.proxy.yaml up -d --build   # the same, with the API reference at /reference/
 ```
 
 Compose builds the app image only when there is none, so after pulling new code run it with `--build` again (quick when nothing changed).
