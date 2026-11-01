@@ -1,0 +1,80 @@
+# Authelia as the identity provider, with LLDAP as the directory of people behind it. Laid over the
+# project's own compose.yaml by `dev/idp/idp.sh up authelia`; it is not started by hand.
+#
+# The provider is reached at https://authelia.localhost:9091 by the browser (a *.localhost name is
+# the machine itself) and, under the very same name and port, by the app (a network alias), so the
+# address in the identity token is the one both have been using.
+services:
+  lldap:
+    image: docker.io/lldap/lldap:v0.6.3
+    restart: unless-stopped
+    environment:
+      LLDAP_LDAP_BASE_DN: dc=example,dc=com
+      LLDAP_JWT_SECRET_FILE: /secrets/lldap_jwt_secret
+      LLDAP_KEY_SEED_FILE: /secrets/lldap_key_seed
+      LLDAP_LDAP_USER_PASS_FILE: /secrets/lldap_admin_password
+    volumes:
+      - lldap-data:/data
+      - ${IDP_STATE}/authelia:/secrets:ro
+    ports:
+      # The page where the people can be seen and changed. This machine only.
+      - '127.0.0.1:17170:17170'
+    healthcheck:
+      test: ['CMD', '/app/lldap', 'healthcheck', '--config-file', '/data/lldap_config.toml']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  authelia:
+    image: docker.io/authelia/authelia:4.39.28
+    restart: unless-stopped
+    depends_on:
+      lldap:
+        condition: service_healthy
+    environment:
+      X_AUTHELIA_CONFIG_FILTERS: template
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8787}
+      AUTHELIA_SESSION_SECRET_FILE: /secrets/session_secret
+      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: /secrets/storage_key
+      AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE: /secrets/oidc_hmac_secret
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE: /secrets/lldap_admin_password
+    volumes:
+      # Not read only: the image's start-up script takes ownership of /config and says so, every time, if it cannot.
+      - ./dev/idp/providers/authelia/configuration.yml:/config/configuration.yml
+      - ${IDP_STATE}/authelia:/secrets:ro
+      - authelia-data:/var/lib/authelia
+    ports:
+      - '127.0.0.1:9091:9091'
+    networks:
+      default:
+        aliases:
+          - authelia.localhost
+    healthcheck:
+      # Asked of itself, over the certificate it was given, so the certificate is not what is being checked.
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-check-certificate -qO- https://localhost:9091/api/health >/dev/null || exit 1',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    depends_on:
+      authelia:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      OIDC_ISSUER: https://authelia.localhost:9091
+      OIDC_CLIENT_ID: alimentation
+      OIDC_CLIENT_SECRET: ${IDP_CLIENT_SECRET}
+      OPERATOR_EMAILS: ${IDP_OPERATOR_EMAILS}
+      # The local certificate authority that signed the provider's certificate.
+      NODE_EXTRA_CA_CERTS: /idp/ca.pem
+    volumes:
+      - ${IDP_STATE}/ca.pem:/idp/ca.pem:ro
+
+volumes:
+  lldap-data:
+  authelia-data:

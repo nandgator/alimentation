@@ -13,3 +13,5 @@ reports
 test-results
 playwright-report
 *.log
+# Secrets and keys made for the local identity providers
+dev/idp/.state

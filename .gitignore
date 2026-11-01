@@ -14,3 +14,6 @@ playwright-report/
 reports/
 .stryker-tmp/
 dist-worker/
+
+# Made on a machine by dev/idp/idp.sh: a certificate authority, secrets, test people
+dev/idp/.state/
