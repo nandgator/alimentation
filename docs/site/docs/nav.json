@@ -18,6 +18,8 @@
       "pages": [
         "self-hosting/install",
         "self-hosting/going-live",
+        "self-hosting/behind-a-proxy",
+        "self-hosting/choosing-sign-in",
         "self-hosting/sign-in-locally",
         "self-hosting/configuration",
         "self-hosting/operating",
