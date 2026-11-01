@@ -443,6 +443,17 @@ Built since, in the order planned, each as small as it could be, and none of it 
 
    Not built: shared price lists that stay linked (a copy is made, and the kitchens then go their own ways, as a copy does), and a head office that reads individual ledgers. That is a different promise to the people in the kitchens, and not a technical step from this one.
 
+### 5.13 AI agents (ADR-14)
+
+Decided with the owner. An agent is a way for a person to have software act for them, not a new kind of person.
+
+- **Who it acts as.** A separate key, tied to a person: a person makes it for one kitchen and one of the roles they hold there, with some of the scopes `read`, `log` and `claims`, and an end date (90 days unless asked, a year at most). It acts as that person in that role, so everything the kitchen's rules and database already refuse a person they refuse the agent, and it can be revoked at once without touching the person's own sign-in. Only a hash of the key is kept. A key stops when it is revoked, when it expires, or when its person is no longer in that role.
+- **What it may do.** Read what the role can read; with `log`, add and withdraw entries; with `claims`, say that a payment was made and withdraw one. Everything else stays with a person: confirming or reversing a payment, settlements, closing or reopening a month, people and invitations, prices, rules and holidays, taking a copy, moving or deleting a kitchen, sharing totals with a head office, and making keys. The list is one table (`agent` on each operation in `apps/api/src/openapi.ts`), which the API enforces, the MCP server is made from, and the reference prints.
+- **How it is recorded.** In the kitchen's own record. The database writes who an agent acted for and which agent (`audit_log.via`, set from `app.via` beside `app.role`), and History says it in words ("You, through the agent “Lunch bot”, logged Leave on 5 Nov."), to the people the change affects, like any other change. A moved kitchen takes the marks with it.
+- **What shape.** An MCP server in the app at `/mcp` (Streamable HTTP, JSON-RPC, tools only), made from the same operation table, so it cannot list what the API would refuse; each tool call is an ordinary request to the kitchen and counts against its day. And documentation written for language models: `/llms.txt` and `/llms-full.txt`.
+
+Not built: a kitchen's admin widening or narrowing what agents may do there (the scopes are the person's choice, inside the list above), and a screen for keys outside the admin's page; a member makes one through the API.
+
 ## 6. Technology
 
 | Layer      | Choice                                                                                                   | Why                                                                                                                              |

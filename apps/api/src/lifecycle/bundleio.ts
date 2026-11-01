@@ -78,7 +78,9 @@ export async function readBundleBody(
     tx.query<R>(
       'SELECT for_month, consumer_id, meals, billed, closed_on, closed_by FROM month_close',
     ),
-    tx.query<R>('SELECT id, table_name, row_id, action, actor, at, before, after FROM audit_log'),
+    tx.query<R>(
+      'SELECT id, table_name, row_id, action, actor, at, via, before, after FROM audit_log',
+    ),
   ]);
 
   const dec = (t: string, c: string, id: string, b: Uint8Array | null) => cipher.dec(t, c, id, b);
@@ -243,6 +245,8 @@ export async function readBundleBody(
         action: a.action as string,
         actor: a.actor ?? null,
         at: a.at as string,
+        // Only a change an agent made has one, so a bundle of a kitchen with none is what it always was.
+        ...(a.via ? { via: a.via as { agent: { id: string; name: string } } } : {}),
         before: await openAudit(a.table_name, a.row_id, a.before),
         after: await openAudit(a.table_name, a.row_id, a.after),
       })),

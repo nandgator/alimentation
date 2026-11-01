@@ -161,6 +161,8 @@ export const BundleSchema = z
           action: z.string(),
           actor: nullable(uuid),
           at: z.string(),
+          /** Present only for a change an agent made; a bundle made before there were agents has none. */
+          via: z.object({ agent: z.object({ id: z.string(), name: z.string() }) }).optional(),
           before: nullable(z.record(z.string(), z.unknown())),
           after: nullable(z.record(z.string(), z.unknown())),
         })

@@ -365,7 +365,17 @@ export async function importBundle(
       await insertMany(
         tx,
         'audit_log',
-        ['id', 'table_name', 'row_id', 'action', 'actor', 'at', 'before::jsonb', 'after::jsonb'],
+        [
+          'id',
+          'table_name',
+          'row_id',
+          'action',
+          'actor',
+          'at',
+          'via::jsonb',
+          'before::jsonb',
+          'after::jsonb',
+        ],
         await Promise.all(
           bundle.audit.map(async (a) => [
             a.id,
@@ -374,6 +384,7 @@ export async function importBundle(
             a.action,
             a.actor,
             a.at,
+            a.via ? JSON.stringify(a.via) : null,
             await seal(a.table, a.rowId, a.before),
             await seal(a.table, a.rowId, a.after),
           ]),

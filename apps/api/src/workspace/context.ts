@@ -1,9 +1,11 @@
-import type { Role } from '@alimentation/core';
+import type { AgentVia, Role } from '@alimentation/core';
 import type { Db, Tx } from '../db/driver.ts';
 
 export interface Actor {
   personId: string;
   role: Role;
+  /** Set when the request came through an agent: the database writes it into what it records. */
+  via?: AgentVia;
 }
 
 /**
@@ -18,8 +20,8 @@ export async function asActor<T>(
   return db.tx(async (tx) => {
     if (actor) {
       await tx.query(
-        `SELECT set_config('app.role', $1, true), set_config('app.person_id', $2, true)`,
-        [actor.role, actor.personId],
+        `SELECT set_config('app.role', $1, true), set_config('app.person_id', $2, true), set_config('app.via', $3, true)`,
+        [actor.role, actor.personId, actor.via ? JSON.stringify(actor.via) : ''],
       );
     }
     return fn(tx);

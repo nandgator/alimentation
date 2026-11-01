@@ -10,7 +10,17 @@ import * as z from 'zod';
 import { OidcClient, OidcError } from './auth/oidc.ts';
 import { SESSION_TTL, TokenSigner } from './auth/session.ts';
 import type { Config } from './config.ts';
-import type { AccountRow, ControlRepo } from './control/repo.ts';
+import type { AccountRow, AgentKeyRow, ControlRepo } from './control/repo.ts';
+import {
+  DEFAULT_KEY_DAYS,
+  MAX_ACTIVE_KEYS,
+  hashAgentToken,
+  looksLikeAgentToken,
+  newAgentToken,
+  routeFor,
+  toolsFor,
+} from './agents.ts';
+import { schemaOf } from './openapi.ts';
 import { SECURITY_HEADERS } from './security.ts';
 import { sameSecret } from './crypto/aead.ts';
 import { KeysDestroyedError } from './crypto/keys.ts';
@@ -30,6 +40,7 @@ import {
   CreateClaim,
   CreateHoliday,
   CreatePerson,
+  CreateAgentKey,
   CreateOrganisation,
   CreatePolicy,
   CreateRateCard,
@@ -87,6 +98,8 @@ type Vars = {
   handle: WorkspaceHandle;
   actor: Actor;
   roles: Role[];
+  /** Set when the request came with an agent's key. */
+  agent: AgentKeyRow | null;
 };
 
 export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
@@ -103,6 +116,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const started = Date.now();
     c.set('reqId', crypto.randomUUID());
     c.set('account', null);
+    c.set('agent', null);
     await next();
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) c.header(name, value);
     if (config.secure) c.header('strict-transport-security', 'max-age=31536000');
@@ -620,10 +634,44 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
 
   const w = new Hono<{ Variables: Vars }>();
 
+  /** The key a request came with, if it came with one: a bad key is refused and never taken for a session. */
+  const keyOf = async (c: Context<{ Variables: Vars }>) => {
+    const header = c.req.header('authorization');
+    if (header === undefined) return null;
+    const token = /^Bearer (\S+)$/i.exec(header)?.[1] ?? '';
+    const key = looksLikeAgentToken(token)
+      ? await deps.control.agentKeyByHash(await hashAgentToken(token))
+      : undefined;
+    if (!key)
+      throw new ApiError(
+        401,
+        'bad_key',
+        'That key was not accepted. It may be wrong, or it may have ended.',
+      );
+    return key;
+  };
+
   w.use('*', async (c, next) => {
-    const account = needAccount(c);
     const slug = c.req.param('slug') ?? '';
+    const key = await keyOf(c);
+    // An agent is held to its scopes before anything else is spent on it.
+    if (key) {
+      const route = routeFor(c.req.method, c.req.path);
+      if (!route?.scope) throw forbidden('An agent cannot do that: it stays with a person.');
+      if (!key.scopes.includes(route.scope))
+        throw forbidden(`This key does not have the ${route.scope} scope.`);
+    }
+    const account = key
+      ? { id: key.accountId, email: key.email, name: key.displayName }
+      : needAccount(c);
     const handle = await deps.directory.bySlug(slug);
+    // A key is for one kitchen, and does not say whether another exists.
+    if (key && (!handle || key.workspaceId !== handle.row.id))
+      throw new ApiError(
+        401,
+        'bad_key',
+        'That key was not accepted. It may be wrong, or it may have ended.',
+      );
     if (!handle) throw new ApiError(404, 'not_found', 'There is no such workspace.');
     if (handle.row.state === 'WIPING')
       throw new ApiError(410, 'gone', 'This workspace has been deleted.');
@@ -643,17 +691,30 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
       );
     }
 
-    const key = `${handle.row.id}|${account.id}`;
-    let hit = actorCache.get(key);
+    const cacheKey = `${handle.row.id}|${account.id}`;
+    let hit = actorCache.get(cacheKey);
     if (!hit || deps.now().getTime() - hit.at > 60_000) {
       hit = { at: deps.now().getTime(), actors: await resolveActors(handle.appDb, account.id) };
-      actorCache.set(key, hit);
+      actorCache.set(cacheKey, hit);
     }
     if (hit.actors.length === 0) throw forbidden('You are not a member of this workspace.');
-    const roles = ROLE_ORDER.filter((r) => hit!.actors.some((x) => x.role === r));
-    const wanted = c.req.header('x-acting-as');
-    const actor =
-      hit.actors.find((x) => x.role === wanted) ?? hit.actors.find((x) => x.role === roles[0])!;
+    const held = ROLE_ORDER.filter((r) => hit!.actors.some((x) => x.role === r));
+    let roles = held;
+    let actor: Actor;
+    if (key) {
+      // As the person it is for, in the one role it names, and nothing it was not given.
+      const as = hit.actors.find((x) => x.role === key.role);
+      if (!as) throw forbidden('The person this key is for is no longer in that role here.');
+      roles = [key.role];
+      actor = { ...as, via: { agent: { id: key.id, name: key.name } } };
+      c.set('agent', key);
+      c.set('account', account);
+      await deps.control.touchAgentKey(key.id);
+    } else {
+      const wanted = c.req.header('x-acting-as');
+      actor =
+        hit.actors.find((x) => x.role === wanted) ?? hit.actors.find((x) => x.role === held[0])!;
+    }
     c.set('handle', handle);
     c.set('actor', actor);
     c.set('roles', roles);
@@ -669,6 +730,80 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     // so a kitchen that shares nothing is asked about nothing.
     const name = c.get('handle').row.organisationName;
     return c.json({ ...boot, organisation: name ? { name } : null });
+  });
+
+  // --- keys for AI agents: a person's own business, and never an agent's --------------------
+
+  w.get('/agents', async (c) => {
+    const account = needAccount(c);
+    const admin = who(c).role === 'admin';
+    const row = c.get('handle').row;
+    const keys = admin
+      ? await deps.control.agentKeysIn(row.id)
+      : await deps.control.agentKeysOf(account.id, row.id);
+    return c.json({
+      keys: keys.map((k) => ({
+        id: k.id,
+        name: k.name,
+        role: k.role,
+        scopes: k.scopes,
+        createdAt: k.createdAt,
+        expiresAt: k.expiresAt,
+        lastUsedAt: k.lastUsedAt,
+        revokedAt: k.revokedAt,
+        mine: k.accountId === account.id,
+        ...('ownerEmail' in k && k.accountId !== account.id ? { ownerEmail: k.ownerEmail } : {}),
+      })),
+    });
+  });
+
+  w.post('/agents', async (c) => {
+    const account = needAccount(c);
+    const b = await parse(c, CreateAgentKey);
+    const row = c.get('handle').row;
+    if ((await deps.control.countActiveAgentKeys(account.id, row.id)) >= MAX_ACTIVE_KEYS)
+      throw invalid(
+        `You can have ${MAX_ACTIVE_KEYS} keys for agents here at once. End one you no longer use.`,
+      );
+    const token = newAgentToken();
+    const scopes = ['read', ...b.scopes] as AgentKeyRow['scopes'];
+    const made = await deps.control.createAgentKey({
+      accountId: account.id,
+      workspaceId: row.id,
+      role: who(c).role,
+      name: b.name,
+      scopes,
+      tokenHash: await hashAgentToken(token),
+      expiresAt: new Date(deps.now().getTime() + (b.days ?? DEFAULT_KEY_DAYS) * 86_400_000),
+    });
+    await deps.control.event('agent_key_made', row.id, { key: made.id, role: made.role });
+    return c.json(
+      {
+        id: made.id,
+        name: made.name,
+        role: made.role,
+        scopes: made.scopes,
+        expiresAt: made.expiresAt,
+        token,
+      },
+      201,
+    );
+  });
+
+  w.delete('/agents/:id', async (c) => {
+    const account = needAccount(c);
+    const row = c.get('handle').row;
+    const id = c.req.param('id') ?? '';
+    const ended =
+      UUID.test(id) &&
+      (await deps.control.revokeAgentKey(
+        id,
+        row.id,
+        who(c).role === 'admin' ? undefined : account.id,
+      ));
+    if (!ended) throw new ApiError(404, 'not_found', 'There is no such key, or it has ended.');
+    await deps.control.event('agent_key_ended', row.id, { key: id });
+    return c.body(null, 204);
   });
 
   // The kitchen's own side of sharing its totals: only its admin starts or stops it.
@@ -891,6 +1026,120 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     actorCache.clear();
     accountSeen.clear();
     return c.json(out, out.done ? 200 : 202);
+  });
+
+  // --- the MCP server: the routes an agent's key opens, as tools ---------------------------------
+
+  const MCP_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+  const rpc = (id: unknown, result: unknown) => ({ jsonrpc: '2.0' as const, id, result });
+  const rpcError = (id: unknown, code: number, message: string) => ({
+    jsonrpc: '2.0' as const,
+    id: id ?? null,
+    error: { code, message },
+  });
+
+  app.on(['GET', 'DELETE'], '/mcp', (c) =>
+    c.json({ error: { code: 'method_not_allowed', message: 'No stream, and no session.' } }, 405, {
+      allow: 'POST',
+    }),
+  );
+
+  app.post('/mcp', async (c) => {
+    const key = await keyOf(c);
+    if (!key) throw new ApiError(401, 'bad_key', 'Send the key as Authorization: Bearer alk_…');
+    const handle = await deps.directory.byId(key.workspaceId);
+    if (!handle || key.workspaceId !== handle.row.id)
+      throw new ApiError(
+        401,
+        'bad_key',
+        'That key was not accepted. It may be wrong, or it may have ended.',
+      );
+    let msg: { jsonrpc?: string; id?: unknown; method?: string; params?: Record<string, unknown> };
+    try {
+      msg = JSON.parse(await c.req.text());
+    } catch {
+      return c.json(rpcError(null, -32700, 'That is not JSON.'));
+    }
+    if (!msg || typeof msg !== 'object' || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string')
+      return c.json(
+        rpcError((msg as { id?: unknown })?.id, -32600, 'That is not a JSON-RPC 2.0 request.'),
+      );
+    // A message with no id is a notification: it is taken and not answered.
+    if (msg.id === undefined) return c.body(null, 202);
+
+    const tools = toolsFor(key.scopes, schemaOf);
+    switch (msg.method) {
+      case 'initialize': {
+        const asked = String(msg.params?.protocolVersion ?? '');
+        return c.json(
+          rpc(msg.id, {
+            protocolVersion: MCP_VERSIONS.includes(asked) ? asked : MCP_VERSIONS[0],
+            capabilities: { tools: {} },
+            serverInfo: { name: 'alimentation', version: '1' },
+            instructions: `This key is for the kitchen “${handle.row.displayName}”, as its ${key.role}, with the scopes ${key.scopes.join(', ')}. What you do is recorded in the kitchen as done by an agent, for the person who gave you the key. Amounts are in paise (hundredths of a rupee). Start with get_bootstrap.`,
+          }),
+        );
+      }
+      case 'ping':
+        return c.json(rpc(msg.id, {}));
+      case 'tools/list':
+        return c.json(
+          rpc(msg.id, {
+            tools: tools.map((t) => ({
+              name: t.name,
+              description: t.description,
+              inputSchema: t.inputSchema,
+              annotations: {
+                readOnlyHint: t.op.method === 'get' || t.scope === 'read',
+                destructiveHint: t.op.method === 'delete',
+              },
+            })),
+          }),
+        );
+      case 'tools/call': {
+        const name = String(msg.params?.name ?? '');
+        const tool = tools.find((t) => t.name === name);
+        if (!tool)
+          return c.json(rpcError(msg.id, -32602, `There is no tool “${name}” for this key.`));
+        const args = (msg.params?.arguments ?? {}) as Record<string, unknown>;
+        const missing = (tool.inputSchema.required as string[]).filter(
+          (n) => args[n] === undefined,
+        );
+        if (missing.length)
+          return c.json(rpcError(msg.id, -32602, `Missing: ${missing.join(', ')}.`));
+        let path = tool.op.path.replace(':slug', encodeURIComponent(handle.row.slug));
+        for (const n of tool.parts.path)
+          path = path.replace(`:${n}`, encodeURIComponent(String(args[n])));
+        const query = new URLSearchParams();
+        for (const n of tool.parts.query) if (args[n] !== undefined) query.set(n, String(args[n]));
+        const body =
+          tool.parts.body === 'whole'
+            ? args.body
+            : tool.parts.body
+              ? Object.fromEntries(
+                  tool.parts.body.filter((n) => args[n] !== undefined).map((n) => [n, args[n]]),
+                )
+              : undefined;
+        // An ordinary request to the kitchen, as this key: the same checks, the same count, the same record.
+        const res = await app.request(`http://localhost${path}${query.size ? `?${query}` : ''}`, {
+          method: tool.op.method.toUpperCase(),
+          headers: {
+            authorization: c.req.header('authorization')!,
+            ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+          },
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+        });
+        const text = await res.text();
+        return c.json(
+          rpc(msg.id, {
+            content: [{ type: 'text', text: text || '(no content)' }],
+            isError: !res.ok,
+          }),
+        );
+      }
+      default:
+        return c.json(rpcError(msg.id, -32601, `There is no method “${msg.method}”.`));
+    }
   });
 
   app.route('/api/w/:slug', w);

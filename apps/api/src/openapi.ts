@@ -1,8 +1,10 @@
 import * as z from 'zod';
+import type { AgentScope } from './agent-scopes.ts';
 import {
   AcceptInvite,
   CloseMonth,
   ConfirmBody,
+  CreateAgentKey,
   CreateClaim,
   CreateHoliday,
   CreateOrganisation,
@@ -65,6 +67,8 @@ export interface Operation {
   open?: boolean;
   /** A route of one kitchen, which is counted, rate-limited and may be acted in as a role. */
   kitchen?: boolean;
+  /** Called only with an agent's key, and never with a session. */
+  keyOnly?: boolean;
 }
 
 export const TAGS: { name: string; description: string }[] = [
@@ -116,6 +120,11 @@ export const TAGS: { name: string; description: string }[] = [
     name: 'Leaving',
     description: 'Taking a copy, moving to another database or instance, or deleting everything.',
   },
+  {
+    name: 'AI agents',
+    description:
+      'Keys a person gives an AI agent, and the MCP server it uses them on. An agent acts as that person, in the role the key names, with the scopes the key has, and what it does is marked as an agent’s in the kitchen’s own record.',
+  },
 ];
 
 /** Every error code the server sends, with the status it comes with and what it means. */
@@ -128,6 +137,11 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
   },
   { status: 401, code: 'signed_out', meaning: 'No valid session.' },
   { status: 401, code: 'bad_token', meaning: 'The migration token was not accepted.' },
+  {
+    status: 401,
+    code: 'bad_key',
+    meaning: 'The agent key was not accepted: it is wrong, has ended, or is for another kitchen.',
+  },
   {
     status: 403,
     code: 'forbidden',
@@ -223,6 +237,64 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
     meaning: 'The service that holds kitchens’ databases did not answer.',
   },
 ];
+
+/**
+ * What an agent holding a key may call, by method and path: the scope a key needs. A route that is not here
+ * stays with a person, and a test fails if a route of a kitchen is neither here nor named in `PERSON_ONLY`,
+ * so a route added later has to be put on one side or the other. The API enforces this, the MCP server lists
+ * only what is here, and the reference prints it on each route.
+ */
+const AGENT_ACCESS: Record<string, AgentScope> = {
+  'GET /api/w/:slug/bootstrap': 'read',
+  'GET /api/w/:slug/statements': 'read',
+  'GET /api/w/:slug/ledger': 'read',
+  'GET /api/w/:slug/history': 'read',
+  'GET /api/w/:slug/people/:id/role': 'read',
+  'GET /api/w/:slug/rate-cards': 'read',
+  'GET /api/w/:slug/policies': 'read',
+  'GET /api/w/:slug/log': 'read',
+  'POST /api/w/:slug/log/check': 'read',
+  'GET /api/w/:slug/claims': 'read',
+  'GET /api/w/:slug/settlements': 'read',
+  'GET /api/w/:slug/audit': 'read',
+  'POST /api/w/:slug/log': 'log',
+  'DELETE /api/w/:slug/log/:id': 'log',
+  'POST /api/w/:slug/claims': 'claims',
+  'DELETE /api/w/:slug/claims/:id': 'claims',
+};
+
+/** The routes of a kitchen that are a person's alone, so that leaving one out of both lists is caught. */
+export const PERSON_ONLY = new Set([
+  'POST /api/w/:slug/people',
+  'PATCH /api/w/:slug/people/:id',
+  'POST /api/w/:slug/people/:id/invite',
+  'POST /api/w/:slug/rate-cards',
+  'POST /api/w/:slug/policies',
+  'POST /api/w/:slug/holidays',
+  'PATCH /api/w/:slug/holidays/:id',
+  'DELETE /api/w/:slug/holidays/:id',
+  'POST /api/w/:slug/claims/:id/decision',
+  'POST /api/w/:slug/claims/:id/reversal',
+  'POST /api/w/:slug/settlements',
+  'POST /api/w/:slug/closes',
+  'DELETE /api/w/:slug/closes/:month/:consumerId',
+  'POST /api/w/:slug/organisation',
+  'DELETE /api/w/:slug/organisation',
+  'GET /api/w/:slug/export',
+  'POST /api/w/:slug/move/preview',
+  'POST /api/w/:slug/move',
+  'POST /api/w/:slug/wipe',
+  'GET /api/w/:slug/agents',
+  'POST /api/w/:slug/agents',
+  'DELETE /api/w/:slug/agents/:id',
+]);
+
+export const accessKey = (op: Pick<Operation, 'method' | 'path'>) =>
+  `${op.method.toUpperCase()} ${op.path}`;
+
+/** The scope a key needs for this operation, or null when it is a person's alone. */
+export const agentScopeOf = (op: Pick<Operation, 'method' | 'path'>): AgentScope | null =>
+  AGENT_ACCESS[accessKey(op)] ?? null;
 
 const SLUG = 'The kitchen’s address, chosen when it was made.';
 const ID = 'The id (a UUID).';
@@ -1157,6 +1229,127 @@ export const OPERATIONS: Operation[] = [
     errors: [403, 404],
   },
 
+  // --- AI agents ---------------------------------------------------------------------------------
+  {
+    method: 'get',
+    path: '/api/w/:slug/agents',
+    tag: 'AI agents',
+    summary: 'The keys you have given agents here',
+    who: 'Any role: your own keys. The admin: everyone’s',
+    kitchen: true,
+    description:
+      'Never the token itself, which is shown once, when the key is made. The admin also sees whose each key is.',
+    ok: {
+      status: 200,
+      description: 'The keys, newest first.',
+      schema: object({
+        keys: {
+          type: 'array',
+          items: object(
+            {
+              id: uuid(),
+              name: string(),
+              role: { enum: ['admin', 'supplier', 'consumer'] },
+              scopes: { type: 'array', items: { enum: ['read', 'log', 'claims'] } },
+              createdAt: string(undefined, { format: 'date-time' }),
+              expiresAt: string(undefined, { format: 'date-time' }),
+              lastUsedAt: { type: ['string', 'null'] },
+              revokedAt: { type: ['string', 'null'] },
+              mine: { type: 'boolean' },
+              ownerEmail: string('Only for the admin, and only for keys that are not their own.'),
+            },
+            [
+              'id',
+              'name',
+              'role',
+              'scopes',
+              'createdAt',
+              'expiresAt',
+              'lastUsedAt',
+              'revokedAt',
+              'mine',
+            ],
+          ),
+        },
+      }),
+    },
+  },
+  {
+    method: 'post',
+    path: '/api/w/:slug/agents',
+    tag: 'AI agents',
+    summary: 'Give an agent a key',
+    who: 'Any role, for the role being acted as. Not with an agent’s key',
+    kitchen: true,
+    description:
+      'The key acts as you, in the role you are acting as here, with `read` and the scopes asked for, until it ends (90 days unless `days` says otherwise, a year at most). The token is in the answer and nowhere else: only a hash is kept. Five keys at once, for one person in one kitchen.',
+    body: CreateAgentKey,
+    ok: {
+      status: 201,
+      description: 'The key, with its token, shown this once.',
+      schema: object({
+        id: uuid(),
+        name: string(),
+        role: { enum: ['admin', 'supplier', 'consumer'] },
+        scopes: { type: 'array', items: { enum: ['read', 'log', 'claims'] } },
+        expiresAt: string(undefined, { format: 'date-time' }),
+        token: string('Starts `alk_`. Sent as `Authorization: Bearer <token>`.'),
+      }),
+    },
+    errors: [422],
+  },
+  {
+    method: 'delete',
+    path: '/api/w/:slug/agents/:id',
+    tag: 'AI agents',
+    summary: 'End a key',
+    who: 'Whoever made it, or the admin',
+    kitchen: true,
+    description:
+      'It stops working at once. A key that has ended cannot be brought back; make another.',
+    params: { id: 'The key’s id (a UUID).' },
+    ok: { status: 204, description: 'Ended.' },
+  },
+  {
+    method: 'post',
+    path: '/mcp',
+    tag: 'AI agents',
+    summary: 'The MCP server',
+    who: 'An agent, with its key',
+    keyOnly: true,
+    description:
+      'The Model Context Protocol, over Streamable HTTP, JSON-RPC 2.0, tools only: `initialize`, `ping`, `tools/list` and `tools/call`. There is one tool for each route that the key’s scopes allow (each marked on its route in this reference), named for the route (`get_bootstrap`, `post_log`), and none for what stays with a person. A call is an ordinary request to the kitchen the key is for, as the person and role it is for, so it is checked, counted against the kitchen’s day and recorded the same way. A request without a key is 401.',
+    bodyNote: 'A JSON-RPC 2.0 message: `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`.',
+    ok: {
+      status: 200,
+      description: 'The JSON-RPC answer (202, with no body, to a notification).',
+      schema: free('A JSON-RPC 2.0 response.'),
+    },
+    errors: [202],
+  },
+
+  {
+    method: 'get',
+    path: '/mcp',
+    tag: 'AI agents',
+    summary: 'There is no stream to open',
+    who: 'Anyone',
+    open: true,
+    description:
+      'The MCP server answers each request on its own and sends nothing unasked, so there is no stream: 405, as the protocol asks of a server like that.',
+    ok: { status: 405, description: 'No stream.' },
+  },
+  {
+    method: 'delete',
+    path: '/mcp',
+    tag: 'AI agents',
+    summary: 'There is no session to end',
+    who: 'Anyone',
+    open: true,
+    description: 'The server keeps no session between requests: 405.',
+    ok: { status: 405, description: 'No session.' },
+  },
+
   // --- leaving -----------------------------------------------------------------------------------
   {
     method: 'get',
@@ -1215,7 +1408,7 @@ export const OPERATIONS: Operation[] = [
 // --- the document --------------------------------------------------------------------------------
 
 /** A Zod schema as the JSON Schema a caller would send, with the keys OpenAPI does not want removed. */
-function schemaOf(s: z.ZodType): Json {
+export function schemaOf(s: z.ZodType): Json {
   const { $schema: _unused, ...rest } = z.toJSONSchema(s, {
     target: 'draft-2020-12',
     io: 'input',
@@ -1278,6 +1471,16 @@ function errorResponse(op: Operation, status: number): Json {
   };
 }
 
+/** What this route says about agents: a scope, or that it is a person's alone. */
+function agentLine(op: Operation): string {
+  if (!op.kitchen) return '';
+  const scope = agentScopeOf(op);
+  if (!scope) return '\n\n**Agents:** no. This stays with a person.';
+  return scope === 'read'
+    ? '\n\n**Agents:** yes, with any key (the `read` scope).'
+    : `\n\n**Agents:** yes, with a key that has the \`${scope}\` scope.`;
+}
+
 function operationObject(op: Operation): Json {
   const names = placeholders(op.path);
   const parameters: Json[] = names.map((name) => ({
@@ -1330,8 +1533,13 @@ function operationObject(op: Operation): Json {
       .join('')}`.replace(/[^A-Za-z0-9]/g, ''),
     tags: [op.tag],
     summary: op.summary,
-    description: `**Who:** ${op.who}.${op.description ? `\n\n${op.description}` : ''}`,
+    description: `**Who:** ${op.who}.${op.description ? `\n\n${op.description}` : ''}${agentLine(op)}`,
     ...(op.open ? { security: [] } : {}),
+    ...(op.keyOnly
+      ? { security: [{ agentKey: [] }] }
+      : op.kitchen && agentScopeOf(op)
+        ? { security: [{ session: [] }, { agentKey: [] }] }
+        : {}),
     ...(parameters.length ? { parameters } : {}),
     ...(op.body
       ? {
@@ -1361,7 +1569,9 @@ The web app is a client of this API and uses nothing else. Every route is JSON o
 
 Sign-in is **OpenID Connect** (authorisation code with PKCE). \`GET /auth/login\` starts it; the provider returns to \`GET /auth/callback\`; the server sets a signed session cookie (\`__Host-session\` over HTTPS, \`session\` otherwise) that is \`HttpOnly\` and \`SameSite=Lax\`. \`POST /auth/logout\` clears it.
 
-There are no API keys and no passwords. The API is written for the web app, with a browser’s cookie and origin rules, so a script that wants to call it must send the cookie and, for any write, either no \`Origin\` header or the site’s own. For the same reason this reference cannot send requests for you: it is a different site from the API.
+There are no passwords. The API is written for the web app, with a browser’s cookie and origin rules, so a script that wants to call it must send the cookie and, for any write, either no \`Origin\` header or the site’s own. For the same reason this reference cannot send requests for you: it is a different site from the API.
+
+The one other way in is a **key a person gives an AI agent** (see *AI agents*): \`Authorization: Bearer alk_…\`, valid only inside the one kitchen it was made for and on \`POST /mcp\`. It acts as that person in the role it names, for the scopes it has (\`read\`, \`log\`, \`claims\`), and what it does is marked as an agent’s in the kitchen’s own record.
 
 ## Requests from other sites
 
@@ -1435,6 +1645,12 @@ export function buildOpenApi(options: { version: string }): Json {
     paths,
     components: {
       securitySchemes: {
+        agentKey: {
+          type: 'http',
+          scheme: 'bearer',
+          description:
+            'A key a person gave an AI agent: `alk_…`. It works in one kitchen, as one person in one role, for the scopes it has, and on `POST /mcp`.',
+        },
         session: {
           type: 'apiKey',
           in: 'cookie',

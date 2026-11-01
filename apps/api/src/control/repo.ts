@@ -2,6 +2,7 @@ import type { Limits, Role } from '@alimentation/core';
 import type { Db, Row } from '../db/driver.ts';
 import type { Bytes } from '../crypto/aead.ts';
 import type { PlacementRef } from '../placement/types.ts';
+import type { AgentScope } from '../agent-scopes.ts';
 import { ApiError } from '../workspace/errors.ts';
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -54,6 +55,32 @@ const toWorkspace = (r: R): WorkspaceRow => ({
   movedToUrl: r.moved_to_url ?? null,
   createdAt: r.created_at,
   organisationName: r.organisation_name ?? null,
+});
+
+export interface AgentKeyRow {
+  id: string;
+  accountId: string;
+  workspaceId: string;
+  role: Role;
+  name: string;
+  scopes: AgentScope[];
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+const toAgentKey = (r: R): AgentKeyRow => ({
+  id: r.id,
+  accountId: r.account_id,
+  workspaceId: r.workspace_id,
+  role: r.role,
+  name: r.name,
+  scopes: r.scopes,
+  createdAt: r.created_at,
+  expiresAt: r.expires_at,
+  lastUsedAt: r.last_used_at ?? null,
+  revokedAt: r.revoked_at ?? null,
 });
 
 const WITH_ORGANISATION = `SELECT w.*, o.name AS organisation_name FROM workspace w
@@ -375,6 +402,96 @@ export class ControlRepo {
       [workspaceId],
     );
     return r && { id: r.id, name: r.name };
+  }
+
+  // --- keys for AI agents -----------------------------------------------------
+
+  async createAgentKey(k: {
+    accountId: string;
+    workspaceId: string;
+    role: Role;
+    name: string;
+    scopes: AgentScope[];
+    tokenHash: Bytes;
+    expiresAt: Date;
+  }): Promise<AgentKeyRow> {
+    const r = await this.one<R>(
+      `INSERT INTO agent_key (account_id, workspace_id, role, name, scopes, token_hash, created_at, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [
+        k.accountId,
+        k.workspaceId,
+        k.role,
+        k.name,
+        k.scopes,
+        k.tokenHash,
+        this.stamp(),
+        k.expiresAt.toISOString(),
+      ],
+    );
+    return toAgentKey(r!);
+  }
+
+  /** The key a token is for, and the account it acts for, if the token is one that is still good. */
+  async agentKeyByHash(
+    hash: Bytes,
+  ): Promise<(AgentKeyRow & { email: string; displayName: string | null }) | undefined> {
+    const r = await this.one<R>(
+      `SELECT k.*, a.email, a.display_name FROM agent_key k JOIN account a ON a.id = k.account_id
+        WHERE k.token_hash = $1 AND k.revoked_at IS NULL AND k.expires_at > $2`,
+      [hash, this.stamp()],
+    );
+    return r && { ...toAgentKey(r), email: r.email, displayName: r.display_name ?? null };
+  }
+
+  /** Says when a key was last used, at most once in five minutes: a read that wrote every time would cost more than it tells. */
+  async touchAgentKey(id: string): Promise<void> {
+    await this.many(
+      `UPDATE agent_key SET last_used_at = $2 WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < $3)`,
+      [id, this.stamp(), new Date(this.now().getTime() - 5 * 60_000).toISOString()],
+    );
+  }
+
+  async agentKeysOf(accountId: string, workspaceId: string): Promise<AgentKeyRow[]> {
+    return (
+      await this.many<R>(
+        `SELECT * FROM agent_key WHERE account_id = $1 AND workspace_id = $2 ORDER BY created_at DESC`,
+        [accountId, workspaceId],
+      )
+    ).map(toAgentKey);
+  }
+
+  async agentKeysIn(workspaceId: string): Promise<(AgentKeyRow & { ownerEmail: string })[]> {
+    return (
+      await this.many<R>(
+        `SELECT k.*, a.email FROM agent_key k JOIN account a ON a.id = k.account_id
+          WHERE k.workspace_id = $1 ORDER BY k.created_at DESC`,
+        [workspaceId],
+      )
+    ).map((r) => ({ ...toAgentKey(r), ownerEmail: r.email }));
+  }
+
+  async countActiveAgentKeys(accountId: string, workspaceId: string): Promise<number> {
+    return Number(
+      (await this.one<R>(
+        `SELECT count(*)::int AS n FROM agent_key
+            WHERE account_id = $1 AND workspace_id = $2 AND revoked_at IS NULL AND expires_at > $3`,
+        [accountId, workspaceId, this.stamp()],
+      ))!.n,
+    );
+  }
+
+  /** Ends a key. With an account named, only if it is that account's. */
+  async revokeAgentKey(id: string, workspaceId: string, accountId?: string): Promise<boolean> {
+    return (
+      (
+        await this.many(
+          `UPDATE agent_key SET revoked_at = $3 WHERE id = $1 AND workspace_id = $2 AND revoked_at IS NULL
+             AND ($4::uuid IS NULL OR account_id = $4) RETURNING id`,
+          [id, workspaceId, this.stamp(), accountId ?? null],
+        )
+      ).length === 1
+    );
   }
 
   // --- members and invitations -------------------------------------------
