@@ -345,6 +345,180 @@ describe('the documentation build refuses what would let a reader down', () => {
   });
 });
 
+describe('code and diagrams in the pages', () => {
+  const dist = fakeDist();
+  const build = (body: string) => {
+    const src = smallSite({ 'index.md': page('Home', body) }, ok);
+    buildDocs({ src, dist });
+    return {
+      html: readFileSync(join(dist, 'guides', 'index.html'), 'utf8'),
+      css: readFileSync(join(dist, 'doc-assets', 'docs.css'), 'utf8'),
+    };
+  };
+  const fence = (info: string, body = '') => `\`\`\`${info}\n${body}\n\`\`\``;
+  const ten = Array.from({ length: 10 }, (_, i) => `const n${i} = ${i};`).join('\n');
+  const engine = readFileSync(
+    join(import.meta.dirname, '..', '..', '..', 'packages', 'core', 'src', 'engine.ts'),
+    'utf8',
+  ).split('\n');
+
+  it("highlights with class names, and the colours are the stylesheet's", () => {
+    const { html } = build(fence('ts', 'const a: string = "x"; // note'));
+    expect(html).toContain('<span class="hljs-keyword">const</span>');
+    expect(html).toContain('hljs-string');
+    expect(html).toContain('hljs-comment');
+    expect(html).toContain('class="language-typescript hljs"');
+    expect(html).toContain('<span class="code-name">TypeScript</span>');
+  });
+
+  it('numbers a listing from its length, and leaves commands and plain text alone unless asked', () => {
+    expect(build(fence('ts', ten)).html).toContain('class="code numbered has-bar"');
+    expect(build(fence('ts', 'const a = 1;')).html).not.toContain('data-n=');
+    expect(build(fence('sh', Array(8).fill('npm test').join('\n'))).html).not.toContain('data-n=');
+    expect(build(fence('text', Array(8).fill('x').join('\n'))).html).not.toContain('data-n=');
+    expect(build(fence('ts numbers', 'const a = 1;')).html).toContain('data-n="1"');
+    expect(build(fence('ts nonumbers', ten)).html).not.toContain('data-n=');
+  });
+
+  it('puts the numbers in the margin: attributes drawn by the stylesheet, not text that is copied', () => {
+    const { html, css } = build(fence('ts numbers', 'const a = 1;'));
+    expect(html).not.toMatch(/<span class="line"[^>]*>\s*1\s/);
+    expect(css).toMatch(
+      /\.numbered \.line::before\s*\{[^}]*content: attr\(data-n\)[^}]*user-select: none/s,
+    );
+  });
+
+  it('keeps every line on its own: a token that runs over a break is closed and opened again', () => {
+    const { html } = build(fence('ts', '/* one\n   two\n   three */\nconst a = 1;'));
+    const lines = [
+      ...html.matchAll(/<span class="line"[^>]*>(.*?)<\/span>(?=\n<span class="line"|<\/code>)/gs),
+    ].map((m) => m[1]!);
+    expect(lines).toHaveLength(4);
+    for (const line of lines)
+      expect(line.match(/<span/g)?.length, line).toBe(line.match(/<\/span>/g)?.length);
+    expect(lines[1]).toContain('hljs-comment');
+  });
+
+  it('marks lines, and says which of the lines are wrong when they are not lines', () => {
+    expect(build(fence('ts hl=2,4-5', ten)).html.match(/class="line hl"/g)).toHaveLength(3);
+    expect(() => build(fence('ts hl=two', ten))).toThrow(/"two" is not a line/);
+  });
+
+  it('shows lines of a real file, as they are in it and numbered as in it', () => {
+    const { html } = build(fence('ts file=packages/core/src/engine.ts#L28-L39'));
+    expect(html).toContain('<span class="code-name">packages/core/src/engine.ts</span>');
+    expect(html).toContain('<span class="code-range">lines 28\u201339</span>');
+    expect(html).toContain('data-n="28"');
+    expect(html).toContain('data-n="39"');
+    expect(html).not.toContain('data-n="40"');
+    const shown = [
+      ...html.matchAll(
+        /<span class="line" data-n="(\d+)">(.*?)<\/span>(?=\n<span class="line"|<\/code>)/gs,
+      ),
+    ];
+    expect(shown).toHaveLength(12);
+    for (const [, n, markup] of shown) {
+      const text = markup!
+        .replace(/<[^>]+>/g, '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&');
+      expect(text, `line ${n}`).toBe(engine[Number(n) - 1]);
+    }
+  });
+
+  it('refuses a file that is not there, lines that are not in it, a path outside the repository, and a body as well as a file', () => {
+    expect(() => build(fence('ts file=packages/core/src/nope.ts#L1-L2'))).toThrow(
+      /nope\.ts does not exist/,
+    );
+    expect(() => build(fence('ts file=packages/core/src/engine.ts#L9000-L9001'))).toThrow(
+      /lines 9000 to 9001 are not in it/,
+    );
+    expect(() => build(fence('ts file=packages/core/src/engine.ts#L5-L2'))).toThrow(
+      /are not in it/,
+    );
+    expect(() => build(fence('ts file=../../etc/hostname'))).toThrow(/outside the repository/);
+    expect(() => build(fence('ts file=packages/core/src/engine.ts'))).toThrow(
+      /name the lines to show/,
+    );
+    expect(() => build(fence('ts file=packages/core/src/engine.ts#L1-L2', 'const a = 1;'))).toThrow(
+      /takes its lines from the file/,
+    );
+  });
+
+  it('says which languages it can highlight when it is asked for another', () => {
+    expect(() => build(fence('klingon', 'qapla'))).toThrow(
+      /no highlighting for "klingon".*typescript/,
+    );
+  });
+
+  it('draws a diagram as an svg in the page, with its title, and its source for anyone who cannot see it', () => {
+    const { html } = build(
+      fence('mermaid title="Where a request goes"', 'flowchart LR\n  A[Browser] --> B[Server]'),
+    );
+    expect(html).toContain('<figure class="diagram"');
+    expect(html).toMatch(/<svg role="img" aria-labelledby="diagram-1"/);
+    expect(html).toContain('<figcaption id="diagram-1">Where a request goes</figcaption>');
+    expect(html).toContain('Browser');
+    expect(html).toContain('The diagram as text');
+    expect(html).toContain('A[Browser] --&gt; B[Server]');
+  });
+
+  it('lets nothing through that the content-security policy would refuse, or that would call another site', () => {
+    const { html, css } = build(
+      fence('mermaid title="T"', 'flowchart TD\n  A[One] --> B[(Two)]\n  B --> C{Three}'),
+    );
+    expect(html).not.toMatch(/<style/i);
+    expect(html).not.toMatch(/\sstyle\s*=/i);
+    expect(html).not.toMatch(/https?:\/\/(?!www\.w3\.org)/);
+    expect(css).not.toMatch(/@import|googleapis/);
+    // What the diagram came with is in the site's stylesheet, scoped to diagrams and in the site's own font.
+    expect(css).toMatch(/\.diagram svg \{[^}]*--_text:/s);
+    expect(css).not.toMatch(/font-family: 'Inter'/);
+  });
+
+  it('colours a diagram from the design system, so it follows the theme without being drawn again', () => {
+    const css = readFileSync(
+      join(import.meta.dirname, '..', 'scripts', 'docs', 'docs.css'),
+      'utf8',
+    );
+    const roles = /\.diagram svg \{([^}]*)\}/.exec(css)![1]!;
+    for (const role of ['--bg: var(--card)', '--fg: var(--ink)', '--accent: var(--brand)'])
+      expect(roles).toContain(role);
+    expect(roles).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+  });
+
+  it('refuses a diagram with no title, and one that cannot be drawn, naming the page', () => {
+    expect(() => build(fence('mermaid', 'flowchart LR\n A --> B'))).toThrow(/needs a title/);
+    expect(() => build(fence('mermaid title="Broken"', 'this is not a diagram'))).toThrow(
+      /guides\/index\.md: the diagram "Broken" cannot be drawn/,
+    );
+  });
+
+  it('documents every colour the highlighting is drawn in', () => {
+    const tokens = readFileSync(join(import.meta.dirname, '..', 'src', 'styles.css'), 'utf8');
+    const foundations = read('docs/design/foundations.md');
+    const css = readFileSync(
+      join(import.meta.dirname, '..', 'scripts', 'docs', 'docs.css'),
+      'utf8',
+    );
+    const names = [...tokens.matchAll(/^\s+(--code-[a-z]+):/gm)].map((m) => m[1]!);
+    expect(names.length).toBeGreaterThanOrEqual(6);
+    for (const name of names) {
+      expect(foundations, name).toContain(`<b>${name}</b>`);
+      expect(css, name).toContain(`var(${name})`);
+    }
+  });
+
+  it('has the diagram and the file excerpt in the pages that were written for them', () => {
+    expect(read('docs/overview/architecture.md')).toMatch(/```mermaid title="[^"]+"/);
+    expect(read('docs/concepts/billing-engine.md')).toContain(
+      'file=packages/core/src/engine.ts#L28-L39',
+    );
+  });
+});
+
 describe('what the documentation says is still what the app does', () => {
   it('states the free-tier numbers the app enforces', () => {
     const text = read('guides/fair/free-tier.md');

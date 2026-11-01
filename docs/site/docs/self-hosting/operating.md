@@ -24,6 +24,16 @@ It rebuilds, replaces the app container, and keeps both volumes. The documentati
 
 Each kitchen's database is brought up to date the first time it is opened after a release. `node cli.mjs migrate:all` does them all at once.
 
+## An organisation with several kitchens
+
+One account can be in any number of kitchens, in a different role in each, and each kitchen is a database of its own, so an organisation (a chain, an outlet that runs several small kitchens) is several kitchens on one instance of its own with `DEDICATED=1`. That is already how it works:
+
+- Head office is in `OPERATOR_EMAILS`. It makes each kitchen (on a dedicated instance only an operator can), and so is the admin of every kitchen it made, and sees every kitchen's state, size and day's requests at `/operator`. It does not see anyone's names or figures there.
+- Each kitchen's manager is added in that kitchen as a person with the role `admin` and invited by email. They see their own kitchen and no other, cannot make a kitchen, and cannot see `/operator`.
+- Someone who supplies several kitchens, or eats at several, is invited to each, and chooses between them after signing in.
+
+What there is not, yet: a figure that adds up the kitchens, a rate card or a list of holidays shared between them, or a head-office role that is an admin of a kitchen by being head office rather than by being invited to it. Each is done in each kitchen.
+
 ## Housekeeping
 
 It finishes interrupted deletions, removes kitchens seven days after they moved away, clears the old copies a move leaves, and frees moves that stalled before sending anything. It runs every 15 minutes on a Node server, and `/operator` has a button to run it now.

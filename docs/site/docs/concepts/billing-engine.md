@@ -9,21 +9,11 @@ description: The pure function from a kitchen's records to day ledgers and month
 
 ## Input
 
-```ts
-interface EngineData {
-  today: IsoDate; // the kitchen's own date, in its own time zone
-  policies: PolicyVersion[]; // the rules, effective-dated
-  rateCards: RateCard[]; // prices and the weekday menu, effective-dated
-  holidays: Holiday[]; // confirmed or tentative
-  people: Person[]; // role, and for members the billed dates
-  log: LogEntry[]; // exceptions: leave, switches, extras, kitchen off
-  claims: Claim[];
-  decisions: Decision[]; // one per claim; may be voided by a reversal
-  settlements: Settlement[]; // payments, queries, resolutions
-  closes: MonthClose[]; // what a person was billed, frozen
-}
+```ts file=packages/core/src/engine.ts#L28-L39
+
 ```
 
+The kitchen's own date (`today`, in its own time zone, so the engine reads no clock), the rules in force (`policies`, effective-dated), the prices and weekday menu (`rateCards`), the holidays (confirmed or tentative), the people (a role, and for members their billed dates), and what has happened: the exceptions in the `log` (leave, switches, extras, kitchen off), the payment `claims` with one `decision` each (voided by a reversal), the `settlements` (payments, queries, resolutions), and the `closes` that freeze what a person was billed.
 `prepare(data)` indexes it once (holidays by date, log by person and date, the supplier's off days, decisions by claim, closes by person and month) and returns a `Prepared`, which every other call takes.
 
 ## One day

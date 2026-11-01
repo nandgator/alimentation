@@ -49,14 +49,24 @@ export const firstOfMonth = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 };
 
-/** A weekday in the current month that has already happened (or today), for an entry that is allowed. */
+/**
+ * A weekday in the current month that has already happened (or today), for an entry that is allowed. Early on
+ * a month that starts at a weekend there is none yet, and then it is the first one ahead: a leave may be
+ * logged beforehand.
+ */
 export function aWorkingDayThisMonth(): string {
   const d = new Date();
+  const iso = (t: Date) =>
+    `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
   for (let i = 0; i < 31; i++) {
     const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i);
     if (t.getMonth() !== d.getMonth()) break;
-    if (t.getDay() >= 1 && t.getDay() <= 5)
-      return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    if (t.getDay() >= 1 && t.getDay() <= 5) return iso(t);
+  }
+  for (let i = 1; i < 8; i++) {
+    const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i);
+    if (t.getMonth() !== d.getMonth()) break;
+    if (t.getDay() >= 1 && t.getDay() <= 5) return iso(t);
   }
   return firstOfMonth();
 }

@@ -5,19 +5,15 @@ description: One database per kitchen, a billing engine shared by the server and
 
 # Architecture
 
-```text
- Browser (installable PWA, static assets, offline reads)
-        |
-        v
- Edge/API  (Hono; a Cloudflare Worker, or Node)
-   - signed session cookie, per-workspace rate limit, request size and range caps
-   - directory lookup: slug -> placement + wrapped key   (cached in memory)
-        |                                  |
-        v                                  v
- Control database (one)               Workspace database (one per kitchen)
-   accounts, workspaces, members,       people, rate cards, holidays, log,
-   invites, wrapped keys, usage,        claims, decisions, settlements,
-   platform events, wipe receipts       month closes, audit, policy versions
+```mermaid title="Where a request goes: the browser, the API, and the two kinds of database"
+flowchart TD
+  Browser["<b>Browser</b><br/>installable PWA, static assets, offline reads"]
+  Edge["<b>Edge or API</b> (Hono: a Cloudflare Worker, or Node)<br/>signed session cookie, per-workspace rate limit, request size and range caps<br/>directory lookup: slug to placement and wrapped key (cached in memory)"]
+  Control[("<b>Control database</b> (one)<br/>accounts, workspaces, members,<br/>invites, wrapped keys, usage,<br/>platform events, wipe receipts")]
+  Workspace[("<b>Workspace database</b> (one per kitchen)<br/>people, rate cards, holidays, log,<br/>claims, decisions, settlements,<br/>month closes, audit, policy versions")]
+  Browser --> Edge
+  Edge --> Control
+  Edge --> Workspace
 ```
 
 A _workspace_ is a kitchen. Everything about one kitchen lives in a database of its own, with credentials of its own.

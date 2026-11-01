@@ -102,6 +102,37 @@ Playwright's phone emulation can keep a stale viewport width after a rotation. T
 - **Comments say why**, not what. A comment that restates the next line is deleted.
 - **No inline styles that decide how something looks.** See [Conformance](/docs/design/conformance/).
 
+## Code and diagrams in the pages
+
+A fenced block is more than text. Nothing here runs in the reader's browser: it is all done when the pages are built, and the content-security policy still forbids inline style.
+
+Code is highlighted, and numbered once it is six lines long, with the numbers in the margin where they cannot be selected or copied. A block of shell commands is not numbered unless it is asked to be.
+
+````md
+```ts
+export const answer = 42;
+```
+````
+
+A block can show lines of a real file, numbered as they are in it. It is empty: the lines come from the file, and the build fails if the file or the lines are no longer there, so the page cannot say something the code stopped saying.
+
+````md
+```ts file=packages/core/src/engine.ts#L28-L39
+
+```
+````
+
+After the language come settings: `hl=2,4-5` marks lines, and `numbers` or `nonumbers` turns the numbering on or off. A diagram is a `mermaid` block with a title, which is what a reader who cannot see it is told:
+
+````md
+```mermaid title="Where a request goes"
+flowchart LR
+  A[Browser] --> B[Server]
+```
+````
+
+The languages are TypeScript, JavaScript, JSON, SQL, shell, YAML, CSS, HTML, TOML, Dockerfile, Markdown and diff, by their usual names; any other is an error that lists them. The diagram's text is under it, for anyone who cannot see it. The kinds that can be drawn are flowcharts, state, sequence, class and entity-relationship diagrams, and XY charts. A diagram carries no colours of its own: its nodes, lines and text take their colours from the design system's tokens in `docs.css`, so it is right in both themes. The colours of highlighting are the `--code-*` tokens.
+
 ## Writing these pages
 
 The Markdown is in `docs/site/guides` and `docs/site/docs`. A page needs a place in its site's `nav.json` (an unlisted file fails the build, so nobody is left with a page no one can find), a `title` and a `description` in its front matter, and one `#` heading. The build also fails on a broken link or `#section`, and on two pages with one title. `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and `[!IMPORTANT]` make callouts.
@@ -113,3 +144,7 @@ The guides are written for people who use a kitchen, so a test refuses technical
 - **Warnings are fixed, not silenced.** A deprecation notice, an audit finding or a size marker in a build or test log is a defect to resolve at its cause. Nothing is hidden with a flag, a filter or `--no-warnings`. Where the cause is a dependency we cannot change, the fix is a documented `overrides` entry that is removed when the dependency catches up. Today there is one: `workbox-build` asks for a `glob` that npm marks deprecated, so it is given `glob` 13 (the only call it makes, `globSync`, is unchanged).
 - **Install scripts are approved by name and version.** `allowScripts` in `package.json` lists the two packages that run one (esbuild, workerd) at the version reviewed, and `vue-demi`, which Scalar pulls in for the API reference, as refused: its script only chooses which Vue build to link, and the reference ships Scalar's own built files. A bump asks again, and `npm install-scripts approve <package>` records the new version.
 - **Import zod as a namespace** (`import * as z from 'zod'`). The named `{ z }` export keeps all sixty-odd language packs alive and added about 590 KB to the server bundle.
+
+```
+
+```

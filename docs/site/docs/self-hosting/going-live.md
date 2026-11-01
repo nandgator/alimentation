@@ -9,7 +9,7 @@ A trial instance is not safe to hand to people. Work down this list before you d
 
 ## 1. Sign-in
 
-Production sign-in goes through an **OpenID Connect** provider. Google works. In your provider, make an OAuth client with the redirect address `https://<your host>/auth/callback`, then set `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`.
+Production sign-in goes through an **OpenID Connect** provider. Google works; [which others can, and what the app asks of one,](/docs/self-hosting/sign-in-locally/) is written down, along with a way to try it on your own machine. In your provider, make an OAuth client with the redirect address `https://<your host>/auth/callback`, then set `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`.
 
 There are no passwords in Alimentation, so there is nothing to brute-force and no lockout to tune. Whoever protects the account at your provider protects the kitchen.
 

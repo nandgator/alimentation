@@ -75,7 +75,9 @@
       }
       setTimeout(() => (b.textContent = 'Copy'), 1800);
     });
-    pre.append(b);
+    // On the bar of its listing; failing that, on the corner of the listing, which does not scroll; failing that, of the block.
+    const figure = pre.closest('figure.code');
+    (figure?.querySelector('.code-bar') ?? figure ?? pre).append(b);
   }
 
   // --- which section of the page you are in
