@@ -22,11 +22,12 @@ On a Compose or Docker install you do not set these four yourself: the server ma
 
 ## Sign-in
 
-| Setting                                               | What it is                                                                                                                                                                               |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Sign-in through any OpenID Connect provider that [does what the app asks](/docs/self-hosting/sign-in-locally/). The redirect address is `$APP_ORIGIN/auth/callback`. All three, or none. |
-| `OPERATOR_EMAILS`                                     | Verified emails, comma separated, that may open `/operator` and the platform routes. Compared in lower case.                                                                             |
-| `AUTH_DEV`                                            | `1` signs anyone in with any email. For a trial and for tests. The server refuses it when `NODE_ENV=production`.                                                                         |
+| Setting                                               | What it is                                                                                                                                                                                                       |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Sign-in through any OpenID Connect provider that [does what the app asks](/docs/self-hosting/sign-in-locally/). The redirect address is `$APP_ORIGIN/auth/callback`. All three, or none.                         |
+| `OIDC_EMAIL_VERIFIED_CLAIM`                           | Which claim says the email is verified: `email_verified` (the default) or `xms_edov`, for [Microsoft Entra](/docs/self-hosting/sign-in-locally/#microsoft), which needs the address of one tenant as the issuer. |
+| `OPERATOR_EMAILS`                                     | Verified emails, comma separated, that may open `/operator` and the platform routes. Compared in lower case.                                                                                                     |
+| `AUTH_DEV`                                            | `1` signs anyone in with any email. For a trial and for tests. The server refuses it when `NODE_ENV=production`.                                                                                                 |
 
 Without a complete OIDC trio the server only starts when `AUTH_DEV=1`. In production that means it does not start without an identity provider.
 

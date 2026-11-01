@@ -7,11 +7,11 @@ description: Run the app against a real identity provider on your own computer, 
 
 Production sign-in goes through an OpenID Connect provider. To try that without a domain or an account anywhere, `dev/idp/idp.sh` starts a provider beside the app on your computer, makes two people in it, and prints how to sign in.
 
-```sh
-dev/idp/idp.sh up authelia      # the first time builds the app, which takes a few minutes
-dev/idp/idp.sh test authelia    # signs in through it in a real browser, as a person would
-dev/idp/idp.sh down authelia    # stops it; the people and keys are kept
-dev/idp/idp.sh reset authelia   # stops it and forgets everything it made
+```console
+$ dev/idp/idp.sh up authelia      # the first time builds the app, which takes a few minutes
+$ dev/idp/idp.sh test authelia    # signs in through it in a real browser, as a person would
+$ dev/idp/idp.sh down authelia    # stops it; the people and keys are kept
+$ dev/idp/idp.sh reset authelia   # stops it and forgets everything it made
 ```
 
 It needs Docker with Compose, `openssl` and `curl`. Nothing is installed on your computer beyond the containers and a git-ignored folder, `dev/idp/.state`, where it keeps a certificate authority of its own, every secret it made, and the test people's passwords.
@@ -68,12 +68,12 @@ An account is an email. If the same verified email arrives from another provider
 
 ## Providers it has met
 
-| Provider  | Result                                                                                                                                                                                                                                                                     |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Google    | Works. Its published document is in the tests, and what is sent to it and what is decided are pinned.                                                                                                                                                                      |
-| Microsoft | **Refused.** Entra's identity tokens carry no `email_verified`, and its own document does not list it. This is how it was before. Supporting it means deciding to trust `xms_edov`, the optional claim that says the email's domain is owned by the person's organisation. |
-| Apple     | **Refused.** Apple writes `email_verified` as the string `"true"`, which is not accepted. It would also need the `profile` scope left out, a client secret that is a signed token, and its form-post callback.                                                             |
-| Meta      | **Not possible.** Its OpenID document has no token endpoint: it offers the implicit flow only. The app now says so, plainly, where it used to fail on an address that was not there.                                                                                       |
+| Provider  | Result                                                                                                                                                                                                                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google    | Works. Its published document is in the tests, and what is sent to it and what is decided are pinned.                                                                                                                                                                 |
+| Microsoft | **Refused unless you choose otherwise.** Entra's identity tokens carry no `email_verified`, and its own document does not list it. That is how it was before and is still the default. You can choose to trust `xms_edov` instead, see [Microsoft](#microsoft) below. |
+| Apple     | **Refused.** Apple writes `email_verified` as the string `"true"`, which is not accepted. It would also need the `profile` scope left out, a client secret that is a signed token, and its form-post callback.                                                        |
+| Meta      | **Not possible.** Its OpenID document has no token endpoint: it offers the implicit flow only. The app now says so, plainly, where it used to fail on an address that was not there.                                                                                  |
 
 These were checked against each provider's own published document, with the requests the app sends before and after the changes that made the provider kits possible: Google's were identical in every case.
 
@@ -81,5 +81,18 @@ These were checked against each provider's own published document, with the requ
 
 Make a confidential client of type "web", with the redirect address above, the three scopes, PKCE `S256`, and token authentication by `client_secret_post` (or `client_secret_basic` if that is all it offers). Then set the three `OIDC_` settings and add your own address to `OPERATOR_EMAILS`.
 
+- **Microsoft**: see [below](#microsoft).
 - **authentik**: an OAuth2/OpenID provider with a confidential client, a signing key, and the issuer `https://<host>/application/o/<slug>/`.
 - **Zitadel**: a project with a Web application using the code flow and PKCE, and the user's email marked verified. Zitadel has a setting to put user information in the identity token; if it is off the app asks the userinfo endpoint instead, so either should work, but that has not been run.
+
+## Microsoft
+
+Microsoft Entra signs people in over OpenID Connect, but its identity tokens never carry `email_verified`, so by default the app refuses them. Entra has its own claim for the same question, `xms_edov` ("email domain owner verified"). By Microsoft's reference it is true when the address belongs to the tenant the person's account lives in and that tenant's admin has verified the domain, and it is sent only beside `email`. You can tell the app to trust it, for one tenant.
+
+1. In the Entra admin center, register an application for **this organisation directory only**, with the web redirect address `$APP_ORIGIN/auth/callback`, and make a client secret.
+2. Under **Token configuration**, add the optional claims `email` and `xms_edov` to the **ID** token.
+3. Set the three `OIDC_` settings, with the issuer `https://login.microsoftonline.com/<tenant id>/v2.0`, and add `OIDC_EMAIL_VERIFIED_CLAIM=xms_edov`.
+
+The app then reads `xms_edov` in place of `email_verified`, and only when it is the JSON value `true`. A token that lacks the email, or says anything else, is refused with the same message as before. The shared addresses (`/common`, `/organizations`, `/consumers`) are refused when the app starts, because each names an issuer that stands for any tenant, and an address vouched for by some tenant is not one this app can rely on.
+
+Two things to know. An account here is an email, and Microsoft warns against using `email` to decide access, because it can change; so this trusts your tenant's administrators to keep addresses in step with people, which is the same trust you already give them. And this has been tried only against Microsoft's published discovery document and a stand-in provider that sends what Microsoft's reference says it sends, not against a real tenant. Registering an application in an Entra tenant is free; Apple's equivalent needs the paid Apple Developer Program, which is why Apple is not supported yet.

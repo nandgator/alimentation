@@ -10,6 +10,8 @@ export interface OidcConfig {
   issuer: string;
   clientId: string;
   clientSecret: string;
+  /** Which claim vouches for the email. Only a deployment that chose Entra's `xms_edov` reads anything else. */
+  emailVerifiedClaim?: 'email_verified' | 'xms_edov';
 }
 
 interface Discovery {
@@ -153,14 +155,19 @@ export class OidcClient {
       throw new OidcError('the identity token was issued for a different sign-in');
     if (typeof claims.sub !== 'string') throw new OidcError('the provider did not share an email');
 
+    // Microsoft Entra sends no `email_verified`. Its `xms_edov` says the address is in the person's own tenant
+    // and the tenant owns the domain; it is only in the identity token, and only beside `email`. It counts
+    // when the deployment has said so, and then it is the only claim that does.
+    const edov = this.cfg.emailVerifiedClaim === 'xms_edov';
     let email = claims.email;
-    let verified = claims.email_verified;
+    let verified = edov ? claims.xms_edov : claims.email_verified;
     let name = claims.name;
     // Some providers keep the email out of the identity token unless they are told not to (Authelia and
     // Zitadel by default). What is missing is then asked of the userinfo endpoint, which must be
     // answering about the same person.
     // A provider that says it has no such claim is not asked for it: it would only add a request that cannot help.
-    const canSayVerified = !d.claims_supported || d.claims_supported.includes('email_verified');
+    const canSayVerified =
+      !edov && (!d.claims_supported || d.claims_supported.includes('email_verified'));
     if (
       (typeof email !== 'string' || verified === undefined) &&
       d.userinfo_endpoint &&
