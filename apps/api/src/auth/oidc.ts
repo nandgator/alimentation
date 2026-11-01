@@ -18,6 +18,7 @@ interface Discovery {
   token_endpoint: string;
   jwks_uri: string;
   userinfo_endpoint?: string;
+  claims_supported?: string[];
   token_endpoint_auth_methods_supported?: string[];
   prompt_values_supported?: string[];
 }
@@ -49,7 +50,15 @@ export class OidcClient {
       `${this.cfg.issuer.replace(/\/+$/, '')}/.well-known/openid-configuration`,
     ).then(async (r) => {
       if (!r.ok) throw new OidcError(`discovery failed (${r.status})`);
-      return (await r.json()) as Discovery;
+      const found = (await r.json()) as Discovery;
+      // Some providers publish a document for signing in some other way (Meta's has no token endpoint), and
+      // failing here says so, instead of failing later on an address that is not there.
+      for (const key of ['authorization_endpoint', 'token_endpoint', 'jwks_uri'] as const)
+        if (typeof found[key] !== 'string')
+          throw new OidcError(
+            `the provider does not offer sign-in by authorization code (no ${key})`,
+          );
+      return found;
     });
     this.disc.catch(() => {
       this.disc = undefined;
@@ -150,10 +159,13 @@ export class OidcClient {
     // Some providers keep the email out of the identity token unless they are told not to (Authelia and
     // Zitadel by default). What is missing is then asked of the userinfo endpoint, which must be
     // answering about the same person.
+    // A provider that says it has no such claim is not asked for it: it would only add a request that cannot help.
+    const canSayVerified = !d.claims_supported || d.claims_supported.includes('email_verified');
     if (
       (typeof email !== 'string' || verified === undefined) &&
       d.userinfo_endpoint &&
-      tokens.access_token
+      tokens.access_token &&
+      canSayVerified
     ) {
       const info = await this.userinfo(d.userinfo_endpoint, tokens.access_token, claims.sub);
       if (typeof email !== 'string') email = info.email;

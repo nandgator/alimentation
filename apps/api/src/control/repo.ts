@@ -2,6 +2,7 @@ import type { Limits, Role } from '@alimentation/core';
 import type { Db, Row } from '../db/driver.ts';
 import type { Bytes } from '../crypto/aead.ts';
 import type { PlacementRef } from '../placement/types.ts';
+import { ApiError } from '../workspace/errors.ts';
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -76,6 +77,14 @@ export class ControlRepo {
 
   // --- accounts ------------------------------------------------------------
 
+  /**
+   * The account for someone who has just signed in, made if there is none.
+   *
+   * An account is one email, however the person got in: the same verified email from another identity provider
+   * (the instance was pointed at a new one, or at the development sign-in and back) is the same account, so the
+   * kitchens it belongs to are not lost. Which provider it is signed in through follows the last one used.
+   * A person whose email at their provider has become someone else's here is refused, and told why.
+   */
   async upsertAccount(a: {
     issuer: string;
     sub: string;
@@ -83,15 +92,42 @@ export class ControlRepo {
     name: string | null;
   }): Promise<AccountRow> {
     const email = a.email.trim().toLowerCase();
-    const r = await this.one<R>(
-      `INSERT INTO account (idp_issuer, idp_sub, email, display_name, last_login_at)
-       VALUES ($1, $2, $3, $4, now())
-       ON CONFLICT (idp_issuer, idp_sub)
-       DO UPDATE SET email = EXCLUDED.email, display_name = coalesce(EXCLUDED.display_name, account.display_name), last_login_at = now()
-       RETURNING id, email, display_name`,
-      [a.issuer, a.sub, email, a.name],
-    );
-    return { id: r!.id, email: r!.email, displayName: r!.display_name };
+    const columns = 'id, email, display_name';
+    const row = (r: R) => ({ id: r.id, email: r.email, displayName: r.display_name });
+    // Two sign-ins of one new person at once both find nobody and both try to make them; one of them loses
+    // to the unique index, and on the next try finds what the other made.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.db.tx(async (tx) => {
+          const known = await tx.query<R>(
+            `UPDATE account SET email = $3, display_name = coalesce($4, display_name), last_login_at = now()
+             WHERE idp_issuer = $1 AND idp_sub = $2 RETURNING ${columns}`,
+            [a.issuer, a.sub, email, a.name],
+          );
+          if (known[0]) return row(known[0]);
+          const sameEmail = await tx.query<R>(
+            `UPDATE account SET idp_issuer = $1, idp_sub = $2, display_name = coalesce($4, display_name), last_login_at = now()
+             WHERE email = $3 RETURNING ${columns}`,
+            [a.issuer, a.sub, email, a.name],
+          );
+          if (sameEmail[0]) return row(sameEmail[0]);
+          const made = await tx.query<R>(
+            `INSERT INTO account (idp_issuer, idp_sub, email, display_name, last_login_at)
+             VALUES ($1, $2, $3, $4, now()) RETURNING ${columns}`,
+            [a.issuer, a.sub, email, a.name],
+          );
+          return row(made[0]!);
+        });
+      } catch (e) {
+        if ((e as { code?: string }).code !== '23505') throw e;
+        if (attempt >= 3)
+          throw new ApiError(
+            409,
+            'conflict',
+            'That email address already belongs to another account here. Ask whoever runs this service.',
+          );
+      }
+    }
   }
 
   async account(id: string): Promise<AccountRow | undefined> {

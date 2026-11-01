@@ -1,4 +1,8 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { SignJWT, exportJWK, generateKeyPair } from 'jose';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { OidcClient } from '../src/auth/oidc.ts';
 import { loadConfig } from '../src/config.ts';
 import { TokenSigner } from '../src/auth/session.ts';
 import { randomBytes } from '../src/crypto/aead.ts';
@@ -437,5 +441,172 @@ describe('asking the provider to let the person choose an account', () => {
       await strict.done();
       await knows.done();
     }
+  });
+});
+
+/**
+ * The providers this was written for. Their discovery documents are their own, as published on 2026-11-01
+ * (support/discovery), and what comes back is the shape of what each is known to send. What is pinned here
+ * is what the app asks of each and what it decides, so that a change made for another provider cannot
+ * quietly change how these are treated. Where a provider is refused, that is how it was before too, and the
+ * reason is written next to it.
+ */
+describe('the providers it was written for are treated as they always were', () => {
+  const document = (name: string) =>
+    JSON.parse(
+      readFileSync(join(import.meta.dirname, 'support', 'discovery', `${name}.json`), 'utf8'),
+    );
+
+  async function through(
+    name: 'google' | 'microsoft' | 'apple' | 'meta',
+    issuer: string,
+    claims: Record<string, unknown>,
+    tokenIssuer?: string,
+  ) {
+    const doc = document(name);
+    const { publicKey, privateKey } = await generateKeyPair('RS256');
+    const jwk = { ...(await exportJWK(publicKey)), kid: 'k', alg: 'RS256', use: 'sig' };
+    const asked: { token?: { authorization: boolean; body: URLSearchParams }; userinfo: number } = {
+      userinfo: 0,
+    };
+    const answer = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
+    const fake = (async (input: unknown, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/.well-known/openid-configuration')) return answer(doc);
+      if (url === doc.jwks_uri) return answer({ keys: [jwk] });
+      if (url === doc.token_endpoint) {
+        asked.token = {
+          authorization: new Headers(init?.headers).has('authorization'),
+          body: new URLSearchParams(String(init?.body)),
+        };
+        const id = await new SignJWT({ ...claims, nonce: 'N' })
+          .setProtectedHeader({ alg: 'RS256', kid: 'k' })
+          .setIssuer(tokenIssuer ?? doc.issuer)
+          .setAudience('client')
+          .setIssuedAt()
+          .setExpirationTime('5m')
+          .sign(privateKey);
+        return answer({ id_token: id, access_token: 'at', token_type: 'Bearer' });
+      }
+      if (url === doc.userinfo_endpoint) {
+        asked.userinfo++;
+        return answer({ sub: claims.sub });
+      }
+      return answer({ error: `unexpected ${url}` }, 500);
+    }) as typeof fetch;
+    // The keys are fetched with the global fetch.
+    vi.stubGlobal('fetch', fake);
+    try {
+      const client = new OidcClient({ issuer, clientId: 'client', clientSecret: 'secret' }, fake);
+      const sent: URLSearchParams[] = [];
+      let who: Awaited<ReturnType<OidcClient['exchange']>> | undefined;
+      let refused: string | undefined;
+      try {
+        const url = await client.authorizeUrl({
+          redirectUri: 'https://app.example/auth/callback',
+          state: 'S',
+          nonce: 'N',
+          verifier: 'V',
+        });
+        sent.push(new URL(url).searchParams);
+        who = await client.exchange({
+          code: 'C',
+          verifier: 'V',
+          redirectUri: 'https://app.example/auth/callback',
+          nonce: 'N',
+        });
+      } catch (e) {
+        refused = (e as Error).message;
+      }
+      return { who, refused, asked, authorize: sent[0] };
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }
+
+  it('Google: asks to choose an account, sends the secret in the body, and signs in a verified email', async () => {
+    const r = await through('google', 'https://accounts.google.com', {
+      sub: '1',
+      email: 'Asha@Gmail.com',
+      email_verified: true,
+      name: 'Asha',
+    });
+    expect(r.who).toEqual({ sub: '1', email: 'asha@gmail.com', name: 'Asha' });
+    expect(r.authorize!.get('prompt')).toBe('select_account');
+    expect(r.authorize!.get('scope')).toBe('openid email profile');
+    expect(r.authorize!.get('code_challenge_method')).toBe('S256');
+    expect(r.asked.token!.authorization).toBe(false);
+    expect(r.asked.token!.body.get('client_secret')).toBe('secret');
+    expect(r.asked.token!.body.get('client_id')).toBe('client');
+    // The identity token has everything, so nothing else is asked.
+    expect(r.asked.userinfo).toBe(0);
+  });
+
+  it('Google: refuses an email it does not vouch for', async () => {
+    const r = await through('google', 'https://accounts.google.com', {
+      sub: '1',
+      email: 'a@gmail.com',
+      email_verified: false,
+    });
+    expect(r.refused).toMatch(/not verified/);
+    expect(r.asked.userinfo).toBe(0);
+  });
+
+  it('Microsoft: is asked and answered the same way, and is refused because Entra sends no verified flag', async () => {
+    const issuer = 'https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0';
+    const r = await through('microsoft', issuer, {
+      sub: 'm1',
+      name: 'Asha',
+      email: 'asha@contoso.com',
+      preferred_username: 'asha@contoso.com',
+    });
+    // Entra's own document does not list email_verified among its claims. It is refused, as it was; and
+    // because it cannot say, the userinfo endpoint is not asked for what it does not have.
+    expect(r.refused).toMatch(/not verified/);
+    expect(r.asked.userinfo).toBe(0);
+    expect(r.authorize!.get('prompt')).toBe('select_account');
+    expect(r.asked.token!.authorization).toBe(false);
+    expect(r.asked.token!.body.get('client_secret')).toBe('secret');
+  });
+
+  it('Microsoft: through /common, whose document names an issuer with {tenantid} in it, is refused as it was', async () => {
+    const r = await through(
+      'microsoft',
+      'https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0',
+      { sub: 'm1', email: 'asha@contoso.com', email_verified: true },
+      'https://login.microsoftonline.com/another-tenant/v2.0',
+    );
+    expect(r.refused).toMatch(/did not verify/);
+  });
+
+  it('Apple: sends the secret in the body, which is the only way it takes it, and signs in a verified email', async () => {
+    const r = await through('apple', 'https://appleid.apple.com', {
+      sub: 'a1',
+      email: 'x@icloud.com',
+      email_verified: true,
+    });
+    expect(r.who?.email).toBe('x@icloud.com');
+    expect(r.asked.token!.authorization).toBe(false);
+    expect(r.asked.token!.body.get('client_secret')).toBe('secret');
+    expect(r.asked.userinfo).toBe(0);
+  });
+
+  it('Apple: refuses the string "true", which is how it says an email is verified, as it did before', async () => {
+    const r = await through('apple', 'https://appleid.apple.com', {
+      sub: 'a1',
+      email: 'x@privaterelay.appleid.com',
+      email_verified: 'true',
+    });
+    expect(r.refused).toMatch(/not verified/);
+  });
+
+  it('Meta: has no sign-in by authorization code to offer, and says so before anything is sent', async () => {
+    const r = await through('meta', 'https://www.facebook.com', {
+      sub: 'f1',
+      email: 'x@example.org',
+      email_verified: true,
+    });
+    expect(r.refused).toMatch(/does not offer sign-in by authorization code/);
+    expect(r.asked.token).toBeUndefined();
   });
 });
