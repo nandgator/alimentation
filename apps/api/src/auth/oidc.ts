@@ -17,6 +17,9 @@ interface Discovery {
   authorization_endpoint: string;
   token_endpoint: string;
   jwks_uri: string;
+  userinfo_endpoint?: string;
+  token_endpoint_auth_methods_supported?: string[];
+  prompt_values_supported?: string[];
 }
 
 export interface OidcIdentity {
@@ -82,7 +85,10 @@ export class OidcClient {
       nonce: f.nonce,
       code_challenge: challenge,
       code_challenge_method: 'S256',
-      prompt: 'select_account',
+      // Let the person choose which account to sign in with, unless the provider says it does not know how.
+      ...(d.prompt_values_supported && !d.prompt_values_supported.includes('select_account')
+        ? {}
+        : { prompt: 'select_account' }),
     }).toString();
     return u.toString();
   }
@@ -94,20 +100,33 @@ export class OidcClient {
     nonce: string;
   }): Promise<OidcIdentity> {
     const d = await this.discover();
+    // The secret goes in the body, as it always has, unless the provider takes it only in the header.
+    const methods = d.token_endpoint_auth_methods_supported ?? [];
+    const inHeader =
+      methods.includes('client_secret_basic') && !methods.includes('client_secret_post');
+    const form = (v: string) => new URLSearchParams({ x: v }).toString().slice(2);
     const res = await this.http(d.token_endpoint, {
       method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        accept: 'application/json',
+        // Each half is form-encoded before the two are joined (RFC 6749, 2.3.1).
+        ...(inHeader
+          ? {
+              authorization: `Basic ${btoa(`${form(this.cfg.clientId)}:${form(this.cfg.clientSecret)}`)}`,
+            }
+          : {}),
+      },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: f.code,
         redirect_uri: f.redirectUri,
-        client_id: this.cfg.clientId,
-        client_secret: this.cfg.clientSecret,
         code_verifier: f.verifier,
+        ...(inHeader ? {} : { client_id: this.cfg.clientId, client_secret: this.cfg.clientSecret }),
       }),
     });
     if (!res.ok) throw new OidcError(`the provider refused the code (${res.status})`);
-    const tokens = (await res.json()) as { id_token?: string };
+    const tokens = (await res.json()) as { id_token?: string; access_token?: string };
     if (!tokens.id_token) throw new OidcError('the provider sent no identity token');
     this.jwks ??= createRemoteJWKSet(new URL(d.jwks_uri), {
       [Symbol.for('jose.customFetch') as never]: this.http,
@@ -123,14 +142,57 @@ export class OidcClient {
     }
     if (claims.nonce !== f.nonce)
       throw new OidcError('the identity token was issued for a different sign-in');
-    if (typeof claims.sub !== 'string' || typeof claims.email !== 'string')
-      throw new OidcError('the provider did not share an email');
-    if (claims.email_verified !== true)
+    if (typeof claims.sub !== 'string') throw new OidcError('the provider did not share an email');
+
+    let email = claims.email;
+    let verified = claims.email_verified;
+    let name = claims.name;
+    // Some providers keep the email out of the identity token unless they are told not to (Authelia and
+    // Zitadel by default). What is missing is then asked of the userinfo endpoint, which must be
+    // answering about the same person.
+    if (
+      (typeof email !== 'string' || verified === undefined) &&
+      d.userinfo_endpoint &&
+      tokens.access_token
+    ) {
+      const info = await this.userinfo(d.userinfo_endpoint, tokens.access_token, claims.sub);
+      if (typeof email !== 'string') email = info.email;
+      // A verified flag counts only for the address it was given with.
+      if (verified === undefined && (info.email === undefined || info.email === email))
+        verified = info.email_verified;
+      name ??= info.name;
+    }
+    if (typeof email !== 'string') throw new OidcError('the provider did not share an email');
+    if (verified !== true)
       throw new OidcError('the email address is not verified with the provider');
     return {
       sub: claims.sub,
-      email: claims.email.toLowerCase(),
-      name: typeof claims.name === 'string' ? claims.name : null,
+      email: email.toLowerCase(),
+      name: typeof name === 'string' ? name : null,
+    };
+  }
+
+  private async userinfo(
+    endpoint: string,
+    accessToken: string,
+    sub: string,
+  ): Promise<{ email?: string; email_verified?: unknown; name?: string }> {
+    const res = await this.http(endpoint, {
+      headers: { authorization: `Bearer ${accessToken}`, accept: 'application/json' },
+    });
+    if (!res.ok) throw new OidcError(`the provider would not say who this is (${res.status})`);
+    let info: Record<string, unknown>;
+    try {
+      info = (await res.json()) as Record<string, unknown>;
+    } catch {
+      throw new OidcError('the provider answered about the person in a form that cannot be read');
+    }
+    // The answer must be about the person who signed in (OpenID Connect Core, 5.3.2).
+    if (info.sub !== sub) throw new OidcError('the provider answered about someone else');
+    return {
+      email: typeof info.email === 'string' ? info.email : undefined,
+      email_verified: info.email_verified,
+      name: typeof info.name === 'string' ? info.name : undefined,
     };
   }
 }

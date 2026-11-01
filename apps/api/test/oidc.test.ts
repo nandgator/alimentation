@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.ts';
 import { TokenSigner } from '../src/auth/session.ts';
 import { randomBytes } from '../src/crypto/aead.ts';
-import { startMockOidc, type MockOidc } from './support/mockOidc.ts';
+import { startMockOidc, type MockOidc, type MockOidcOptions } from './support/mockOidc.ts';
 import { makePlatform, type TestPlatform } from './support/platform.ts';
 
 const b64 = () => Buffer.from(randomBytes(32)).toString('base64');
@@ -220,5 +220,222 @@ describe('signed tokens', () => {
       TokenSigner.fromSecrets([Buffer.from('short').toString('base64')]),
     ).rejects.toThrow(/32 bytes/);
     await expect(TokenSigner.fromSecrets([])).rejects.toThrow(/no session secret/);
+  });
+});
+
+/** The browser's half of a sign-in, against whichever provider is given: start, approve, come back. */
+async function walk(
+  p: TestPlatform,
+  idp: MockOidc,
+  identity: Record<string, unknown>,
+  grant: Parameters<MockOidc['grant']>[2] = {},
+) {
+  const start = await p.runtime.app.request('http://localhost/auth/login');
+  const to = new URL(start.headers.get('location')!);
+  const cookie = start.headers.get('set-cookie')!.split(';')[0]!;
+  const code = idp.grant(
+    {
+      state: to.searchParams.get('state')!,
+      nonce: to.searchParams.get('nonce')!,
+      challenge: to.searchParams.get('code_challenge')!,
+    },
+    identity,
+    grant,
+  );
+  const back = await p.runtime.app.request(
+    `http://localhost/auth/callback?code=${code}&state=${to.searchParams.get('state')}`,
+    { headers: { cookie } },
+  );
+  return { to, back };
+}
+
+async function against(
+  options: MockOidcOptions,
+  secret = 'secret-1',
+): Promise<{ idp: MockOidc; p: TestPlatform; done: () => Promise<void> }> {
+  const idp = await startMockOidc('client-1', secret, options);
+  const p = await makePlatform(
+    {
+      OIDC_ISSUER: idp.issuer,
+      OIDC_CLIENT_ID: 'client-1',
+      OIDC_CLIENT_SECRET: secret,
+      AUTH_DEV: '0',
+    },
+    { devAuth: false },
+  );
+  return {
+    idp,
+    p,
+    done: async () => {
+      await p.destroy();
+      await idp.close();
+    },
+  };
+}
+
+describe('signing in with a provider that keeps the email out of the identity token', () => {
+  // Authelia and Zitadel do, unless they are told otherwise: the claims are for the userinfo endpoint.
+  let k: Awaited<ReturnType<typeof against>>;
+  beforeAll(async () => (k = await against({ userinfo: true })));
+  afterAll(() => k.done());
+
+  const who = { sub: 'u-1', email: 'Asha@Example.org', email_verified: true, name: 'Asha' };
+
+  it('asks the userinfo endpoint, and signs in with what it says', async () => {
+    const before = k.idp.userinfoCalls;
+    const { back } = await walk(k.p, k.idp, who, {
+      onlyInUserinfo: ['email', 'email_verified', 'name'],
+    });
+    expect(back.status).toBe(302);
+    expect(k.idp.userinfoCalls).toBe(before + 1);
+    const account = await k.p.runtime.deps.control.accountByEmail('asha@example.org');
+    expect(account).toMatchObject({ displayName: 'Asha' });
+  });
+
+  it('asks only for what the identity token left out', async () => {
+    const { back } = await walk(
+      k.p,
+      k.idp,
+      { sub: 'u-2', email: 'only-verified@example.org', email_verified: true },
+      { onlyInUserinfo: ['email_verified'] },
+    );
+    expect(back.status).toBe(302);
+    expect(await k.p.runtime.deps.control.accountByEmail('only-verified@example.org')).toBeTruthy();
+  });
+
+  it('does not ask when the identity token has it all', async () => {
+    const before = k.idp.userinfoCalls;
+    const { back } = await walk(k.p, k.idp, {
+      sub: 'u-3',
+      email: 'all@example.org',
+      email_verified: true,
+    });
+    expect(back.status).toBe(302);
+    expect(k.idp.userinfoCalls).toBe(before);
+  });
+
+  it('still refuses an email the provider does not vouch for, wherever it says so', async () => {
+    const { back } = await walk(
+      k.p,
+      k.idp,
+      { sub: 'u-4', email: 'unvouched@example.org', email_verified: false },
+      { onlyInUserinfo: ['email', 'email_verified'] },
+    );
+    expect(back.status).toBe(400);
+    expect(await k.p.runtime.deps.control.accountByEmail('unvouched@example.org')).toBeUndefined();
+  });
+
+  it('refuses an answer about someone else, and a verified flag that belongs to another email', async () => {
+    const other = await walk(
+      k.p,
+      k.idp,
+      { sub: 'u-5', email: 'swapped@example.org', email_verified: true },
+      { onlyInUserinfo: ['email', 'email_verified'], userinfoSub: 'someone-else' },
+    );
+    expect(other.back.status).toBe(400);
+    expect(await k.p.runtime.deps.control.accountByEmail('swapped@example.org')).toBeUndefined();
+
+    // The token names one address; the userinfo says another is verified. The first is not vouched for.
+    const { back } = await walk(
+      k.p,
+      k.idp,
+      { sub: 'u-6', email: 'named@example.org', email_verified: true },
+      { onlyInUserinfo: ['email_verified'] },
+    );
+    expect(back.status).toBe(302); // the same address, so it is the one vouched for
+    const mismatch = await walk(k.p, k.idp, { sub: 'u-7', email: 'claimed@example.org' });
+    expect(mismatch.back.status).toBe(400); // nothing says it is verified
+  });
+});
+
+describe('signing in with a provider that has no userinfo endpoint', () => {
+  let k: Awaited<ReturnType<typeof against>>;
+  beforeAll(async () => (k = await against({})));
+  afterAll(() => k.done());
+
+  it('says the provider shared no email, when the identity token has none', async () => {
+    const { back } = await walk(
+      k.p,
+      k.idp,
+      { sub: 'n-1', email: 'gone@example.org', email_verified: true },
+      {
+        onlyInUserinfo: ['email'],
+      },
+    );
+    expect(back.status).toBe(400);
+    expect(await back.json()).toMatchObject({ error: { code: 'sign_in_failed' } });
+  });
+});
+
+describe('how the app proves itself to the token endpoint', () => {
+  const who = { sub: 'a-1', email: 'auth@example.org', email_verified: true };
+
+  it('sends the secret in the body, as it always has, when the provider does not say', async () => {
+    const k = await against({ registeredAs: 'post' });
+    try {
+      expect((await walk(k.p, k.idp, who)).back.status).toBe(302);
+      expect(k.idp.lastAuth).toBe('post');
+    } finally {
+      await k.done();
+    }
+  });
+
+  it('keeps to the body when the provider takes either', async () => {
+    const k = await against({
+      advertise: ['client_secret_basic', 'client_secret_post'],
+      registeredAs: 'post',
+    });
+    try {
+      expect((await walk(k.p, k.idp, who)).back.status).toBe(302);
+      expect(k.idp.lastAuth).toBe('post');
+    } finally {
+      await k.done();
+    }
+  });
+
+  it('uses HTTP Basic when that is the only way the provider takes it', async () => {
+    const k = await against({ advertise: ['client_secret_basic'], registeredAs: 'basic' });
+    try {
+      expect((await walk(k.p, k.idp, who)).back.status).toBe(302);
+      expect(k.idp.lastAuth).toBe('basic');
+    } finally {
+      await k.done();
+    }
+  });
+
+  it('encodes the two halves of a Basic credential before joining them, so a colon or a percent sign survives', async () => {
+    const secret = 'se:cr/et%+ü 1';
+    const k = await against({ advertise: ['client_secret_basic'], registeredAs: 'basic' }, secret);
+    try {
+      expect((await walk(k.p, k.idp, who)).back.status).toBe(302);
+    } finally {
+      await k.done();
+    }
+  });
+});
+
+describe('asking the provider to let the person choose an account', () => {
+  it('asks, unless the provider says it does not understand that', async () => {
+    const plain = await against({});
+    const strict = await against({ promptValues: ['none', 'login', 'consent'] });
+    const knows = await against({ promptValues: ['none', 'login', 'consent', 'select_account'] });
+    try {
+      for (const [k, expected] of [
+        [plain, 'select_account'],
+        [strict, null],
+        [knows, 'select_account'],
+      ] as const) {
+        const { to } = await walk(k.p, k.idp, {
+          sub: 'p-1',
+          email: 'p@example.org',
+          email_verified: true,
+        });
+        expect(to.searchParams.get('prompt')).toBe(expected);
+      }
+    } finally {
+      await plain.done();
+      await strict.done();
+      await knows.done();
+    }
   });
 });
