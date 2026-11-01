@@ -164,6 +164,23 @@ export async function loadEngineData(
   };
 }
 
+type DueClose = ReturnType<typeof dueAutoCloses>[number];
+
+/** The data as it will stand once the automatic closes that are due are stored, without storing them. */
+export function withDueCloses(data: EngineData): { data: EngineData; due: DueClose[] } {
+  const due = dueAutoCloses(prepare(data));
+  if (due.length === 0) return { data, due };
+  const added: MonthClose[] = due.map((d) => ({
+    forMonth: d.month,
+    consumerId: d.consumerId,
+    meals: d.meals,
+    billed: d.billed,
+    closedOn: data.today,
+    closedBy: null,
+  }));
+  return { data: { ...data, closes: [...data.closes, ...added] }, due };
+}
+
 /**
  * Stores the automatic closes that have come due, before anything else happens,
  * and returns the data with them included. Run before every write and every
@@ -171,24 +188,13 @@ export async function loadEngineData(
  * later edit can get in first.
  */
 export async function applyAutoCloses(tx: Tx, data: EngineData): Promise<EngineData> {
-  const due = dueAutoCloses(prepare(data));
-  if (due.length === 0) return data;
-  const added: MonthClose[] = [];
-  for (const d of due) {
+  const { data: closed, due } = withDueCloses(data);
+  for (const d of due)
     await tx.query('SELECT system_close_month($1::date, $2::uuid, $3::int, $4::bigint)', [
       `${d.month}-01`,
       d.consumerId,
       d.meals,
       d.billed,
     ]);
-    added.push({
-      forMonth: d.month,
-      consumerId: d.consumerId,
-      meals: d.meals,
-      billed: d.billed,
-      closedOn: data.today,
-      closedBy: null,
-    });
-  }
-  return { ...data, closes: [...data.closes, ...added] };
+  return closed;
 }

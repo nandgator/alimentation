@@ -71,6 +71,8 @@ export const postJson = async <T>(path: string, body?: unknown) =>
 export interface Me {
   account: { id: string; email: string; name: string | null } | null;
   operator?: boolean;
+  /** The organisations this account is the head office of. */
+  organisations?: { id: string; name: string; kitchens: number }[];
   workspaces?: {
     slug: string;
     name: string;

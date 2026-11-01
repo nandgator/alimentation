@@ -84,6 +84,12 @@ export function Dashboard() {
           </>
         }
       />
+      {boot.organisation ? (
+        <p className="muted small">
+          This kitchen shares its totals (how many people, how many meals, and what is billed, paid
+          and owed, with no names) with {boot.organisation.name}.
+        </p>
+      ) : null}
       <Problem error={stm.error} />
       {stm.loading && !stm.data ? <Spinner /> : null}
 

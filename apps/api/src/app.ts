@@ -1,4 +1,9 @@
-import { localNow, type Role } from '@alimentation/core';
+import {
+  localNow,
+  type OrganisationDto,
+  type OrganisationKitchenDto,
+  type Role,
+} from '@alimentation/core';
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import * as z from 'zod';
@@ -25,6 +30,7 @@ import {
   CreateClaim,
   CreateHoliday,
   CreatePerson,
+  CreateOrganisation,
   CreatePolicy,
   CreateRateCard,
   CreateSettlement,
@@ -32,6 +38,7 @@ import {
   DecideClaim,
   DevLogin,
   InvitePerson,
+  JoinOrganisation,
   LedgerQuery,
   LogBody,
   LogQuery,
@@ -41,6 +48,8 @@ import {
   Month,
   MoveBody,
   MoveTarget,
+  OrganisationKitchen,
+  OrganisationMember,
   PageQuery,
   ReverseClaim,
   ROLE_ORDER,
@@ -341,10 +350,14 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const a = c.get('account');
     const base = { authDev: config.authDev, signInWithProvider: !!deps.oidc };
     if (!a) return c.json({ account: null, ...base });
-    const mine = await deps.control.workspacesOf(a.id);
+    const [mine, organisations] = await Promise.all([
+      deps.control.workspacesOf(a.id),
+      deps.control.organisationsOf(a.id),
+    ]);
     return c.json({
       account: { id: a.id, email: a.email, name: a.name },
       operator: isOperator(a),
+      organisations,
       workspaces: mine.map(({ workspace: w, roles }) => ({
         slug: w.slug,
         name: w.displayName,
@@ -447,6 +460,162 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     return c.json(report, status as 200);
   });
 
+  // --- organisations: a head office over several kitchens ---------------------------------------
+  //
+  // A head office sees each of its kitchens' totals for the month and nothing that names anyone. It is not
+  // made a member of a kitchen, and a kitchen is in it only because someone who is that kitchen's admin said
+  // so. Either side can end it.
+
+  const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+  const JOIN_TTL = 60 * 60 * 24 * 7;
+  const MAX_ORGANISATIONS = 5;
+
+  /** The head-office member this request is from, or a 404 that does not say which of the two it was. */
+  const headOffice = async (c: Context<{ Variables: Vars }>) => {
+    const a = needAccount(c);
+    const id = c.req.param('id') ?? '';
+    if (!UUID.test(id) || !(await deps.control.isOrganisationMember(id, a.id)))
+      throw new ApiError(
+        404,
+        'not_found',
+        'There is no such organisation, or you are not in its head office.',
+      );
+    return { a, id };
+  };
+
+  /** At most a few at once, so a long list of kitchens does not open a long list of connections. */
+  const inBatches = async <T, U>(items: T[], size: number, fn: (x: T) => Promise<U>) => {
+    const out: U[] = [];
+    for (let i = 0; i < items.length; i += size)
+      out.push(...(await Promise.all(items.slice(i, i + size).map(fn))));
+    return out;
+  };
+
+  const organisationView = async (id: string): Promise<OrganisationDto> => {
+    const org = (await deps.control.organisation(id))!;
+    const kitchens = await inBatches(
+      await deps.control.organisationKitchens(id),
+      4,
+      async (row): Promise<OrganisationKitchenDto> => {
+        const base = {
+          slug: row.slug,
+          name: row.displayName,
+          state: row.state as 'ACTIVE' | 'MIGRATING' | 'MOVED',
+        };
+        if (row.state === 'MOVED') return { ...base, totals: null, unavailable: 'moved' };
+        try {
+          const handle = await deps.directory.byId(row.id);
+          if (!handle) return { ...base, totals: null, unavailable: 'unreadable' };
+          // Reading a kitchen is a request to it, and counts against its day like any other.
+          const verdict = await deps.gate.admit({ id: row.id, limits: handle.info.limits });
+          if (!verdict.allowed) return { ...base, totals: null, unavailable: 'busy' };
+          return { ...base, totals: await handle.service.totals(), unavailable: null };
+        } catch {
+          return { ...base, totals: null, unavailable: 'unreadable' };
+        }
+      },
+    );
+    return {
+      organisation: org,
+      members: await deps.control.organisationMembers(id),
+      kitchens,
+    };
+  };
+
+  app.get('/api/organisations', async (c) => {
+    const a = needAccount(c);
+    return c.json({ organisations: await deps.control.organisationsOf(a.id) });
+  });
+
+  app.post('/api/organisations', async (c) => {
+    const a = needAccount(c);
+    if (config.dedicated && !isOperator(a))
+      throw forbidden('This instance is private. Ask whoever runs it to start an organisation.');
+    const b = await parse(c, CreateOrganisation);
+    if ((await deps.control.organisationsOf(a.id)).length >= MAX_ORGANISATIONS)
+      throw invalid(`You can be in the head office of at most ${MAX_ORGANISATIONS} organisations.`);
+    const made = await deps.control.createOrganisation(a.id, b.name);
+    await deps.control.event('organisation_created', null, { organisation: made.id });
+    return c.json(made, 201);
+  });
+
+  app.get('/api/organisations/:id', async (c) => {
+    const { id } = await headOffice(c);
+    return c.json(await organisationView(id));
+  });
+
+  app.post('/api/organisations/:id/kitchens', async (c) => {
+    const { a, id } = await headOffice(c);
+    const b = await parse(c, OrganisationKitchen);
+    const row = await deps.control.workspaceBySlug(b.slug);
+    // Someone who is not that kitchen's admin cannot tell whether it exists.
+    if (!row || !(await deps.control.rolesOf(a.id, row.id)).includes('admin'))
+      throw forbidden(
+        'You can add a kitchen you are the admin of. For another, make a link and ask its admin to use it.',
+      );
+    if (row.state !== 'ACTIVE') throw invalid('Only a kitchen that is open can share its totals.');
+    const made = await deps.control.attachKitchen(row.id, id, a.id);
+    if (made === 'other')
+      throw new ApiError(
+        409,
+        'conflict',
+        'That kitchen already shares its totals with another organisation. Its admin can stop that first.',
+      );
+    if (made === 'attached')
+      await deps.control.event('organisation_kitchen_added', row.id, { organisation: id });
+    deps.directory.invalidate(row.slug);
+    return c.json({ slug: row.slug, name: row.displayName }, made === 'attached' ? 201 : 200);
+  });
+
+  app.delete('/api/organisations/:id/kitchens/:slug', async (c) => {
+    const { id } = await headOffice(c);
+    const row = await deps.control.workspaceBySlug(c.req.param('slug') ?? '');
+    if (!row || !(await deps.control.detachKitchen(row.id, id)))
+      throw new ApiError(404, 'not_found', 'That kitchen does not share its totals with you.');
+    await deps.control.event('organisation_kitchen_removed', row.id, {
+      organisation: id,
+      by: 'head_office',
+    });
+    deps.directory.invalidate(row.slug);
+    return c.body(null, 204);
+  });
+
+  app.post('/api/organisations/:id/join-links', async (c) => {
+    const { id } = await headOffice(c);
+    const token = await deps.signer.sign({ k: 'org-join', o: id }, JOIN_TTL, deps.now());
+    return c.json({ token, expiresInDays: JOIN_TTL / 86400 });
+  });
+
+  app.post('/api/organisations/:id/members', async (c) => {
+    const { id } = await headOffice(c);
+    const b = await parse(c, OrganisationMember);
+    const found = await deps.control.accountByEmail(b.email.toLowerCase());
+    if (!found)
+      throw new ApiError(
+        404,
+        'not_found',
+        'No one with that email has signed in here yet. Ask them to sign in once, then add them.',
+      );
+    await deps.control.addOrganisationMember(id, found.id);
+    await deps.control.event('organisation_member_added', null, { organisation: id });
+    return c.json({ accountId: found.id, email: found.email, name: found.displayName }, 201);
+  });
+
+  app.delete('/api/organisations/:id/members/:accountId', async (c) => {
+    const { id } = await headOffice(c);
+    const target = c.req.param('accountId') ?? '';
+    if (!UUID.test(target) || !(await deps.control.isOrganisationMember(id, target)))
+      throw new ApiError(404, 'not_found', 'That person is not in the head office.');
+    if (!(await deps.control.removeOrganisationMember(id, target)))
+      throw new ApiError(
+        409,
+        'conflict',
+        'An organisation needs at least one person in its head office.',
+      );
+    await deps.control.event('organisation_member_removed', null, { organisation: id });
+    return c.body(null, 204);
+  });
+
   // --- inside a workspace ------------------------------------------------
 
   const w = new Hono<{ Variables: Vars }>();
@@ -494,7 +663,57 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   const svc = (c: Context<{ Variables: Vars }>) => c.get('handle').service;
   const who = (c: Context<{ Variables: Vars }>) => c.get('actor');
 
-  w.get('/bootstrap', async (c) => c.json(await svc(c).bootstrap(who(c), c.get('roles'))));
+  w.get('/bootstrap', async (c) => {
+    const boot = await svc(c).bootstrap(who(c), c.get('roles'));
+    // Everyone in a kitchen is told who receives its totals. The name comes with the kitchen's own record,
+    // so a kitchen that shares nothing is asked about nothing.
+    const name = c.get('handle').row.organisationName;
+    return c.json({ ...boot, organisation: name ? { name } : null });
+  });
+
+  // The kitchen's own side of sharing its totals: only its admin starts or stops it.
+  w.post('/organisation', async (c) => {
+    if (who(c).role !== 'admin') throw forbidden('Only the admin can do that.');
+    const b = await parse(c, JoinOrganisation);
+    const token = await deps.signer.verify<{ k?: string; o?: string }>(b.token, deps.now());
+    const org =
+      token?.k === 'org-join' && token.o && UUID.test(token.o)
+        ? await deps.control.organisation(token.o)
+        : undefined;
+    if (!org)
+      throw new ApiError(410, 'invite_invalid', 'That link has expired or is not one of ours.');
+    const row = c.get('handle').row;
+    if (!b.confirm) return c.json({ organisation: { name: org.name }, shared: false });
+    if (row.state !== 'ACTIVE') throw invalid('Only a kitchen that is open can share its totals.');
+    const made = await deps.control.attachKitchen(row.id, org.id, c.get('account')!.id);
+    if (made === 'other')
+      throw new ApiError(
+        409,
+        'conflict',
+        'This kitchen already shares its totals with another organisation. Stop that first.',
+      );
+    if (made === 'attached')
+      await deps.control.event('organisation_kitchen_added', row.id, {
+        organisation: org.id,
+        by: 'kitchen',
+      });
+    deps.directory.invalidate(row.slug);
+    return c.json({ organisation: { name: org.name }, shared: true });
+  });
+
+  w.delete('/organisation', async (c) => {
+    if (who(c).role !== 'admin') throw forbidden('Only the admin can do that.');
+    const row = c.get('handle').row;
+    const org = await deps.control.organisationOfWorkspace(row.id);
+    if (!org || !(await deps.control.detachKitchen(row.id)))
+      throw new ApiError(404, 'not_found', 'This kitchen is not sharing its totals.');
+    await deps.control.event('organisation_kitchen_removed', row.id, {
+      organisation: org.id,
+      by: 'kitchen',
+    });
+    deps.directory.invalidate(row.slug);
+    return c.body(null, 204);
+  });
 
   w.get('/people/:id/role', async (c) =>
     c.json({ role: await svc(c).roleOf(who(c), c.req.param('id')) }),

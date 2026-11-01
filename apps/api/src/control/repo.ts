@@ -28,6 +28,12 @@ export interface WorkspaceRow {
   overSince: string | null;
   movedToUrl: string | null;
   createdAt: string;
+  /**
+   * The organisation this kitchen shares its totals with, when it does. Read with the kitchen, in the one
+   * query that finds it, so a kitchen that shares nothing costs nothing extra and one that does is not asked about
+   * again on every request.
+   */
+  organisationName?: string | null;
 }
 
 // pg hands back Buffers that may share memory; WebCrypto wants plain copies.
@@ -47,7 +53,12 @@ const toWorkspace = (r: R): WorkspaceRow => ({
   overSince: r.over_since ?? null,
   movedToUrl: r.moved_to_url ?? null,
   createdAt: r.created_at,
+  organisationName: r.organisation_name ?? null,
 });
+
+const WITH_ORGANISATION = `SELECT w.*, o.name AS organisation_name FROM workspace w
+  LEFT JOIN organisation_kitchen k ON k.workspace_id = w.id
+  LEFT JOIN organisation o ON o.id = k.organisation_id`;
 
 export interface Wrapped {
   dsnEnc: Bytes;
@@ -172,12 +183,12 @@ export class ControlRepo {
   }
 
   async workspaceBySlug(slug: string): Promise<WorkspaceRow | undefined> {
-    const r = await this.one<R>('SELECT * FROM workspace WHERE slug = $1', [slug]);
+    const r = await this.one<R>(`${WITH_ORGANISATION} WHERE w.slug = $1`, [slug]);
     return r && toWorkspace(r);
   }
 
   async workspaceById(id: string): Promise<WorkspaceRow | undefined> {
-    const r = await this.one<R>('SELECT * FROM workspace WHERE id = $1', [id]);
+    const r = await this.one<R>(`${WITH_ORGANISATION} WHERE w.id = $1`, [id]);
     return r && toWorkspace(r);
   }
 
@@ -236,6 +247,134 @@ export class ControlRepo {
 
   async setLimits(id: string, limits: Limits): Promise<void> {
     await this.many('UPDATE workspace SET limits = $2 WHERE id = $1', [id, JSON.stringify(limits)]);
+  }
+
+  // --- organisations ------------------------------------------------------
+
+  async createOrganisation(accountId: string, name: string): Promise<{ id: string; name: string }> {
+    return this.db.tx(async (tx) => {
+      const [made] = await tx.query<R>(
+        `INSERT INTO organisation (name, created_by) VALUES ($1, $2) RETURNING id, name`,
+        [name.trim(), accountId],
+      );
+      await tx.query(
+        `INSERT INTO organisation_member (organisation_id, account_id) VALUES ($1, $2)`,
+        [made!.id, accountId],
+      );
+      return { id: made!.id as string, name: made!.name as string };
+    });
+  }
+
+  async organisationsOf(
+    accountId: string,
+  ): Promise<{ id: string; name: string; kitchens: number }[]> {
+    const rows = await this.many<R>(
+      `SELECT o.id, o.name, (SELECT count(*)::int FROM organisation_kitchen k WHERE k.organisation_id = o.id) AS kitchens
+         FROM organisation o JOIN organisation_member m ON m.organisation_id = o.id
+        WHERE m.account_id = $1 ORDER BY o.created_at`,
+      [accountId],
+    );
+    return rows.map((r) => ({ id: r.id, name: r.name, kitchens: r.kitchens }));
+  }
+
+  async organisation(id: string): Promise<{ id: string; name: string } | undefined> {
+    const r = await this.one<R>('SELECT id, name FROM organisation WHERE id = $1', [id]);
+    return r && { id: r.id, name: r.name };
+  }
+
+  async isOrganisationMember(organisationId: string, accountId: string): Promise<boolean> {
+    return !!(await this.one(
+      'SELECT 1 FROM organisation_member WHERE organisation_id = $1 AND account_id = $2',
+      [organisationId, accountId],
+    ));
+  }
+
+  async organisationMembers(
+    organisationId: string,
+  ): Promise<{ accountId: string; email: string; name: string | null }[]> {
+    const rows = await this.many<R>(
+      `SELECT a.id, a.email, a.display_name FROM organisation_member m JOIN account a ON a.id = m.account_id
+        WHERE m.organisation_id = $1 ORDER BY m.created_at, a.email`,
+      [organisationId],
+    );
+    return rows.map((r) => ({ accountId: r.id, email: r.email, name: r.display_name ?? null }));
+  }
+
+  async addOrganisationMember(organisationId: string, accountId: string): Promise<void> {
+    await this.many(
+      `INSERT INTO organisation_member (organisation_id, account_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [organisationId, accountId],
+    );
+  }
+
+  /** False, and nothing removed, when this is the last member: an organisation is never left with no head office. */
+  async removeOrganisationMember(organisationId: string, accountId: string): Promise<boolean> {
+    return this.db.tx(async (tx) => {
+      await tx.query('SELECT id FROM organisation WHERE id = $1 FOR UPDATE', [organisationId]);
+      const [n] = await tx.query<R>(
+        'SELECT count(*)::int AS n FROM organisation_member WHERE organisation_id = $1',
+        [organisationId],
+      );
+      if ((n?.n ?? 0) <= 1) return false;
+      await tx.query(
+        'DELETE FROM organisation_member WHERE organisation_id = $1 AND account_id = $2',
+        [organisationId, accountId],
+      );
+      return true;
+    });
+  }
+
+  async organisationKitchens(organisationId: string): Promise<WorkspaceRow[]> {
+    return (
+      await this.many<R>(
+        `SELECT w.* FROM organisation_kitchen k JOIN workspace w ON w.id = k.workspace_id
+          WHERE k.organisation_id = $1 AND w.state <> 'WIPING' ORDER BY w.display_name, w.slug`,
+        [organisationId],
+      )
+    ).map(toWorkspace);
+  }
+
+  /** Makes a kitchen share its totals with an organisation: `other` when it already shares them with another one. */
+  async attachKitchen(
+    workspaceId: string,
+    organisationId: string,
+    byAccount: string,
+  ): Promise<'attached' | 'already' | 'other'> {
+    return this.db.tx(async (tx) => {
+      const made = await tx.query(
+        `INSERT INTO organisation_kitchen (workspace_id, organisation_id, added_by) VALUES ($1, $2, $3)
+         ON CONFLICT (workspace_id) DO NOTHING RETURNING workspace_id`,
+        [workspaceId, organisationId, byAccount],
+      );
+      if (made.length > 0) return 'attached';
+      const [now] = await tx.query<R>(
+        'SELECT organisation_id FROM organisation_kitchen WHERE workspace_id = $1',
+        [workspaceId],
+      );
+      return now?.organisation_id === organisationId ? 'already' : 'other';
+    });
+  }
+
+  /** Ends the sharing. With an organisation named, only if it is that one that the kitchen shares with. */
+  async detachKitchen(workspaceId: string, organisationId?: string): Promise<boolean> {
+    return (
+      (
+        await this.many(
+          `DELETE FROM organisation_kitchen WHERE workspace_id = $1 AND ($2::uuid IS NULL OR organisation_id = $2) RETURNING workspace_id`,
+          [workspaceId, organisationId ?? null],
+        )
+      ).length === 1
+    );
+  }
+
+  async organisationOfWorkspace(
+    workspaceId: string,
+  ): Promise<{ id: string; name: string } | undefined> {
+    const r = await this.one<R>(
+      `SELECT o.id, o.name FROM organisation_kitchen k JOIN organisation o ON o.id = k.organisation_id WHERE k.workspace_id = $1`,
+      [workspaceId],
+    );
+    return r && { id: r.id, name: r.name };
   }
 
   // --- members and invitations -------------------------------------------
@@ -577,7 +716,10 @@ export class ControlRepo {
     await this.many(`DELETE FROM retired_database WHERE id = $1`, [id]);
   }
 
-  /** Removes the workspace and everything that points at it, and any account left with no membership anywhere. */
+  /**
+   * Removes the workspace and everything that points at it, and any account left with no membership anywhere:
+   * in a kitchen, or in an organisation's head office.
+   */
   async deleteWorkspaceAndOrphans(id: string): Promise<{ accountsRemoved: number }> {
     return this.db.tx(async (tx) => {
       const members = (
@@ -588,7 +730,8 @@ export class ControlRepo {
       await tx.query(`DELETE FROM workspace WHERE id = $1`, [id]);
       const gone = members.length
         ? await tx.query(
-            `DELETE FROM account a WHERE a.id = ANY($1::uuid[]) AND NOT EXISTS (SELECT 1 FROM membership m WHERE m.account_id = a.id) RETURNING a.id`,
+            `DELETE FROM account a WHERE a.id = ANY($1::uuid[]) AND NOT EXISTS (SELECT 1 FROM membership m WHERE m.account_id = a.id)
+               AND NOT EXISTS (SELECT 1 FROM organisation_member om WHERE om.account_id = a.id) RETURNING a.id`,
             [members],
           )
         : [];

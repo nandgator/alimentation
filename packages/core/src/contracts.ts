@@ -2,6 +2,7 @@ import type { Meter, Usage } from './limits.ts';
 import type { Policy } from './policy.ts';
 import type { Statement, LedgerDay } from './engine.ts';
 import type { Month, IsoDate } from './dates.ts';
+import type { Paise } from './money.ts';
 import type { Role, RateCard, Holiday, LogChange, PayMethod, SettlementType } from './types.ts';
 import type { Issue } from './validate.ts';
 
@@ -55,6 +56,43 @@ export interface BootstrapDto {
   meter: (Meter & { usage: Usage }) | null;
   workspaceState: 'ACTIVE' | 'MIGRATING' | 'MOVED';
   movedTo: string | null;
+  /** Who receives this kitchen's totals (counts and money, no names), when it shares them. */
+  organisation: { name: string } | null;
+}
+
+/**
+ * What a head office may know of one kitchen: counts and money for the month, and nothing about anyone. It is
+ * worked out inside the kitchen from its books and leaves with no name, contact, note or ledger line.
+ */
+export interface KitchenTotals {
+  month: Month;
+  currency: string;
+  consumers: number;
+  meals: number;
+  billed: Paise;
+  paid: Paise;
+  /** What is owed to the kitchen: see `headline`. */
+  owed: Paise;
+  /** Claims of payment waiting to be confirmed. */
+  toConfirm: number;
+  /** Things the kitchen has not set up yet, such as a rate card. */
+  setup: number;
+}
+
+export interface OrganisationKitchenDto {
+  slug: string;
+  name: string;
+  state: 'ACTIVE' | 'MIGRATING' | 'MOVED';
+  totals: KitchenTotals | null;
+  /** Why there are no totals: it has moved, it has used its requests for today, or it could not be read. */
+  unavailable: 'moved' | 'busy' | 'unreadable' | null;
+}
+
+/** An organisation as its head office sees it. */
+export interface OrganisationDto {
+  organisation: { id: string; name: string };
+  members: { accountId: string; email: string; name: string | null }[];
+  kitchens: OrganisationKitchenDto[];
 }
 
 export interface LogEntryDto {

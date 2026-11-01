@@ -8,3 +8,4 @@ export * from './limits.ts';
 export * from './contracts.ts';
 export * from './bundle.ts';
 export * from './history.ts';
+export * from './headline.ts';
