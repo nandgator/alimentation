@@ -56,6 +56,17 @@ Rigid rules are a kind of unfairness, so:
 - A member can withdraw a pending claim; only the admin can reverse a decision.
 - `monthClose.mode = 'auto'` gives a fixed catch-up window.
 
+## What a head office can see
+
+An organisation's head office is not a member of its kitchens. It sees, for each kitchen that shares with it, the totals of the month: how many people are fed, how many meals, what was billed, paid and is owed, how many claims wait, and whether the kitchen has set up its prices. That is all, and it is held to in four ways.
+
+- **It is worked out inside the kitchen.** The kitchen's own service reads its books in a read-only transaction, as no one in particular, builds the statements in memory, and returns numbers. The names, contacts and notes it had to read to count are not returned, and a test fails if any appears in the answer, and if the answer has any key other than the stated ones.
+- **It writes nothing.** Not even the months that have fallen due to close: they are counted as they will stand, and the kitchen's own next visit stores them.
+- **A kitchen is in only because its admin said so.** From a link its head office made (and shown whom the link is for before anything is shared), or directly by someone who is admin of the kitchen and in the head office. Either side can stop at once. Everyone in the kitchen is told, on the dashboard and in the admin's data page, who receives its totals.
+- **It is counted like any other reading.** Each reading is a request to that kitchen, against its day's budget, and a kitchen that has used it is shown as busy and not read.
+
+What remains true: the instance's operator can read the databases, as above, and a head office is as trusted as the people the kitchens chose to share with.
+
 ## What is deliberately not done
 
 - **One person holding two roles.** The owner of a small kitchen is often both admin and supplier. Nobody checks them; the protection is that everything they do is visible to the person it affects.
