@@ -79,7 +79,14 @@ export async function newPerson(context: BrowserContext) {
 /** Collects anything the browser refuses under the page's security policy, or that throws. */
 export function watchPage(page: Page): string[] {
   const seen: string[] = [];
+  // WebKit reports, as a refused stylesheet, the one it draws a select's own popup with, under any policy that
+  // allows no inline style. It is WebKit's and not the page's: a page with nothing but a select does it, and the
+  // select works. Anything else it refuses is still reported.
+  const webkit = page.context().browser()?.browserType().name() === 'webkit';
+  const itsOwnSelect =
+    /^Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline'/;
   page.on('console', (m) => {
+    if (webkit && itsOwnSelect.test(m.text())) return;
     if (/Content Security Policy|Refused to/i.test(m.text())) seen.push(m.text().slice(0, 200));
   });
   page.on('pageerror', (e) => seen.push(`script error: ${e.message}`.slice(0, 200)));

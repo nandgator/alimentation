@@ -51,9 +51,20 @@ These need accounts, keys or real traffic that the build did not have. Each has 
    only known on the real platform. `smoke:live` prints timings.
 4. **Automated hand-over through Neon's claim links.** Not built: it is a private preview. A tenant moves with a connection string.
 5. **Cost and limit numbers** in `docs/DESIGN.md` carry their source. Those marked secondary were not read on the vendor's own page.
-6. **A browser other than Chromium.** The suites run on Chromium (desktop and a phone profile). Safari and Firefox are not tested.
+6. **A browser other than Chromium, beyond the newest parts.** The suites run on Chromium (desktop and a phone profile).
+   The docs and the several-kitchens screens also run in Firefox and in WebKit, Safari's engine, on a desktop
+   (`npx playwright install firefox webkit`, then `npm run test:browsers -w @alimentation/web`): 46 passed and 4 skipped, the
+   skips being what a browser cannot do (Firefox draws no page that moves with the scroll and glides into no next page; the
+   phone test is for a phone). Not run in either: the rest of the suite, the home page's motion, and a real phone. WebKit
+   logs a refused stylesheet for any `select` under a policy that allows no inline style; it is WebKit's own, a page with
+   nothing but a select does it, and the select works, so `watchPage` leaves that one message out for WebKit only.
    The home page relies on container-query units, `color-mix`, `overflow: clip` and the separate `translate` and `rotate`
    properties, which every browser has had since 2023; older ones are not supported.
+7. **The reference image and the proxy.** The reference image was built from the real Dockerfile (the one change was to make
+   the sandbox proxy's certificate known to `npm ci`, as the sandbox asks), run, and opened in a browser: 257 MB, runs as
+   `node`, answers `/healthz`, refuses a POST, loads Scalar with nothing refused. Caddy and `compose.proxy.yaml` were not
+   run: Docker Hub was rate-limiting pulls, and fetching the binary another way was not allowed. What was run is the
+   reference behind a stand-in proxy that strips `/reference` and redirects the bare path, in a browser, with nothing refused.
 
 ## Decisions worth knowing
 
