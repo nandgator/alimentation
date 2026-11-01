@@ -278,3 +278,46 @@ export function MonthPicker({
     </select>
   );
 }
+
+/** An icon that copies `text`, in the design system's icon button; it turns to a tick for a moment, and says so aloud. */
+export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+  const [state, setState] = useState<'copied' | 'failed' | null>(null);
+  useEffect(() => {
+    if (!state) return;
+    const t = setTimeout(() => setState(null), 1800);
+    return () => clearTimeout(t);
+  }, [state]);
+  return (
+    <>
+      <button
+        type="button"
+        className="icon-btn copy"
+        aria-label={label}
+        title="Copy"
+        data-state={state === 'copied' ? 'copied' : undefined}
+        onClick={() =>
+          void navigator.clipboard.writeText(text).then(
+            () => setState('copied'),
+            () => setState('failed'),
+          )
+        }
+      >
+        <svg className="i-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <rect x="9" y="9" width="11" height="11" rx="2" />
+          <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+        </svg>
+        <svg className="i-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+        <span className="copy-label">Copied</span>
+      </button>
+      <span className="sr" role="status">
+        {state === 'copied'
+          ? 'Copied to the clipboard.'
+          : state === 'failed'
+            ? 'It could not be copied. Select it and press Control and C.'
+            : ''}
+      </span>
+    </>
+  );
+}

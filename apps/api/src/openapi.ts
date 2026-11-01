@@ -5,6 +5,7 @@ import {
   ConfirmBody,
   CreateClaim,
   CreateHoliday,
+  CreateOrganisation,
   CreatePerson,
   CreatePolicy,
   CreateRateCard,
@@ -13,12 +14,15 @@ import {
   DecideClaim,
   DevLogin,
   InvitePerson,
+  JoinOrganisation,
   LedgerQuery,
   LogBody,
   LogQuery,
   MigrateReceive,
   MoveBody,
   MoveTarget,
+  OrganisationKitchen,
+  OrganisationMember,
   PageQuery,
   ReverseClaim,
   StatementsQuery,
@@ -73,6 +77,11 @@ export const TAGS: { name: string; description: string }[] = [
     name: 'The platform',
     description:
       'Outside any one kitchen: whether there is room, who you are, making a kitchen, joining one.',
+  },
+  {
+    name: 'Organisations',
+    description:
+      'A head office over several kitchens. It sees each kitchen’s totals for the month (people, meals, billed, paid, owed, claims waiting) and nothing that names anyone. A kitchen is in one only because its own admin said so.',
   },
   {
     name: 'Operator',
@@ -362,6 +371,12 @@ export const OPERATIONS: Operation[] = [
             ],
           },
           operator: { type: 'boolean', description: 'Only when signed in.' },
+          organisations: {
+            type: 'array',
+            description:
+              'The organisations the account is the head office of. Only when signed in.',
+            items: object({ id: uuid(), name: string(), kitchens: { type: 'integer' } }),
+          },
           workspaces: {
             type: 'array',
             description: 'Only when signed in.',
@@ -434,6 +449,158 @@ export const OPERATIONS: Operation[] = [
       ),
     },
     errors: [404],
+  },
+
+  // --- organisations -----------------------------------------------------------------------------
+  {
+    method: 'get',
+    path: '/api/organisations',
+    tag: 'Organisations',
+    summary: 'The organisations you are the head office of',
+    who: 'Signed in',
+    ok: {
+      status: 200,
+      description: 'Each with how many kitchens share their totals with it.',
+      schema: object({
+        organisations: {
+          type: 'array',
+          items: object({ id: uuid(), name: string(), kitchens: { type: 'integer' } }),
+        },
+      }),
+    },
+    errors: [401],
+  },
+  {
+    method: 'post',
+    path: '/api/organisations',
+    tag: 'Organisations',
+    summary: 'Start an organisation',
+    who: 'Signed in. On a dedicated instance, operators only',
+    description: 'The caller becomes its head office. At most five organisations for one account.',
+    body: CreateOrganisation,
+    ok: {
+      status: 201,
+      description: 'The organisation.',
+      schema: object({ id: uuid(), name: string() }),
+    },
+    errors: [401, 403, 422],
+  },
+  {
+    method: 'get',
+    path: '/api/organisations/:id',
+    tag: 'Organisations',
+    summary: 'The organisation and its kitchens’ totals',
+    who: 'The organisation’s head office',
+    description:
+      'Each kitchen’s totals for its current month: `consumers`, `meals`, `billed`, `paid`, `owed`, `toConfirm` and `setup`. No name, contact, note or ledger line is in the answer, and none is read to the caller. Reading a kitchen counts as a request to it. A kitchen that has moved, used its requests for the day or could not be read has `totals: null` and says why in `unavailable`. Anyone else gets 404.',
+    params: { id: 'The organisation’s id (a UUID).' },
+    ok: {
+      status: 200,
+      description: 'The organisation, its head office, and its kitchens.',
+      schema: object({
+        organisation: object({ id: uuid(), name: string() }),
+        members: {
+          type: 'array',
+          items: object({ accountId: uuid(), email: string(), name: { type: ['string', 'null'] } }),
+        },
+        kitchens: {
+          type: 'array',
+          items: object({
+            slug: string(),
+            name: string(),
+            state: { enum: ['ACTIVE', 'MIGRATING', 'MOVED'] },
+            totals: {
+              oneOf: [
+                { type: 'null' },
+                object({
+                  month: string('`YYYY-MM`, in the kitchen’s own time zone.'),
+                  currency: string(),
+                  consumers: { type: 'integer' },
+                  meals: { type: 'integer' },
+                  billed: { type: 'integer', description: 'In paise.' },
+                  paid: { type: 'integer', description: 'In paise.' },
+                  owed: {
+                    type: 'integer',
+                    description:
+                      'In paise. What people owe the kitchen; one person’s credit does not cancel another’s debt.',
+                  },
+                  toConfirm: { type: 'integer' },
+                  setup: { type: 'integer' },
+                }),
+              ],
+            },
+            unavailable: { enum: ['moved', 'busy', 'unreadable', null] },
+          }),
+        },
+      }),
+    },
+    errors: [401, 404],
+  },
+  {
+    method: 'post',
+    path: '/api/organisations/:id/kitchens',
+    tag: 'Organisations',
+    summary: 'Add a kitchen you are the admin of',
+    who: 'The organisation’s head office, who is also that kitchen’s admin',
+    description:
+      'For a kitchen someone else runs, make a join link instead and ask its admin to use it. A kitchen shares with one organisation at a time. 201 when added, 200 when it already was.',
+    params: { id: 'The organisation’s id (a UUID).' },
+    body: OrganisationKitchen,
+    ok: { status: 201, description: 'Added.', schema: object({ slug: string(), name: string() }) },
+    errors: [401, 403, 404, 409, 422],
+  },
+  {
+    method: 'delete',
+    path: '/api/organisations/:id/kitchens/:slug',
+    tag: 'Organisations',
+    summary: 'Stop receiving a kitchen’s totals',
+    who: 'The organisation’s head office',
+    params: { id: 'The organisation’s id (a UUID).', slug: SLUG },
+    ok: { status: 204, description: 'Removed.' },
+    errors: [401, 404],
+  },
+  {
+    method: 'post',
+    path: '/api/organisations/:id/join-links',
+    tag: 'Organisations',
+    summary: 'Make a link for a kitchen’s admin to join with',
+    who: 'The organisation’s head office',
+    description:
+      'A signed token that works for seven days. Whoever is a kitchen’s admin can use it there (`POST /api/w/{slug}/organisation`); it names the organisation, not the person who made it.',
+    params: { id: 'The organisation’s id (a UUID).' },
+    ok: {
+      status: 200,
+      description: 'The token.',
+      schema: object({ token: string(), expiresInDays: { type: 'integer' } }),
+    },
+    errors: [401, 404],
+  },
+  {
+    method: 'post',
+    path: '/api/organisations/:id/members',
+    tag: 'Organisations',
+    summary: 'Add someone to the head office',
+    who: 'The organisation’s head office',
+    description: 'Only someone who has already signed in here: otherwise 404.',
+    params: { id: 'The organisation’s id (a UUID).' },
+    body: OrganisationMember,
+    ok: {
+      status: 201,
+      description: 'Added.',
+      schema: object({ accountId: uuid(), email: string(), name: { type: ['string', 'null'] } }),
+    },
+    errors: [401, 404, 422],
+  },
+  {
+    method: 'delete',
+    path: '/api/organisations/:id/members/:accountId',
+    tag: 'Organisations',
+    summary: 'Take someone out of the head office, or leave it',
+    who: 'The organisation’s head office',
+    description: 'The last person cannot be removed: 409.',
+    params: { id: 'The organisation’s id (a UUID).', accountId: 'The account’s id (a UUID).' },
+    ok: { status: 204, description: 'Removed.' },
+    errors: [401, 404, 409],
   },
 
   // --- the operator ------------------------------------------------------------------------------
@@ -960,6 +1127,34 @@ export const OPERATIONS: Operation[] = [
       'Table, row, action, actor, time, and the row before and after, with encrypted columns shown as `(encrypted)`.',
     query: PageQuery,
     ok: { status: 200, description: 'A page of the trail.', schema: free('Entries and a cursor.') },
+  },
+
+  {
+    method: 'post',
+    path: '/api/w/:slug/organisation',
+    tag: 'Organisations',
+    summary: 'Share this kitchen’s totals with an organisation',
+    who: 'Admin',
+    kitchen: true,
+    description:
+      'With the link its head office made. Without `confirm` it only says which organisation the link is for, so the admin sees the name before agreeing. With `confirm: true` the kitchen starts sharing its totals: counts and money for the month, no names. Either side can stop. Everyone in the kitchen is told who receives them, in `bootstrap`.',
+    body: JoinOrganisation,
+    ok: {
+      status: 200,
+      description: 'Who the link is for, and whether it is now shared.',
+      schema: object({ organisation: object({ name: string() }), shared: { type: 'boolean' } }),
+    },
+    errors: [403, 409, 410, 422],
+  },
+  {
+    method: 'delete',
+    path: '/api/w/:slug/organisation',
+    tag: 'Organisations',
+    summary: 'Stop sharing this kitchen’s totals',
+    who: 'Admin',
+    kitchen: true,
+    ok: { status: 204, description: 'Stopped.' },
+    errors: [403, 404],
   },
 
   // --- leaving -----------------------------------------------------------------------------------

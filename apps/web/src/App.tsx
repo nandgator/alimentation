@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { Link, Route, Switch } from 'wouter';
 import { Toaster } from './components/ui.tsx';
 import { Home } from './pages/Home.tsx';
@@ -8,6 +9,19 @@ import { ReceiptPage } from './pages/Receipt.tsx';
 import { SignIn } from './pages/SignIn.tsx';
 import { WorkspaceShell } from './pages/workspace/Shell.tsx';
 import { SessionProvider } from './session.tsx';
+
+// Only a head office opens this one, so nobody else downloads it.
+const Organisation = lazy(() =>
+  import('./pages/Organisation.tsx').then((m) => ({ default: m.Organisation })),
+);
+
+function OrganisationRoute() {
+  return (
+    <Suspense fallback={null}>
+      <Organisation />
+    </Suspense>
+  );
+}
 
 function NotFound() {
   return (
@@ -31,6 +45,7 @@ export function App() {
         <Route path="/join" component={Join} />
         <Route path="/receipt/:id" component={ReceiptPage} />
         <Route path="/operator" component={Operator} />
+        <Route path="/org/:id" component={OrganisationRoute} />
         <Route path="/w/:slug/*?" component={WorkspaceShell} />
         <Route component={NotFound} />
       </Switch>

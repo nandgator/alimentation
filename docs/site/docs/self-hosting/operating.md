@@ -13,8 +13,8 @@ Every setting is an environment variable, and all of them are listed with what t
 
 Compose builds the image only when there is none, and nothing watches the files. After `git pull`, run the same command with `--build`:
 
-```sh
-docker compose up -d --build
+```console
+$ docker compose up -d --build
 ```
 
 It rebuilds, replaces the app container, and keeps both volumes. The documentation you are reading is rebuilt with it.
@@ -32,7 +32,11 @@ One account can be in any number of kitchens, in a different role in each, and e
 - Each kitchen's manager is added in that kitchen as a person with the role `admin` and invited by email. They see their own kitchen and no other, cannot make a kitchen, and cannot see `/operator`.
 - Someone who supplies several kitchens, or eats at several, is invited to each, and chooses between them after signing in.
 
-What there is not, yet: a figure that adds up the kitchens, a rate card or a list of holidays shared between them, or a head-office role that is an admin of a kitchen by being head office rather than by being invited to it. Each is done in each kitchen.
+Three things are there for someone who runs several kitchens, and a person with one kitchen is shown none of them:
+
+- **Your kitchens, with numbers.** The page that lists your kitchens shows each one's figure for the month (what is owed, what waits to be confirmed, whether it needs setting up) and a line across them all. It is worked out in the browser from what each kitchen already tells you, so it shows nothing a kitchen would not. It is asked for only when you are in two or more.
+- **Copy a setup.** From a kitchen you run to others you run: prices, rules and holidays from this month on. It shows what would be added first, leaves what the other kitchen already has, and adds through that kitchen's own pages, so each still refuses what its own rules refuse.
+- **A head office.** An organisation is a head office over kitchens that agreed to it. Its people see each kitchen's totals for the month (people, meals, billed, paid, owed, claims waiting) and nothing that names anyone, and they are not members of the kitchens. A kitchen joins by its own admin's choice, from a link its head office made, or directly when the same person runs both; either side can stop. Everyone in a kitchen is told who receives its totals. See [Behind a proxy](/docs/self-hosting/behind-a-proxy/) for the API reference at the same address, and [the trust model](/docs/concepts/trust-model/#what-a-head-office-can-see) for what is and is not read.
 
 ## Housekeeping
 

@@ -20,7 +20,12 @@
     },
     {
       "title": "If you run the books",
-      "pages": ["admin/running-the-books", "admin/month-end", "admin/kitchen-rules"]
+      "pages": [
+        "admin/running-the-books",
+        "admin/month-end",
+        "admin/kitchen-rules",
+        "admin/several-kitchens"
+      ]
     },
     {
       "title": "How it works",

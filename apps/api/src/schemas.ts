@@ -151,3 +151,17 @@ export const MoveBody = z.object({ target: MoveTarget, confirm: z.string() });
 
 /** The kitchen's own address, typed to confirm something that cannot be undone. */
 export const ConfirmBody = z.object({ confirm: z.string() });
+
+// --- organisations ---------------------------------------------------------------------------------
+
+export const CreateOrganisation = z.object({ name: z.string().trim().min(1).max(120) });
+
+export const OrganisationKitchen = z.object({ slug: z.string().min(1).max(60) });
+
+export const OrganisationMember = z.object({ email: z.string().email() });
+
+/** A kitchen's admin joins it to an organisation with the link its head office made; `confirm` makes it so. */
+export const JoinOrganisation = z.object({
+  token: z.string().min(10).max(4096),
+  confirm: z.boolean().default(false),
+});

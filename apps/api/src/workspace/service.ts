@@ -10,6 +10,7 @@ import {
   checkReversal,
   closeSnapshot,
   consumers,
+  headline,
   hasErrors,
   isValidDate,
   isValidMonth,
@@ -34,6 +35,7 @@ import {
   type HistoryContext,
   type HistoryEventDto,
   type Issue,
+  type KitchenTotals,
   type LedgerDto,
   type Limits,
   type LogChange,
@@ -55,7 +57,7 @@ import type { FieldCipher } from '../crypto/fields.ts';
 import type { Db, Tx } from '../db/driver.ts';
 import { asActor, type Actor } from './context.ts';
 import { ApiError, forbidden, invalid, mapDbError, notFound } from './errors.ts';
-import { applyAutoCloses, loadEngineData, rateCardFromRow } from './load.ts';
+import { applyAutoCloses, loadEngineData, rateCardFromRow, withDueCloses } from './load.ts';
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -81,6 +83,13 @@ export interface ServiceDeps {
   /** Records the date the workspace first went over a cap, or clears it. */
   recordOverSince: (date: string | null) => Promise<void>;
 }
+
+/**
+ * Who the books are read as when a head office asks how the kitchen is doing: an admin who is no one in
+ * particular, so that every row can be counted and none of them can be pointed at. It is never given a way to
+ * write (see `totals`), and what is made from the rows leaves as numbers.
+ */
+const NO_ONE: Actor = { role: 'admin', personId: '00000000-0000-0000-0000-000000000000' };
 
 const WEEKDAY_COLUMNS = [
   'menu_sun',
@@ -148,7 +157,7 @@ export class WorkspaceService {
 
   // --- reading -----------------------------------------------------------
 
-  async bootstrap(actor: Actor, roles: Role[]): Promise<BootstrapDto> {
+  async bootstrap(actor: Actor, roles: Role[]): Promise<Omit<BootstrapDto, 'organisation'>> {
     const info = this.d.info;
     const requests = actor.role === 'admin' ? await this.d.requestsLast24h() : 0;
     return this.run(actor, async (tx, load) => {
@@ -218,6 +227,53 @@ export class WorkspaceService {
         movedTo: info.movedTo,
       };
     });
+  }
+
+  /**
+   * What a head office may know of this kitchen for the month: counts and money, and nothing about anyone.
+   * It is read in a read-only transaction, as no one in particular, from books worked out in memory and
+   * thrown away. Nothing is stored, not even the closes that have fallen due: the kitchen's own next visit
+   * stores those, and they are counted here as they will stand.
+   */
+  async totals(): Promise<KitchenTotals> {
+    try {
+      return await asActor(this.d.db, NO_ONE, async (tx) => {
+        await tx.query('SET TRANSACTION READ ONLY');
+        const { data } = withDueCloses(await loadEngineData(tx, this.d.cipher, this.local().date));
+        const p = prepare(data);
+        const current = monthOf(data.today);
+        const ids = consumers(p).map((c) => c.id);
+        let setup = 0;
+        if (data.rateCards.length === 0) setup++;
+        if (ids.length === 0) setup++;
+        let statements: ReturnType<typeof buildStatements> = [];
+        if (data.rateCards.length > 0) {
+          try {
+            statements = buildStatements(p, ids, [current]);
+          } catch (e) {
+            if (!(e instanceof EngineError)) throw e;
+            setup++;
+          }
+        }
+        const [pending] = await tx.query<R>(
+          `SELECT count(*)::int AS n FROM claim c WHERE NOT EXISTS (SELECT 1 FROM claim_decision d WHERE d.claim_id = c.id)`,
+        );
+        const h = headline(statements, pending?.n ?? 0);
+        return {
+          month: current,
+          currency: this.d.info.currency,
+          consumers: ids.length,
+          meals: statements.reduce((a, x) => a + x.counts.meals, 0),
+          billed: h.billed,
+          paid: h.paid,
+          owed: h.owed,
+          toConfirm: h.toConfirm,
+          setup,
+        };
+      });
+    } catch (e) {
+      throw mapDbError(e);
+    }
   }
 
   private async measure(tx: Tx, requests: number): Promise<Usage> {
