@@ -1,0 +1,38 @@
+# The app and its API reference behind one address, for a machine or a test deployment, with Caddy in front:
+#
+#   docker compose -f compose.yaml -f compose.proxy.yaml up -d --build
+#
+# Then http://localhost:8787 is the app and its documentation as before, and http://localhost:8787/reference/
+# is the API reference. Nothing else changes: the address is the same, so APP_ORIGIN does not either.
+#
+# It is off unless asked for, and the plain `docker compose up` stays one app and one database. (This is a file
+# and not a profile because a profile cannot take away the port the app publishes by itself.) For a domain with
+# HTTPS use compose.https.yaml instead. To put another proxy in front, such as Nginx, HAProxy or Traefik, see
+# "Behind a proxy" in the self-hosting documentation: it needs the same two routes.
+name: alimentation
+
+services:
+  app:
+    ports: !reset []
+
+  reference:
+    profiles: !reset []
+    # Reached only through the proxy, at /reference/.
+    ports: !reset []
+
+  proxy:
+    image: docker.io/library/caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+      - reference
+    ports:
+      - '${PORT:-8787}:80'
+    volumes:
+      - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:80/api/health >/dev/null || exit 1']
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 4

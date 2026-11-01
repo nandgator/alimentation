@@ -1,0 +1,21 @@
+# One address in front of the app and the API reference, for a machine or a test deployment. Plain HTTP:
+# for a real domain with HTTPS, use compose.https.yaml and the Caddyfile beside this one.
+#
+#   /reference/   the API reference (its own small site)
+#   everything else   the app, with its documentation
+:80 {
+	encode zstd gzip
+
+	# The reference is found with or without the slash.
+	redir /reference /reference/ 308
+
+	# The prefix is taken off on the way in: the reference does not know it is under a path, and its
+	# addresses are all relative to its page.
+	handle_path /reference/* {
+		reverse_proxy reference:8788
+	}
+
+	handle {
+		reverse_proxy app:8787
+	}
+}

@@ -31,6 +31,9 @@ describe('the API reference as a site of its own', () => {
     expect(directive('connect-src')).toEqual(["'self'"]);
     expect(directive('frame-ancestors')).toEqual(["'none'"]);
     expect(directive('form-action')).toEqual(["'none'"]);
+    // It names its files relative to itself, so it works under a path (behind a proxy at /reference/) as well as at the top.
+    expect(read('public/index.html')).not.toMatch(/(src|href)="\//);
+    expect(read('public/init.js')).not.toMatch(/url:\s*'\//);
     // No script in the page itself: the page only names files.
     expect(read('public/index.html')).not.toMatch(/<script(?![^>]*\ssrc=)/);
   });
@@ -38,7 +41,7 @@ describe('the API reference as a site of its own', () => {
   it('starts Scalar with every way of calling out switched off', () => {
     const init = read('public/init.js');
     for (const setting of [
-      "url: '/openapi.json'",
+      "url: 'openapi.json'",
       'telemetry: false',
       'withDefaultFonts: false',
       'hideTestRequestButton: true',
