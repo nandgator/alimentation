@@ -55,6 +55,19 @@ Used by the home page and the occasional brand moment, not by everyday screens.
 <div class="swatch sw-board"><i></i><b>--board</b><span>The chalkboard: code blocks and the home page's menu board.</span></div>
 </div>
 
+### Code
+
+Code is on the chalkboard, which is dark in both themes, so these do not change with the theme. Comments are `--board-dim`, punctuation `--steel-3` and everything else `--board-ink`.
+
+<div class="swatches">
+<div class="swatch sw-code-keyword"><i></i><b>--code-keyword</b><span>Keywords, tags, selectors.</span></div>
+<div class="swatch sw-code-string"><i></i><b>--code-string</b><span>Strings and what is written into them.</span></div>
+<div class="swatch sw-code-number"><i></i><b>--code-number</b><span>Numbers, and true, false and null.</span></div>
+<div class="swatch sw-code-type"><i></i><b>--code-type</b><span>Types, classes and built-ins.</span></div>
+<div class="swatch sw-code-name"><i></i><b>--code-name</b><span>Attributes, properties and variables.</span></div>
+<div class="swatch sw-code-function"><i></i><b>--code-function</b><span>The names of functions and sections.</span></div>
+</div>
+
 ### Light and dark
 
 Each token above is redefined for dark mode, in two places: under `prefers-color-scheme: dark` unless the person chose light, and under `[data-theme='dark']` when they chose it. Do not write a colour twice; write a token once and give it both values. Pairs are chosen to meet contrast in both themes, and the end-to-end run checks that.

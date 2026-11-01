@@ -32,9 +32,12 @@ async function arrowOf(page: Page, select: Locator, savedAs: string) {
           60
         );
       };
-      // The right-hand 56px, inside the 1px border, and the middle of the height, clear of the rounded corners, where the border curves in.
+      // The right-hand 56px, inside the border, and the middle of the height, clear of the rounded corners, where the
+      // border curves in. A picture of a select is cut out to whole pixels, so its border can sit a few of them in from the
+      // edge of the picture, depending on how wide the text made the select: the last 4px are not looked at, and an arrow
+      // that close would still show by the rest of it, which is wider than that.
       const x0 = Math.max(0, Math.round(width - 56 * scale));
-      const x1 = Math.round(width - 2 * scale);
+      const x1 = Math.round(width - 4 * scale);
       const y0 = Math.round(height * 0.38);
       const y1 = Math.round(height * 0.62);
       let right = -1;

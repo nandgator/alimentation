@@ -450,6 +450,9 @@ html:has(.docs) {
   background: var(--board);
   color: var(--board-ink);
   box-shadow: var(--elev-menu);
+  /* The scrollbar is the board's, not the page's: a light track under a dark block looks like a gap. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--board-ink) 38%, transparent) transparent;
 }
 .docs-article pre code {
   display: block;
@@ -461,10 +464,49 @@ html:has(.docs) {
   white-space: pre;
   overflow-wrap: normal;
 }
-.docs-article pre .copy {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+.docs-article pre:focus-visible {
+  outline-offset: 2px;
+}
+
+/* A listing: what it is on a bar (the language, or the file and which lines of it), then the code. The copy
+   button is on the bar, or, with no bar, on the corner of the block and not of what scrolls inside it. */
+.docs-article figure.code {
+  position: relative;
+  margin: var(--flow) 0 var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--board);
+  box-shadow: var(--elev-menu);
+}
+.docs-article figure.code pre {
+  margin: 0;
+  background: none;
+  box-shadow: none;
+}
+.docs-article figure.code.has-bar pre {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.code-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: 4px 10px 4px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--board-ink) 14%, transparent);
+  color: var(--board-dim);
+  font: 600 var(--text-xs)/1 var(--sans);
+  letter-spacing: 0.02em;
+}
+.code-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.code-range {
+  flex: none;
+  font-weight: 500;
+}
+.docs-article .copy {
   min-height: 30px;
   padding: 4px 12px;
   border: 1px solid color-mix(in srgb, var(--board-ink) 40%, transparent);
@@ -474,8 +516,143 @@ html:has(.docs) {
   font: 600 var(--text-xs)/1 var(--sans);
   cursor: pointer;
 }
-.docs-article pre:focus-visible {
-  outline-offset: 2px;
+.code-bar .copy {
+  flex: none;
+  margin-left: auto;
+}
+.docs-article pre > .copy,
+.docs-article figure.code > .copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+/* Line numbers are in the margin and not in the text: they cannot be selected or copied, and are faint. */
+.docs-article .numbered .line::before {
+  content: attr(data-n);
+  display: inline-block;
+  min-width: 3ch;
+  margin-right: 1.4em;
+  color: color-mix(in srgb, var(--board-dim) 62%, var(--board));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+.docs-article .line.hl {
+  display: inline-block;
+  min-width: 100%;
+  background:
+    linear-gradient(var(--accent), var(--accent)) left / 3px 100% no-repeat,
+    color-mix(in srgb, var(--board-ink) 10%, transparent);
+}
+
+/* Highlighting: the system's own colours, picked for the chalkboard, which is dark in both themes. */
+.docs-article .hljs-comment,
+.docs-article .hljs-quote {
+  color: var(--board-dim);
+  font-style: italic;
+}
+.docs-article .hljs-keyword,
+.docs-article .hljs-selector-tag,
+.docs-article .hljs-tag,
+.docs-article .hljs-name,
+.docs-article .hljs-doctag {
+  color: var(--code-keyword);
+}
+.docs-article .hljs-string,
+.docs-article .hljs-regexp,
+.docs-article .hljs-addition,
+.docs-article .hljs-template-tag {
+  color: var(--code-string);
+}
+.docs-article .hljs-number,
+.docs-article .hljs-literal,
+.docs-article .hljs-symbol,
+.docs-article .hljs-bullet {
+  color: var(--code-number);
+}
+.docs-article .hljs-title,
+.docs-article .hljs-section,
+.docs-article .hljs-selector-id,
+.docs-article .hljs-selector-class {
+  color: var(--code-function);
+}
+.docs-article .hljs-type,
+.docs-article .hljs-built_in,
+.docs-article .hljs-deletion {
+  color: var(--code-type);
+}
+.docs-article .hljs-attr,
+.docs-article .hljs-attribute,
+.docs-article .hljs-property,
+.docs-article .hljs-variable,
+.docs-article .hljs-params,
+.docs-article .hljs-template-variable {
+  color: var(--code-name);
+}
+.docs-article .hljs-meta,
+.docs-article .hljs-punctuation,
+.docs-article .hljs-operator {
+  color: var(--steel-3);
+}
+.docs-article .hljs-emphasis {
+  font-style: italic;
+}
+.docs-article .hljs-strong {
+  font-weight: 700;
+}
+
+/* A diagram is drawn once, at build time, and its colours are left to the page. The roles are set here, from
+   the design system's own tokens, so that it follows the light and the dark theme without being drawn again:
+   a node is a tonal container (the brand's tint on the card), its outline a step stronger, its text the
+   ordinary ink, and the arrows the brand itself. */
+.docs-article figure.diagram {
+  margin: var(--flow) 0 var(--space-5);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+.diagram-scroll {
+  padding: var(--space-4);
+  overflow-x: auto;
+  text-align: center;
+}
+.diagram-scroll:focus-visible {
+  outline-offset: -3px;
+}
+.diagram svg {
+  display: inline-block;
+  /* As wide as it was drawn, or as the page, but not narrower than it can be read: below that it scrolls. */
+  max-width: 100%;
+  min-width: 36rem;
+  height: auto;
+  --bg: var(--card);
+  --fg: var(--ink);
+  --accent: var(--brand);
+  --line: var(--ink-2);
+  --muted: var(--ink-2);
+  --surface: color-mix(in srgb, var(--brand) 9%, var(--card));
+  --border: color-mix(in srgb, var(--brand) 38%, var(--card));
+}
+.diagram svg text {
+  font-family: var(--sans);
+}
+.docs-article figure.diagram > figcaption {
+  padding: 0 var(--space-4) var(--space-3);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+.diagram-source {
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--text-sm);
+}
+.diagram-source summary {
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.diagram-source pre {
+  margin-bottom: 0;
 }
 
 /* Callouts: a note is steel, a tip is green, a warning is turmeric. */
@@ -749,6 +926,24 @@ html:has(.docs) {
 }
 .sw-board i {
   background: var(--board);
+}
+.sw-code-keyword i {
+  background: var(--code-keyword);
+}
+.sw-code-string i {
+  background: var(--code-string);
+}
+.sw-code-number i {
+  background: var(--code-number);
+}
+.sw-code-type i {
+  background: var(--code-type);
+}
+.sw-code-name i {
+  background: var(--code-name);
+}
+.sw-code-function i {
+  background: var(--code-function);
 }
 
 .specimens {

@@ -22,6 +22,7 @@ import {
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
+import { createBlocks } from './docs-blocks.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -72,7 +73,7 @@ const cellClass = (align) =>
 const CALLOUT = { NOTE: 'Note', TIP: 'Tip', WARNING: 'Warning', IMPORTANT: 'Important' };
 
 /** One Markdown parser per page, so heading ids are unique within the page and collected for its contents. */
-function renderer(toc) {
+function renderer(toc, blocks, file) {
   const used = new Set();
   const md = new Marked({
     gfm: true,
@@ -115,9 +116,8 @@ function renderer(toc) {
           .join('');
         return `<div class="tablewrap" tabindex="0" role="region" aria-label="Table; scrolls sideways when it is wider than the screen"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>\n`;
       },
-      code({ text, lang }) {
-        const cls = lang ? ` class="language-${esc(lang.split(/\s/)[0])}"` : '';
-        return `<pre tabindex="0"><code${cls}>${esc(text)}</code></pre>\n`;
+      code(token) {
+        return blocks.code(token, file);
       },
       codespan({ text }) {
         // A long path or query may break after its separators, which reads better than breaking mid-word.
@@ -195,7 +195,7 @@ function homeHtml(h) {
 }
 
 /** One site's pages in reading order, from its nav.json, each read, rendered and checked. */
-function loadSite(srcRoot, site) {
+function loadSite(srcRoot, site, blocks) {
   const src = join(srcRoot, site.dir);
   const nav = JSON.parse(readFileSync(join(src, 'nav.json'), 'utf8'));
   const pages = [];
@@ -209,7 +209,7 @@ function loadSite(srcRoot, site) {
         throw new Error(`${site.dir}/nav.json lists ${file}, which does not exist`);
       const { meta, body } = frontMatter(readFileSync(join(srcRoot, file), 'utf8'), file);
       const toc = [];
-      const rendered = renderer(toc).parse(body);
+      const rendered = renderer(toc, blocks, file).parse(body);
       const layout = meta.layout ?? 'doc';
       if (layout !== 'doc' && layout !== 'home')
         throw new Error(`${file}: layout is "doc" or "home", not "${layout}"`);
@@ -410,13 +410,19 @@ export function buildDocs({
   src = join(REPO, 'docs', 'site'),
   dist = join(REPO, 'apps', 'web', 'dist'),
 } = {}) {
-  const sites = SITES.map((site) => loadSite(src, site));
+  // One set of blocks for both sites: the diagrams drawn in any page add to the one stylesheet.
+  const blocks = createBlocks({ repo: REPO });
+  const sites = SITES.map((site) => loadSite(src, site, blocks));
   checkLinks(sites.flatMap((x) => x.pages));
   const css = appStylesheet(dist);
   const assets = join(dist, ASSETS);
   rmSync(assets, { recursive: true, force: true });
   mkdirSync(assets, { recursive: true });
-  for (const f of ['docs.css', 'docs.js']) cpSync(join(here, 'docs', f), join(assets, f));
+  cpSync(join(here, 'docs', 'docs.js'), join(assets, 'docs.js'));
+  writeFileSync(
+    join(assets, 'docs.css'),
+    `${readFileSync(join(here, 'docs', 'docs.css'), 'utf8')}\n/* What the diagrams drawn in these pages came with, scoped to them. */\n${blocks.diagramCss()}\n`,
+  );
   const written = [];
   for (const site of sites) {
     const out = join(dist, site.site.dir);

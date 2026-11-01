@@ -272,6 +272,44 @@ and the role). Jovial can be a consumer in both workspaces with one login. A
 development login exists only when `AUTH_DEV=1` and the process refuses to start
 with it in production mode.
 
+**Addendum, 2026-11-01.** An account is one email: the same verified email from
+another provider (the instance was pointed at a new one) is the same account and
+keeps its kitchens, and one whose email at its provider has become another
+account's here is refused with a message, not a fault. The client takes what the
+identity token leaves out from the userinfo endpoint (Authelia and Zitadel keep
+the email out by default), sends the secret in a Basic header when that is the only
+way a provider takes it, asks to choose an account only where that is understood,
+and refuses a provider with no code flow plainly. It was run against Authelia with
+LLDAP in a real browser, and compared, before and after, against the published
+documents of Google (identical), Microsoft and Apple (refused before, refused still:
+Entra sends no `email_verified`, Apple sends the string "true") and Meta (no token
+endpoint at all). `/docs/self-hosting/sign-in-locally/` has the detail.
+
+_Considered: Better Auth_ (the `better-auth` library, 1.7.x). It is used as a
+library: `betterAuth({...}).handler(request)` mounts on Hono, with a generic OAuth
+plugin for any OpenID provider, built-in Google, Microsoft, Apple and Facebook, a
+stateless mode with signed-cookie sessions, an account-linking policy, and plugins
+for passkeys, two-factor, email codes, organisations and SAML. Not adopted now:
+
+1. **Weight.** Bundled the same way, its handler alone (one plugin, no database
+   adapter) is about 198 KB gzipped; this whole Worker, API, billing engine and
+   encryption included, is about 136 KB. It would more than double what the free
+   plan has to load and run in 10 ms of CPU, which is already the open question.
+2. **A second model of a person.** It keeps its own user, session and account
+   tables (or, stateless, no accounts at all). Ours is account, then membership,
+   then a person in a kitchen's own database under row-level security. An adapter
+   would map the one onto the other and keep both in step, which is more machinery
+   than the roughly 150 lines it replaces.
+3. **What it is good at is what we do not do.** Passwords, email codes, passkeys,
+   SAML. The promise here is that no credential is kept. Its own documentation also
+   treats a Facebook email as unverified, which is the call made here.
+
+Revisit if people who have no account at an OpenID provider must be let in (email
+codes or passkeys): adopt it for that, mounted beside our routes and writing into
+the same `account` by verified email, and for nothing else. Or if SAML is wanted.
+Not checked here: it running on Workers against Neon, and its record of security
+advisories; look at both before that day.
+
 ### 5.8 Usage, thresholds and the nudge (ADR-07)
 
 The meter is a pure function from measured usage (requests in the last 24 h,
@@ -382,6 +420,32 @@ files, forward-only, applied under an advisory lock. A deploy runs `migrate-all`
 across the directory. A request that meets an older database migrates it first
 (expand/contract discipline: a new release works with the old schema until the
 fleet is migrated). The control database has its own migration line.
+
+### 5.12 Several kitchens, one organisation (ADR-13)
+
+What already works: one account is in any number of kitchens, in a different role
+in each (the key is account, kitchen and role), and each kitchen is a database of
+its own. An organisation is several kitchens on an instance of its own with
+`DEDICATED=1`: head office is an operator, makes each kitchen and so is its admin,
+adds each manager as an admin of theirs, and sees every kitchen's state and size at
+`/operator` and no one's names. A manager sees their own kitchen only. A test pins
+all of this (`apps/api/test/accounts.test.ts`).
+
+What does not exist: a figure that adds up the kitchens, a rate card, rules or
+holidays shared between them, and a head-office role that is an admin of a kitchen
+by being head office. The plan, in this order:
+
+1. **Your kitchens, with their numbers.** The page that lists a person's kitchens
+   shows each one's pending claims and what is owed, fetched by the browser from
+   each kitchen's own `bootstrap`. No new server surface: each call is checked as
+   that person in that kitchen and counted against that kitchen's budget.
+2. **Copy a setup to the others.** Rate cards, holidays and rules, to the kitchens
+   where the person is an admin, by each kitchen's own endpoints, so each still
+   refuses what its own rules refuse.
+3. **A head-office role.** Needs an organisation in the control database and a
+   decision that is not technical: may head office read every kitchen's people?
+   Today only the admin of a kitchen can, and a head office that is not one cannot.
+   Not to be built before a chain asks for it.
 
 ## 6. Technology
 

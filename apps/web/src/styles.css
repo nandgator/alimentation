@@ -36,6 +36,13 @@
   --board: #16251e;
   --board-ink: #eef1ec;
   --board-dim: #9fb3a6;
+  /* Code is on the chalkboard, which is dark in both themes, so these are the same in both. */
+  --code-keyword: #f7d77a;
+  --code-string: #8fd3a5;
+  --code-number: #f0b323;
+  --code-type: #f4a698;
+  --code-name: #9ec9dd;
+  --code-function: #cfe3a0;
   /* Shape: four steps and a pill. A card is the large one. */
   --radius-xs: 4px;
   --radius-sm: 8px;

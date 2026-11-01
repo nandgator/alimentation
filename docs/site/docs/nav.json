@@ -18,6 +18,7 @@
       "pages": [
         "self-hosting/install",
         "self-hosting/going-live",
+        "self-hosting/sign-in-locally",
         "self-hosting/configuration",
         "self-hosting/operating",
         "self-hosting/cli"

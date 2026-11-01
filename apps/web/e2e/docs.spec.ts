@@ -61,7 +61,7 @@ test.describe('the documentation sites', () => {
     page,
   }, info) => {
     await page.goto('/docs/design/foundations/');
-    await expect(page.locator('.swatch')).toHaveCount(17);
+    await expect(page.locator('.swatch')).toHaveCount(23);
     const colour = (sel: string) =>
       page.locator(sel).evaluate((el) => getComputedStyle(el).backgroundColor);
     const brandLight = await colour('.sw-brand i');
@@ -269,6 +269,93 @@ test.describe('the documentation sites', () => {
     await page.goto('/docs/self-hosting/configuration/');
     await expectNoSidewaysScroll(page, 'the configuration page');
     await expect(page.locator('.tablewrap').first()).toHaveAttribute('tabindex', '0');
+  });
+
+  test('draws a diagram in the page\u2019s own colours, so it follows the theme, under the same policy', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    await page.goto('/docs/overview/architecture/');
+    const figure = page.locator('figure.diagram').first();
+    await expect(figure.locator('svg')).toBeVisible();
+    await expect(figure.locator('figcaption')).toHaveText(/Where a request goes/);
+    const node = figure.locator('svg rect').first();
+    const paint = () =>
+      node.evaluate((el) => {
+        const c = getComputedStyle(el);
+        return { fill: c.fill, stroke: c.stroke };
+      });
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+    const light = await paint();
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    const dark = await paint();
+    for (const p of [light.fill, dark.fill]) expect(p).toMatch(/^(rgb|color)\(/);
+    expect(dark.fill, 'a node is another colour in the dark').not.toBe(light.fill);
+    expect(dark.stroke).not.toBe(light.stroke);
+    // For anyone who cannot see it, and for copying: the diagram as text.
+    await figure.getByText('The diagram as text').click();
+    await expect(figure.locator('details pre code')).toContainText('flowchart TD');
+    await expectNoSidewaysScroll(page, 'a page with a diagram');
+    expect(problems, 'nothing refused by the security policy, nothing thrown').toEqual([]);
+  });
+
+  test('numbers the lines of a listing in the margin as they are in the file it shows, and copies only the code', async ({
+    page,
+    context,
+    isMobile,
+  }) => {
+    await page.goto('/docs/concepts/billing-engine/');
+    const block = page.locator('figure.code', { hasText: 'EngineData' }).first();
+    await expect(block.locator('.code-name')).toHaveText('packages/core/src/engine.ts');
+    await expect(block.locator('.code-range')).toHaveText('lines 28\u201339');
+    const first = block.locator('.line').first();
+    const margin = await first.evaluate((el) => {
+      const c = getComputedStyle(el, '::before');
+      return { content: c.content, select: c.userSelect };
+    });
+    expect(margin).toEqual({ content: '"28"', select: 'none' });
+    // Highlighted: a keyword is not the colour of the text around it.
+    const colours = await block.evaluate((el) => ({
+      text: getComputedStyle(el.querySelector('code')!).color,
+      keyword: getComputedStyle(el.querySelector('.hljs-keyword')!).color,
+    }));
+    expect(colours.keyword).not.toBe(colours.text);
+    if (!isMobile) {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      await block.getByRole('button', { name: 'Copy this code' }).click();
+      const copied = await page.evaluate(() => navigator.clipboard.readText());
+      expect(copied).toBe(await block.locator('code').evaluate((el) => el.textContent));
+      expect(copied.startsWith('export interface EngineData {')).toBe(true);
+      expect(copied).not.toMatch(/^\s*\d+\s/m);
+    }
+  });
+
+  test('keeps the copy button where it is while a long line of code is scrolled', async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const urls = await pagesOf(page, 'docs');
+    for (const url of urls) {
+      await page.goto(url);
+      const wide = page
+        .locator('figure.code')
+        .filter({ has: page.locator('pre') })
+        .evaluateAll((all) =>
+          all.findIndex(
+            (f) => f.querySelector('pre')!.scrollWidth > f.querySelector('pre')!.clientWidth + 8,
+          ),
+        );
+      const at = await wide;
+      if (at < 0) continue;
+      const figure = page.locator('figure.code').nth(at);
+      const copy = figure.getByRole('button', { name: 'Copy this code' });
+      await figure.scrollIntoViewIfNeeded();
+      const before = await copy.boundingBox();
+      await figure.locator('pre').evaluate((el) => (el.scrollLeft = 120));
+      expect(await copy.boundingBox(), `${url}: the button stays on the bar`).toEqual(before);
+      return;
+    }
+    test.skip(true, 'no listing is wider than its column at this size');
   });
 
   test('is served under the same strict security policy as the app', async ({ page }) => {

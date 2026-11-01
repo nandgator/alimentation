@@ -54,6 +54,20 @@ The check that no personal data reaches the Postgres log needs that log to be re
 To work on it with live reload, run the API (`npm run dev:api`, with the settings above and `AUTH_DEV=1`,
 `NODE_ENV=development`, `APP_ORIGIN=http://localhost:5173`) and the web app (`npm run dev:web`) side by side.
 
+### Sign in through a real provider, on your machine
+
+```sh
+dev/idp/idp.sh up authelia       # Authelia, with LLDAP behind it, and the app; makes alice (the operator) and bina
+dev/idp/idp.sh test authelia     # signs in through it in a browser (Playwright; PLAYWRIGHT_CHROMIUM_PATH for a local Chromium)
+dev/idp/idp.sh down authelia     # or reset, to forget the keys and the people
+```
+
+Secrets, a certificate authority of its own and the test people's passwords are made into `dev/idp/.state` (ignored by git and by the Docker build). `IDP_COMPOSE_OVERRIDE=file.yaml` lays one more compose file on top, for a host that cannot build the app's image. What was run and what was not, for each provider, is in `/docs/self-hosting/sign-in-locally/`.
+
+### The API reference
+
+`npm run dev:reference` builds the reference from the server's routes and serves it at http://localhost:8788; `docker compose --profile reference up -d --build reference` does the same in a container; `npm run build:reference` then `npx wrangler deploy -c apps/reference/wrangler.jsonc` puts it on Cloudflare. Nothing in it can send a request: the API answers only a browser on its own site.
+
 ## A. The shared service on Cloudflare and Neon (**not run against the real services**)
 
 What was exercised: the Worker bundle, the Worker running in the Workers runtime against Postgres through
