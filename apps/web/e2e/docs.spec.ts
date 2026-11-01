@@ -257,11 +257,13 @@ test.describe('the documentation sites', () => {
     page,
     context,
     isMobile,
+    browserName,
   }) => {
     await page.goto('/docs/self-hosting/install/');
     const copy = page.getByRole('button', { name: 'Copy this code' }).first();
     await expect(copy).toBeVisible();
-    if (!isMobile) {
+    // Only Chromium can be given leave to read the clipboard.
+    if (!isMobile && browserName === 'chromium') {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await copy.click();
       await expect(copy).toHaveAttribute('data-state', 'copied');
@@ -309,6 +311,7 @@ test.describe('the documentation sites', () => {
     page,
     context,
     isMobile,
+    browserName,
   }) => {
     await page.goto('/docs/self-hosting/cli/');
     const block = page.locator('figure.console', { hasText: 'keys:rewrap' });
@@ -328,7 +331,8 @@ test.describe('the documentation sites', () => {
     }));
     expect(colours.out).not.toBe(colours.typed);
     await expectAccessible(page, 'a page with a console');
-    if (!isMobile) {
+    // Only Chromium can be given leave to read the clipboard.
+    if (!isMobile && browserName === 'chromium') {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await block.getByRole('button', { name: 'Copy this code' }).click();
       const copied = await page.evaluate(() => navigator.clipboard.readText());
@@ -370,6 +374,7 @@ test.describe('the documentation sites', () => {
     page,
     context,
     isMobile,
+    browserName,
   }) => {
     await page.goto('/docs/concepts/billing-engine/');
     const block = page.locator('figure.code', { hasText: 'EngineData' }).first();
@@ -387,7 +392,8 @@ test.describe('the documentation sites', () => {
       keyword: getComputedStyle(el.querySelector('.hljs-keyword')!).color,
     }));
     expect(colours.keyword).not.toBe(colours.text);
-    if (!isMobile) {
+    // Only Chromium can be given leave to read the clipboard.
+    if (!isMobile && browserName === 'chromium') {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await block.getByRole('button', { name: 'Copy this code' }).click();
       const copied = await page.evaluate(() => navigator.clipboard.readText());
@@ -458,8 +464,9 @@ test.describe('the documentation sites', () => {
   }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/guides/');
-    const can = await page.evaluate(() =>
-      CSS.supports('selector(:active-view-transition-type(x))'),
+    const can = await page.evaluate(
+      () =>
+        'PageRevealEvent' in window && CSS.supports('selector(:active-view-transition-type(x))'),
     );
     test.skip(!can, 'this browser cannot move one page into another');
     await page.addInitScript(() => {
