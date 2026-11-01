@@ -123,6 +123,45 @@ The menu hides and shows by sliding with `transform` and `opacity` only, is `ine
 
 A bar chart has a data table beside it, shown to a screen reader and available to everyone, and takes its colours from the same tokens. It measures its width before it draws, so it never flashes at the wrong size.
 
+## Icon buttons
+
+A button that is only a picture, for an action everyone knows (copy, close). It is named for a screen reader (`aria-label`) and, with a pointer, by its `title`. It is as high as a small button, 36px, so it can be hit. A picture alone is for an action that is obvious; anything that is not gets words, and a `btn`.
+
+<div class="demo">
+<button type="button" class="icon-btn" aria-label="Copy this" title="Copy"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
+<button type="button" class="icon-btn" aria-label="Copied" title="Copied"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+</div>
+
+## Code
+
+A listing is on the chalkboard, dark in both themes, and it is a component like the rest: `.code`, with an optional bar (`.code-bar`) that says what it is, and the code in a `pre`. In the pages of these sites it is written as a fenced block ([how](/docs/contributing/layout-and-testing/#code-and-diagrams-in-the-pages)), and what is below is those blocks.
+
+- **The bar** says the language, or the file and which lines of it. The copy button, an icon button, is at its end.
+- **The copy button** comes forward when the block is pointed at or has focus, so it is not always over the code. Where there is no pointer to point with (a phone) it is always there, and a keyboard user finds it by tabbing into the block. When it has copied it turns green and says so, and a screen reader is told.
+- **Line numbers** are in the margin and cannot be selected or copied. A listing is numbered from six lines on, and a block of lines from a real file carries that file's own numbers.
+- **A console** is a session. A `$` before a line marks what is typed, and the rest is what came back, dimmer. Copying takes the commands only.
+
+```ts
+export function owed(balance: number, earlier: number): number {
+  // A credit counts as nothing, so one person's cannot hide another's debt.
+  return Math.max(0, balance + earlier);
+}
+```
+
+```console
+$ docker compose run --rm app node cli.mjs keys:rewrap
+{"currentKey":2,"workspaces":14,"retiredCopies":0,"skipped":0,"stillOnOldKey":0}
+$ docker compose ps
+```
+
+```sh
+# A script, which has no prompt and nothing coming back.
+set -eu
+npm run build
+```
+
+The colours are tokens (`--board`, `--board-ink`, `--board-dim` and the `--code-*` set), so a listing follows a change of theme without being drawn again.
+
 ## Rules for using the pieces
 
 1. **Compose; do not restyle.** A screen sets no colour, size or shadow of its own. If a piece does not fit, the piece is wrong: change it here.

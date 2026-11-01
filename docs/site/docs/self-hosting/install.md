@@ -9,11 +9,11 @@ You need Docker (or Podman) with Compose, and a checkout of the repository. One 
 
 ## A trial on your machine
 
-```sh
-git clone https://github.com/nandgator/alimentation
-cd alimentation
-echo "DB_PASSWORD=$(openssl rand -hex 24)" > .env
-NODE_ENV=development AUTH_DEV=1 docker compose up -d --build
+```console
+$ git clone https://github.com/nandgator/alimentation
+$ cd alimentation
+$ echo "DB_PASSWORD=$(openssl rand -hex 24)" > .env
+$ NODE_ENV=development AUTH_DEV=1 docker compose up -d --build
 ```
 
 Open `http://localhost:8787`. In this mode **anyone can sign in with any email**, which is what you want for a trial and nothing else.
@@ -37,10 +37,10 @@ On the first start the server makes its own master key, session secret and contr
 
 You need Node 24 or later and a PostgreSQL 15 or later whose login role can create roles and databases (Postgres 18 is recommended).
 
-```sh
-npm install
-export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
-npm test
+```console
+$ npm install
+$ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
+$ npm test
 ```
 
 To work on it with live reload, run `npm run dev:api` and `npm run dev:web` side by side.

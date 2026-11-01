@@ -264,11 +264,78 @@ test.describe('the documentation sites', () => {
     if (!isMobile) {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await copy.click();
-      await expect(copy).toHaveText('Copied');
+      await expect(copy).toHaveAttribute('data-state', 'copied');
+      await expect(copy).toContainText('Copied');
+      // It says so for a screen reader too, and goes back to being an icon.
+      await expect(
+        page.getByRole('status').filter({ hasText: 'Copied to the clipboard.' }),
+      ).toHaveCount(1);
+      await expect(copy).not.toHaveAttribute('data-state', 'copied');
     }
     await page.goto('/docs/self-hosting/configuration/');
     await expectNoSidewaysScroll(page, 'the configuration page');
     await expect(page.locator('.tablewrap').first()).toHaveAttribute('tabindex', '0');
+  });
+
+  test('shows the copy icon when a block is pointed at or tabbed into, and always where there is no pointer', async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto('/docs/self-hosting/cli/');
+    const block = page.locator('figure.code').first();
+    const copy = block.getByRole('button', { name: 'Copy this code' });
+    const shown = () => copy.evaluate((el) => getComputedStyle(el).opacity);
+    if (isMobile) {
+      expect(await shown(), 'with no pointer it is always there').toBe('1');
+    } else {
+      await page.mouse.move(0, 0);
+      await expect.poll(shown, 'it keeps out of the way').toBe('0');
+      await block.hover();
+      await expect.poll(shown, 'and comes forward when the block is pointed at').toBe('1');
+      await page.mouse.move(0, 0);
+      await block.locator('pre').focus();
+      await expect.poll(shown, 'and when the block has focus').toBe('1');
+    }
+    // An icon, not a word: the label for a screen reader is on the button, and the picture is hidden from it.
+    await expect(copy.locator('svg.i-copy')).toBeVisible();
+    await expect(copy.locator('svg')).toHaveCount(2);
+    expect(await copy.getAttribute('aria-label')).toBe('Copy this code');
+    const box = await copy.boundingBox();
+    expect(box!.height, 'as high as a small button').toBeGreaterThanOrEqual(36);
+    expect(box!.width).toBeGreaterThanOrEqual(36);
+  });
+
+  test('draws a console with a prompt the reader cannot select, and copies only what is typed', async ({
+    page,
+    context,
+    isMobile,
+  }) => {
+    await page.goto('/docs/self-hosting/cli/');
+    const block = page.locator('figure.console', { hasText: 'keys:rewrap' });
+    await expect(block.locator('.code-name')).toHaveText('Console');
+    const prompt = await block
+      .locator('.line.cmd')
+      .first()
+      .evaluate((el) => {
+        const c = getComputedStyle(el, '::before');
+        return { content: c.content, select: c.userSelect };
+      });
+    expect(prompt).toEqual({ content: '"$"', select: 'none' });
+    // What came back is there, dimmer than what was typed, and is not marked as a command.
+    const colours = await block.evaluate((el) => ({
+      out: getComputedStyle(el.querySelector('.line.out')!).color,
+      typed: getComputedStyle(el.querySelector('.line.cmd')!).color,
+    }));
+    expect(colours.out).not.toBe(colours.typed);
+    await expectAccessible(page, 'a page with a console');
+    if (!isMobile) {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      await block.getByRole('button', { name: 'Copy this code' }).click();
+      const copied = await page.evaluate(() => navigator.clipboard.readText());
+      expect(copied).toBe('node cli.mjs keys:rewrap');
+      expect(copied).not.toContain('$');
+      expect(copied).not.toContain('currentKey');
+    }
   });
 
   test('draws a diagram in the page\u2019s own colours, so it follows the theme, under the same policy', async ({
@@ -277,9 +344,9 @@ test.describe('the documentation sites', () => {
     const problems = watchPage(page);
     await page.goto('/docs/overview/architecture/');
     const figure = page.locator('figure.diagram').first();
-    await expect(figure.locator('svg')).toBeVisible();
-    await expect(figure.locator('figcaption')).toHaveText(/Where a request goes/);
-    const node = figure.locator('svg rect').first();
+    await expect(figure.locator('.diagram-scroll svg')).toBeVisible();
+    await expect(figure.locator(':scope > figcaption')).toHaveText(/Where a request goes/);
+    const node = figure.locator('.diagram-scroll svg rect').first();
     const paint = () =>
       node.evaluate((el) => {
         const c = getComputedStyle(el);
@@ -342,7 +409,10 @@ test.describe('the documentation sites', () => {
         .filter({ has: page.locator('pre') })
         .evaluateAll((all) =>
           all.findIndex(
-            (f) => f.querySelector('pre')!.scrollWidth > f.querySelector('pre')!.clientWidth + 8,
+            (f) =>
+              // One that is shut away in a disclosure cannot be scrolled, or its button found.
+              !f.closest('details:not([open])') &&
+              f.querySelector('pre')!.scrollWidth > f.querySelector('pre')!.clientWidth + 8,
           ),
         );
       const at = await wide;
@@ -356,6 +426,73 @@ test.describe('the documentation sites', () => {
       return;
     }
     test.skip(true, 'no listing is wider than its column at this size');
+  });
+
+  test('has the menu at the right on a phone, with the name at the left, and the switch and the theme on the next row', async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, 'a phone');
+    await page.goto('/docs/self-hosting/cli/');
+    const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+    const [brand, menu, sw, theme, search] = [
+      await box('.docs-brand'),
+      await box('.docs-menu'),
+      await box('.docs-switch'),
+      await box('.docs-theme'),
+      await box('.docs-search'),
+    ];
+    const width = page.viewportSize()!.width;
+    expect(menu.x, 'the menu is after the name').toBeGreaterThan(brand.x + brand.width);
+    expect(Math.abs(menu.y + menu.height / 2 - (brand.y + brand.height / 2))).toBeLessThan(12);
+    expect(menu.x + menu.width, 'and against the right edge').toBeGreaterThan(width - 30);
+    expect(sw.y, 'the switch is on the row below').toBeGreaterThan(brand.y + brand.height - 4);
+    expect(theme.x, 'with the theme at its right').toBeGreaterThan(sw.x + sw.width);
+    expect(Math.abs(theme.y - sw.y)).toBeLessThan(16);
+    expect(search.y).toBeGreaterThan(sw.y + sw.height - 4);
+    await expectNoSidewaysScroll(page, 'the docs bar on a phone');
+  });
+
+  test('glides between the guides and the docs the way the switch has them, and only then', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/guides/');
+    const can = await page.evaluate(() =>
+      CSS.supports('selector(:active-view-transition-type(x))'),
+    );
+    test.skip(!can, 'this browser cannot move one page into another');
+    await page.addInitScript(() => {
+      addEventListener('pagereveal', (e) => {
+        const vt = (e as unknown as { viewTransition?: { ready: Promise<void> } }).viewTransition;
+        void vt?.ready.then(() => {
+          (window as unknown as { __moved: string[] }).__moved = document
+            .getAnimations()
+            .map((a) => (a as CSSAnimation).animationName)
+            .filter(Boolean);
+        });
+      });
+    });
+    const moved = () =>
+      page.evaluate(() => (window as unknown as { __moved?: string[] }).__moved ?? null);
+    const to = async (name: string, url: RegExp) => {
+      await page
+        .getByRole('navigation', { name: 'Documentation' })
+        .getByRole('link', { name })
+        .click();
+      await page.waitForURL(url);
+      await page.waitForFunction(() => (window as unknown as { __moved?: unknown }).__moved);
+      return moved();
+    };
+    // To the docs: the new page arrives from the right, as the docs are on the right of the switch.
+    expect(await to('Docs', /\/docs\/$/)).toContain('glide-in-from-right');
+    // And back: from the left.
+    expect(await to('Guides', /\/guides\/$/)).toContain('glide-in-from-left');
+    // Within one of them the page only dissolves into the next: nothing glides.
+    await page.locator('main a[href^="/guides/"]').first().click();
+    await page.waitForURL(/\/guides\/.+/);
+    await page.waitForFunction(() => (window as unknown as { __moved?: unknown }).__moved);
+    expect((await moved())!.filter((n) => n.startsWith('glide-'))).toEqual([]);
   });
 
   test('is served under the same strict security policy as the app', async ({ page }) => {

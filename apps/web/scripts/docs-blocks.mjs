@@ -5,6 +5,7 @@
 //                                             the lines of that file, as they are in it, numbered as
 //                                             in it. The build fails if the file or the lines are gone
 //   ```ts hl=3,5-7        marks lines          numbers / nonumbers  force them on or off
+//   ```console            a session: a line after "$ " is typed, every other line is what came back
 //   ```mermaid title="Where a request goes"   a diagram, drawn at build time and left as an SVG
 //
 // Nothing here runs in the page. The content-security policy forbids inline style, so highlighting is
@@ -169,10 +170,48 @@ function canonical(name, where) {
   return Object.keys(LANGUAGES).find((key) => hljs.getLanguage(key) === grammar) ?? name;
 }
 
+/** A word that follows a dash is part of an option (`--rm`), not a command of its own, whatever it spells. */
+const optionsAreNotCommands = (html) =>
+  html.replace(/(\s--?)<span class="hljs-built_in">([\w-]+)<\/span>/g, '$1$2');
+
 function highlight(text, lang) {
   if (PLAIN.has(lang)) return text.split('\n').map(esc);
-  return splitLines(hljs.highlight(text, { language: lang, ignoreIllegals: true }).value);
+  const html = hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
+  return splitLines(lang === 'bash' ? optionsAreNotCommands(html) : html);
 }
+
+/**
+ * A session as rows: `$ command` is typed (and a line after a trailing backslash goes on with it), and every
+ * other line is what came back. The prompt is not kept: the stylesheet draws it, so that it is never selected
+ * or copied.
+ */
+export function parseConsole(text) {
+  const rows = [];
+  let going = false;
+  for (const raw of text.split('\n')) {
+    if (going) {
+      rows.push({ kind: 'cont', text: raw });
+      going = /\\\s*$/.test(raw);
+      continue;
+    }
+    const typed = /^\$ ?(.*)$/.exec(raw);
+    if (typed) {
+      rows.push({ kind: 'cmd', text: typed[1] });
+      going = /\\\s*$/.test(typed[1]);
+    } else rows.push({ kind: 'out', text: raw });
+  }
+  return rows;
+}
+
+/** The block itself: a bar with what it is, then the code. The copy button is added by the page's script. */
+function figure({ cls, bar, klass = '', body }) {
+  return `<figure class="${cls}">${bar}<pre tabindex="0"><code${klass}>${body}</code></pre></figure>\n`;
+}
+
+const barOf = (label, range) =>
+  label
+    ? `<figcaption class="code-bar"><span class="code-name">${esc(label)}</span>${range ? `<span class="code-range">${range}</span>` : ''}</figcaption>`
+    : '';
 
 export function createBlocks({ repo }) {
   /** Each distinct stylesheet a diagram came with, scoped to diagrams, to be added to the site's. */
@@ -182,6 +221,12 @@ export function createBlocks({ repo }) {
   function code(token, where) {
     const { lang: asked, settings, flags } = parseFence(token.lang);
     if (asked === 'mermaid') return diagram(token.text, settings, where);
+    if (asked === 'console') return consoleBlock(token.text, settings, where);
+    // An empty block is never what was meant: it is a fence left open, or one left behind.
+    if (!settings.file && !token.text.trim())
+      throw new Error(
+        `${where}: a code block with nothing in it (a fence left open, or left behind?)`,
+      );
 
     let text = token.text;
     let first = 1;
@@ -216,14 +261,46 @@ export function createBlocks({ repo }) {
       })
       .join('\n');
     const label = settings.title ?? name ?? (plain ? null : (LABEL[lang] ?? lang));
-    const bar = label
-      ? `<figcaption class="code-bar"><span class="code-name">${esc(label)}</span>${range ? `<span class="code-range">${range}</span>` : ''}</figcaption>`
-      : '';
+    const bar = barOf(label, range);
     const cls = ['code', numbered ? 'numbered' : '', bar ? 'has-bar' : '']
       .filter(Boolean)
       .join(' ');
     const klass = plain ? '' : ` class="language-${esc(lang)} hljs"`;
-    return `<figure class="${cls}">${bar}<pre tabindex="0"><code${klass}>${body}</code></pre></figure>\n`;
+    return figure({ cls, bar, klass, body });
+  }
+
+  function consoleBlock(text, settings, where) {
+    const rows = parseConsole(text.replace(/\n$/, ''));
+    if (!rows.some((r) => r.kind === 'cmd'))
+      throw new Error(
+        `${where}: a console block shows a command typed: start the line with "$ " (use sh for a script)`,
+      );
+    const lines = [];
+    for (let i = 0; i < rows.length;) {
+      if (rows[i].kind === 'out') {
+        lines.push({ kind: 'out', html: esc(rows[i].text) });
+        i++;
+        continue;
+      }
+      // A command and its continuation lines are highlighted as one, so a quote that runs over a line break holds.
+      let j = i + 1;
+      while (j < rows.length && rows[j].kind === 'cont') j++;
+      const chunk = rows
+        .slice(i, j)
+        .map((r) => r.text)
+        .join('\n');
+      highlight(chunk, 'bash').forEach((html, k) =>
+        lines.push({ kind: k === 0 ? 'cmd' : 'cont', html }),
+      );
+      i = j;
+    }
+    const body = lines.map((l) => `<span class="line ${l.kind}">${l.html}</span>`).join('\n');
+    return figure({
+      cls: 'code console has-bar',
+      bar: barOf(settings.title ?? 'Console'),
+      klass: ' class="language-console hljs"',
+      body,
+    });
   }
 
   function diagram(source, settings, where) {
@@ -256,7 +333,7 @@ export function createBlocks({ repo }) {
       [/@import/i, 'an import'],
     ])
       if (bad.test(svg)) throw new Error(`${where}: the diagram "${title}" comes out with ${what}`);
-    return `<figure class="diagram" role="group" aria-labelledby="${id}"><div class="diagram-scroll" tabindex="0" role="region" aria-label="Diagram: ${esc(title)}; scrolls sideways when it is wider than the screen">${svg}</div><figcaption id="${id}">${esc(title)}</figcaption><details class="diagram-source"><summary>The diagram as text</summary><pre tabindex="0"><code>${esc(source)}</code></pre></details></figure>\n`;
+    return `<figure class="diagram" role="group" aria-labelledby="${id}"><div class="diagram-scroll" tabindex="0" role="region" aria-label="Diagram: ${esc(title)}; scrolls sideways when it is wider than the screen">${svg}</div><figcaption id="${id}">${esc(title)}</figcaption><details class="diagram-source"><summary>The diagram as text</summary>${figure({ cls: 'code has-bar', bar: barOf('Mermaid'), body: esc(source) })}</details></figure>\n`;
   }
 
   /** The stylesheet a diagram came with, for diagrams only: no `@import`, and every selector under `.diagram`. */

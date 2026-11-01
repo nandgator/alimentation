@@ -501,6 +501,11 @@ select.fit {
   margin: 0;
   padding: 0;
 }
+/* A list of cards: no bullets, and the gaps stay the stack's. */
+.card-list {
+  list-style: none;
+  padding: 0;
+}
 .cell-text {
   white-space: normal;
   max-width: 260px;
@@ -1479,6 +1484,245 @@ dialog::backdrop {
   height: 10px;
   border-radius: var(--radius-xs);
   margin-right: 6px;
+}
+
+/* ---------- Icon button ---------- */
+/* A button that is only a picture. It is named for a screen reader (aria-label) and, with a pointer, by its
+   title; it is as high as a small button, so it can be hit. */
+.icon-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: var(--control-sm);
+  min-height: var(--control-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 var(--text-xs)/1 var(--sans);
+  cursor: pointer;
+}
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (hover: hover) {
+  .icon-btn:hover {
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
+    color: var(--ink);
+  }
+}
+
+/* ---------- Code ---------- */
+/* A listing sits on the chalkboard, dark in both themes. What it is goes on a bar above it: the language or
+   the file, and which lines of it. The copy button is an icon in the bar. With a pointer it comes forward when
+   the block is pointed at or has focus, so it is not always in the way; with none (a phone), or when the
+   block is tabbed into, it is always there. A console shows a session: the commands you type, each after its
+   prompt, and what comes back, dimmer. The prompts are not text, so copying takes the commands alone. */
+.code {
+  position: relative;
+  border-radius: var(--radius-lg);
+  background: var(--board);
+  color: var(--board-ink);
+  box-shadow: var(--elev-menu);
+}
+.code pre {
+  margin: 0;
+  padding: 16px 18px;
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  background: none;
+  color: inherit;
+  /* The scrollbar is the board's, not the page's: a light track under a dark block looks like a gap. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--board-ink) 38%, transparent) transparent;
+}
+.code.has-bar pre {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.code pre:focus-visible {
+  outline-offset: 2px;
+}
+.code code {
+  display: block;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: var(--text-sm)/1.6 var(--mono);
+  white-space: pre;
+}
+.code-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control);
+  padding: 4px 8px 4px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--board-ink) 14%, transparent);
+  color: var(--board-dim);
+  font: 600 var(--text-xs)/1 var(--sans);
+  letter-spacing: 0.02em;
+}
+.code-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.code-range {
+  flex: none;
+  font-weight: 500;
+}
+
+/* The copy button: on the bar, or with no bar in the corner of the block, which does not scroll. */
+.code .copy {
+  margin-left: auto;
+  border-color: color-mix(in srgb, var(--board-ink) 22%, transparent);
+  color: var(--board-ink);
+}
+.code:not(.has-bar) .copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  margin: 0;
+  background: color-mix(in srgb, var(--board) 86%, black);
+}
+.code:not(.has-bar) pre {
+  padding-right: 56px;
+}
+.code .copy:focus-visible {
+  outline-color: var(--board-ink);
+}
+.copy .i-check,
+.copy .copy-label {
+  display: none;
+}
+.copy[data-state='copied'] {
+  padding: 0 var(--space-3);
+  color: var(--code-string);
+  border-color: color-mix(in srgb, var(--code-string) 55%, transparent);
+}
+.copy[data-state='copied'] .i-copy {
+  display: none;
+}
+.copy[data-state='copied'] .i-check,
+.copy[data-state='copied'] .copy-label {
+  display: inline;
+}
+.copy[data-state='copied'] .i-check {
+  display: block;
+}
+@media (hover: hover) {
+  .code .copy {
+    opacity: 0;
+    transition: opacity var(--dur-1) var(--ease-out);
+  }
+  .code:hover .copy,
+  .code:focus-within .copy,
+  .code .copy[data-state='copied'] {
+    opacity: 1;
+  }
+  .code .copy:hover {
+    background: color-mix(in srgb, var(--board-ink) 14%, transparent);
+  }
+}
+
+/* Line numbers are in the margin and not in the text: they cannot be selected or copied, and are faint. */
+.code.numbered .line::before {
+  content: attr(data-n);
+  display: inline-block;
+  min-width: 3ch;
+  margin-right: 1.4em;
+  color: color-mix(in srgb, var(--board-dim) 62%, var(--board));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+.code .line.hl {
+  display: inline-block;
+  min-width: 100%;
+  background:
+    linear-gradient(var(--accent), var(--accent)) left / 3px 100% no-repeat,
+    color-mix(in srgb, var(--board-ink) 10%, transparent);
+}
+
+/* A console: a prompt before each command that is typed, an indent where there is none, so that what comes
+   back lines up under what was typed. */
+.code.console .line::before {
+  content: '';
+  display: inline-block;
+  min-width: 2ch;
+  user-select: none;
+}
+.code.console .line.cmd::before {
+  content: '$';
+  color: var(--code-string);
+}
+.code.console .line.out {
+  color: var(--board-dim);
+}
+
+/* Highlighting: the system's own colours, picked for the chalkboard, which is dark in both themes. */
+.code .hljs-comment,
+.code .hljs-quote {
+  color: var(--board-dim);
+  font-style: italic;
+}
+.code .hljs-keyword,
+.code .hljs-selector-tag,
+.code .hljs-tag,
+.code .hljs-name,
+.code .hljs-doctag {
+  color: var(--code-keyword);
+}
+.code .hljs-string,
+.code .hljs-regexp,
+.code .hljs-addition,
+.code .hljs-template-tag {
+  color: var(--code-string);
+}
+.code .hljs-number,
+.code .hljs-literal,
+.code .hljs-symbol,
+.code .hljs-bullet {
+  color: var(--code-number);
+}
+.code .hljs-title,
+.code .hljs-section,
+.code .hljs-selector-id,
+.code .hljs-selector-class {
+  color: var(--code-function);
+}
+.code .hljs-type,
+.code .hljs-built_in,
+.code .hljs-deletion {
+  color: var(--code-type);
+}
+.code .hljs-attr,
+.code .hljs-attribute,
+.code .hljs-property,
+.code .hljs-variable,
+.code .hljs-params,
+.code .hljs-template-variable {
+  color: var(--code-name);
+}
+.code .hljs-meta,
+.code .hljs-punctuation,
+.code .hljs-operator {
+  color: var(--steel-3);
+}
+.code .hljs-emphasis {
+  font-style: italic;
+}
+.code .hljs-strong {
+  font-weight: 700;
 }
 
 @media (prefers-reduced-motion: reduce) {

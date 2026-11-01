@@ -7,9 +7,9 @@ description: What the design check enforces, how to run it, how to waive a rule 
 
 A design system nobody checks is a suggestion. `scripts/check-design.mjs` reads every stylesheet and component of the web app and fails when one leaves the system. It runs as `npm run design`, as a test in the suite (`apps/web/src/design.test.ts`), and in the compose test run, so a departure fails the same build a broken test does.
 
-```sh
-npm run design              # one line: kept, or how many places leave it
-node scripts/check-design.mjs --list    # every place, with its file, line, rule and text
+```console
+$ npm run design              # one line: kept, or how many places leave it
+$ node scripts/check-design.mjs --list    # every place, with its file, line, rule and text
 ```
 
 At the time of writing the app has **no departures** and **three waivers**.

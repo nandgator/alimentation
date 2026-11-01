@@ -158,8 +158,12 @@ describe('the documentation sites', () => {
     }
   });
 
-  it('shares one stylesheet and two scripts between the sites', () => {
-    expect(readdirSync(join(dist, 'doc-assets')).sort()).toEqual(['docs.css', 'docs.js']);
+  it('shares one stylesheet and its scripts between the sites', () => {
+    expect(readdirSync(join(dist, 'doc-assets')).sort()).toEqual([
+      'docs.css',
+      'docs.js',
+      'switch.js',
+    ]);
     for (const url of built.pages) {
       const h = html(url);
       expect(h).toContain('href="/doc-assets/docs.css"');
@@ -381,10 +385,11 @@ describe('code and diagrams in the pages', () => {
   });
 
   it('puts the numbers in the margin: attributes drawn by the stylesheet, not text that is copied', () => {
-    const { html, css } = build(fence('ts numbers', 'const a = 1;'));
+    const { html } = build(fence('ts numbers', 'const a = 1;'));
+    const css = readFileSync(join(import.meta.dirname, 'styles.css'), 'utf8');
     expect(html).not.toMatch(/<span class="line"[^>]*>\s*1\s/);
     expect(css).toMatch(
-      /\.numbered \.line::before\s*\{[^}]*content: attr\(data-n\)[^}]*user-select: none/s,
+      /\.code\.numbered \.line::before\s*\{[^}]*content: attr\(data-n\)[^}]*user-select: none/s,
     );
   });
 
@@ -483,7 +488,7 @@ describe('code and diagrams in the pages', () => {
       join(import.meta.dirname, '..', 'scripts', 'docs', 'docs.css'),
       'utf8',
     );
-    const roles = /\.diagram svg \{([^}]*)\}/.exec(css)![1]!;
+    const roles = /\.diagram-scroll svg \{([^}]*)\}/.exec(css)![1]!;
     for (const role of ['--bg: var(--card)', '--fg: var(--ink)', '--accent: var(--brand)'])
       expect(roles).toContain(role);
     expect(roles).not.toMatch(/#[0-9a-f]{3,8}\b/i);
@@ -499,10 +504,7 @@ describe('code and diagrams in the pages', () => {
   it('documents every colour the highlighting is drawn in', () => {
     const tokens = readFileSync(join(import.meta.dirname, '..', 'src', 'styles.css'), 'utf8');
     const foundations = read('docs/design/foundations.md');
-    const css = readFileSync(
-      join(import.meta.dirname, '..', 'scripts', 'docs', 'docs.css'),
-      'utf8',
-    );
+    const css = tokens;
     const names = [...tokens.matchAll(/^\s+(--code-[a-z]+):/gm)].map((m) => m[1]!);
     expect(names.length).toBeGreaterThanOrEqual(6);
     for (const name of names) {
@@ -511,11 +513,151 @@ describe('code and diagrams in the pages', () => {
     }
   });
 
+  it('shows a console as what is typed after a prompt and what came back, and the prompt is not text', () => {
+    const { html } = build(
+      fence(
+        'console',
+        '$ node cli.mjs keys:rewrap\n{"currentKey":2}\n$ docker run \\\n    --rm app\ndone',
+      ),
+    );
+    expect(html).toContain('<figure class="code console has-bar">');
+    expect(html).toContain('<span class="code-name">Console</span>');
+    const kinds = [...html.matchAll(/<span class="line (cmd|cont|out)">/g)].map((m) => m[1]);
+    expect(kinds).toEqual(['cmd', 'out', 'cmd', 'cont', 'out']);
+    // The prompt is the stylesheet's, so it is in no line's text.
+    expect(html).not.toMatch(/<span class="line cmd">\s*\$/);
+    expect(html).not.toContain('&#36;');
+    expect(build(fence('console', '$ echo "hello"')).html).toContain('hljs-string');
+    // What came back is shown as it came, not highlighted as a command.
+    expect(html).toMatch(/<span class="line out">\{&quot;currentKey&quot;:2\}<\/span>/);
+  });
+
+  it('is told a console block has no command in it, and that an empty block is never meant', () => {
+    expect(() => build(fence('console', 'just words'))).toThrow(/start the line with "\$ "/);
+    expect(() => build(fence('ts', ''))).toThrow(/nothing in it/);
+    expect(() => build('```\n```')).toThrow(/nothing in it/);
+  });
+
+  it('does not take the word after a dash for a command: --rm is an option', () => {
+    const { html } = build(fence('console', '$ docker compose run --rm app\n$ rm -rf build'));
+    expect(html).toContain('--rm');
+    expect(html).not.toContain('--<span class="hljs-built_in">rm</span>');
+    expect(html).toContain('<span class="hljs-built_in">rm</span> -rf');
+  });
+
+  it('keeps a script a shell block, with no prompt', () => {
+    const { html } = build(fence('sh', 'set -eu\nnpm run build'));
+    expect(html).toContain('<span class="code-name">Shell</span>');
+    expect(html).not.toContain('class="line cmd"');
+  });
+
+  it('shows the source of a diagram as a code block too, with the same bar and copy button', () => {
+    const { html } = build(fence('mermaid title="T"', 'flowchart LR\n  A[One] --> B[Two]'));
+    expect(html).toMatch(
+      /<details class="diagram-source"><summary>The diagram as text<\/summary><figure class="code has-bar">/,
+    );
+    expect(html).toContain('<span class="code-name">Mermaid</span>');
+  });
+
+  it('has no listing in the real pages that is bare or empty, and the copy button script names the typed lines', () => {
+    const real = fakeDist();
+    buildDocs({ dist: real });
+    let blocks = 0;
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const file = join(dir, entry.name);
+        if (entry.isDirectory()) walk(file);
+        else if (entry.name === 'index.html') {
+          const html = readFileSync(file, 'utf8');
+          const pres = html.match(/<pre\b/g)?.length ?? 0;
+          const inFigure =
+            html.match(/<figure class="code[^"]*">(?:<figcaption.*?<\/figcaption>)?<pre\b/g)
+              ?.length ?? 0;
+          expect(inFigure, `${file}: a listing outside the code component`).toBe(pres);
+          expect(html, `${file}: an empty listing`).not.toMatch(
+            /<pre[^>]*><code[^>]*>(<span class="line">(<\/span>)?)?<\/code><\/pre>/,
+          );
+          blocks += pres;
+        }
+      }
+    };
+    walk(join(real, 'docs'));
+    walk(join(real, 'guides'));
+    expect(blocks).toBeGreaterThan(20);
+    const script = readFileSync(join(real, 'doc-assets', 'docs.js'), 'utf8');
+    expect(script).toContain('.line.cmd, .line.cont');
+  });
+
   it('has the diagram and the file excerpt in the pages that were written for them', () => {
     expect(read('docs/overview/architecture.md')).toMatch(/```mermaid title="[^"]+"/);
     expect(read('docs/concepts/billing-engine.md')).toContain(
       'file=packages/core/src/engine.ts#L28-L39',
     );
+  });
+});
+
+describe('moving between the pages', () => {
+  const dist = fakeDist();
+  const built = buildDocs({ dist });
+  const css = readFileSync(join(import.meta.dirname, '..', 'scripts', 'docs', 'docs.css'), 'utf8');
+  const script = readFileSync(
+    join(import.meta.dirname, '..', 'scripts', 'docs', 'switch.js'),
+    'utf8',
+  );
+
+  /** Runs switch.js as a page would, arriving at `now` from `from`, and says what it told the transition. */
+  function arriving(from: string | null, now: string): string[] {
+    const types = new Set<string>();
+    let reveal: ((e: unknown) => void) | undefined;
+    new Function('addEventListener', 'navigation', 'location', script)(
+      (name: string, fn: (e: unknown) => void) => name === 'pagereveal' && (reveal = fn),
+      { activation: { from: from ? { url: `http://x${from}` } : null } },
+      { pathname: now },
+    );
+    reveal!({ viewTransition: { types } });
+    return [...types];
+  }
+
+  it('asks each page to move into the next, and to hold still when motion is reduced', () => {
+    expect(css).toMatch(/@view-transition\s*\{\s*navigation: auto;/);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{\s*@view-transition\s*\{\s*navigation: none;/,
+    );
+    // The glide is only for those who have not asked for less motion, and the bar stays where it is.
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\)\s*\{[^@]*active-view-transition-type\(to-docs\)/,
+    );
+    expect(css).toMatch(/\.docs-top\s*\{\s*view-transition-name: docs-top;/);
+  });
+
+  it('is told, by the page that opens, only of a move between the guides and the docs, and which way', () => {
+    expect(arriving('/guides/how/bills/', '/docs/overview/map/')).toEqual(['to-docs']);
+    expect(arriving('/docs/overview/map/', '/guides/how/bills/')).toEqual(['to-guides']);
+    expect(arriving('/docs/', '/docs/api/reference/')).toEqual([]);
+    expect(arriving('/guides/', '/guides/how/bills/')).toEqual([]);
+    expect(arriving('/app', '/docs/')).toEqual([]);
+    expect(arriving('/docs/', '/app')).toEqual([]);
+    expect(arriving(null, '/docs/')).toEqual([]);
+  });
+
+  it('loads that script before the page is drawn, on every page', () => {
+    for (const url of built.pages) {
+      const h = readFileSync(join(dist, url, 'index.html'), 'utf8');
+      expect(h, url).toMatch(/<script src="\/doc-assets\/switch\.js"><\/script>/);
+    }
+  });
+
+  it('puts the menu at the right on a phone, and the name, the switch and the theme where a thumb is', () => {
+    const phone = /@media \(max-width: 959px\)\s*\{([\s\S]*)$/.exec(css)![1]!;
+    expect(phone).toMatch(/grid-template-areas:\s*'brand menu'\s*'switch theme'\s*'search search'/);
+    expect(phone).toMatch(/\.docs-menu\s*\{[^}]*grid-area: menu;[^}]*justify-self: end/);
+  });
+
+  it('links the API reference from the docs, and not from the guides, which are for people who use a kitchen', () => {
+    const docs = readFileSync(join(dist, 'docs', 'index.html'), 'utf8');
+    const guides = readFileSync(join(dist, 'guides', 'index.html'), 'utf8');
+    expect(docs).toContain('<a href="/reference/">API reference</a>');
+    expect(guides).not.toContain('/reference/');
   });
 });
 

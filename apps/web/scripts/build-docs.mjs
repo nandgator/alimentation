@@ -342,7 +342,7 @@ function pageHtml(site, page, css, index) {
   ).join('')}</nav>`;
   const home = page.layout === 'home';
   const other = SITES.find((x) => x.dir !== meta.dir);
-  const foot = `<footer class="docs-foot"><p class="muted small">Alimentation keeps the accounts of small kitchens. <a href="/">Home</a> · <a href="/app">Open the app</a> · <a href="${other.base}">${other.name}</a></p></footer>`;
+  const foot = `<footer class="docs-foot"><p class="muted small">Alimentation keeps the accounts of small kitchens. <a href="/">Home</a> · <a href="/app">Open the app</a> · <a href="${other.base}">${other.name}</a>${meta.dir === 'docs' ? ' · <a href="/reference/">API reference</a>' : ''}</p></footer>`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -355,6 +355,7 @@ function pageHtml(site, page, css, index) {
 <link rel="stylesheet" href="${css}">
 <link rel="stylesheet" href="${ASSETS}docs.css">
 <script src="/theme.js"></script>
+<script src="${ASSETS}switch.js"></script>
 <script src="${ASSETS}docs.js" defer></script>
 </head>
 <body class="docs site-${meta.dir}${home ? ' is-home' : ''}">
@@ -419,6 +420,7 @@ export function buildDocs({
   rmSync(assets, { recursive: true, force: true });
   mkdirSync(assets, { recursive: true });
   cpSync(join(here, 'docs', 'docs.js'), join(assets, 'docs.js'));
+  cpSync(join(here, 'docs', 'switch.js'), join(assets, 'switch.js'));
   writeFileSync(
     join(assets, 'docs.css'),
     `${readFileSync(join(here, 'docs', 'docs.css'), 'utf8')}\n/* What the diagrams drawn in these pages came with, scoped to them. */\n${blocks.diagramCss()}\n`,

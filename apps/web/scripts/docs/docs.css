@@ -432,7 +432,7 @@ html:has(.docs) {
 .docs-article strong {
   font-weight: 650;
 }
-.docs-article code {
+.docs-article :not(pre) > code {
   padding: 0.1em 0.35em;
   border-radius: var(--radius-sm);
   background: var(--paper-2);
@@ -440,166 +440,10 @@ html:has(.docs) {
   overflow-wrap: break-word;
 }
 
-/* Code goes on the chalkboard. */
-.docs-article pre {
-  position: relative;
-  margin: var(--flow) 0 var(--space-5);
-  padding: 16px 18px;
-  overflow: auto;
-  border-radius: var(--radius-lg);
-  background: var(--board);
-  color: var(--board-ink);
-  box-shadow: var(--elev-menu);
-  /* The scrollbar is the board's, not the page's: a light track under a dark block looks like a gap. */
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--board-ink) 38%, transparent) transparent;
-}
-.docs-article pre code {
-  display: block;
-  padding: 0;
-  background: none;
-  color: inherit;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  white-space: pre;
-  overflow-wrap: normal;
-}
-.docs-article pre:focus-visible {
-  outline-offset: 2px;
-}
-
-/* A listing: what it is on a bar (the language, or the file and which lines of it), then the code. The copy
-   button is on the bar, or, with no bar, on the corner of the block and not of what scrolls inside it. */
+/* Code is the design system's own component (`.code`, in the app's stylesheet). Here it only gets the page's
+   rhythm. (Inline code, above, is only code that is not in a listing.) */
 .docs-article figure.code {
-  position: relative;
   margin: var(--flow) 0 var(--space-5);
-  border-radius: var(--radius-lg);
-  background: var(--board);
-  box-shadow: var(--elev-menu);
-}
-.docs-article figure.code pre {
-  margin: 0;
-  background: none;
-  box-shadow: none;
-}
-.docs-article figure.code.has-bar pre {
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-}
-.code-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 40px;
-  padding: 4px 10px 4px 18px;
-  border-bottom: 1px solid color-mix(in srgb, var(--board-ink) 14%, transparent);
-  color: var(--board-dim);
-  font: 600 var(--text-xs)/1 var(--sans);
-  letter-spacing: 0.02em;
-}
-.code-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.code-range {
-  flex: none;
-  font-weight: 500;
-}
-.docs-article .copy {
-  min-height: 30px;
-  padding: 4px 12px;
-  border: 1px solid color-mix(in srgb, var(--board-ink) 40%, transparent);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--board) 80%, black);
-  color: var(--board-ink);
-  font: 600 var(--text-xs)/1 var(--sans);
-  cursor: pointer;
-}
-.code-bar .copy {
-  flex: none;
-  margin-left: auto;
-}
-.docs-article pre > .copy,
-.docs-article figure.code > .copy {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-
-/* Line numbers are in the margin and not in the text: they cannot be selected or copied, and are faint. */
-.docs-article .numbered .line::before {
-  content: attr(data-n);
-  display: inline-block;
-  min-width: 3ch;
-  margin-right: 1.4em;
-  color: color-mix(in srgb, var(--board-dim) 62%, var(--board));
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  user-select: none;
-}
-.docs-article .line.hl {
-  display: inline-block;
-  min-width: 100%;
-  background:
-    linear-gradient(var(--accent), var(--accent)) left / 3px 100% no-repeat,
-    color-mix(in srgb, var(--board-ink) 10%, transparent);
-}
-
-/* Highlighting: the system's own colours, picked for the chalkboard, which is dark in both themes. */
-.docs-article .hljs-comment,
-.docs-article .hljs-quote {
-  color: var(--board-dim);
-  font-style: italic;
-}
-.docs-article .hljs-keyword,
-.docs-article .hljs-selector-tag,
-.docs-article .hljs-tag,
-.docs-article .hljs-name,
-.docs-article .hljs-doctag {
-  color: var(--code-keyword);
-}
-.docs-article .hljs-string,
-.docs-article .hljs-regexp,
-.docs-article .hljs-addition,
-.docs-article .hljs-template-tag {
-  color: var(--code-string);
-}
-.docs-article .hljs-number,
-.docs-article .hljs-literal,
-.docs-article .hljs-symbol,
-.docs-article .hljs-bullet {
-  color: var(--code-number);
-}
-.docs-article .hljs-title,
-.docs-article .hljs-section,
-.docs-article .hljs-selector-id,
-.docs-article .hljs-selector-class {
-  color: var(--code-function);
-}
-.docs-article .hljs-type,
-.docs-article .hljs-built_in,
-.docs-article .hljs-deletion {
-  color: var(--code-type);
-}
-.docs-article .hljs-attr,
-.docs-article .hljs-attribute,
-.docs-article .hljs-property,
-.docs-article .hljs-variable,
-.docs-article .hljs-params,
-.docs-article .hljs-template-variable {
-  color: var(--code-name);
-}
-.docs-article .hljs-meta,
-.docs-article .hljs-punctuation,
-.docs-article .hljs-operator {
-  color: var(--steel-3);
-}
-.docs-article .hljs-emphasis {
-  font-style: italic;
-}
-.docs-article .hljs-strong {
-  font-weight: 700;
 }
 
 /* A diagram is drawn once, at build time, and its colours are left to the page. The roles are set here, from
@@ -620,7 +464,7 @@ html:has(.docs) {
 .diagram-scroll:focus-visible {
   outline-offset: -3px;
 }
-.diagram svg {
+.diagram-scroll svg {
   display: inline-block;
   /* As wide as it was drawn, or as the page, but not narrower than it can be read: below that it scrolls. */
   max-width: 100%;
@@ -634,7 +478,7 @@ html:has(.docs) {
   --surface: color-mix(in srgb, var(--brand) 9%, var(--card));
   --border: color-mix(in srgb, var(--brand) 38%, var(--card));
 }
-.diagram svg text {
+.diagram-scroll svg text {
   font-family: var(--sans);
 }
 .docs-article figure.diagram > figcaption {
@@ -651,8 +495,8 @@ html:has(.docs) {
   color: var(--ink-2);
   cursor: pointer;
 }
-.diagram-source pre {
-  margin-bottom: 0;
+.diagram-source .code {
+  margin: var(--space-3) 0 0;
 }
 
 /* Callouts: a note is steel, a tip is green, a warning is turmeric. */
@@ -1140,9 +984,35 @@ html:has(.docs) {
   .docs-shell {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* On a phone the bar is three rows: the name with the menu at the right, where a thumb is; then the switch
+     between the guides and the docs with the theme at the right; then the search. */
+  .docs-top-in {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand menu'
+      'switch theme'
+      'search search';
+  }
+  .docs-brand {
+    grid-area: brand;
+  }
   .docs-menu {
     display: inline-flex;
     align-items: center;
+    grid-area: menu;
+    justify-self: end;
+  }
+  .docs-switch {
+    grid-area: switch;
+    justify-self: start;
+  }
+  .docs-top-in .grow {
+    display: none;
+  }
+  .docs-theme {
+    grid-area: theme;
+    justify-self: end;
   }
   .docs-nav {
     display: none;
@@ -1155,8 +1025,7 @@ html:has(.docs) {
     display: grid;
   }
   .docs-search {
-    order: 5;
-    flex-basis: 100%;
+    grid-area: search;
     max-width: none;
   }
   .docs-open {
@@ -1167,5 +1036,65 @@ html:has(.docs) {
   }
   .docs-pager .next {
     grid-column: auto;
+  }
+}
+
+/* ---------- Moving between pages ---------- */
+/* A page does not blink when the next one arrives: the browser keeps a picture of the page it leaves and
+   dissolves it into the new one, with the bar staying where it is. Between the guides and the docs the pages
+   glide as well, from the side the switch puts them on (the guides on the left, the docs on the right), the one
+   leaving a little way and the one arriving further, so there is some depth to it. (switch.js says which way.)
+   A browser that cannot do this just opens the page, and with motion reduced it does. */
+@view-transition {
+  navigation: auto;
+}
+.docs-top {
+  view-transition-name: docs-top;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-1);
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:active-view-transition-type(to-docs)::view-transition-old(root) {
+    animation: glide-away-left var(--dur-3) var(--ease-in-out) both;
+  }
+  :root:active-view-transition-type(to-docs)::view-transition-new(root) {
+    animation: glide-in-from-right var(--dur-3) var(--ease-out) both;
+  }
+  :root:active-view-transition-type(to-guides)::view-transition-old(root) {
+    animation: glide-away-right var(--dur-3) var(--ease-in-out) both;
+  }
+  :root:active-view-transition-type(to-guides)::view-transition-new(root) {
+    animation: glide-in-from-left var(--dur-3) var(--ease-out) both;
+  }
+}
+@keyframes glide-away-left {
+  to {
+    opacity: 0;
+    transform: translateX(-28px) scale(0.985);
+  }
+}
+@keyframes glide-away-right {
+  to {
+    opacity: 0;
+    transform: translateX(28px) scale(0.985);
+  }
+}
+@keyframes glide-in-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(56px) scale(0.985);
+  }
+}
+@keyframes glide-in-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-56px) scale(0.985);
   }
 }

@@ -57,27 +57,69 @@
     });
   }
 
-  // --- copy buttons on code
-  for (const pre of document.querySelectorAll('pre')) {
-    const code = $('code', pre);
+  // --- copy buttons on code: an icon on the bar of the block (the design system's `.code` and `.icon-btn`)
+  const NS = 'http://www.w3.org/2000/svg';
+  const icon = (name, shapes) => {
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('class', name);
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    for (const [tag, attrs] of shapes) {
+      const el = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      svg.append(el);
+    }
+    return svg;
+  };
+  for (const figure of document.querySelectorAll('figure.code')) {
+    const code = $('pre code', figure);
     if (!code) continue;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'copy';
-    b.textContent = 'Copy';
+    b.className = 'icon-btn copy';
+    b.title = 'Copy';
     b.setAttribute('aria-label', 'Copy this code');
+    const label = document.createElement('span');
+    label.className = 'copy-label';
+    label.textContent = 'Copied';
+    b.append(
+      icon('i-copy', [
+        ['rect', { x: 9, y: 9, width: 11, height: 11, rx: 2 }],
+        ['path', { d: 'M5 15V6a2 2 0 0 1 2-2h9' }],
+      ]),
+      icon('i-check', [['path', { d: 'M5 12.5l4.5 4.5L19 7.5' }]]),
+      label,
+    );
+    // Said aloud, because the button's own picture changing is not.
+    const status = document.createElement('span');
+    status.className = 'sr';
+    status.setAttribute('role', 'status');
+    // What is copied is what is typed, in a console (never its prompts or what came back), and all of it otherwise.
+    const typed = () => [...figure.querySelectorAll('.line.cmd, .line.cont')];
+    let timer;
     b.addEventListener('click', async () => {
+      clearTimeout(timer);
+      const text = typed().length
+        ? typed()
+            .map((l) => l.textContent)
+            .join('\n')
+        : (code.textContent ?? '');
       try {
-        await navigator.clipboard.writeText(code.textContent ?? '');
-        b.textContent = 'Copied';
+        await navigator.clipboard.writeText(text);
+        b.dataset.state = 'copied';
+        status.textContent = 'Copied to the clipboard.';
       } catch {
-        b.textContent = 'Select and copy';
+        // No clipboard here (an address that is not secure, a browser that refuses): select it for the person to copy.
+        getSelection()?.selectAllChildren(code);
+        status.textContent = 'It could not be copied. It is selected: press Control and C.';
       }
-      setTimeout(() => (b.textContent = 'Copy'), 1800);
+      timer = setTimeout(() => {
+        delete b.dataset.state;
+        status.textContent = '';
+      }, 1800);
     });
-    // On the bar of its listing; failing that, on the corner of the listing, which does not scroll; failing that, of the block.
-    const figure = pre.closest('figure.code');
-    (figure?.querySelector('.code-bar') ?? figure ?? pre).append(b);
+    (figure.querySelector('.code-bar') ?? figure).append(b, status);
   }
 
   // --- which section of the page you are in
