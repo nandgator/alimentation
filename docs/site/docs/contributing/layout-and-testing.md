@@ -11,6 +11,7 @@ description: Where things live, how to run every check, and how the tests are th
 packages/core   billing engine, rules, validation, bundle format, history sentences (pure TypeScript)
 apps/api        Hono API for Node and Cloudflare Workers, Postgres migrations, tenant lifecycle
 apps/web        the installable web app, the home page, and the generator for these documentation sites
+apps/reference  the API reference, a site of its own: the server's routes as OpenAPI, shown with Scalar
 docs            design record, promise ledger, runbook, and the source of the two documentation sites
 scripts         checks that run in CI, and the live smoke tests
 deploy          reverse-proxy configuration for the HTTPS Compose file
@@ -58,13 +59,14 @@ npm run drift:db         # breaks each database guard on purpose
 
 ## What each layer proves
 
-| Layer                | Where                                         | What it is for                                                                                                          |
-| -------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Rules and billing    | `packages/core/test`                          | Reference cases written by hand, property tests, boundary dates, and the bundle format. No database.                    |
-| Service and database | `apps/api/test`                               | The service on a real Postgres: row-level security, immutability, caps, the lifecycle, the HTTP surface.                |
-| Web units            | `apps/web/src/**/*.test.ts`                   | Formatting, the section registry, the sample month, the documentation build, the design checker.                        |
-| The app in a browser | `apps/web/e2e`                                | A kitchen from its first day to its last, on a desktop and a phone, with accessibility and layout checks at each stage. |
-| Deployment           | `scripts/smoke-compose.sh`, `smoke-worker.sh` | The image that ships starts and serves; the Worker bundle runs in the Workers runtime.                                  |
+| Layer                | Where                                                  | What it is for                                                                                                          |
+| -------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Rules and billing    | `packages/core/test`                                   | Reference cases written by hand, property tests, boundary dates, and the bundle format. No database.                    |
+| Service and database | `apps/api/test`                                        | The service on a real Postgres: row-level security, immutability, caps, the lifecycle, the HTTP surface.                |
+| Web units            | `apps/web/src/**/*.test.ts`                            | Formatting, the section registry, the sample month, the documentation build, the design checker.                        |
+| API reference        | `apps/api/test/openapi.test.ts`, `apps/reference/test` | The reference lists every route and error code the server has, and the site it is served from is read only.             |
+| The app in a browser | `apps/web/e2e`                                         | A kitchen from its first day to its last, on a desktop and a phone, with accessibility and layout checks at each stage. |
+| Deployment           | `scripts/smoke-compose.sh`, `smoke-worker.sh`          | The image that ships starts and serves; the Worker bundle runs in the Workers runtime.                                  |
 
 ### Tests that make promises
 
@@ -109,5 +111,5 @@ Each site opens on a front page: `index.md` with `layout: home` and no body. Wha
 The guides are written for people who use a kitchen, so a test refuses technical words in them (Postgres, API, Docker and the like) outside of code. Say it plainly, or put it in the docs and link there.
 
 - **Warnings are fixed, not silenced.** A deprecation notice, an audit finding or a size marker in a build or test log is a defect to resolve at its cause. Nothing is hidden with a flag, a filter or `--no-warnings`. Where the cause is a dependency we cannot change, the fix is a documented `overrides` entry that is removed when the dependency catches up. Today there is one: `workbox-build` asks for a `glob` that npm marks deprecated, so it is given `glob` 13 (the only call it makes, `globSync`, is unchanged).
-- **Install scripts are approved by name and version.** `allowScripts` in `package.json` lists the two packages that run one (esbuild, workerd) at the version reviewed. A bump asks again, and `npm install-scripts approve <package>` records the new version.
+- **Install scripts are approved by name and version.** `allowScripts` in `package.json` lists the two packages that run one (esbuild, workerd) at the version reviewed, and `vue-demi`, which Scalar pulls in for the API reference, as refused: its script only chooses which Vue build to link, and the reference ships Scalar's own built files. A bump asks again, and `npm install-scripts approve <package>` records the new version.
 - **Import zod as a namespace** (`import * as z from 'zod'`). The named `{ z }` export keeps all sixty-odd language packs alive and added about 590 KB to the server bundle.

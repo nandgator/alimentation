@@ -1,0 +1,8 @@
+{
+  // The API reference on Cloudflare: static files only, so it costs nothing and runs no code. It is
+  // deployed on its own, apart from the app, whenever the reference changes:
+  //   npm run build -w @alimentation/reference && npx wrangler deploy -c apps/reference/wrangler.jsonc
+  "name": "alimentation-reference",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" },
+}

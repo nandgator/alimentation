@@ -6,6 +6,7 @@ export default defineConfig({
       'packages/*/test/**/*.test.ts',
       'apps/api/test/**/*.test.ts',
       'apps/web/src/**/*.test.ts',
+      'apps/reference/test/**/*.test.ts',
     ],
     testTimeout: 30_000,
     hookTimeout: 60_000,

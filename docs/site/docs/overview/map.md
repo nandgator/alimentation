@@ -9,13 +9,14 @@ This is the technical documentation: how Alimentation is built, how to run it, a
 
 ## What it is made of
 
-| Part            | What it does                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core` | The billing engine, the per-kitchen rules, the validation shared by the server and the browser, the export bundle, usage limits. Pure TypeScript with no input or output. |
-| `apps/api`      | A Hono API that runs on Cloudflare Workers or on Node; the Postgres migrations; keys and encryption; the move, wipe and housekeeping jobs.                                |
-| `apps/web`      | The installable web app and the home page (React and Vite), and the build of these two documentation sites.                                                               |
-| `docs`          | The design record, the promises ledger, the specification, the runbook and the handoff notes, in the repository.                                                          |
-| `scripts`       | Checks that fail the build: promises, design conformance, database drift, migrations in sync.                                                                             |
+| Part             | What it does                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core`  | The billing engine, the per-kitchen rules, the validation shared by the server and the browser, the export bundle, usage limits. Pure TypeScript with no input or output. |
+| `apps/api`       | A Hono API that runs on Cloudflare Workers or on Node; the Postgres migrations; keys and encryption; the move, wipe and housekeeping jobs.                                |
+| `apps/web`       | The installable web app and the home page (React and Vite), and the build of these two documentation sites.                                                               |
+| `apps/reference` | The API reference: a site of its own, drawn from the server's routes and shown with Scalar ([API reference](/docs/api/reference/)).                                       |
+| `docs`           | The design record, the promises ledger, the specification, the runbook and the handoff notes, in the repository.                                                          |
+| `scripts`        | Checks that fail the build: promises, design conformance, database drift, migrations in sync.                                                                             |
 
 ## Conventions that run through it
 

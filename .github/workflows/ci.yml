@@ -44,6 +44,25 @@ jobs:
       - run: npm run build:worker -w @alimentation/api
       - run: scripts/smoke-worker.sh
 
+  # The API reference is a site of its own: built from the server's routes, with Scalar, and served
+  # with nothing fetched from outside it.
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:reference
+      - run: |
+          PORT=18788 node apps/reference/serve.mjs &
+          for _ in $(seq 1 20); do curl -fsS localhost:18788/healthz >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS localhost:18788/openapi.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const n=Object.keys(JSON.parse(s).paths).length;if(n<40){console.error("only "+n+" paths");process.exit(1)}})'
+          curl -fsS -o /dev/null localhost:18788/scalar/standalone.js
+
   # The real app in a real browser, desktop and phone: a kitchen from its first day to its last,
   # with accessibility and layout checks at every stage.
   e2e:

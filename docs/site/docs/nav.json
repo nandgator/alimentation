@@ -11,7 +11,7 @@
     },
     {
       "title": "API reference",
-      "pages": ["api/overview", "api/workspace", "api/platform"]
+      "pages": ["api/reference"]
     },
     {
       "title": "Self-hosting",

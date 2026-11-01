@@ -200,11 +200,11 @@ test.describe('the documentation sites', () => {
     page,
     isMobile,
   }) => {
-    await page.goto('/docs/api/workspace/');
+    await page.goto('/docs/lifecycle/bundle-and-move/');
     if (isMobile) await page.getByRole('button', { name: 'Menu' }).click();
     const nav = page.getByRole('navigation', { name: 'Docs contents' });
     await expect(nav.locator('details.docs-group[open]')).toHaveCount(1);
-    await expect(nav.getByRole('link', { name: 'Workspace routes' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Bundles and moves' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Install a trial instance' })).toBeHidden();
 
     // A part is opened by its heading, with the keyboard as well as a touch.
@@ -216,10 +216,10 @@ test.describe('the documentation sites', () => {
     await expect(nav.getByRole('link', { name: 'Install a trial instance' })).toBeHidden();
   });
 
-  test('keeps a path in the API tables whole where it fits, and a table never pushes the page sideways', async ({
+  test('keeps a name in the tables whole where it fits, and a table never pushes the page sideways', async ({
     page,
   }) => {
-    await page.goto('/docs/api/workspace/');
+    await page.goto('/docs/self-hosting/configuration/');
     const broken = await page.evaluate(() =>
       [...document.querySelectorAll('.docs-article td:first-child code')]
         .filter((c) => !c.querySelector('wbr'))
@@ -227,7 +227,7 @@ test.describe('the documentation sites', () => {
         .map((c) => c.textContent),
     );
     expect(broken, 'a short piece of code is not broken across lines').toEqual([]);
-    await expectNoSidewaysScroll(page, 'the API reference');
+    await expectNoSidewaysScroll(page, 'the configuration page');
   });
 
   test('has the same tiffin in its bar as the home page, packed as the page is read', async ({
@@ -266,8 +266,8 @@ test.describe('the documentation sites', () => {
       await copy.click();
       await expect(copy).toHaveText('Copied');
     }
-    await page.goto('/docs/api/workspace/');
-    await expectNoSidewaysScroll(page, 'the API reference');
+    await page.goto('/docs/self-hosting/configuration/');
+    await expectNoSidewaysScroll(page, 'the configuration page');
     await expect(page.locator('.tablewrap').first()).toHaveAttribute('tabindex', '0');
   });
 
