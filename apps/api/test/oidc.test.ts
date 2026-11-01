@@ -188,6 +188,24 @@ describe('configuration', () => {
     expect(c.capacity.hostProjects).toBe(300);
   });
 
+  it("reads Microsoft's xms_edov only when it is chosen, and only from the address of one tenant", () => {
+    const tenant = 'https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0';
+    const at = (OIDC_ISSUER: string, extra: Record<string, string> = {}) =>
+      loadConfig({ ...base, ...oidc, OIDC_ISSUER, ...extra }).oidc!.emailVerifiedClaim;
+    expect(at('https://accounts.example')).toBe('email_verified');
+    expect(at(tenant, { OIDC_EMAIL_VERIFIED_CLAIM: '' })).toBe('email_verified');
+    expect(at(tenant, { OIDC_EMAIL_VERIFIED_CLAIM: 'xms_edov' })).toBe('xms_edov');
+    for (const shared of ['common', 'organizations', 'consumers'])
+      expect(() =>
+        at(`https://login.microsoftonline.com/${shared}/v2.0`, {
+          OIDC_EMAIL_VERIFIED_CLAIM: 'xms_edov',
+        }),
+      ).toThrow(/address of one tenant/);
+    // The shared addresses are only refused when the choice is made; without it nothing about them changes.
+    expect(at('https://login.microsoftonline.com/common/v2.0')).toBe('email_verified');
+    expect(() => at(tenant, { OIDC_EMAIL_VERIFIED_CLAIM: 'email' })).toThrow();
+  });
+
   it('normalises operator emails', () => {
     expect([
       ...loadConfig({ ...base, ...oidc, OPERATOR_EMAILS: ' A@x.org , b@x.org ' }).operators,
@@ -462,6 +480,7 @@ describe('the providers it was written for are treated as they always were', () 
     issuer: string,
     claims: Record<string, unknown>,
     tokenIssuer?: string,
+    emailVerifiedClaim?: 'email_verified' | 'xms_edov',
   ) {
     const doc = document(name);
     const { publicKey, privateKey } = await generateKeyPair('RS256');
@@ -497,7 +516,10 @@ describe('the providers it was written for are treated as they always were', () 
     // The keys are fetched with the global fetch.
     vi.stubGlobal('fetch', fake);
     try {
-      const client = new OidcClient({ issuer, clientId: 'client', clientSecret: 'secret' }, fake);
+      const client = new OidcClient(
+        { issuer, clientId: 'client', clientSecret: 'secret', emailVerifiedClaim },
+        fake,
+      );
       const sent: URLSearchParams[] = [];
       let who: Awaited<ReturnType<OidcClient['exchange']>> | undefined;
       let refused: string | undefined;
@@ -577,6 +599,49 @@ describe('the providers it was written for are treated as they always were', () 
       'https://login.microsoftonline.com/another-tenant/v2.0',
     );
     expect(r.refused).toMatch(/did not verify/);
+  });
+
+  describe('Microsoft, when the deployment has chosen to trust xms_edov', () => {
+    const tenant = 'https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0';
+    const asha = { sub: 'm1', name: 'Asha', email: 'Asha@Contoso.com' };
+    const trusting = (claims: Record<string, unknown>) =>
+      through('microsoft', tenant, claims, undefined, 'xms_edov');
+
+    it('signs in an address whose domain the tenant has verified, asking and answering as before', async () => {
+      const r = await trusting({ ...asha, xms_edov: true });
+      expect(r.who).toEqual({ sub: 'm1', email: 'asha@contoso.com', name: 'Asha' });
+      expect(r.authorize!.get('scope')).toBe('openid email profile');
+      expect(r.authorize!.get('prompt')).toBe('select_account');
+      expect(r.asked.token!.authorization).toBe(false);
+      // Entra's userinfo cannot say it, so it is not asked.
+      expect(r.asked.userinfo).toBe(0);
+    });
+
+    it('refuses an address the tenant has not verified, in any other form than the boolean true', async () => {
+      for (const edov of [false, 'true', 1, '1', null, undefined])
+        expect((await trusting({ ...asha, xms_edov: edov })).refused, String(edov)).toMatch(
+          /not verified/,
+        );
+    });
+
+    it('counts only that claim: a token that says email_verified without it is refused', async () => {
+      expect((await trusting({ ...asha, email_verified: true })).refused).toMatch(/not verified/);
+    });
+
+    it('needs the email in the identity token, because that is the only place the claim is sent', async () => {
+      const r = await trusting({
+        sub: 'm1',
+        xms_edov: true,
+        preferred_username: 'asha@contoso.com',
+      });
+      expect(r.refused).toMatch(/did not share an email/);
+      expect(r.asked.userinfo).toBe(0);
+    });
+
+    it('is not the default: without the choice, the claim is ignored and the person is refused as before', async () => {
+      const r = await through('microsoft', tenant, { ...asha, xms_edov: true });
+      expect(r.refused).toMatch(/not verified/);
+    });
   });
 
   it('Apple: sends the secret in the body, which is the only way it takes it, and signs in a verified email', async () => {

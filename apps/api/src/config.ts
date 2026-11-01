@@ -24,6 +24,15 @@ const Env = z.object({
   OIDC_ISSUER: z.string().url().optional(),
   OIDC_CLIENT_ID: z.string().optional(),
   OIDC_CLIENT_SECRET: z.string().optional(),
+  /**
+   * Which claim of the identity token says the email is verified. `email_verified` is the standard one.
+   * `xms_edov` is Microsoft Entra's: true when the address belongs to the person's own organisation and its
+   * domain has been verified there. Entra sends no other, so a deployment must choose it on purpose.
+   */
+  OIDC_EMAIL_VERIFIED_CLAIM: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.enum(['email_verified', 'xms_edov']).default('email_verified'),
+  ),
   /** Verified emails that run the platform. Comma separated. */
   OPERATOR_EMAILS: z.string().default(''),
   /** Development sign-in without an identity provider. Refused in production. */
@@ -47,7 +56,12 @@ export interface Config {
   masterKeys: string;
   controlDatabaseUrl: string;
   placementAdminUrl: string | null;
-  oidc: { issuer: string; clientId: string; clientSecret: string } | null;
+  oidc: {
+    issuer: string;
+    clientId: string;
+    clientSecret: string;
+    emailVerifiedClaim: 'email_verified' | 'xms_edov';
+  } | null;
   operators: Set<string>;
   authDev: boolean;
   production: boolean;
@@ -68,8 +82,23 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   }
   const oidc =
     e.OIDC_ISSUER && e.OIDC_CLIENT_ID && e.OIDC_CLIENT_SECRET
-      ? { issuer: e.OIDC_ISSUER, clientId: e.OIDC_CLIENT_ID, clientSecret: e.OIDC_CLIENT_SECRET }
+      ? {
+          issuer: e.OIDC_ISSUER,
+          clientId: e.OIDC_CLIENT_ID,
+          clientSecret: e.OIDC_CLIENT_SECRET,
+          emailVerifiedClaim: e.OIDC_EMAIL_VERIFIED_CLAIM,
+        }
       : null;
+  // Entra's shared addresses (/common, /organizations, /consumers) name an issuer with {tenantid} in it and
+  // let a person from any organisation in. An email vouched for by "some" tenant is not one this app can
+  // trust, so the claim is only accepted from the address of one tenant.
+  if (
+    oidc?.emailVerifiedClaim === 'xms_edov' &&
+    /^\/(common|organizations|consumers)(\/|$)/.test(new URL(oidc.issuer).pathname)
+  )
+    throw new Error(
+      'OIDC_EMAIL_VERIFIED_CLAIM=xms_edov needs the address of one tenant (https://login.microsoftonline.com/<tenant id>/v2.0), not /common, /organizations or /consumers',
+    );
   if (!oidc && e.AUTH_DEV !== '1') {
     throw new Error(
       'Configure OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET (or AUTH_DEV=1 for development)',
