@@ -165,3 +165,15 @@ export const JoinOrganisation = z.object({
   token: z.string().min(10).max(4096),
   confirm: z.boolean().default(false),
 });
+
+// --- AI agents -------------------------------------------------------------------------------------
+
+/** A key for an agent, to act as the person making it, in the role they are using. `read` is always included. */
+export const CreateAgentKey = z.object({
+  name: z.string().trim().min(1).max(80),
+  scopes: z
+    .array(z.enum(['log', 'claims']))
+    .max(2)
+    .default([]),
+  days: z.number().int().min(1).max(365).default(90),
+});

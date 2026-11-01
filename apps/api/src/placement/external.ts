@@ -228,6 +228,7 @@ export const OUR_FUNCTIONS = [
   'is_app_session',
   'app_role',
   'app_person',
+  'app_via',
   'workspace_time_zone_known',
   'workspace_today',
   'policy_on',

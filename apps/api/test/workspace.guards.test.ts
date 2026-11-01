@@ -127,6 +127,9 @@ describe('[P5] personal data reaches the database only as ciphertext', () => {
       'audit_log.table_name',
       'audit_log.row_id',
       'audit_log.action',
+      // Which agent a change went through, and the label its person gave it: `{ agent: { id, name } }`. Like a rate
+      // card's note or a holiday's name, a few words chosen by whoever set it up, never anyone's contact.
+      'audit_log.via',
       'audit_log.before',
       'audit_log.after',
       'meta.key',

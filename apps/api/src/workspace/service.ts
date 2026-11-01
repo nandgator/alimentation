@@ -673,7 +673,7 @@ export class WorkspaceService {
     const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
     return this.run(actor, async (tx, load) => {
       const rows = await tx.query<R>(
-        `SELECT id, table_name, row_id, action, actor, at, before, after FROM audit_log
+        `SELECT id, table_name, row_id, action, actor, at, via, before, after FROM audit_log
           WHERE ($1::bigint IS NULL OR id < $1) ORDER BY id DESC LIMIT $2`,
         [opts.before ?? null, limit],
       );
@@ -704,6 +704,7 @@ export class WorkspaceService {
           action: r.action,
           actor: r.actor,
           at: r.at,
+          via: r.via ?? null,
           before: r.before,
           after: r.after,
         };
@@ -1020,7 +1021,7 @@ export class WorkspaceService {
     const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
     return this.run(actor, async (tx) => {
       const rows = await tx.query<R>(
-        `SELECT id, table_name, row_id, action, actor, at, before, after FROM audit_log WHERE ($1::bigint IS NULL OR id < $1) ORDER BY id DESC LIMIT $2`,
+        `SELECT id, table_name, row_id, action, actor, at, via, before, after FROM audit_log WHERE ($1::bigint IS NULL OR id < $1) ORDER BY id DESC LIMIT $2`,
         [opts.before ?? null, limit],
       );
       const hide = (j: R | null) =>
@@ -1039,6 +1040,7 @@ export class WorkspaceService {
         action: r.action,
         actor: r.actor,
         at: r.at,
+        via: r.via ?? null,
         before: hide(r.before),
         after: hide(r.after),
       }));

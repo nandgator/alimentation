@@ -15,8 +15,15 @@ export interface AuditRow {
   action: string;
   actor: string | null;
   at: string;
+  /** Set when the change was made through an agent the person gave a key to. */
+  via?: AgentVia | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
+}
+
+/** Which agent made a change, for whom it acted being the audit row's own `actor`. */
+export interface AgentVia {
+  agent: { id: string; name: string };
 }
 
 export interface HistoryContext {
@@ -44,6 +51,10 @@ export function whoLabel(actor: string | null, c: HistoryContext): string {
   return c.nameOf(actor) ?? 'Someone';
 }
 
+/** `, through the agent “Name”,` after whoever it acted for, so a sentence reads the same with or without it. */
+export const throughAgent = (via: AgentVia | null | undefined): string =>
+  via?.agent ? `, through the agent “${via.agent.name}”,` : '';
+
 const whose = (id: string, c: HistoryContext): string =>
   id === c.viewerId ? 'your' : `${c.nameOf(id) ?? 'a member'}’s`;
 const forWhom = (id: string, c: HistoryContext): string =>
@@ -55,7 +66,7 @@ export function describeAudit(row: AuditRow, c: HistoryContext): string | null {
   const now = row.after ?? {};
   const was = row.before ?? {};
   const rec = row.action === 'DELETE' ? was : now;
-  const by = whoLabel(row.actor, c);
+  const by = whoLabel(row.actor, c) + throughAgent(row.via);
 
   switch (row.table) {
     case 'log_entry': {
