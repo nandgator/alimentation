@@ -35,24 +35,24 @@ The screens of a kitchen are listed once, in `apps/web/src/pages/workspace/secti
 
 The whole suite, on the Postgres this project targets, in containers:
 
-```sh
-docker compose -f compose.test.yaml run --rm test
+```console
+$ docker compose -f compose.test.yaml run --rm test
 ```
 
 That runs formatting, types, the promise ledger, the design checker and every test, with the Postgres log readable so the check that no personal data reaches it runs for real.
 
 Without Docker, have Node 24 or later (`.nvmrc` says 24) and a PostgreSQL 15 or later whose login role can create roles and databases:
 
-```sh
-npm install
-export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
-npm run format:check
-npm run typecheck
-npm run promises
-npm run design
-npm test                 # unit and database tests
-npm run test:e2e         # the app in a real browser, desktop and phone
-npm run drift:db         # breaks each database guard on purpose
+```console
+$ npm install
+$ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
+$ npm run format:check
+$ npm run typecheck
+$ npm run promises
+$ npm run design
+$ npm test                 # unit and database tests
+$ npm run test:e2e         # the app in a real browser, desktop and phone
+$ npm run drift:db         # breaks each database guard on purpose
 ```
 
 `ALIMENTATION_TEST_PG_LOG=/path/to/postgres.log` makes the Postgres-log check run. CI sets `ALIMENTATION_REQUIRE_PG_LOG=1`, so there it cannot be skipped. The browser tests need Chromium: `npx playwright install chromium`, or `PLAYWRIGHT_CHROMIUM_PATH` for one you already have.
@@ -106,7 +106,7 @@ Playwright's phone emulation can keep a stale viewport width after a rotation. T
 
 A fenced block is more than text. Nothing here runs in the reader's browser: it is all done when the pages are built, and the content-security policy still forbids inline style.
 
-Code is highlighted, and numbered once it is six lines long, with the numbers in the margin where they cannot be selected or copied. A block of shell commands is not numbered unless it is asked to be.
+Code is highlighted, and numbered once it is six lines long, with the numbers in the margin where they cannot be selected or copied. The block is the design system's [code component](/docs/design/components/#code), with a copy button that shows when it is pointed at.
 
 ````md
 ```ts
@@ -122,6 +122,17 @@ A block can show lines of a real file, numbered as they are in it. It is empty: 
 ```
 ````
 
+A **console** is not a **shell** script. A `console` block is a session at a terminal: a line that starts with `$ ` is typed, and every other line is what came back. The prompt is drawn by the stylesheet and is not text, so copying takes the commands alone, one after another, and nothing the machine said. A `sh` block is a script or a snippet to put in a file, and has no prompt. The build fails for a console block that has no command in it.
+
+````md
+```console
+$ node cli.mjs keys:rewrap
+{"currentKey":2,"workspaces":14,"stillOnOldKey":0}
+```
+````
+
+A block with nothing in it fails the build too, because it is nearly always a fence left open or left behind.
+
 After the language come settings: `hl=2,4-5` marks lines, and `numbers` or `nonumbers` turns the numbering on or off. A diagram is a `mermaid` block with a title, which is what a reader who cannot see it is told:
 
 ````md
@@ -131,7 +142,7 @@ flowchart LR
 ```
 ````
 
-The languages are TypeScript, JavaScript, JSON, SQL, shell, YAML, CSS, HTML, TOML, Dockerfile, Markdown and diff, by their usual names; any other is an error that lists them. The diagram's text is under it, for anyone who cannot see it. The kinds that can be drawn are flowcharts, state, sequence, class and entity-relationship diagrams, and XY charts. A diagram carries no colours of its own: its nodes, lines and text take their colours from the design system's tokens in `docs.css`, so it is right in both themes. The colours of highlighting are the `--code-*` tokens.
+The languages are TypeScript, JavaScript, JSON, SQL, shell (`sh`, for scripts), console, YAML, CSS, HTML, TOML, Dockerfile, Markdown and diff, by their usual names; any other is an error that lists them. The diagram's text is under it, for anyone who cannot see it. The kinds that can be drawn are flowcharts, state, sequence, class and entity-relationship diagrams, and XY charts. A diagram carries no colours of its own: its nodes, lines and text take their colours from the design system's tokens in `docs.css`, so it is right in both themes. The colours of highlighting are the `--code-*` tokens.
 
 ## Writing these pages
 
@@ -144,7 +155,3 @@ The guides are written for people who use a kitchen, so a test refuses technical
 - **Warnings are fixed, not silenced.** A deprecation notice, an audit finding or a size marker in a build or test log is a defect to resolve at its cause. Nothing is hidden with a flag, a filter or `--no-warnings`. Where the cause is a dependency we cannot change, the fix is a documented `overrides` entry that is removed when the dependency catches up. Today there is one: `workbox-build` asks for a `glob` that npm marks deprecated, so it is given `glob` 13 (the only call it makes, `globSync`, is unchanged).
 - **Install scripts are approved by name and version.** `allowScripts` in `package.json` lists the two packages that run one (esbuild, workerd) at the version reviewed, and `vue-demi`, which Scalar pulls in for the API reference, as refused: its script only chooses which Vue build to link, and the reference ships Scalar's own built files. A bump asks again, and `npm install-scripts approve <package>` records the new version.
 - **Import zod as a namespace** (`import * as z from 'zod'`). The named `{ z }` export keeps all sixty-odd language packs alive and added about 590 KB to the server bundle.
-
-```
-
-```
