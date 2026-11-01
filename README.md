@@ -25,6 +25,7 @@ First workspaces: the Willow mess and Maple's home kitchen.
 packages/core   billing engine, per-workspace rules, bundle format, crypto helpers (pure TypeScript)
 apps/api        Hono API; runs on Cloudflare Workers or Node; Postgres migrations
 apps/web        the installable web app and the home page
+apps/reference  the API reference: a site of its own, drawn from the server's routes and shown with Scalar
 docs            design, promises, runbooks, and the Markdown of the hosted guides (for people) and docs (for technicians)
 scripts         checks and the live smoke test
 ```

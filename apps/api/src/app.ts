@@ -1,10 +1,4 @@
-import {
-  LOG_CHANGES,
-  PAY_METHODS,
-  SETTLEMENT_TYPES,
-  localNow,
-  type Role,
-} from '@alimentation/core';
+import { localNow, type Role } from '@alimentation/core';
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import * as z from 'zod';
@@ -24,6 +18,36 @@ import { receiveWorkspace } from './lifecycle/receive.ts';
 import { toReceipt, wipeWorkspace } from './lifecycle/wipe.ts';
 import { acceptInvite, claimAutoInvites, createInvite } from './platform/invites.ts';
 import { capacityNow, createWorkspace, type PlatformDeps } from './platform/workspaces.ts';
+import {
+  AcceptInvite,
+  CloseMonth,
+  ConfirmBody,
+  CreateClaim,
+  CreateHoliday,
+  CreatePerson,
+  CreatePolicy,
+  CreateRateCard,
+  CreateSettlement,
+  CreateWorkspace,
+  DecideClaim,
+  DevLogin,
+  InvitePerson,
+  LedgerQuery,
+  LogBody,
+  LogQuery,
+  MAX_BUNDLE_BYTES,
+  MAX_JSON_BYTES,
+  MigrateReceive,
+  Month,
+  MoveBody,
+  MoveTarget,
+  PageQuery,
+  ReverseClaim,
+  ROLE_ORDER,
+  StatementsQuery,
+  UpdateHoliday,
+  UpdatePerson,
+} from './schemas.ts';
 import { resolveActors, type Actor } from './workspace/context.ts';
 import { ApiError, forbidden, invalid } from './workspace/errors.ts';
 
@@ -55,13 +79,6 @@ type Vars = {
   actor: Actor;
   roles: Role[];
 };
-
-const ROLE_ORDER: Role[] = ['admin', 'supplier', 'consumer'];
-const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const Month = z.string().regex(/^\d{4}-\d{2}$/);
-const MAX_BUNDLE_BYTES = 40_000_000;
-const MAX_JSON_BYTES = 256_000;
-const Money = z.number().int().min(0).max(10_000_000_000);
 
 export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   const { config } = deps;
@@ -298,10 +315,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
 
   app.post('/auth/dev-login', async (c) => {
     if (!config.authDev) throw new ApiError(404, 'not_found', 'Not found.');
-    const b = await parse(
-      c,
-      z.object({ email: z.string().email(), name: z.string().max(120).optional() }),
-    );
+    const b = await parse(c, DevLogin);
     const account = await deps.control.upsertAccount({
       issuer: 'dev',
       sub: b.email.toLowerCase(),
@@ -346,21 +360,13 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const a = needAccount(c);
     if (config.dedicated && !isOperator(a))
       throw forbidden('This instance is private. Ask whoever runs it to add a workspace.');
-    const b = await parse(
-      c,
-      z.object({
-        slug: z.string().min(3).max(40),
-        name: z.string().min(1).max(120),
-        timeZone: z.string().default('Asia/Kolkata'),
-        alsoSupplier: z.boolean().default(true),
-      }),
-    );
+    const b = await parse(c, CreateWorkspace);
     return c.json(await createWorkspace(deps.platform, asRow(a), b), 201);
   });
 
   app.post('/api/invites/accept', async (c) => {
     const a = needAccount(c);
-    const b = await parse(c, z.object({ token: z.string().min(20).max(200) }));
+    const b = await parse(c, AcceptInvite);
     return c.json(await acceptInvite(deps.platform, asRow(a), b.token));
   });
 
@@ -429,15 +435,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const sent = /^Bearer (.+)$/.exec(c.req.header('authorization') ?? '')?.[1] ?? '';
     if (!(await sameSecret(sent, config.migrationToken)))
       throw new ApiError(401, 'bad_token', 'That token was not accepted.');
-    const b = await parse(
-      c,
-      z.object({
-        slug: z.string().max(60),
-        bundle: z.unknown(),
-        dryRun: z.boolean().default(false),
-      }),
-      MAX_BUNDLE_BYTES,
-    );
+    const b = await parse(c, MigrateReceive, MAX_BUNDLE_BYTES);
     const report = await receiveWorkspace(deps.platform, b);
     const status = report.ok
       ? 200
@@ -502,34 +500,16 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     c.json({ role: await svc(c).roleOf(who(c), c.req.param('id')) }),
   );
   w.post('/people', async (c) => {
-    const b = await parse(
-      c,
-      z.object({
-        name: z.string().min(1).max(120),
-        role: z.enum(ROLE_ORDER as [Role, ...Role[]]),
-        contact: z.string().max(200).nullish(),
-        activeFrom: IsoDate.nullish(),
-        activeTo: IsoDate.nullish(),
-      }),
-    );
+    const b = await parse(c, CreatePerson);
     return c.json(await svc(c).createPerson(who(c), b), 201);
   });
   w.patch('/people/:id', async (c) => {
-    const b = await parse(
-      c,
-      z.object({
-        name: z.string().min(1).max(120).optional(),
-        contact: z.string().max(200).nullish(),
-        activeFrom: IsoDate.nullish(),
-        activeTo: IsoDate.nullish(),
-        status: z.enum(['ACTIVE', 'DISABLED']).optional(),
-      }),
-    );
+    const b = await parse(c, UpdatePerson);
     await svc(c).updatePerson(who(c), c.req.param('id'), b);
     return c.body(null, 204);
   });
   w.post('/people/:id/invite', async (c) => {
-    const b = await parse(c, z.object({ email: z.string().email() }));
+    const b = await parse(c, InvitePerson);
     const a = needAccount(c);
     return c.json(
       await createInvite(
@@ -546,51 +526,23 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
 
   w.get('/rate-cards', async (c) => c.json(await svc(c).listRateCards(who(c))));
   w.post('/rate-cards', async (c) => {
-    const b = await parse(
-      c,
-      z.object({
-        effectiveFrom: IsoDate,
-        veg: Money,
-        nonVeg: Money,
-        extraChapati: Money,
-        extraBhakri: Money,
-        extrasPerMonth: Money,
-        menu: z.record(z.string().regex(/^[0-6]$/), z.enum(['Veg', 'Non Veg'])),
-        note: z.string().max(500).nullish(),
-      }),
-    );
+    const b = await parse(c, CreateRateCard);
     const menu = Object.fromEntries(Object.entries(b.menu).map(([k, v]) => [Number(k), v]));
     return c.json(await svc(c).addRateCard(who(c), { ...b, menu }), 201);
   });
   w.get('/policies', async (c) => c.json(await svc(c).listPolicies(who(c))));
   w.post('/policies', async (c) => {
-    const b = await parse(c, z.object({ effectiveFrom: IsoDate, doc: z.unknown() }));
+    const b = await parse(c, CreatePolicy);
     await svc(c).addPolicy(who(c), b.effectiveFrom, b.doc);
     return c.body(null, 201);
   });
 
   w.post('/holidays', async (c) => {
-    const b = await parse(
-      c,
-      z.object({
-        name: z.string().min(1).max(120),
-        date: IsoDate,
-        location: z.string().max(120).nullish(),
-        confirmed: z.boolean(),
-      }),
-    );
+    const b = await parse(c, CreateHoliday);
     return c.json(await svc(c).addHoliday(who(c), b), 201);
   });
   w.patch('/holidays/:id', async (c) => {
-    const b = await parse(
-      c,
-      z.object({
-        name: z.string().min(1).max(120).optional(),
-        date: IsoDate.optional(),
-        location: z.string().max(120).nullish(),
-        confirmed: z.boolean().optional(),
-      }),
-    );
+    const b = await parse(c, UpdateHoliday);
     await svc(c).updateHoliday(who(c), c.req.param('id'), b);
     return c.body(null, 204);
   });
@@ -599,25 +551,12 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     return c.body(null, 204);
   });
 
-  const LogBody = z.object({
-    date: IsoDate,
-    personId: z.string().uuid().nullable(),
-    allConsumers: z.boolean().default(false),
-    change: z.enum(LOG_CHANGES),
-    qty: z.number().int().nullable().default(null),
-    note: z.string().max(500).nullish(),
-  });
   w.get('/history', async (c) => {
-    const q = z
-      .object({
-        before: z.coerce.number().int().optional(),
-        limit: z.coerce.number().int().optional(),
-      })
-      .parse(c.req.query());
+    const q = PageQuery.parse(c.req.query());
     return c.json(await svc(c).history(who(c), q));
   });
   w.get('/log', async (c) => {
-    const q = z.object({ from: IsoDate, to: IsoDate }).parse(c.req.query());
+    const q = LogQuery.parse(c.req.query());
     return c.json(await svc(c).listLog(who(c), q));
   });
   w.post('/log/check', async (c) =>
@@ -630,31 +569,19 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   });
 
   w.get('/statements', async (c) => {
-    const q = z
-      .object({ months: z.string().min(7), person: z.string().uuid().optional() })
-      .parse(c.req.query());
+    const q = StatementsQuery.parse(c.req.query());
     return c.json(
       await svc(c).statements(who(c), Month.array().parse(q.months.split(',')), q.person),
     );
   });
   w.get('/ledger', async (c) => {
-    const q = z.object({ month: Month, person: z.string().uuid() }).parse(c.req.query());
+    const q = LedgerQuery.parse(c.req.query());
     return c.json(await svc(c).ledger(who(c), q.month, q.person));
   });
 
   w.get('/claims', async (c) => c.json(await svc(c).listClaims(who(c))));
   w.post('/claims', async (c) => {
-    const b = await parse(
-      c,
-      z.object({
-        consumerId: z.string().uuid(),
-        paidAt: IsoDate,
-        forMonth: Month,
-        amount: Money,
-        method: z.enum(PAY_METHODS),
-        refNote: z.string().max(300).nullish(),
-      }),
-    );
+    const b = await parse(c, CreateClaim);
     return c.json(await svc(c).addClaim(who(c), b), 201);
   });
   w.delete('/claims/:id', async (c) => {
@@ -662,37 +589,24 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     return c.body(null, 204);
   });
   w.post('/claims/:id/decision', async (c) => {
-    const b = await parse(
-      c,
-      z.object({ decision: z.string(), note: z.string().max(500).nullish() }),
-    );
+    const b = await parse(c, DecideClaim);
     await svc(c).decide(who(c), c.req.param('id'), b.decision, b.note ?? null);
     return c.body(null, 201);
   });
   w.post('/claims/:id/reversal', async (c) => {
-    const b = await parse(c, z.object({ reason: z.string().min(1).max(500) }));
+    const b = await parse(c, ReverseClaim);
     await svc(c).reverse(who(c), c.req.param('id'), b.reason);
     return c.body(null, 201);
   });
 
   w.get('/settlements', async (c) => c.json(await svc(c).listSettlements(who(c))));
   w.post('/settlements', async (c) => {
-    const b = await parse(
-      c,
-      z.object({
-        consumerId: z.string().uuid(),
-        forMonth: Month,
-        type: z.enum(SETTLEMENT_TYPES),
-        amount: Money.nullish(),
-        note: z.string().max(500).nullish(),
-        date: IsoDate.optional(),
-      }),
-    );
+    const b = await parse(c, CreateSettlement);
     return c.json(await svc(c).addSettlement(who(c), b), 201);
   });
 
   w.post('/closes', async (c) => {
-    const b = await parse(c, z.object({ month: Month, consumerId: z.string().uuid().optional() }));
+    const b = await parse(c, CloseMonth);
     return c.json(await svc(c).closeMonth(who(c), b.month, b.consumerId), 201);
   });
   w.delete('/closes/:month/:consumerId', async (c) => {
@@ -701,12 +615,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   });
 
   w.get('/audit', async (c) => {
-    const q = z
-      .object({
-        before: z.coerce.number().int().optional(),
-        limit: z.coerce.number().int().optional(),
-      })
-      .parse(c.req.query());
+    const q = PageQuery.parse(c.req.query());
     return c.json(await svc(c).audit(who(c), q));
   });
 
@@ -716,15 +625,6 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     if (!c.get('roles').includes('admin')) throw forbidden('Only an admin can do that.');
     return needAccount(c);
   };
-  const Target = z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('database'), url: z.string().min(10).max(2000) }),
-    z.object({
-      kind: z.literal('instance'),
-      url: z.string().min(10).max(500),
-      token: z.string().min(24).max(500),
-    }),
-  ]);
-
   w.get('/export', async (c) => {
     needAdmin(c);
     const handle = c.get('handle');
@@ -746,11 +646,11 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   });
   w.post('/move/preview', async (c) => {
     needAdmin(c);
-    return c.json(await previewMove(deps.platform, c.get('handle'), await parse(c, Target)));
+    return c.json(await previewMove(deps.platform, c.get('handle'), await parse(c, MoveTarget)));
   });
   w.post('/move', async (c) => {
     const a = needAdmin(c);
-    const b = await parse(c, z.object({ target: Target, confirm: z.string() }));
+    const b = await parse(c, MoveBody);
     const handle = c.get('handle');
     if (b.confirm !== handle.row.slug)
       throw invalid('Type the workspace address to confirm the move.');
@@ -764,7 +664,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   });
   w.post('/wipe', async (c) => {
     needAdmin(c);
-    const b = await parse(c, z.object({ confirm: z.string() }));
+    const b = await parse(c, ConfirmBody);
     const handle = c.get('handle');
     if (b.confirm !== handle.row.slug)
       throw invalid('Type the workspace address to confirm that everything should be deleted.');

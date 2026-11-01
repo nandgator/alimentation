@@ -24,8 +24,8 @@
     },
     {
       "title": "The API",
-      "details": "Every route, who may call it, and how it fails.",
-      "link": "/docs/api/overview/"
+      "details": "Every route, who may call it, and how it fails: a reference site of its own.",
+      "link": "/docs/api/reference/"
     },
     {
       "title": "Settings and commands",

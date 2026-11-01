@@ -136,13 +136,13 @@ describe('the documentation sites', () => {
     }
   });
 
-  it('lets a long path in code break after its slashes and queries, and still shows what is in angle brackets', () => {
-    const h = html('/docs/api/workspace/');
-    expect(h).toContain('statements?<wbr>months=<wbr>');
-    expect(h).toContain('&lt;id&gt;');
-    expect(h).not.toMatch(/<id>/);
+  it('lets a long path in code break after its slashes, and still shows what is in angle brackets', () => {
+    const h = html('/docs/lifecycle/bundle-and-move/');
+    expect(h).toContain('<code>GET /<wbr>api/<wbr>w/<wbr>:slug/<wbr>export</code>');
+    expect(h).toContain('&lt;slug&gt;.alimentation.json');
+    expect(h).not.toMatch(/<slug>/);
     // A short piece of code is left whole.
-    expect(h).toContain('<code>GET /bootstrap</code>');
+    expect(h).toContain('<code>BundleSchema</code>');
   });
 
   it('writes a search index for each site with one entry per page of that site only', () => {
@@ -396,18 +396,6 @@ describe('what the documentation says is still what the app does', () => {
     expect(names.length).toBeGreaterThan(10);
     const page = read('docs/self-hosting/configuration.md');
     for (const name of names) expect(page, name).toContain(`\`${name}\``);
-  });
-
-  it('lists every route the server answers, in the API reference', () => {
-    const app = readFileSync(join(import.meta.dirname, '..', '..', 'api', 'src', 'app.ts'), 'utf8');
-    const paths = [
-      ...app.matchAll(/\b(?:app|w)\.(?:get|post|put|patch|delete)\(\s*'([^']+)'/g),
-    ].map((m) => m[1]!);
-    expect(paths.length).toBeGreaterThan(40);
-    const pages = ['overview', 'workspace', 'platform']
-      .map((n) => read(`docs/api/${n}.md`))
-      .join('\n');
-    for (const path of paths) expect(pages, path).toContain(path);
   });
 
   it('names every command the command line offers', () => {

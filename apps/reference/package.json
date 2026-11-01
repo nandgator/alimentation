@@ -1,0 +1,17 @@
+{
+  "name": "@alimentation/reference",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "The API reference: its own site, built from the server's own routes and shown with Scalar.",
+  "scripts": {
+    "build": "tsx scripts/build.mts",
+    "start": "node serve.mjs",
+    "dev": "tsx scripts/build.mts && node serve.mjs"
+  },
+  "devDependencies": {
+    "@scalar/api-reference": "1.76.4",
+    "@scalar/openapi-parser": "^0.29.19",
+    "tsx": "^4.23.15"
+  }
+}

@@ -12,7 +12,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "typecheck": "tsc -p packages/core && tsc -p apps/api && tsc -p apps/web",
+    "typecheck": "tsc -p packages/core && tsc -p apps/api && tsc -p apps/web && tsc -p apps/reference",
     "drift:db": "node scripts/drift-db.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -21,6 +21,8 @@
     "dev:api": "npm run dev -w @alimentation/api",
     "dev:web": "npm run dev -w @alimentation/web",
     "build:web": "npm run build -w @alimentation/web",
+    "build:reference": "npm run build -w @alimentation/reference",
+    "dev:reference": "npm run dev -w @alimentation/reference",
     "test:e2e": "npm run test:e2e -w @alimentation/web",
     "promises": "node scripts/check-promises.mjs",
     "design": "node scripts/check-design.mjs",
@@ -38,7 +40,8 @@
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
-    "workerd@1.20261023.1": true
+    "workerd@1.20261023.1": true,
+    "vue-demi": false
   },
   "overrides": {
     "workbox-build": {

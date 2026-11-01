@@ -15,6 +15,7 @@ COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY apps/reference/package.json apps/reference/
 RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Everything, for running the tests.
@@ -25,7 +26,18 @@ CMD ["npm", "test"]
 FROM dev AS build
 RUN npm run build:server -w @alimentation/api \
  && mkdir -p apps/web/dist \
- && if [ -f apps/web/index.html ]; then npm run build:web; fi
+ && if [ -f apps/web/index.html ]; then npm run build:web; fi \
+ && npm run build:reference
+
+# The API reference: its own small image, apart from the app, started with `--profile reference`.
+FROM docker.io/library/node:${NODE} AS reference
+ENV PORT=8788
+WORKDIR /app
+COPY --from=build /src/apps/reference/dist ./dist
+COPY apps/reference/serve.mjs ./
+USER node
+EXPOSE 8788
+CMD ["node", "serve.mjs"]
 
 FROM docker.io/library/node:${NODE} AS run
 ENV NODE_ENV=production PORT=8787 WEB_DIR=/app/web INSTANCE_DIR=/data
