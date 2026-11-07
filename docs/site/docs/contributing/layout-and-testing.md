@@ -226,10 +226,11 @@ there.
   `overrides` entry that is removed when the dependency catches up. Today there is one:
   `workbox-build` asks for a `glob` that npm marks deprecated, so it is given `glob` 13 (the only
   call it makes, `globSync`, is unchanged).
-- **Install scripts are approved by name and version.** `allowScripts` in `package.json` lists the
-  two packages that run one (esbuild, workerd) at the version reviewed, and `vue-demi`, which Scalar
-  pulls in for the API reference, as refused: its script only chooses which Vue build to link, and
-  the reference ships Scalar's own built files. A bump asks again, and
-  `npm install-scripts approve <package>` records the new version.
+- **Install scripts are approved by name.** Bun runs no install script unless the package is in
+  `trustedDependencies` in `package.json`. That lists the two packages that run one (esbuild and
+  workerd). Everything else is refused, including `vue-demi`, which Scalar pulls in for the API
+  reference: its script only chooses which Vue build to link, and the reference ships Scalar's own
+  built files. `bun pm untrusted` lists any dependency whose script is waiting for a decision, and a
+  new one is added to the list only after its script has been read.
 - **Import zod as a namespace** (`import * as z from 'zod'`). The named `{ z }` export keeps all
   sixty-odd language packs alive and added about 590 KB to the server bundle.
