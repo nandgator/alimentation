@@ -1,9 +1,8 @@
 ---
-
 title: Try sign-in on your machine
 description:
-Run the app against a real identity provider on your own computer, which providers can be used,
-and what the app needs of one.
+  Run the app against a real identity provider on your own computer, which providers can be used,
+  and what the app needs of one.
 ---
 
 # Try sign-in on your machine
@@ -13,10 +12,10 @@ account anywhere, `dev/idp/idp.sh` starts a provider beside the app on your comp
 people in it, and prints how to sign in.
 
 ```console
-dev/idp/idp.sh up authelia      # the first time builds the app, which takes a few minutes
-dev/idp/idp.sh test authelia    # signs in through it in a real browser, as a person would
-dev/idp/idp.sh down authelia    # stops it; the people and keys are kept
-dev/idp/idp.sh reset authelia   # stops it and forgets everything it made
+$ dev/idp/idp.sh up authelia      # the first time builds the app, which takes a few minutes
+$ dev/idp/idp.sh test authelia    # signs in through it in a real browser, as a person would
+$ dev/idp/idp.sh down authelia    # stops it; the people and keys are kept
+$ dev/idp/idp.sh reset authelia   # stops it and forgets everything it made
 ```
 
 It needs Docker with Compose, `openssl` and `curl`. Nothing is installed on your computer beyond the

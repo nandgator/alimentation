@@ -72,9 +72,9 @@ export function LogPage() {
   const blocked = issues.some((i) => i.severity === "error");
 
   return (
-    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead title={mayManage ? "Log" : "My log"} />
-      <section class="card stack" aria-label="Add an entry">
+      <section className="card stack" aria-label="Add an entry">
         <Form
           error={act.error}
           onSubmit={() =>
@@ -87,7 +87,7 @@ export function LogPage() {
             })
           }
         >
-          <div class="pair">
+          <div className="pair">
             {mayManage && !forEveryone ? (
               <Field label="For" id="who">
                 <select id="who" value={who} onChange={(e) => setWho(e.target.value)}>
@@ -133,7 +133,7 @@ export function LogPage() {
             ) : null}
           </div>
           {forEveryone ? (
-            <p class="muted small">A day the kitchen is off applies to everyone.</p>
+            <p className="muted small">A day the kitchen is off applies to everyone.</p>
           ) : null}
           <Field label="Note (optional)" id="note">
             <input
@@ -144,26 +144,30 @@ export function LogPage() {
             />
           </Field>
           {issues.map((i, k) => (
-            <div key={k} class={`banner ${i.severity === "error" ? "bad" : "warn"}`} role="status">
+            <div
+              key={k}
+              className={`banner ${i.severity === "error" ? "bad" : "warn"}`}
+              role="status"
+            >
               {i.message}
             </div>
           ))}
           <div>
-            <button class="btn" disabled={act.busy || blocked || !ws.writable}>
+            <button type="submit" className="btn" disabled={act.busy || blocked || !ws.writable}>
               Add
             </button>
           </div>
         </Form>
       </section>
 
-      <section class="stack">
+      <section className="stack">
         <h2>Recent entries</h2>
         <Problem error={list.error} />
         {list.loading && !list.data ? <Spinner /> : null}
-        {list.data && list.data.length === 0 ? <p class="muted">Nothing logged yet.</p> : null}
+        {list.data && list.data.length === 0 ? <p className="muted">Nothing logged yet.</p> : null}
         {list.data && list.data.length > 0 ? (
           <div
-            class="tablewrap"
+            className="tablewrap"
             tabIndex={0}
             role="region"
             aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -175,7 +179,7 @@ export function LogPage() {
                   <th>Who</th>
                   <th>Change</th>
                   <th>Added by</th>
-                  <th class="r">Qty</th>
+                  <th className="r">Qty</th>
                   <th>Note</th>
                   <th />
                 </tr>
@@ -201,12 +205,13 @@ export function LogPage() {
                         </>
                       ) : null}
                     </td>
-                    <td class="r">{e.qty ?? "-"}</td>
-                    <td class="cell-text">{e.note ?? ""}</td>
+                    <td className="r">{e.qty ?? "-"}</td>
+                    <td className="cell-text">{e.note ?? ""}</td>
                     <td>
                       {ws.writable ? (
                         <button
-                          class="btn ghost small"
+                          type="button"
+                          className="btn ghost small"
                           onClick={() =>
                             void api.del(`${ws.api}/log/${e.id}`).then(
                               () => {

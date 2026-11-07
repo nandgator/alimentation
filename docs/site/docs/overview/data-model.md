@@ -1,9 +1,8 @@
 ---
-
 title: Data model
 description:
-The tables of a kitchen's database, the rules the database holds, and the row-level security
-policies by role.
+  The tables of a kitchen's database, the rules the database holds, and the row-level security
+  policies by role.
 ---
 
 # Data model

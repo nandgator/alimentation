@@ -53,8 +53,8 @@ for (const u of unknown) problems.push(`a test names a promise that is not in th
 
 // The home page must show exactly the ledger's promises, in the ledger's words.
 const home = readFileSync(join(root, "apps/web/src/pages/Home.tsx"), "utf8");
-const shown = [...home.matchAll(/^\s+title: '([^']+)'/gm)].map((m) =>
-  m[1].replace(/’/g, "'").replace(/\.$/, "").toLowerCase(),
+const shown = [...home.matchAll(/^\s+title: (?:'([^']+)'|"([^"]+)")/gm)].map((m) =>
+  (m[1] ?? m[2]).replace(/’/g, "'").replace(/\.$/, "").toLowerCase(),
 );
 const wanted = promises.map((p) => p.text.replace(/’/g, "'").replace(/\.$/, "").toLowerCase());
 if (shown.length !== wanted.length)

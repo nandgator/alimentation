@@ -1,9 +1,8 @@
 ---
-
 title: Design principles
 description:
-What the look and feel of Alimentation is for, the choices that follow from it, and where the
-system is written down.
+  What the look and feel of Alimentation is for, the choices that follow from it, and where the
+  system is written down.
 ---
 
 # Design principles

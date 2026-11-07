@@ -57,9 +57,16 @@ function frontMatter(text, file) {
   const m = /^---\n([\s\S]*?)\n---\n/.exec(text);
   if (!m) throw new Error(`${file}: missing front matter (title, description)`);
   const meta = {};
+  let key = "";
   for (const line of m[1].split("\n")) {
     const kv = /^(\w+):\s*(.*)$/.exec(line);
-    if (kv) meta[kv[1]] = kv[2].trim();
+    if (kv) {
+      key = kv[1];
+      meta[key] = kv[2].trim();
+    } else if (key && /^\s+\S/.test(line)) {
+      // A long value folded onto indented lines, as prettier writes it.
+      meta[key] = `${meta[key]} ${line.trim()}`.trim();
+    }
   }
   for (const k of ["title", "description"])
     if (!meta[k]) throw new Error(`${file}: front matter needs a ${k}`);

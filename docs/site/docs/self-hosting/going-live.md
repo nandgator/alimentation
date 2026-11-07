@@ -1,9 +1,8 @@
 ---
-
 title: Going live
 description:
-A checklist for turning a trial into a kitchen people can trust, from secrets and sign-in to
-backups and headers.
+  A checklist for turning a trial into a kitchen people can trust, from secrets and sign-in to
+  backups and headers.
 ---
 
 # Going live
@@ -42,7 +41,7 @@ the first start and keeps them in the `instance` volume.
 Point a domain at the machine and start with the HTTPS file:
 
 ```console
-DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d --build
+$ DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d --build
 ```
 
 Set `APP_ORIGIN` to the `https://` address with no trailing slash. In production the server

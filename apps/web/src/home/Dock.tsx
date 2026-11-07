@@ -148,7 +148,7 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
 
   return (
     <svg
-      class="flyer"
+      className="flyer"
       ref={flyer}
       viewBox={`${CARRIER_BOX.x} ${CARRIER_BOX.y} ${CARRIER_BOX.width} ${CARRIER_BOX.height}`}
       width={CARRIER_BOX.width}

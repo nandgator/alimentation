@@ -152,7 +152,7 @@ For real use set, in `.env`: `APP_ORIGIN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OID
 the machine and:
 
 ```console
-DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d --build
+$ DOMAIN=kitchen.example.org docker compose -f compose.yaml -f compose.https.yaml up -d --build
 ```
 
 To have the API reference at the same address (at `/reference/`) on a machine or a test deployment,

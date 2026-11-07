@@ -1,9 +1,8 @@
 ---
-
 title: The trust model
 description:
-How the system keeps honest people honest without locking anyone out, where each guarantee is
-enforced, and what it deliberately does not try to do.
+  How the system keeps honest people honest without locking anyone out, where each guarantee is
+  enforced, and what it deliberately does not try to do.
 ---
 
 # The trust model

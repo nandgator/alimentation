@@ -77,7 +77,7 @@ export function parseFence(info) {
   const words = [];
   const re = /([\w-]+)=("[^"]*"|\S+)|(\S+)/g;
   for (const m of (info ?? "").matchAll(re)) words.push(m);
-  const first = words[0] && words[0][3] ? words.shift()[3] : "";
+  const first = words[0]?.[3] ? words.shift()[3] : "";
   const settings = {};
   const flags = new Set();
   for (const m of words) {

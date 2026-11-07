@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, customFetch, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes, toBase64Url } from "../crypto/aead.ts";
 
 /**

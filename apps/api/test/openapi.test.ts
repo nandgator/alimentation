@@ -40,7 +40,7 @@ describe("the API reference", () => {
     const documented = new Set(ERROR_CODES.map((e) => `${e.status} ${e.code}`));
     const sent = new Set<string>();
     for (const [, text] of sources)
-      for (const m of text.matchAll(/ApiError\(\s*(\d{3}),\s*'([a-z_]+)'/g))
+      for (const m of text.matchAll(/ApiError\(\s*(\d{3}),\s*["']([a-z_]+)["']/g))
         sent.add(`${m[1]} ${m[2]}`);
     // Sent through helpers (forbidden, invalid), or chosen when the answer is given.
     for (const s of ["403 forbidden", "422 invalid", "429 rate_limited", "429 budget_reached"])

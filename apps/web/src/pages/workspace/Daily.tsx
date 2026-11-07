@@ -22,7 +22,7 @@ export function Daily() {
   );
   const days = res.data?.days ?? [];
   return (
-    <div class="stack">
+    <div className="stack">
       <PageHead
         title="Daily"
         lead={
@@ -35,7 +35,7 @@ export function Daily() {
                 aria-label="Person"
                 value={person}
                 onChange={(e) => setPerson(e.target.value)}
-                class="fit"
+                className="fit"
               >
                 {consumers.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -57,7 +57,7 @@ export function Daily() {
       {res.loading && !res.data ? <Spinner /> : null}
       {days.length > 0 ? (
         <div
-          class="tablewrap"
+          className="tablewrap"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -68,8 +68,8 @@ export function Daily() {
                 <th>Date</th>
                 <th>Status</th>
                 <th>Meal</th>
-                <th class="r">Extras</th>
-                <th class="r">Amount</th>
+                <th className="r">Extras</th>
+                <th className="r">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -83,10 +83,10 @@ export function Daily() {
                     .filter(Boolean)
                     .join(", ");
                   return (
-                    <tr key={d.date} class={d.basis === "Projected" ? "projected" : ""}>
+                    <tr key={d.date} className={d.basis === "Projected" ? "projected" : ""}>
                       <td>
                         {date(d.date)}{" "}
-                        <span class="muted">{dayName(weekdayOf(d.date as IsoDate))}</span>
+                        <span className="muted">{dayName(weekdayOf(d.date as IsoDate))}</span>
                       </td>
                       <td>
                         <Chip
@@ -99,8 +99,8 @@ export function Daily() {
                         </Chip>
                       </td>
                       <td>{d.meal ?? "-"}</td>
-                      <td class="r">{extras || "-"}</td>
-                      <td class="r">{money(d.dayTotal)}</td>
+                      <td className="r">{extras || "-"}</td>
+                      <td className="r">{money(d.dayTotal)}</td>
                     </tr>
                   );
                 })}
@@ -108,9 +108,11 @@ export function Daily() {
           </table>
         </div>
       ) : !res.loading ? (
-        <p class="muted">No days to show.</p>
+        <p className="muted">No days to show.</p>
       ) : null}
-      <p class="muted small">Greyed days have not happened yet, so their amounts are projected.</p>
+      <p className="muted small">
+        Greyed days have not happened yet, so their amounts are projected.
+      </p>
     </div>
   );
 }

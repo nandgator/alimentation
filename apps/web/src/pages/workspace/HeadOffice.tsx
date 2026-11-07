@@ -17,7 +17,7 @@ export function HeadOffice() {
 
   if (mine)
     return (
-      <section class="card stack" aria-labelledby="ho-h">
+      <section className="card stack" aria-labelledby="ho-h">
         <h2 id="ho-h">Head office</h2>
         <p>
           This kitchen shares its totals with <strong>{mine.name}</strong>: how many people it
@@ -26,7 +26,8 @@ export function HeadOffice() {
         </p>
         <div>
           <button
-            class="btn ghost"
+            type="button"
+            className="btn ghost"
             disabled={act.busy || !ws.writable}
             onClick={() =>
               void act.run(async () => {
@@ -43,10 +44,10 @@ export function HeadOffice() {
     );
 
   return (
-    <details class="card">
+    <details className="card">
       <summary>Share this kitchen's totals with a head office</summary>
-      <div class="stack">
-        <p class="muted">
+      <div className="stack">
+        <p className="muted">
           For a group of kitchens that wants to see how each is doing. It sees counts and money for
           the month, never a name. You will be shown who it is before anything is shared, and you
           can stop whenever you like.
@@ -73,16 +74,21 @@ export function HeadOffice() {
               }}
             />
           </Field>
-          {asked ? null : <button class="btn ghost">See who it is for</button>}
+          {asked ? null : (
+            <button type="submit" className="btn ghost">
+              See who it is for
+            </button>
+          )}
         </Form>
         {asked ? (
-          <div class="stack">
+          <div className="stack">
             <p>
               This link is for <strong>{asked}</strong>.
             </p>
             <div>
               <button
-                class="btn"
+                type="button"
+                className="btn"
                 disabled={act.busy}
                 onClick={() =>
                   void act.run(async () => {

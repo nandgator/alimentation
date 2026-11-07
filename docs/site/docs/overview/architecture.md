@@ -1,9 +1,8 @@
 ---
-
 title: Architecture
 description:
-One database per kitchen, a billing engine shared by the server and the browser, and the path of a
-single request.
+  One database per kitchen, a billing engine shared by the server and the browser, and the path of a
+  single request.
 ---
 
 # Architecture

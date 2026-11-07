@@ -1,5 +1,4 @@
 ---
-
 title: The map
 description: The parts the repository is made of, and the conventions that run through all of them.
 ---

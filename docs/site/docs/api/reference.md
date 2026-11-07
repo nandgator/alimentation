@@ -1,9 +1,8 @@
 ---
-
 title: API reference
 description:
-Where the reference for every route is, how it is made from the server itself, and why it is a
-site of its own.
+  Where the reference for every route is, how it is made from the server itself, and why it is a
+  site of its own.
 ---
 
 # API reference

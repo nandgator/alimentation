@@ -1,9 +1,8 @@
 ---
-
 title: The free tier and what it counts
 description:
-The numbers behind a free kitchen, what an entry is, how the meter warns you, and what happens at
-the limit.
+  The numbers behind a free kitchen, what an entry is, how the meter warns you, and what happens at
+  the limit.
 ---
 
 # The free tier and what it counts

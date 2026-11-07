@@ -16,7 +16,7 @@ const dropChecks = (table) => `DO $$ DECLARE c record; BEGIN
     EXECUTE format('ALTER TABLE ${table} DROP CONSTRAINT %I', c.conname);
   END LOOP; END $$`;
 const asApp = (template, ...more) =>
-  `DO $$ BEGIN EXECUTE format('${template}', ${APP}${more.length ? ", " + more.join(", ") : ""}); END $$`;
+  `DO $$ BEGIN EXECUTE format('${template}', ${APP}${more.length ? `, ${more.join(", ")}` : ""}); END $$`;
 
 // [name, as, sql, a fragment of the name of the test that must fail]
 const defects = [
@@ -470,7 +470,7 @@ for (const [name, as, sql, expect] of picks) {
       for (const t of f.assertionResults)
         if (t.status === "failed") failed.push(t.fullName ?? t.title);
   } catch {
-    failed = ["(no report: " + (r.stderr || "").slice(-200) + ")"];
+    failed = [`(no report: ${(r.stderr || "").slice(-200)})`];
   }
   rmSync(dir, { recursive: true, force: true });
   let verdict;
@@ -481,11 +481,10 @@ for (const [name, as, sql, expect] of picks) {
         : "WRONG (control failed)";
   else if (failed.length === 0) verdict = "MISSED";
   else if (setupBroke && !failed.some((f) => !f.startsWith("(suite failed")))
-    verdict = "DEFECT DID NOT APPLY: " + failed[0];
+    verdict = `DEFECT DID NOT APPLY: ${failed[0]}`;
   else if (failed.some((f) => f.toLowerCase().includes(expect.toLowerCase())))
-    verdict =
-      failed.length > 12 ? "caught (but broadly: " + failed.length + " failures)" : "caught";
-  else verdict = "CAUGHT BY THE WRONG TEST: " + failed.slice(0, 2).join(" | ");
+    verdict = failed.length > 12 ? `caught (but broadly: ${failed.length} failures)` : "caught";
+  else verdict = `CAUGHT BY THE WRONG TEST: ${failed.slice(0, 2).join(" | ")}`;
   if (!verdict.startsWith("caught") && !verdict.startsWith("ok")) bad++;
   out.push(`${verdict.padEnd(10).slice(0, 60)}  ${name}`);
   console.log(out.at(-1));

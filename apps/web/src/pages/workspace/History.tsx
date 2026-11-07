@@ -61,7 +61,7 @@ export function History() {
   }
 
   return (
-    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead
         title="History"
         lead={
@@ -72,16 +72,18 @@ export function History() {
       />
       <Problem error={first.error ?? problem} />
       {first.loading && !first.data ? <Spinner /> : null}
-      {first.data && events.length === 0 ? <p class="muted">Nothing has happened yet.</p> : null}
+      {first.data && events.length === 0 ? (
+        <p className="muted">Nothing has happened yet.</p>
+      ) : null}
       {[...byDay].map(([label, list]) => (
         <section
           key={label}
-          class="stack"
+          className="stack"
           aria-label={label}
           style={{ ["--gap" as string]: "8px" }}
         >
           <h2>{label}</h2>
-          <ol class="history">
+          <ol className="history">
             {list.map((e) => (
               <li key={e.id}>
                 <time dateTime={e.at}>{time(e.at, tz)}</time>
@@ -93,7 +95,12 @@ export function History() {
       ))}
       {cursor !== null ? (
         <div>
-          <button class="btn ghost" disabled={busy} onClick={() => void loadOlder()}>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={busy}
+            onClick={() => void loadOlder()}
+          >
             Older
           </button>
         </div>

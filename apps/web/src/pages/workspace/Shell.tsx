@@ -83,7 +83,7 @@ function Acting({
   reload: () => void;
 }) {
   return roles.length > 1 ? (
-    <label class="acting">
+    <label className="acting">
       <span>Acting as</span>
       <select
         value={role}
@@ -101,7 +101,7 @@ function Acting({
       </select>
     </label>
   ) : (
-    <span class="chip">{ROLE_LABEL[role]}</span>
+    <span className="chip">{ROLE_LABEL[role]}</span>
   );
 }
 
@@ -123,10 +123,10 @@ function NavLink({
     >
       {section.label}
       {section.key === "payments" && waiting > 0 ? (
-        <span class="count">
-          <span class="sr">, </span>
+        <span className="count">
+          <span className="sr">, </span>
           {waiting}
-          <span class="sr"> to confirm</span>
+          <span className="sr"> to confirm</span>
         </span>
       ) : null}
     </Link>
@@ -204,17 +204,17 @@ function Loaded({
   const content = (
     <>
       {fromDevice ? (
-        <div class="banner info" role="status">
+        <div className="banner info" role="status">
           You are offline. This is the last statement saved on this device.
         </div>
       ) : null}
       {boot.workspace.state === "MIGRATING" ? (
-        <div class="banner warn" role="status">
+        <div className="banner warn" role="status">
           This kitchen is being moved. It is read-only until the move finishes.
         </div>
       ) : null}
       {moved ? (
-        <div class="banner warn" role="status">
+        <div className="banner warn" role="status">
           This kitchen has moved
           {boot.workspace.movedTo ? (
             <>
@@ -226,7 +226,7 @@ function Loaded({
         </div>
       ) : null}
       {boot.setup.map((s) => (
-        <div key={s.code} class="banner info">
+        <div key={s.code} className="banner info">
           {s.message}
           {role === "admin" && s.code === "rate_card" ? (
             <Link href={`${base}/rates`}>Add one</Link>
@@ -236,18 +236,18 @@ function Loaded({
           ) : null}
         </div>
       ))}
-      <div class="view">
+      <div className="view">
         <Switch>
           {mine.map((s) => (
             <Route key={s.key} path={hrefOf(base, s)} component={VIEW[s.key]} />
           ))}
           <Route>
-            <p class="muted">There is nothing at this address for your role.</p>
+            <p className="muted">There is nothing at this address for your role.</p>
           </Route>
         </Switch>
       </div>
       {fromDevice ? null : (
-        <p class="muted small foot">
+        <p className="muted small foot">
           Times are in {boot.workspace.timeZone}. {boot.today}.
         </p>
       )}
@@ -265,7 +265,7 @@ function Loaded({
                 <button
                   ref={menuButton}
                   type="button"
-                  class="btn ghost small menu-toggle"
+                  className="btn ghost small menu-toggle"
                   aria-expanded={drawer}
                   aria-controls="side"
                   onClick={() => setDrawer((d) => !d)}
@@ -275,30 +275,36 @@ function Loaded({
               )
             }
           />
-          <div class="shell" data-pinned={pinned}>
+          <div className="shell" data-pinned={pinned}>
             {pinned ? null : (
               <div
-                class="side-backdrop"
+                className="side-backdrop"
                 data-open={drawer}
                 aria-hidden="true"
                 onClick={() => setDrawer(false)}
               />
             )}
-            <aside id="side" ref={side} class="side" data-open={drawer} inert={!pinned && !drawer}>
-              <div class="kitchen">
-                <p class="kitchen-name" aria-label="Kitchen">
+            <aside
+              id="side"
+              ref={side}
+              className="side"
+              data-open={drawer}
+              inert={!pinned && !drawer}
+            >
+              <div className="kitchen">
+                <p className="kitchen-name" aria-label="Kitchen">
                   {boot.workspace.name}
                 </p>
                 {acting}
               </div>
-              <button type="button" class="quiet side-pin" onClick={() => setPin(!pinned)}>
+              <button type="button" className="quiet side-pin" onClick={() => setPin(!pinned)}>
                 {pinned ? "Hide this menu" : "Keep this menu open"}
               </button>
               <nav aria-label="Sections">
                 {groups.map((g) => (
-                  <div key={g.key} role="group" aria-label={g.label} class="side-group">
+                  <div key={g.key} role="group" aria-label={g.label} className="side-group">
                     {groups.length > 1 ? (
-                      <p class="side-title" aria-hidden="true">
+                      <p className="side-title" aria-hidden="true">
                         {g.label}
                       </p>
                     ) : null}
@@ -308,25 +314,25 @@ function Loaded({
               </nav>
               <ThemeSwitch />
             </aside>
-            <main class="page">{content}</main>
+            <main className="page">{content}</main>
           </div>
         </>
       ) : (
         <>
           <AppBar>
-            <span class="muted small who" aria-label="Kitchen" title={boot.workspace.name}>
+            <span className="muted small who" aria-label="Kitchen" title={boot.workspace.name}>
               {boot.workspace.name}
             </span>
             {acting}
           </AppBar>
-          <div class="subnav">
-            <div class="wrap">
-              <nav class="nav" aria-label="Sections" data-open={more}>
+          <div className="subnav">
+            <div className="wrap">
+              <nav className="nav" aria-label="Sections" data-open={more}>
                 {mine.slice(0, PRIMARY).map(link)}
                 {mine.length > PRIMARY ? (
                   <button
                     type="button"
-                    class="more"
+                    className="more"
                     aria-expanded={more}
                     aria-controls="more-links"
                     onClick={() => setMore((m) => !m)}
@@ -334,27 +340,27 @@ function Loaded({
                     More
                   </button>
                 ) : null}
-                <div id="more-links" class="extras">
+                <div id="more-links" className="extras">
                   {restGroups.map((g) => (
-                    <div key={g.key} role="group" aria-label={g.label} class="extras-group">
+                    <div key={g.key} role="group" aria-label={g.label} className="extras-group">
                       {restGroups.length > 1 ? (
-                        <p class="side-title" aria-hidden="true">
+                        <p className="side-title" aria-hidden="true">
                           {g.label}
                         </p>
                       ) : null}
                       {g.sections.map(link)}
                     </div>
                   ))}
-                  <a class="extras-help" href="/guides/">
+                  <a className="extras-help" href="/guides/">
                     Help and guides
                   </a>
-                  <ThemeSwitch class="extras-theme" />
+                  <ThemeSwitch className="extras-theme" />
                 </div>
               </nav>
             </div>
           </div>
-          <main class="page">
-            <div class="wrap">{content}</div>
+          <main className="page">
+            <div className="wrap">{content}</div>
           </main>
         </>
       )}
@@ -383,7 +389,7 @@ export function WorkspaceShell() {
       {res.error && !res.data ? (
         <>
           <AppBar />
-          <div class="narrow solo">
+          <div className="narrow solo">
             <Problem
               error={
                 res.error.status === 404
@@ -403,7 +409,7 @@ export function WorkspaceShell() {
       ) : !res.data ? (
         <>
           <AppBar />
-          <div class="wrap waiting">
+          <div className="wrap waiting">
             <Spinner />
           </div>
         </>

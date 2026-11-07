@@ -1,9 +1,8 @@
 ---
-
 title: The billing engine
 description:
-The pure function from a kitchen's records to day ledgers and monthly statements, its inputs, its
-rules of combination and the statuses it produces.
+  The pure function from a kitchen's records to day ledgers and monthly statements, its inputs, its
+  rules of combination and the statuses it produces.
 ---
 
 # The billing engine
@@ -16,6 +15,7 @@ throughout.
 ## Input
 
 ```ts file=packages/core/src/engine.ts#L28-L39
+
 ```
 
 The kitchen's own date (`today`, in its own time zone, so the engine reads no clock), the rules in

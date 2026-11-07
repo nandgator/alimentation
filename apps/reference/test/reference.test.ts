@@ -41,7 +41,7 @@ describe("the API reference as a site of its own", () => {
   it("starts Scalar with every way of calling out switched off", () => {
     const init = read("public/init.js");
     for (const setting of [
-      "url: 'openapi.json'",
+      'url: "openapi.json"',
       "telemetry: false",
       "withDefaultFonts: false",
       "hideTestRequestButton: true",

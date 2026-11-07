@@ -268,7 +268,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   // --- signing in --------------------------------------------------------
 
   const safeReturn = (to: string | undefined) =>
-    to && to.startsWith("/") && !to.startsWith("//") && !to.includes("\\") ? to : "/app";
+    to?.startsWith("/") && !to.startsWith("//") && !to.includes("\\") ? to : "/app";
 
   const startSession = async (c: Context<{ Variables: Vars }>, account: AccountRow) => {
     // A workspace that arrived from another instance is waiting for this email.

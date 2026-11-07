@@ -1,5 +1,4 @@
 ---
-
 title: Set up a kitchen in ten minutes
 description: From your first sign-in to the first bill, step by step.
 ---

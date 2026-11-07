@@ -29,7 +29,7 @@ export function Audit() {
   }, [ws.api, before]);
   const more = (res.data?.length ?? 0) === PAGE;
   return (
-    <div class="stack">
+    <div className="stack">
       <PageHead
         title="Audit trail"
         lead="Every change, who made it and when. Names and notes appear as “(encrypted)”: the trail itself holds no readable details."
@@ -37,7 +37,7 @@ export function Audit() {
       <Problem error={res.error} />
       {res.loading && seen.length === 0 ? <Spinner /> : null}
       <div
-        class="tablewrap"
+        className="tablewrap"
         tabIndex={0}
         role="region"
         aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -72,8 +72,8 @@ export function Audit() {
                 <td>{e.table.replace(/_/g, " ")}</td>
                 <td>
                   <details>
-                    <summary class="muted small">show</summary>
-                    <pre class="small json">
+                    <summary className="muted small">show</summary>
+                    <pre className="small json">
                       {JSON.stringify(
                         e.action === "UPDATE"
                           ? { before: e.before, after: e.after }
@@ -92,7 +92,8 @@ export function Audit() {
       {more ? (
         <div>
           <button
-            class="btn ghost"
+            type="button"
+            className="btn ghost"
             disabled={res.loading}
             onClick={() => setBefore(seen.at(-1)?.id ?? null)}
           >

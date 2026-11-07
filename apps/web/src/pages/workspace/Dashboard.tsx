@@ -64,7 +64,7 @@ export function Dashboard() {
     : null;
 
   return (
-    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead
         title="Dashboard"
         lead={
@@ -85,7 +85,7 @@ export function Dashboard() {
         }
       />
       {boot.organisation ? (
-        <p class="muted small">
+        <p className="muted small">
           This kitchen shares its totals (how many people, how many meals, and what is billed, paid
           and owed, with no names) with {boot.organisation.name}.
         </p>
@@ -94,8 +94,8 @@ export function Dashboard() {
       {stm.loading && !stm.data ? <Spinner /> : null}
 
       {mine.length > 0 ? (
-        <div class="tilegroups">
-          <div class="tiles lead">
+        <div className="tilegroups">
+          <div className="tiles lead">
             <Tile
               lead
               label="Bill"
@@ -110,26 +110,26 @@ export function Dashboard() {
               projected={projected}
             />
           </div>
-          <div class="tiles">
+          <div className="tiles">
             <Tile label="Actual to date" value={money(sum(mine, (s) => s.actualToDate))} />
             <Tile label="Claimed" value={money(sum(mine, (s) => s.claimedPending))} />
             <Tile label="Earlier unpaid" value={money(sum(mine, (s) => s.earlierUnpaid))} />
             {single && mine[0] ? (
               <Tile
                 label="Status"
-                value={<span class="tile-text">{STATUS_LABEL[mine[0].status]}</span>}
+                value={<span className="tile-text">{STATUS_LABEL[mine[0].status]}</span>}
               />
             ) : null}
             {!single ? <Tile label="To confirm" value={boot.pendingClaims || "-"} /> : null}
           </div>
         </div>
       ) : !stm.loading && boot.rateCard ? (
-        <p class="muted">Nothing to show for {monthLabel(selected)} yet.</p>
+        <p className="muted">Nothing to show for {monthLabel(selected)} yet.</p>
       ) : null}
 
       {!single && mine.length > 0 ? (
         <div
-          class="tablewrap"
+          className="tablewrap"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -138,32 +138,32 @@ export function Dashboard() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th class="r">Meals</th>
-                <th class="r">Leave</th>
-                <th class="r">Bill</th>
-                <th class="r">Actual</th>
-                <th class="r">Paid</th>
-                <th class="r">Balance</th>
+                <th className="r">Meals</th>
+                <th className="r">Leave</th>
+                <th className="r">Bill</th>
+                <th className="r">Actual</th>
+                <th className="r">Paid</th>
+                <th className="r">Balance</th>
                 <th>Status</th>
-                <th class="r">Earlier unpaid</th>
-                <th class="r">Claimed</th>
+                <th className="r">Earlier unpaid</th>
+                <th className="r">Claimed</th>
               </tr>
             </thead>
             <tbody>
               {mine.map((s) => (
-                <tr key={s.personId} class={s.basis === "Projected" ? "projected" : ""}>
+                <tr key={s.personId} className={s.basis === "Projected" ? "projected" : ""}>
                   <td>{s.name}</td>
-                  <td class="r">{s.counts.meals}</td>
-                  <td class="r">{s.counts.leave || "-"}</td>
-                  <td class="r">{money(s.billed)}</td>
-                  <td class="r">{money(s.actualToDate)}</td>
-                  <td class="r">{money(s.paid)}</td>
-                  <td class="r">{money(s.balance)}</td>
+                  <td className="r">{s.counts.meals}</td>
+                  <td className="r">{s.counts.leave || "-"}</td>
+                  <td className="r">{money(s.billed)}</td>
+                  <td className="r">{money(s.actualToDate)}</td>
+                  <td className="r">{money(s.paid)}</td>
+                  <td className="r">{money(s.balance)}</td>
                   <td>
                     <Chip tone={TONE[s.status]}>{STATUS_LABEL[s.status]}</Chip>
                   </td>
-                  <td class="r">{money(s.earlierUnpaid)}</td>
-                  <td class="r">{money(s.claimedPending)}</td>
+                  <td className="r">{money(s.earlierUnpaid)}</td>
+                  <td className="r">{money(s.claimedPending)}</td>
                 </tr>
               ))}
             </tbody>
@@ -173,13 +173,13 @@ export function Dashboard() {
                   <th>Receivable</th>
                   <th />
                   <th />
-                  <th class="r">{money(sum(mine, (s) => s.billed))}</th>
-                  <th class="r">{money(sum(mine, (s) => s.actualToDate))}</th>
-                  <th class="r">{money(sum(mine, (s) => s.paid))}</th>
-                  <th class="r">{money(sum(mine, (s) => s.balance))}</th>
+                  <th className="r">{money(sum(mine, (s) => s.billed))}</th>
+                  <th className="r">{money(sum(mine, (s) => s.actualToDate))}</th>
+                  <th className="r">{money(sum(mine, (s) => s.paid))}</th>
+                  <th className="r">{money(sum(mine, (s) => s.balance))}</th>
                   <th />
-                  <th class="r">{money(sum(mine, (s) => s.earlierUnpaid))}</th>
-                  <th class="r">{money(sum(mine, (s) => s.claimedPending))}</th>
+                  <th className="r">{money(sum(mine, (s) => s.earlierUnpaid))}</th>
+                  <th className="r">{money(sum(mine, (s) => s.claimedPending))}</th>
                 </tr>
               </tfoot>
             ) : null}
@@ -188,14 +188,14 @@ export function Dashboard() {
       ) : null}
 
       {single && mine[0] && mine[0].changedAfterClose !== 0 ? (
-        <div class="banner warn">
+        <div className="banner warn">
           This month was closed, and entries changed afterwards by{" "}
           {money(Math.abs(mine[0].changedAfterClose))}.
         </div>
       ) : null}
 
       {series.length > 0 ? (
-        <section class="card stack" aria-label="Monthly bill">
+        <section className="card stack" aria-label="Monthly bill">
           <h2>Monthly bill</h2>
           <BarChart
             categories={range}
@@ -211,7 +211,7 @@ export function Dashboard() {
           />
         </section>
       ) : null}
-      {rateLine ? <p class="muted small">{rateLine}</p> : null}
+      {rateLine ? <p className="muted small">{rateLine}</p> : null}
     </div>
   );
 }

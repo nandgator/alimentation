@@ -45,11 +45,11 @@ function useFigures(slugs: string[]): Found {
 }
 
 function Figures({ f }: { f: KitchenFigures | "failed" | undefined }) {
-  if (f === undefined) return <p class="muted small">Reading the figures…</p>;
-  if (f === "failed") return <p class="muted small">The figures could not be read just now.</p>;
+  if (f === undefined) return <p className="muted small">Reading the figures…</p>;
+  if (f === "failed") return <p className="muted small">The figures could not be read just now.</p>;
   const h = f.headline;
   return (
-    <p class="row small" style={{ ["--gap" as string]: "var(--space-3)" }}>
+    <p className="row small" style={{ ["--gap" as string]: "var(--space-3)" }}>
       {isRunning(f.role) ? (
         <span>{h.owed > 0 ? `${money(h.owed)} owed` : "Nothing owed"}</span>
       ) : (
@@ -80,10 +80,10 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
   const [supplier, setSupplier] = useState(true);
   const act = useAction();
   return (
-    <section class="card stack" aria-labelledby="new-h">
+    <section className="card stack" aria-labelledby="new-h">
       <h2 id="new-h">Start a kitchen</h2>
       {cap && !cap.dedicated && !cap.open ? (
-        <div class="banner warn">
+        <div className="banner warn">
           The free places are full for now. You can try again later, or run your own instance and
           move in.
         </div>
@@ -132,7 +132,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
             }}
           />
         </Field>
-        <label class="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
+        <label className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
           <input
             type="checkbox"
             checked={supplier}
@@ -140,7 +140,11 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
           />
           <span>I also cook for them (add me as the supplier too)</span>
         </label>
-        <button class="btn" disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}>
+        <button
+          type="submit"
+          className="btn"
+          disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}
+        >
           Create
         </button>
       </Form>
@@ -172,7 +176,7 @@ export function Places() {
     <>
       <AppBar>
         {me?.operator ? (
-          <Link href="/operator" class="btn ghost small">
+          <Link href="/operator" className="btn ghost small">
             Operator
           </Link>
         ) : null}
@@ -180,18 +184,18 @@ export function Places() {
       <RequireSignIn>
         <Page title="Your kitchens">
           {list.length === 0 && organisations.length === 0 ? (
-            <p class="muted">
+            <p className="muted">
               You are not in any kitchen yet. Start one below, or open the invitation link someone
               sent you.
             </p>
           ) : list.length === 0 ? null : (
-            <div class="stack" style={{ ["--gap" as string]: "var(--space-4)" }}>
+            <div className="stack" style={{ ["--gap" as string]: "var(--space-4)" }}>
               {totals ? (
-                <section class="stack" aria-labelledby="across-h">
-                  <h2 id="across-h" class="muted small">
+                <section className="stack" aria-labelledby="across-h">
+                  <h2 id="across-h" className="muted small">
                     Across your {counted.length} kitchens
                   </h2>
-                  <div class="tiles">
+                  <div className="tiles">
                     {totals.running.kitchens > 0 ? (
                       <>
                         <Tile label="Owed to your kitchens" value={money(totals.running.owed)} />
@@ -204,26 +208,26 @@ export function Places() {
                   </div>
                 </section>
               ) : null}
-              <ul class="stack card-list" style={{ ["--gap" as string]: "var(--space-3)" }}>
+              <ul className="stack card-list" style={{ ["--gap" as string]: "var(--space-3)" }}>
                 {list.map((w) => (
                   <li key={w.slug}>
-                    <div class="card row between">
+                    <div className="card row between">
                       <div>
                         <h3>{w.name}</h3>
-                        <p class="muted small">
+                        <p className="muted small">
                           /w/{w.slug} · {w.roles.join(", ")}
                         </p>
                         {several && w.state === "ACTIVE" ? <Figures f={figures[w.slug]} /> : null}
                       </div>
-                      <div class="row">
+                      <div className="row">
                         {w.state === "MOVED" ? <Chip tone="warn">Moved</Chip> : null}
                         {w.state === "MIGRATING" ? <Chip tone="warn">Moving</Chip> : null}
                         {w.state === "MOVED" && w.movedTo ? (
-                          <a class="btn small" href={w.movedTo}>
+                          <a className="btn small" href={w.movedTo}>
                             Open at its new address
                           </a>
                         ) : (
-                          <Link class="btn small" href={`/w/${w.slug}`}>
+                          <Link className="btn small" href={`/w/${w.slug}`}>
                             Open
                           </Link>
                         )}
@@ -235,21 +239,21 @@ export function Places() {
             </div>
           )}
           {organisations.length > 0 ? (
-            <section class="stack" aria-labelledby="head-office-h">
+            <section className="stack" aria-labelledby="head-office-h">
               <h2 id="head-office-h">Head office</h2>
-              <ul class="stack card-list" style={{ ["--gap" as string]: "var(--space-3)" }}>
+              <ul className="stack card-list" style={{ ["--gap" as string]: "var(--space-3)" }}>
                 {organisations.map((o) => (
                   <li key={o.id}>
-                    <div class="card row between">
+                    <div className="card row between">
                       <div>
                         <h3>{o.name}</h3>
-                        <p class="muted small">
+                        <p className="muted small">
                           {o.kitchens === 0
                             ? "No kitchen shares its totals yet"
                             : `${o.kitchens} kitchen${o.kitchens === 1 ? "" : "s"} share their totals`}
                         </p>
                       </div>
-                      <Link class="btn small" href={`/org/${o.id}`}>
+                      <Link className="btn small" href={`/org/${o.id}`}>
                         Open
                       </Link>
                     </div>
@@ -264,7 +268,7 @@ export function Places() {
             </Suspense>
           ) : null}
           {cap?.dedicated && !me?.operator ? (
-            <div class="banner info">
+            <div className="banner info">
               This is a private instance. Ask whoever runs it to add a kitchen for you.
             </div>
           ) : (

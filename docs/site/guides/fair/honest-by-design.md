@@ -1,9 +1,8 @@
 ---
-
 title: Honest by design
 description:
-How Alimentation keeps honest people honest without locking anyone out, what each role could try,
-and what is deliberately left to trust.
+  How Alimentation keeps honest people honest without locking anyone out, what each role could try,
+  and what is deliberately left to trust.
 ---
 
 # Honest by design

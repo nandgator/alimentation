@@ -18,24 +18,24 @@ export function AppBar({
   const { me, signOut } = useSession();
   const [, go] = useLocation();
   return (
-    <header class="topbar">
-      <div class={wide ? "wrap wide" : "wrap"}>
+    <header className="topbar">
+      <div className={wide ? "wrap wide" : "wrap"}>
         {lead}
-        <Link href={me?.account ? "/app" : "/"} class="brand">
-          <Mark /> <span class="brand-text">Alimentation</span>
+        <Link href={me?.account ? "/app" : "/"} className="brand">
+          <Mark /> <span className="brand-text">Alimentation</span>
         </Link>
-        <div class="grow" />
+        <div className="grow" />
         {children}
-        <a class="small helplink" href="/guides/">
+        <a className="small helplink" href="/guides/">
           Help
         </a>
         {me?.account ? (
           <>
-            <span class="muted small account who" title={me.account.email}>
+            <span className="muted small account who" title={me.account.email}>
               {me.account.name ?? me.account.email}
             </span>
             <button
-              class="btn ghost small"
+              className="btn ghost small"
               onClick={() => void signOut().then(() => go("/"))}
               type="button"
             >
@@ -58,8 +58,8 @@ export function Page({
   children: ReactNode;
 }) {
   return (
-    <div class="page">
-      <div class="wrap">
+    <div className="page">
+      <div className="wrap">
         <PageHead title={title} actions={actions} />
         {children}
       </div>
@@ -71,7 +71,7 @@ export function Page({
 export function RequireSignIn({ children }: { children: ReactNode }) {
   const { me } = useSession();
   const [location, go] = useLocation();
-  if (me === undefined) return <p class="muted wrap waiting">Loading…</p>;
+  if (me === undefined) return <p className="muted wrap waiting">Loading…</p>;
   if (!me?.account) {
     go(`/signin?next=${encodeURIComponent(location)}`, { replace: true });
     return null;

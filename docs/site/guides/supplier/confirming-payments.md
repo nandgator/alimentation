@@ -1,8 +1,7 @@
 ---
-
 title: Confirming payments
 description:
-How to confirm or dispute a claim, why the first decision is final, and what you can see.
+  How to confirm or dispute a claim, why the first decision is final, and what you can see.
 ---
 
 # Confirming payments

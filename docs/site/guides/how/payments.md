@@ -1,9 +1,8 @@
 ---
-
 title: Payments and disputes
 description:
-How a payment is claimed, confirmed, disputed, settled and reversed, and why a decision cannot be
-quietly changed.
+  How a payment is claimed, confirmed, disputed, settled and reversed, and why a decision cannot be
+  quietly changed.
 ---
 
 # Payments and disputes

@@ -1,9 +1,8 @@
 ---
-
 title: Behind a proxy
 description:
-Putting the app and its API reference at one address, for a machine or a test deployment, with
-Caddy, and the same two routes for Nginx, HAProxy or Traefik.
+  Putting the app and its API reference at one address, for a machine or a test deployment, with
+  Caddy, and the same two routes for Nginx, HAProxy or Traefik.
 ---
 
 # Behind a proxy
@@ -24,7 +23,7 @@ This is shipped, and it is off unless you ask for it: the plain `docker compose 
 and one database.
 
 ```console
-docker compose -f compose.yaml -f compose.proxy.yaml up -d --build
+$ docker compose -f compose.yaml -f compose.proxy.yaml up -d --build
 ```
 
 Then `http://localhost:8787` is the app and its documentation as before, and

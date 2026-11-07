@@ -649,7 +649,9 @@ describe("moving between the pages", () => {
 
   it("puts the menu at the right on a phone, and the name, the switch and the theme where a thumb is", () => {
     const phone = /@media \(max-width: 959px\)\s*\{([\s\S]*)$/.exec(css)![1]!;
-    expect(phone).toMatch(/grid-template-areas:\s*'brand menu'\s*'switch theme'\s*'search search'/);
+    expect(phone).toMatch(
+      /grid-template-areas:\s*["']brand menu["']\s*["']switch theme["']\s*["']search search["']/,
+    );
     expect(phone).toMatch(/\.docs-menu\s*\{[^}]*grid-area: menu;[^}]*justify-self: end/);
   });
 
@@ -757,7 +759,7 @@ describe("what the documentation says is still what the app does", () => {
 
   it("names every command the command line offers", () => {
     const cli = readFileSync(join(import.meta.dirname, "..", "..", "api", "src", "cli.ts"), "utf8");
-    const commands = [...cli.matchAll(/case '([a-z]+:?[a-z]*)':/g)].map((m) => m[1]!);
+    const commands = [...cli.matchAll(/case ["']([a-z]+:?[a-z]*)["']:/g)].map((m) => m[1]!);
     expect(commands.length).toBeGreaterThanOrEqual(6);
     const page = read("docs/self-hosting/cli.md");
     for (const c of commands) expect(page, c).toContain(`\`${c}\``);

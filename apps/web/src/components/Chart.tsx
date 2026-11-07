@@ -50,10 +50,10 @@ export function BarChart({
   const ticks = [0, 0.5, 1].map((f) => f * top);
 
   return (
-    <figure class="stack chart-figure">
-      <div ref={box} class="chart-box">
+    <figure className="stack chart-figure">
+      <div ref={box} className="chart-box">
         <svg
-          class="chart"
+          className="chart"
           width={W}
           height={H}
           viewBox={`0 0 ${W} ${H}`}
@@ -62,7 +62,7 @@ export function BarChart({
         >
           {ticks.map((t) => (
             <g key={t}>
-              <line class="grid" x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} />
+              <line className="grid" x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} />
               <text x={pad.l - 8} y={y(t) + 4} textAnchor="end">
                 {t === 0 ? "0" : money(Math.round(t))}
               </text>
@@ -78,7 +78,7 @@ export function BarChart({
                   return (
                     <rect
                       key={s.name}
-                      class={`s${Math.min(j, 3)} ${projected[i] ? "proj" : ""}`}
+                      className={`s${Math.min(j, 3)} ${projected[i] ? "proj" : ""}`}
                       x={x0 + j * bw}
                       y={y(v)}
                       width={bw - 2}
@@ -99,19 +99,19 @@ export function BarChart({
         </svg>
       </div>
       {series.length > 1 ? (
-        <div class="legend">
+        <div className="legend">
           {series.map((s, j) => (
             <span key={s.name}>
-              <i class={`s${Math.min(j, 3)}`} />
+              <i className={`s${Math.min(j, 3)}`} />
               {s.name}
             </span>
           ))}
         </div>
       ) : null}
       <details>
-        <summary class="muted small">Show these figures as a table</summary>
+        <summary className="muted small">Show these figures as a table</summary>
         <div
-          class="tablewrap chart-table"
+          className="tablewrap chart-table"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -121,7 +121,7 @@ export function BarChart({
               <tr>
                 <th>Month</th>
                 {series.map((s) => (
-                  <th key={s.name} class="r">
+                  <th key={s.name} className="r">
                     {s.name}
                   </th>
                 ))}
@@ -135,7 +135,7 @@ export function BarChart({
                     {projected[i] ? "*" : ""}
                   </td>
                   {series.map((s) => (
-                    <td key={s.name} class="r">
+                    <td key={s.name} className="r">
                       {money(s.values[i] ?? 0)}
                     </td>
                   ))}
@@ -144,7 +144,7 @@ export function BarChart({
             </tbody>
           </table>
         </div>
-        <p class="muted small">* projected</p>
+        <p className="muted small">* projected</p>
       </details>
     </figure>
   );

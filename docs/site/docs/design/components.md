@@ -1,12 +1,11 @@
 ---
-
 title: Components
 description: The pieces every screen is made of, shown live, with the one rule for using each.
 ---
 
-<!-- markdownlint-disable MD013 -->
-
 # Components
+
+<!-- markdownlint-disable MD013 -->
 
 A screen is assembled from these pieces and nothing else. If a screen needs something that is not
 here, add it here first, with an example and a rule, then use it. The examples below are the

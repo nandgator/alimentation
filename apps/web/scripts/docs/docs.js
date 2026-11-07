@@ -29,11 +29,8 @@
   };
   const labelTheme = (t) => {
     if (!themeButton) return;
-    themeButton.textContent = "Theme: " + NAMES[t];
-    themeButton.setAttribute(
-      "aria-label",
-      "Theme: " + NAMES[t].toLowerCase() + ". Press to change.",
-    );
+    themeButton.textContent = `Theme: ${NAMES[t]}`;
+    themeButton.setAttribute("aria-label", `Theme: ${NAMES[t].toLowerCase()}. Press to change.`);
   };
   if (themeButton) {
     labelTheme(chosen());

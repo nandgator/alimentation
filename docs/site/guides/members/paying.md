@@ -1,5 +1,4 @@
 ---
-
 title: Paying, and saying you have paid
 description: How to claim a payment, what the statuses mean, and what to do if the supplier is away.
 ---

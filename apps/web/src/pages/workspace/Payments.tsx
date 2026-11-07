@@ -51,7 +51,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
   const act = useAction();
   const paise = toPaise(amount);
   return (
-    <section class="card stack" aria-label="Claim a payment">
+    <section className="card stack" aria-label="Claim a payment">
       <h2>I paid</h2>
       <Form
         error={act.error}
@@ -75,7 +75,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
           })
         }
       >
-        <div class="pair">
+        <div className="pair">
           {ws.role !== "consumer" ? (
             <Field label="For" id="cwho">
               <select id="cwho" value={who} onChange={(e) => setWho(e.target.value)}>
@@ -138,7 +138,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
           <input id="cref" maxLength={300} value={ref} onChange={(e) => setRef(e.target.value)} />
         </Field>
         <div>
-          <button class="btn" disabled={act.busy || !ws.writable}>
+          <button type="submit" className="btn" disabled={act.busy || !ws.writable}>
             Claim payment
           </button>
         </div>
@@ -177,7 +177,7 @@ function Decide({
         })
       }
     >
-      <p class="muted">
+      <p className="muted">
         {ws.nameOf(claim.consumerId)} · {monthLabel(claim.forMonth)} · {money(claim.amount)} ·{" "}
         {claim.method}
       </p>
@@ -194,11 +194,11 @@ function Decide({
           onChange={(e) => setReason(e.target.value)}
         />
       </Field>
-      <div class="row">
-        <button class="btn danger" disabled={act.busy || !reason.trim()}>
+      <div className="row">
+        <button type="submit" className="btn danger" disabled={act.busy || !reason.trim()}>
           {mode === "dispute" ? "Dispute" : "Reverse"}
         </button>
-        <button class="btn ghost" type="button" onClick={onClose}>
+        <button className="btn ghost" type="button" onClick={onClose}>
           Cancel
         </button>
       </div>
@@ -229,16 +229,16 @@ export function Payments() {
     );
 
   return (
-    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead title={seesAll ? "Payments" : "My payments"} />
       <Problem error={claims.error} />
 
       {seesAll ? (
-        <section class="stack" aria-label="To confirm">
+        <section className="stack" aria-label="To confirm">
           <h2>To confirm {pending.length ? `(${pending.length})` : ""}</h2>
-          {pending.length === 0 ? <p class="muted">Nothing is waiting for you.</p> : null}
+          {pending.length === 0 ? <p className="muted">Nothing is waiting for you.</p> : null}
           {!decider && pending.length > 0 ? (
-            <p class="muted small">
+            <p className="muted small">
               Only the supplier confirms a payment.
               {ws.boot.roles.includes("supplier")
                 ? " Switch to the supplier role at the top to do it yourself."
@@ -246,22 +246,28 @@ export function Payments() {
             </p>
           ) : null}
           {pending.map((c) => (
-            <div key={c.id} class="card row between">
+            <div key={c.id} className="card row between">
               <div>
                 <b>{ws.nameOf(c.consumerId)}</b> · {monthLabel(c.forMonth)} ·{" "}
-                <b class="num">{money(c.amount)}</b>
-                <div class="muted small">
+                <b className="num">{money(c.amount)}</b>
+                <div className="muted small">
                   {c.method} · paid {date(c.paidAt.slice(0, 10))}
                   {c.refNote ? ` · ${c.refNote}` : ""} · {waited(c.createdAt, ws.boot.today, tz)}
                 </div>
               </div>
               {decider ? (
-                <div class="row">
-                  <button class="btn small" disabled={!ws.writable} onClick={() => void confirm(c)}>
+                <div className="row">
+                  <button
+                    type="button"
+                    className="btn small"
+                    disabled={!ws.writable}
+                    onClick={() => void confirm(c)}
+                  >
                     Confirm
                   </button>
                   <button
-                    class="btn ghost small"
+                    type="button"
+                    className="btn ghost small"
                     disabled={!ws.writable}
                     onClick={() => setDialog({ claim: c, mode: "dispute" })}
                   >
@@ -276,13 +282,13 @@ export function Payments() {
 
       {ws.role === "consumer" || ws.role === "admin" ? <NewClaim onDone={claims.reload} /> : null}
 
-      <section class="stack" aria-label="All claims">
+      <section className="stack" aria-label="All claims">
         <h2>{seesAll ? "All claims" : "My claims"}</h2>
         {claims.loading && !claims.data ? <Spinner /> : null}
-        {list.length === 0 && !claims.loading ? <p class="muted">No claims yet.</p> : null}
+        {list.length === 0 && !claims.loading ? <p className="muted">No claims yet.</p> : null}
         {list.length > 0 ? (
           <div
-            class="tablewrap"
+            className="tablewrap"
             tabIndex={0}
             role="region"
             aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -292,7 +298,7 @@ export function Payments() {
                 <tr>
                   {seesAll ? <th>Who</th> : null}
                   <th>Month</th>
-                  <th class="r">Amount</th>
+                  <th className="r">Amount</th>
                   <th>Method</th>
                   <th>Paid on</th>
                   <th>Status</th>
@@ -304,23 +310,29 @@ export function Payments() {
                   <tr key={c.id}>
                     {seesAll ? <td>{ws.nameOf(c.consumerId)}</td> : null}
                     <td>{monthLabel(c.forMonth)}</td>
-                    <td class="r">{money(c.amount)}</td>
+                    <td className="r">{money(c.amount)}</td>
                     <td>{c.method}</td>
                     <td>{date(c.paidAt.slice(0, 10))}</td>
                     <td>
                       <Chip tone={TONE[c.status]}>{c.status}</Chip>
                       {c.status === "Pending" ? (
-                        <span class="muted small"> · {waited(c.createdAt, ws.boot.today, tz)}</span>
+                        <span className="muted small">
+                          {" "}
+                          · {waited(c.createdAt, ws.boot.today, tz)}
+                        </span>
                       ) : null}
-                      {c.decisionNote ? <span class="muted small"> · {c.decisionNote}</span> : null}
+                      {c.decisionNote ? (
+                        <span className="muted small"> · {c.decisionNote}</span>
+                      ) : null}
                       {c.reversalReason ? (
-                        <span class="muted small"> · reversed: {c.reversalReason}</span>
+                        <span className="muted small"> · reversed: {c.reversalReason}</span>
                       ) : null}
                     </td>
                     <td>
                       {c.status === "Pending" && ws.role !== "supplier" && ws.writable ? (
                         <button
-                          class="btn ghost small"
+                          type="button"
+                          className="btn ghost small"
                           onClick={() =>
                             void api.del(`${ws.api}/claims/${c.id}`).then(
                               () => {
@@ -339,7 +351,8 @@ export function Payments() {
                       (c.status === "Confirmed" || c.status === "Disputed") &&
                       ws.writable ? (
                         <button
-                          class="btn ghost small"
+                          type="button"
+                          className="btn ghost small"
                           onClick={() => setDialog({ claim: c, mode: "reverse" })}
                         >
                           Reverse

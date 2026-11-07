@@ -25,10 +25,10 @@ function OrganisationRoute() {
 
 function NotFound() {
   return (
-    <div class="narrow solo">
+    <div className="narrow solo">
       <h1>Nothing here</h1>
-      <p class="muted">That address does not lead anywhere.</p>
-      <Link href="/" class="btn">
+      <p className="muted">That address does not lead anywhere.</p>
+      <Link href="/" className="btn">
         Home
       </Link>
     </div>

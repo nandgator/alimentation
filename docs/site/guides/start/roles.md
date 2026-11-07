@@ -1,8 +1,7 @@
 ---
-
 title: Who can do what
 description:
-The three roles in a kitchen, what each can see and do, and how one person can hold two.
+  The three roles in a kitchen, what each can see and do, and how one person can hold two.
 ---
 
 # Who can do what

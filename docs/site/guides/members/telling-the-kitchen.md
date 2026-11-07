@@ -1,9 +1,8 @@
 ---
-
 title: Telling the kitchen you will not eat
 description:
-Logging leave, a switched dish or extras, what happens when you add something after its day, and
-what to do if the month is closed.
+  Logging leave, a switched dish or extras, what happens when you add something after its day, and
+  what to do if the month is closed.
 ---
 
 # Telling the kitchen you will not eat

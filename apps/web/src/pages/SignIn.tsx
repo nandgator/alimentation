@@ -5,7 +5,7 @@ import { Field, Form, useAction } from "../components/ui.tsx";
 import { postJson } from "../api.ts";
 import { useSession } from "../session.tsx";
 
-const safeNext = (n: string | null) => (n && n.startsWith("/") && !n.startsWith("//") ? n : "/app");
+const safeNext = (n: string | null) => (n?.startsWith("/") && !n.startsWith("//") ? n : "/app");
 
 export function SignIn() {
   const { me, refresh } = useSession();
@@ -22,14 +22,14 @@ export function SignIn() {
   return (
     <>
       <AppBar />
-      <div class="narrow solo">
-        <div class="card stack" style={{ ["--gap" as string]: "18px" }}>
+      <div className="narrow solo">
+        <div className="card stack" style={{ ["--gap" as string]: "18px" }}>
           <div>
-            <p class="eyebrow">Welcome</p>
+            <p className="eyebrow">Welcome</p>
             <h1>Sign in</h1>
           </div>
           {me?.signInWithProvider ? (
-            <a class="btn" href={`/auth/login?returnTo=${encodeURIComponent(next)}`}>
+            <a className="btn" href={`/auth/login?returnTo=${encodeURIComponent(next)}`}>
               Continue with your account
             </a>
           ) : null}
@@ -43,7 +43,7 @@ export function SignIn() {
                 })
               }
             >
-              <div class="banner warn">
+              <div className="banner warn">
                 Development sign-in: anyone can enter any email. It is off in production.
               </div>
               <Field label="Email" id="email">
@@ -64,15 +64,15 @@ export function SignIn() {
                   onChange={(e) => setName(e.target.value)}
                 />
               </Field>
-              <button class="btn" disabled={act.busy}>
+              <button type="submit" className="btn" disabled={act.busy}>
                 Sign in
               </button>
             </Form>
           ) : null}
           {me && !me.signInWithProvider && !me.authDev ? (
-            <div class="banner bad">Sign-in is not set up on this server yet.</div>
+            <div className="banner bad">Sign-in is not set up on this server yet.</div>
           ) : null}
-          <p class="muted small">
+          <p className="muted small">
             <Link href="/">← Back to the home page</Link>
           </p>
         </div>

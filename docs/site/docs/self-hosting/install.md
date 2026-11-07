@@ -1,5 +1,4 @@
 ---
-
 title: Install a trial instance
 description: Run Alimentation on one machine with Docker or Podman in a few minutes.
 ---
@@ -12,10 +11,10 @@ app and its own Postgres.
 ## A trial on your machine
 
 ```console
-git clone https://github.com/nandgator/alimentation
-cd alimentation
-echo "DB_PASSWORD=$(openssl rand -hex 24)" > .env
-NODE_ENV=development AUTH_DEV=1 docker compose up -d --build
+$ git clone https://github.com/nandgator/alimentation
+$ cd alimentation
+$ echo "DB_PASSWORD=$(openssl rand -hex 24)" > .env
+$ NODE_ENV=development AUTH_DEV=1 docker compose up -d --build
 ```
 
 Open `http://localhost:8787`. In this mode **anyone can sign in with any email**, which is what you
@@ -49,9 +48,9 @@ You need Node 24 or later and a PostgreSQL 15 or later whose login role can crea
 databases (Postgres 18 is recommended).
 
 ```console
-npm install
-export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
-npm test
+$ npm install
+$ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
+$ npm test
 ```
 
 To work on it with live reload, run `npm run dev:api` and `npm run dev:web` side by side.

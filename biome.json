@@ -8,6 +8,8 @@
   "files": {
     "includes": [
       "**",
+      "!**/*.md",
+      "!apps/api/src/db/migrations.generated.ts",
       "!content",
       "!node_modules",
       "!build",
@@ -27,9 +29,6 @@
   },
   "linter": {
     "enabled": true,
-    "domains": {
-      "solid": "recommended"
-    },
     "rules": {
       "preset": "recommended",
       "correctness": {
@@ -39,12 +38,27 @@
       "suspicious": {
         "noExplicitAny": "error"
       },
+      "complexity": {
+        "useMathMinMax": "off"
+      },
       "style": {
         "useConst": "error",
         "noNonNullAssertion": "error"
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["**/test/**", "**/e2e/**", "**/e2e-idp/**", "**/*.test.*", "**/*.spec.*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "double",

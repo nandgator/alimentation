@@ -1,8 +1,7 @@
 ---
-
 title: Privacy and who can read what
 description:
-What is stored, what is encrypted, who can read it, and what happens to it when you leave.
+  What is stored, what is encrypted, who can read it, and what happens to it when you leave.
 ---
 
 # Privacy and who can read what

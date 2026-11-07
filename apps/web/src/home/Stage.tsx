@@ -107,12 +107,12 @@ export function Stage() {
   const view = narrow ? "0 130 400 400" : "0 0 1200 560";
 
   return (
-    <div class="moving hwrap" data-step={step} ref={root}>
-      <div class="stage-col">
+    <div className="moving hwrap" data-step={step} ref={root}>
+      <div className="stage-col">
         <Lines lines={["Start on our shelf.", "Move when you’re ready."]} id="moving-title" />
-        <div class="stage-wrap">
+        <div className="stage-wrap">
           <svg
-            class="stage"
+            className="stage"
             viewBox={view}
             preserveAspectRatio="xMidYMid slice"
             aria-hidden="true"
@@ -120,7 +120,7 @@ export function Stage() {
           >
             <g ref={camera}>
               <StageWorld />
-              <g ref={mover} class="mover">
+              <g ref={mover} className="mover">
                 <g ref={lifter}>
                   <Steam vent={CARRIER_VENT} />
                   <Carrier clip="mine" />
@@ -130,15 +130,15 @@ export function Stage() {
           </svg>
         </div>
       </div>
-      <ol class="steps" aria-labelledby="moving-title">
-        <li ref={(n) => void (itemRefs.current[0] = n)} class={step === 0 ? "on" : ""}>
+      <ol className="steps" aria-labelledby="moving-title">
+        <li ref={(n) => void (itemRefs.current[0] = n)} className={step === 0 ? "on" : ""}>
           <h3>{STATIONS[0].name}</h3>
           <p>
             Free while you are small. Your kitchen gets a book of its own, kept apart from every
             other kitchen’s, so a busy neighbour never slows you down.
           </p>
         </li>
-        <li ref={(n) => void (itemRefs.current[1] = n)} class={step === 1 ? "on" : ""}>
+        <li ref={(n) => void (itemRefs.current[1] = n)} className={step === 1 ? "on" : ""}>
           <h3>{STATIONS[1].name}</h3>
           <p>
             Outgrown free? One tap moves everything to storage you hold, and we keep serving it. You
@@ -148,12 +148,12 @@ export function Stage() {
             First we practise the move, then recount every bill to the paisa, and only then switch.
             Your old copy stays readable for seven days, then it is wiped.
           </p>
-          <p class="catch">
+          <p className="catch">
             <b>The catch.</b> It needs somewhere to go: empty storage from any database provider, or
             your own copy of Alimentation.
           </p>
         </li>
-        <li ref={(n) => void (itemRefs.current[2] = n)} class={step === 2 ? "on" : ""}>
+        <li ref={(n) => void (itemRefs.current[2] = n)} className={step === 2 ? "on" : ""}>
           <h3>{STATIONS[2].name}</h3>
           <p>
             Run all of it on a computer you control. One command starts it, and moving there is the

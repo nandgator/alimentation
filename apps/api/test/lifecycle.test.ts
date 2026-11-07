@@ -14,7 +14,7 @@ import { exportWorkspace, readBundleBody } from "../src/lifecycle/bundleio.ts";
 import { importBundle } from "../src/lifecycle/import.ts";
 import { WorkspaceService } from "../src/workspace/service.ts";
 import { makeFixture, type Fixture } from "./support/fixture.ts";
-import { newWorkspace, type TestWorkspace } from "./support/pg.ts";
+import { newWorkspace } from "./support/pg.ts";
 import { at, seedSpec } from "./support/spec.ts";
 
 const members = (ids: string[]) =>

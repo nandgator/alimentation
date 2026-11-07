@@ -1,9 +1,8 @@
 ---
-
 title: AI agents and MCP
 description:
-How a person gives an AI agent a key, what the key may and may not do, how what the agent does is
-recorded, and the MCP server it uses.
+  How a person gives an AI agent a key, what the key may and may not do, how what the agent does is
+  recorded, and the MCP server it uses.
 ---
 
 # AI agents and MCP
@@ -85,7 +84,7 @@ session and no stream, so `GET` and `DELETE` are 405.
 Most clients take the address and a header. For Claude Code, for example:
 
 ```console
-claude mcp add --transport http alimentation https://kitchen.example.org/mcp --header "Authorization: Bearer alk_…"
+$ claude mcp add --transport http alimentation https://kitchen.example.org/mcp --header "Authorization: Bearer alk_…"
 ```
 
 Other clients differ in where they put these two things; the address and the header are all there

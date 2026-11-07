@@ -34,10 +34,10 @@ export function ReceiptPage() {
   return (
     <>
       <AppBar />
-      <div class="narrow solo">
+      <div className="narrow solo">
         {r.loading && !r.data ? <Spinner /> : null}
         {r.error ? (
-          <div class="stack">
+          <div className="stack">
             <Problem
               error={r.error.status === 404 ? "There is no receipt with that address." : r.error}
             />
@@ -45,12 +45,12 @@ export function ReceiptPage() {
           </div>
         ) : null}
         {r.data ? (
-          <figure class="receipt flat">
+          <figure className="receipt flat">
             <figcaption>Wipe receipt</figcaption>
             <dl>
               <div>
                 <dt>Workspace</dt>
-                <dd class="mono">{r.data.workspaceId}</dd>
+                <dd className="mono">{r.data.workspaceId}</dd>
               </div>
               <div>
                 <dt>Requested</dt>
@@ -66,7 +66,7 @@ export function ReceiptPage() {
                 <dd>
                   {Object.entries(r.data.manifest.checks).map(([k, ok]) => (
                     <div key={k}>
-                      <span class={`tick ${ok ? "ok" : "bad"}`}>{ok ? "✓" : "✗"}</span>
+                      <span className={`tick ${ok ? "ok" : "bad"}`}>{ok ? "✓" : "✗"}</span>
                       {CHECKS[k] ?? k}
                     </div>
                   ))}
@@ -88,10 +88,10 @@ export function ReceiptPage() {
               </div>
               <div>
                 <dt>Digest</dt>
-                <dd class="mono">{r.data.digest}</dd>
+                <dd className="mono">{r.data.digest}</dd>
               </div>
             </dl>
-            <p class="seal">Names no one.</p>
+            <p className="seal">Names no one.</p>
           </figure>
         ) : null}
       </div>
