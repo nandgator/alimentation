@@ -6,9 +6,9 @@ export function ThemeSwitch({ className }: { className?: string }) {
   const [theme, set] = useTheme();
   const name = useId();
   return (
-    <fieldset class={className ? `theme-switch ${className}` : "theme-switch"}>
+    <fieldset className={className ? `theme-switch ${className}` : "theme-switch"}>
       <legend>Theme</legend>
-      <div class="theme-opts">
+      <div className="theme-opts">
         {THEMES.map((t) => (
           <label key={t}>
             <input

@@ -3,6 +3,7 @@
   "code-block-style": {
     "style": "fenced"
   },
+  "commands-show-output": false,
   "default": true,
   "first-line-heading": false,
   "line-length": {

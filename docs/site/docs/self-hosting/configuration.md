@@ -1,5 +1,4 @@
 ---
-
 title: Configuration
 description: Every setting an instance reads, what it does, and which ones are required where.
 ---

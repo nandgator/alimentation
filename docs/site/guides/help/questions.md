@@ -1,5 +1,4 @@
 ---
-
 title: Questions
 description: Short answers to the questions people ask first.
 ---

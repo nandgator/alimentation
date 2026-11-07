@@ -1,5 +1,4 @@
 ---
-
 title: The rules of a kitchen
 description: Every option a kitchen can set under Rates & rules, what it does, and its default.
 ---

@@ -1,5 +1,4 @@
 ---
-
 title: Your bill and your days
 description: What the dashboard shows, what a projection is, and how to read your days.
 ---

@@ -22,7 +22,7 @@ const monthName = (label: string) => label.split(" ")[0];
 
 function Lock() {
   return (
-    <svg class="lock" viewBox="0 0 12 14" width="10" height="12" aria-hidden="true">
+    <svg className="lock" viewBox="0 0 12 14" width="10" height="12" aria-hidden="true">
       <rect x="1" y="6" width="10" height="8" rx="2" fill="currentColor" />
       <path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" strokeWidth="1.6" />
     </svg>
@@ -46,14 +46,14 @@ export function Month({ now }: { now?: Date }) {
   const todayDate = parseDate(today);
 
   return (
-    <div class="try hwrap">
-      <div class="try-copy">
+    <div className="try hwrap">
+      <div className="try-copy">
         <Lines lines={["Try a month", "at the mess"]} id="try-title" />
-        <p class="statement" data-reveal>
+        <p className="statement" data-reveal>
           Everyone gets the day’s meal unless they say otherwise. Days gone by are frozen; tap a day
           to come to change it.
         </p>
-        <p class="muted small" data-reveal>
+        <p className="muted small" data-reveal>
           A made-up kitchen with made-up prices, run on the same rules as the real thing, on today’s
           real calendar. Payments work like this too: you say you paid, the cook confirms, and from
           then on it cannot be changed.
@@ -61,16 +61,16 @@ export function Month({ now }: { now?: Date }) {
       </div>
 
       <section
-        class="board"
+        className="board"
         aria-label={`${SAMPLE_PERSON.name}’s month at a sample mess`}
         data-reveal="board"
         data-ui
       >
-        <header class="board-head">
-          <div class="board-nav">
+        <header className="board-head">
+          <div className="board-nav">
             <button
               type="button"
-              class="step"
+              className="step"
               aria-label="Previous month"
               disabled={offset <= -1}
               onClick={() => setOffset((o) => o - 1)}
@@ -82,7 +82,7 @@ export function Month({ now }: { now?: Date }) {
             </h3>
             <button
               type="button"
-              class="step"
+              className="step"
               aria-label="Next month"
               disabled={offset >= 1}
               onClick={() => setOffset((o) => o + 1)}
@@ -96,17 +96,17 @@ export function Month({ now }: { now?: Date }) {
           </p>
         </header>
 
-        <div class="board-cols" aria-hidden="true">
+        <div className="board-cols" aria-hidden="true">
           {["Mon", "Tue", "Wed", "Thu", "Fri"].map((n) => (
             <span key={n}>{n}</span>
           ))}
         </div>
-        <div class="board-days" role="group" aria-label="Working days, Monday to Friday">
+        <div className="board-days" role="group" aria-label="Working days, Monday to Friday">
           {weeks(month).flatMap((row, r) =>
             row.map((date, c) => {
               if (monthOf(date) !== month)
                 return (
-                  <span key={`${r}-${c}`} class="day-out" aria-hidden="true">
+                  <span key={`${r}-${c}`} className="day-out" aria-hidden="true">
                     {parseDate(date).d}
                   </span>
                 );
@@ -132,27 +132,27 @@ export function Month({ now }: { now?: Date }) {
                 <button
                   key={date}
                   type="button"
-                  class={`day day-${mark} ${frozen ? "is-frozen" : "is-open"}${isToday ? " is-today" : ""}`}
+                  className={`day day-${mark} ${frozen ? "is-frozen" : "is-open"}${isToday ? " is-today" : ""}`}
                   aria-label={`${dayLabel(date)}: ${what}, ${state}.`}
                   disabled={frozen}
                   onClick={() => setMarks((m) => ({ ...m, [date]: nextMark(m[date]) }))}
                 >
-                  <span class="d" aria-hidden="true">
+                  <span className="d" aria-hidden="true">
                     {parseDate(date).d}
                   </span>
-                  <span class="m" aria-hidden="true">
+                  <span className="m" aria-hidden="true">
                     {mark === "leave" ? "Leave" : meal}
                   </span>
-                  <span class="p" aria-hidden="true">
+                  <span className="p" aria-hidden="true">
                     {mark === "leave" ? "–" : `${frozen ? "" : "~"}${rupee(day.dayTotal)}`}
                   </span>
                   {mark === "chapati" ? (
-                    <span class="plus" aria-hidden="true">
+                    <span className="plus" aria-hidden="true">
                       +{CHAPATIS}
                     </span>
                   ) : null}
                   {isToday ? (
-                    <span class="tag" aria-hidden="true">
+                    <span className="tag" aria-hidden="true">
                       Today
                     </span>
                   ) : frozen ? (
@@ -164,32 +164,32 @@ export function Month({ now }: { now?: Date }) {
           )}
         </div>
 
-        <ul class="board-key" aria-hidden="true">
+        <ul className="board-key" aria-hidden="true">
           <li>
-            <i class="k-today" /> Today
+            <i className="k-today" /> Today
           </li>
           <li>
-            <i class="k-frozen" /> Frozen: it has happened
+            <i className="k-frozen" /> Frozen: it has happened
           </li>
           <li>
-            <i class="k-open" /> Tentative: still to come
+            <i className="k-open" /> Tentative: still to come
           </li>
           <li>
-            <i class="k-leave" /> Leave
+            <i className="k-leave" /> Leave
           </li>
           <li>
-            <i class="k-switch" /> Switched dish
+            <i className="k-switch" /> Switched dish
           </li>
           <li>
-            <i class="k-chapati" /> {CHAPATIS} extra chapatis
+            <i className="k-chapati" /> {CHAPATIS} extra chapatis
           </li>
         </ul>
-        <p class="board-today">
+        <p className="board-today">
           Today is {WEEKDAY_NAMES[weekdayOf(today)]} {todayDate.d}{" "}
           {monthName(monthLabel(monthOf(today)))}.
         </p>
 
-        <footer class="board-bill" aria-live="polite">
+        <footer className="board-bill" aria-live="polite">
           <dl>
             <div>
               <dt>{s.counts.meals} meals</dt>
@@ -205,12 +205,12 @@ export function Month({ now }: { now?: Date }) {
             </div>
           </dl>
           {!done && s.actualToDate > 0 ? (
-            <p class="sofar">
+            <p className="sofar">
               <span>Frozen so far</span>
               <b>{rupee(s.actualToDate)}</b>
             </p>
           ) : null}
-          <p class="total">
+          <p className="total">
             <span>
               {SAMPLE_PERSON.name}’s bill for {name}
               {done ? "" : ", expected"}
@@ -219,7 +219,7 @@ export function Month({ now }: { now?: Date }) {
           </p>
           <button
             type="button"
-            class="again"
+            className="again"
             onClick={() =>
               setMarks((m) =>
                 Object.fromEntries(Object.entries(m).filter(([date]) => isFrozen(date, today))),

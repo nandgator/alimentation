@@ -1,9 +1,8 @@
 ---
-
 title: Operating an instance
 description:
-Updating, housekeeping, rotating keys, restoring, a stalled move, and what to do when something is
-wrong.
+  Updating, housekeeping, rotating keys, restoring, a stalled move, and what to do when something is
+  wrong.
 ---
 
 # Operating an instance
@@ -20,7 +19,7 @@ Compose builds the image only when there is none, and nothing watches the files.
 run the same command with `--build`:
 
 ```console
-docker compose up -d --build
+$ docker compose up -d --build
 ```
 
 It rebuilds, replaces the app container, and keeps both volumes. The documentation you are reading

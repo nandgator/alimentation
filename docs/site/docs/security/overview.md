@@ -1,9 +1,8 @@
 ---
-
 title: Security and abuse protection
 description:
-What protects a kitchen from other sites, from floods, from other kitchens and from its own
-mistakes.
+  What protects a kitchen from other sites, from floods, from other kitchens and from its own
+  mistakes.
 ---
 
 # Security and abuse protection

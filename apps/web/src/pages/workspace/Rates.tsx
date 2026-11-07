@@ -73,7 +73,7 @@ function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void 
         })
       }
     >
-      <p class="muted small">
+      <p className="muted small">
         Rates are never changed after the fact: a new card applies from its date onwards.
       </p>
       <Field label="Applies from" id="rfrom">
@@ -85,7 +85,7 @@ function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void 
           onChange={(e) => setFrom(e.target.value)}
         />
       </Field>
-      <div class="pair">
+      <div className="pair">
         {keys.map((k) => (
           <Field key={k} label={`${label[k]} (₹)`} id={`r-${k}`}>
             <input
@@ -98,12 +98,12 @@ function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void 
           </Field>
         ))}
       </div>
-      <div class="field">
-        <span class="label">Menu</span>
-        <div class="pair">
+      <div className="field">
+        <span className="label">Menu</span>
+        <div className="pair">
           {WEEK.map((d) => (
-            <label key={d} class="row nowrap" style={{ ["--gap" as string]: "var(--space-2)" }}>
-              <span class="day-label">{dayName(d)}</span>
+            <label key={d} className="row nowrap" style={{ ["--gap" as string]: "var(--space-2)" }}>
+              <span className="day-label">{dayName(d)}</span>
               <select
                 aria-label={`Menu on ${dayName(d)}`}
                 value={menu[d]}
@@ -121,7 +121,7 @@ function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void 
         <input id="rnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
       <div>
-        <button class="btn" disabled={act.busy}>
+        <button type="submit" className="btn" disabled={act.busy}>
           Add rate card
         </button>
       </div>
@@ -148,7 +148,7 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
         })
       }
     >
-      <p class="muted small">
+      <p className="muted small">
         These rules apply to months starting on or after the date below. Earlier months keep the
         rules they were billed under.
       </p>
@@ -161,11 +161,11 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
           onChange={(e) => setFrom(e.target.value)}
         />
       </Field>
-      <div class="field">
-        <span class="label">Meals are served on</span>
-        <div class="row">
+      <div className="field">
+        <span className="label">Meals are served on</span>
+        <div className="row">
           {WEEK.map((d) => (
-            <label key={d} class="row" style={{ ["--gap" as string]: "var(--space-1)" }}>
+            <label key={d} className="row" style={{ ["--gap" as string]: "var(--space-1)" }}>
               <input
                 type="checkbox"
                 checked={days.has(d)}
@@ -183,7 +183,7 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
           ))}
         </div>
       </div>
-      <div class="pair">
+      <div className="pair">
         <Field label="Holidays that cancel a meal" id="pol-h">
           <select
             id="pol-h"
@@ -239,7 +239,7 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
           </select>
         </Field>
       </div>
-      <div class="pair">
+      <div className="pair">
         <Field
           label="Month close"
           id="pol-c"
@@ -313,7 +313,7 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
           </select>
         </Field>
       </div>
-      <div class="pair">
+      <div className="pair">
         <Field
           label="Exceptions due, days before"
           id="pol-x"
@@ -353,7 +353,7 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
         ) : null}
       </div>
       <div>
-        <button class="btn" disabled={act.busy || p.workingDays.length === 0}>
+        <button type="submit" className="btn" disabled={act.busy || p.workingDays.length === 0}>
           Save rules
         </button>
       </div>
@@ -370,22 +370,26 @@ export function Rates() {
   );
   const [dlg, setDlg] = useState<"card" | "policy" | null>(null);
   const list = [...(cards.data ?? [])].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
-  const current =
-    pols.data && pols.data.length
-      ? pols.data[pols.data.length - 1]!.doc
-      : (ws.boot.policy ?? DEFAULT_POLICY);
+  const current = pols.data?.length
+    ? pols.data[pols.data.length - 1]!.doc
+    : (ws.boot.policy ?? DEFAULT_POLICY);
   return (
-    <div class="stack" style={{ ["--gap" as string]: "24px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "24px" }}>
       <PageHead
         title="Rates and rules"
         lead="What a meal costs, and the rules each bill follows."
       />
       <Problem error={cards.error ?? pols.error} />
-      <section class="stack" aria-label="Rate cards">
+      <section className="stack" aria-label="Rate cards">
         <SectionHead
           title="Rate cards"
           actions={
-            <button class="btn small" disabled={!ws.writable} onClick={() => setDlg("card")}>
+            <button
+              type="button"
+              className="btn small"
+              disabled={!ws.writable}
+              onClick={() => setDlg("card")}
+            >
               New rate card
             </button>
           }
@@ -393,7 +397,7 @@ export function Rates() {
         {cards.loading && !cards.data ? <Spinner /> : null}
         {list.length > 0 ? (
           <div
-            class="tablewrap"
+            className="tablewrap"
             tabIndex={0}
             role="region"
             aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -402,11 +406,11 @@ export function Rates() {
               <thead>
                 <tr>
                   <th>From</th>
-                  <th class="r">Veg</th>
-                  <th class="r">Non veg</th>
-                  <th class="r">Chapati</th>
-                  <th class="r">Bhakri</th>
-                  <th class="r">Extras / month</th>
+                  <th className="r">Veg</th>
+                  <th className="r">Non veg</th>
+                  <th className="r">Chapati</th>
+                  <th className="r">Bhakri</th>
+                  <th className="r">Extras / month</th>
                   <th>Menu</th>
                 </tr>
               </thead>
@@ -414,11 +418,11 @@ export function Rates() {
                 {list.map((c) => (
                   <tr key={c.id}>
                     <td>{date(c.effectiveFrom)}</td>
-                    <td class="r">{money(c.veg)}</td>
-                    <td class="r">{money(c.nonVeg)}</td>
-                    <td class="r">{money(c.extraChapati)}</td>
-                    <td class="r">{money(c.extraBhakri)}</td>
-                    <td class="r">{money(c.extrasPerMonth)}</td>
+                    <td className="r">{money(c.veg)}</td>
+                    <td className="r">{money(c.nonVeg)}</td>
+                    <td className="r">{money(c.extraChapati)}</td>
+                    <td className="r">{money(c.extraBhakri)}</td>
+                    <td className="r">{money(c.extrasPerMonth)}</td>
                     <td>
                       {WEEK.filter((d) => c.menu[d])
                         .map((d) => `${dayName(d)} ${c.menu[d] === "Veg" ? "V" : "N"}`)
@@ -432,17 +436,22 @@ export function Rates() {
         ) : null}
       </section>
 
-      <section class="stack" aria-label="Rules">
+      <section className="stack" aria-label="Rules">
         <SectionHead
           title="Rules for this kitchen"
           actions={
-            <button class="btn small" disabled={!ws.writable} onClick={() => setDlg("policy")}>
+            <button
+              type="button"
+              className="btn small"
+              disabled={!ws.writable}
+              onClick={() => setDlg("policy")}
+            >
               Change rules
             </button>
           }
         />
-        <div class="card">
-          <ul class="stack plain-list" style={{ ["--gap" as string]: "var(--space-2)" }}>
+        <div className="card">
+          <ul className="stack plain-list" style={{ ["--gap" as string]: "var(--space-2)" }}>
             <li>Meals on {current.workingDays.map((d) => dayName(d as Weekday)).join(", ")}.</li>
             <li>
               {current.holidays.count === "confirmed"

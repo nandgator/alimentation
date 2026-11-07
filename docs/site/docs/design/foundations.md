@@ -1,12 +1,11 @@
 ---
-
 title: Foundations
 description: The tokens every screen is built from: colour, type, space, shape, elevation, layers, motion and breakpoints, shown with the real stylesheet.
 ---
 
-<!-- markdownlint-disable MD013 -->
-
 # Foundations
+
+<!-- markdownlint-disable MD013 -->
 
 Every value a screen uses comes from a **token**: a CSS custom property defined once in
 `apps/web/src/styles.css` and used by name. This page is rendered with that stylesheet, so

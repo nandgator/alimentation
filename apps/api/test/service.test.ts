@@ -313,7 +313,7 @@ describe("closing a month", () => {
     expect(s.closed).toBe(false);
     expect(s.billed).toBe(rupees(3090));
     expect(
-      (await thrown(fx.svc.reopenMonth(fx.admin, "2026-10", smruti.personId + "x"))).code,
+      (await thrown(fx.svc.reopenMonth(fx.admin, "2026-10", `${smruti.personId}x`))).code,
     ).toMatch(/not_found|invalid/);
   });
 
@@ -393,7 +393,7 @@ describe("rules that differ by workspace", () => {
         "2026-11-01",
         policy({ exceptionCutoff: { daysBefore: 1, time: "18:00" } }),
       );
-      const leave = (who: Actor, date: string) =>
+      const _leave = (who: Actor, date: string) =>
         fx.svc.addLog(who, {
           date,
           personId: jovial.personId,

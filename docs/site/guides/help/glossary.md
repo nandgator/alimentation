@@ -1,5 +1,4 @@
 ---
-
 title: Glossary
 description: The words Alimentation uses, in one place.
 ---

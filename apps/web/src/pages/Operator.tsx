@@ -29,7 +29,8 @@ export function Operator() {
           title="Operator"
           actions={
             <button
-              class="btn ghost small"
+              type="button"
+              className="btn ghost small"
               disabled={act.busy}
               onClick={() =>
                 void act.run(async () => {
@@ -47,12 +48,12 @@ export function Operator() {
           {list.loading && !list.data ? <Spinner /> : null}
           {list.data ? (
             <>
-              <p class="muted">
+              <p className="muted">
                 {list.data.capacity.used} of {list.data.capacity.capacity} free places used ·{" "}
                 {list.data.capacity.open ? "open" : "full"}
               </p>
               <div
-                class="tablewrap"
+                className="tablewrap"
                 tabIndex={0}
                 role="region"
                 aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -63,7 +64,7 @@ export function Operator() {
                       <th>Address</th>
                       <th>State</th>
                       <th>Where</th>
-                      <th class="r">Requests today</th>
+                      <th className="r">Requests today</th>
                       <th>Over since</th>
                       <th />
                     </tr>
@@ -78,12 +79,13 @@ export function Operator() {
                           <Chip tone={tone(w.state)}>{w.state}</Chip>
                         </td>
                         <td>{w.placement}</td>
-                        <td class="r">{w.requestsToday}</td>
+                        <td className="r">{w.requestsToday}</td>
                         <td>{w.overSince ?? "-"}</td>
                         <td>
                           {w.state === "MIGRATING" ? (
                             <button
-                              class="btn ghost small"
+                              type="button"
+                              className="btn ghost small"
                               onClick={() =>
                                 void act.run(async () => {
                                   await api.post(`/api/platform/workspaces/${w.slug}/release`);

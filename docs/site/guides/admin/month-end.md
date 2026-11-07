@@ -1,9 +1,8 @@
 ---
-
 title: Month end and catching up
 description:
-How a month closes, how long people have to catch up, and what to do when the supplier or a member
-was away.
+  How a month closes, how long people have to catch up, and what to do when the supplier or a member
+  was away.
 ---
 
 # Month end and catching up

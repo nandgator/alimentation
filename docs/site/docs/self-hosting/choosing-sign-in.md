@@ -1,9 +1,8 @@
 ---
-
 title: What setting up sign-in costs
 description:
-The money, time and effort of each way to sign people in, written for the administrator who has to
-choose one.
+  The money, time and effort of each way to sign people in, written for the administrator who has to
+  choose one.
 ---
 
 # What setting up sign-in costs

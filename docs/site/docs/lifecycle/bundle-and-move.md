@@ -1,9 +1,8 @@
 ---
-
 title: Bundles and moves
 description:
-The portable bundle format, how a kitchen is copied and checked to the paisa, and how a move to
-another database or instance proceeds.
+  The portable bundle format, how a kitchen is copied and checked to the paisa, and how a move to
+  another database or instance proceeds.
 ---
 
 # Bundles and moves

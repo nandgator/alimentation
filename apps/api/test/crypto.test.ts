@@ -123,7 +123,7 @@ describe("[P4] keys can be destroyed, and then nothing is readable", () => {
   it("refuses a malformed key ring", async () => {
     await expect(Keyring.fromSpec("")).rejects.toThrow(/empty/);
     await expect(Keyring.fromSpec("one:abc")).rejects.toThrow(/must look like/);
-    await expect(Keyring.fromSpec("1:" + btoa("short"))).rejects.toThrow(/32 bytes/);
+    await expect(Keyring.fromSpec(`1:${btoa("short")}`)).rejects.toThrow(/32 bytes/);
   });
 
   it("names a workspace in logs by a pseudonym that changes with the log key", async () => {

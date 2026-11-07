@@ -1,8 +1,7 @@
 ---
-
 title: Days off, and being away
 description:
-How to mark a day the kitchen does not cook, and what happens to payments while you are away.
+  How to mark a day the kitchen does not cook, and what happens to payments while you are away.
 ---
 
 # Days off, and being away

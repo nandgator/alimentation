@@ -1,8 +1,7 @@
 ---
-
 title: Copying, moving and deleting
 description:
-Take everything, move to your own database or instance, or delete the kitchen and get a receipt.
+  Take everything, move to your own database or instance, or delete the kitchen and get a receipt.
 ---
 
 # Copying, moving and deleting

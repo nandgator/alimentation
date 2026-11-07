@@ -435,7 +435,7 @@ describe("the MCP server", () => {
 
   it("is refused without a key, with a wrong one, and for anything but a request", async () => {
     expect((await call(null, "tools/list")).status).toBe(401);
-    expect((await call("alk_" + "x".repeat(43), "tools/list")).json.error.code).toBe("bad_key");
+    expect((await call(`alk_${"x".repeat(43)}`, "tools/list")).json.error.code).toBe("bad_key");
     for (const method of ["GET", "DELETE"]) {
       const r = await p.anonymous().req(method, "/mcp");
       expect(r.status, method).toBe(405);

@@ -74,15 +74,15 @@ export function Lines({
 }) {
   return (
     <Tag
-      class={`lines${className ? ` ${className}` : ""}`}
+      className={`lines${className ? ` ${className}` : ""}`}
       id={id}
       data-reveal={first ? undefined : "lines"}
       data-first={first ? "" : undefined}
     >
       {lines.map((line, i) => (
         <Fragment key={line}>
-          <span class="line">
-            <span class="line-in" style={{ ["--i" as string]: i }}>
+          <span className="line">
+            <span className="line-in" style={{ ["--i" as string]: i }}>
               {line}
             </span>
           </span>{" "}
@@ -99,13 +99,16 @@ export function Lines({
 export function Figure({ value }: { value: string }) {
   let n = 0;
   return (
-    <span class="roll" data-reveal="roll">
-      <span class="sr">{value}</span>
-      <span class="roll-digits" aria-hidden="true">
+    <span className="roll" data-reveal="roll">
+      <span className="sr">{value}</span>
+      <span className="roll-digits" aria-hidden="true">
         {[...value].map((ch, k) =>
           /\d/.test(ch) ? (
-            <span class="roll-col" key={k}>
-              <span class="roll-strip" style={{ ["--d" as string]: ch, ["--i" as string]: n++ }}>
+            <span className="roll-col" key={k}>
+              <span
+                className="roll-strip"
+                style={{ ["--d" as string]: ch, ["--i" as string]: n++ }}
+              >
                 {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
                   <span key={d}>{d}</span>
                 ))}

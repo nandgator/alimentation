@@ -60,7 +60,7 @@ export async function acceptInvite(
     );
   }
   const handle = await p.directory.byId(inv.workspaceId);
-  if (!handle || handle.info.state !== "ACTIVE")
+  if (handle?.info.state !== "ACTIVE")
     throw new ApiError(
       409,
       "unavailable",
@@ -85,7 +85,7 @@ export async function claimAutoInvites(p: PlatformDeps, account: AccountRow): Pr
   for (const inv of await p.control.pendingAutoInvites(account.email, p.now())) {
     try {
       const handle = await p.directory.byId(inv.workspaceId);
-      if (!handle || handle.info.state !== "ACTIVE") continue;
+      if (handle?.info.state !== "ACTIVE") continue;
       await handle.appDb.tx(
         async (tx) =>
           void (await tx.query("SELECT bind_account($1, $2)", [inv.personId, account.id])),

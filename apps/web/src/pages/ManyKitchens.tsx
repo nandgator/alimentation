@@ -11,9 +11,9 @@ function NewOrganisation({ first }: { first: boolean }) {
   const [name, setName] = useState("");
   const act = useAction();
   return (
-    <section class="card stack" aria-labelledby="org-h">
+    <section className="card stack" aria-labelledby="org-h">
       <h2 id="org-h">{first ? "Start an organisation" : "Start another organisation"}</h2>
-      <p class="muted">
+      <p className="muted">
         A head office over several kitchens. It sees how each is doing: how many people, how many
         meals, what was billed, paid and is owed. It never sees a name. A kitchen joins only when
         its own admin agrees, and can stop whenever it likes.
@@ -37,7 +37,7 @@ function NewOrganisation({ first }: { first: boolean }) {
             onChange={(e) => setName(e.target.value)}
           />
         </Field>
-        <button class="btn" disabled={act.busy}>
+        <button type="submit" className="btn" disabled={act.busy}>
           Start it
         </button>
       </Form>

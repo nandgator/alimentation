@@ -295,7 +295,7 @@ export function checkTsxText(text, file = "a.tsx") {
       const m = /style=\{\{(.*)$/.exec(row);
       if (!m) return;
       // A single-line style object is fine only when every key hands a value to the stylesheet.
-      const keys = [...m[1].matchAll(/(?:\[\s*'(--[a-z0-9-]+)'[^\]]*\]|(\w+))\s*:/g)].map(
+      const keys = [...m[1].matchAll(/(?:\[\s*["'](--[a-z0-9-]+)["'][^\]]*\]|(\w+))\s*:/g)].map(
         (k) => k[1] ?? k[2],
       );
       const loose = keys.filter((k) => !k.startsWith("--"));

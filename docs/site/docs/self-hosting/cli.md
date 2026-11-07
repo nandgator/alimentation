@@ -1,5 +1,4 @@
 ---
-
 title: The command line
 description: The commands that make keys, set up and upgrade databases, and lock down a cluster.
 ---
@@ -10,15 +9,15 @@ Everything an operator does outside the browser is one command, `cli.mjs`. It is
 server:
 
 ```console
-npm run build:server -w @alimentation/api
-node apps/api/dist/cli.mjs <command>
+$ npm run build:server -w @alimentation/api
+$ node apps/api/dist/cli.mjs <command>
 ```
 
 In the Docker image it is already there as `node cli.mjs <command>`, and on Compose you run it in a
 throwaway container:
 
 ```console
-docker compose run --rm app node cli.mjs <command>
+$ docker compose run --rm app node cli.mjs <command>
 ```
 
 On an instance that keeps its own secrets in the `instance` volume, every command except

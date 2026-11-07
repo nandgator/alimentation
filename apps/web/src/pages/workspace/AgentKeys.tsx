@@ -46,10 +46,10 @@ export function AgentKeys() {
   const keys = list.data?.keys ?? [];
 
   return (
-    <details class="card">
+    <details className="card">
       <summary>AI agents</summary>
-      <div class="stack">
-        <p class="muted">
+      <div className="stack">
+        <p className="muted">
           A key lets software act for a person here: as them, in the role you are using, and no
           further. It can read; if you allow it, it can add entries or say a payment was made.
           Confirming payments, closing months and everything about people, prices and the kitchen
@@ -58,12 +58,12 @@ export function AgentKeys() {
         </p>
         <Problem error={list.error} />
         {fresh ? (
-          <div class="banner info" role="status">
-            <div class="stack">
+          <div className="banner info" role="status">
+            <div className="stack">
               <p>
                 <strong>{fresh.name}</strong>: copy this key now. It will not be shown again.
               </p>
-              <span class="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
+              <span className="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
                 <input
                   aria-label="The key"
                   readOnly
@@ -72,11 +72,11 @@ export function AgentKeys() {
                 />
                 <CopyButton text={fresh.token} label="Copy the key" />
               </span>
-              <p class="small muted">
+              <p className="small muted">
                 Its address for software that speaks MCP is <code>{location.origin}/mcp</code>, with
                 the key as a bearer token.
               </p>
-              <button class="btn ghost small" onClick={() => setFresh(null)}>
+              <button type="button" className="btn ghost small" onClick={() => setFresh(null)}>
                 I have copied it
               </button>
             </div>
@@ -111,10 +111,10 @@ export function AgentKeys() {
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <fieldset class="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
+          <fieldset className="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
             <legend>What it may do besides reading</legend>
             {SCOPES.map(([key, label]) => (
-              <label key={key} class="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
+              <label key={key} className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
                 <input
                   type="checkbox"
                   checked={scopes.includes(key)}
@@ -136,13 +136,13 @@ export function AgentKeys() {
               onChange={(e) => setDays(Number(e.target.value))}
             />
           </Field>
-          <button class="btn" disabled={act.busy}>
+          <button type="submit" className="btn" disabled={act.busy}>
             Make a key
           </button>
         </Form>
         {keys.length > 0 ? (
           <div
-            class="tablewrap"
+            className="tablewrap"
             tabIndex={0}
             role="region"
             aria-label="Keys; scrolls sideways when it is wider than the screen"
@@ -176,10 +176,11 @@ export function AgentKeys() {
                           date(k.expiresAt.slice(0, 10))
                         )}
                       </td>
-                      <td class="r">
+                      <td className="r">
                         {ended ? null : (
                           <button
-                            class="btn ghost small"
+                            type="button"
+                            className="btn ghost small"
                             disabled={act.busy}
                             onClick={() =>
                               void act.run(async () => {

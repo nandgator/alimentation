@@ -30,9 +30,9 @@ export function Holidays() {
   const act = useAction();
   const list = [...ws.boot.holidays].sort((a, b) => (a.date < b.date ? 1 : -1));
   return (
-    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead title="Holidays" />
-      <section class="card stack">
+      <section className="card stack">
         <Form
           error={act.error}
           onSubmit={() =>
@@ -44,7 +44,7 @@ export function Holidays() {
             })
           }
         >
-          <div class="pair">
+          <div className="pair">
             <Field label="Name" id="hname">
               <input
                 id="hname"
@@ -64,7 +64,7 @@ export function Holidays() {
               />
             </Field>
           </div>
-          <label class="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
+          <label className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
             <input
               type="checkbox"
               checked={confirmed}
@@ -73,16 +73,16 @@ export function Holidays() {
             Confirmed (a meal is not served and not billed)
           </label>
           <div>
-            <button class="btn" disabled={act.busy || !ws.writable}>
+            <button type="submit" className="btn" disabled={act.busy || !ws.writable}>
               Add
             </button>
           </div>
         </Form>
       </section>
-      {list.length === 0 ? <p class="muted">No holidays yet.</p> : null}
+      {list.length === 0 ? <p className="muted">No holidays yet.</p> : null}
       {list.length > 0 ? (
         <div
-          class="tablewrap"
+          className="tablewrap"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -107,9 +107,10 @@ export function Holidays() {
                     </Chip>
                   </td>
                   <td>
-                    <div class="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
+                    <div className="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
                       <button
-                        class="btn ghost small"
+                        type="button"
+                        className="btn ghost small"
                         disabled={!ws.writable}
                         onClick={() =>
                           void api
@@ -120,7 +121,8 @@ export function Holidays() {
                         {h.confirmed ? "Make tentative" : "Confirm"}
                       </button>
                       <button
-                        class="btn ghost small"
+                        type="button"
+                        className="btn ghost small"
                         disabled={!ws.writable}
                         onClick={() =>
                           void api
@@ -154,12 +156,12 @@ export function Settlements() {
   const act = useAction();
   const needsAmount = type !== "Query";
   return (
-    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead
         title="Settlements"
         lead="An admin’s own entries: payments taken outside the app, queries raised, queries resolved. They are added, never changed."
       />
-      <section class="card stack">
+      <section className="card stack">
         <Form
           error={act.error}
           onSubmit={() =>
@@ -181,7 +183,7 @@ export function Settlements() {
             })
           }
         >
-          <div class="pair">
+          <div className="pair">
             <Field label="Who" id="swho">
               <select id="swho" value={who} onChange={(e) => setWho(e.target.value)}>
                 {consumers.map((c) => (
@@ -235,7 +237,7 @@ export function Settlements() {
             />
           </Field>
           <div>
-            <button class="btn" disabled={act.busy || !ws.writable}>
+            <button type="submit" className="btn" disabled={act.busy || !ws.writable}>
               Record
             </button>
           </div>
@@ -245,7 +247,7 @@ export function Settlements() {
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data && list.data.length > 0 ? (
         <div
-          class="tablewrap"
+          className="tablewrap"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -257,7 +259,7 @@ export function Settlements() {
                 <th>Who</th>
                 <th>Month</th>
                 <th>Type</th>
-                <th class="r">Amount</th>
+                <th className="r">Amount</th>
                 <th>Note</th>
               </tr>
             </thead>
@@ -268,8 +270,8 @@ export function Settlements() {
                   <td>{ws.nameOf(s.consumerId)}</td>
                   <td>{monthLabel(s.forMonth)}</td>
                   <td>{s.type}</td>
-                  <td class="r">{s.amount === null ? "-" : money(s.amount)}</td>
-                  <td class="cell-text">{s.note ?? ""}</td>
+                  <td className="r">{s.amount === null ? "-" : money(s.amount)}</td>
+                  <td className="cell-text">{s.note ?? ""}</td>
                 </tr>
               ))}
             </tbody>
@@ -298,7 +300,7 @@ export function CloseMonths() {
   const rows = res.data ?? [];
   const open = rows.filter((s) => !s.closed);
   return (
-    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead
         title="Month close"
         lead="Closing freezes what each person is billed. Entries changed later show up as “changed after close” with the difference, and never alter the bill."
@@ -315,7 +317,7 @@ export function CloseMonths() {
       {res.loading && !res.data ? <Spinner /> : null}
       {rows.length > 0 ? (
         <div
-          class="tablewrap"
+          className="tablewrap"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -324,8 +326,8 @@ export function CloseMonths() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th class="r">Live total</th>
-                <th class="r">Billed</th>
+                <th className="r">Live total</th>
+                <th className="r">Billed</th>
                 <th>State</th>
                 <th>Still waiting</th>
                 <th />
@@ -335,8 +337,8 @@ export function CloseMonths() {
               {rows.map((s) => (
                 <tr key={s.personId}>
                   <td>{s.name}</td>
-                  <td class="r">{money(s.liveTotal)}</td>
-                  <td class="r">{s.closed ? money(s.billed) : "-"}</td>
+                  <td className="r">{money(s.liveTotal)}</td>
+                  <td className="r">{s.closed ? money(s.billed) : "-"}</td>
                   <td>
                     {s.closed ? <Chip tone="good">Closed</Chip> : <Chip>Open</Chip>}
                     {s.changedAfterClose !== 0 ? (
@@ -357,7 +359,8 @@ export function CloseMonths() {
                   <td>
                     {s.closed ? (
                       <button
-                        class="btn ghost small"
+                        type="button"
+                        className="btn ghost small"
                         disabled={act.busy || !ws.writable}
                         onClick={() =>
                           void act.run(async () => {
@@ -371,7 +374,8 @@ export function CloseMonths() {
                       </button>
                     ) : (
                       <button
-                        class="btn small"
+                        type="button"
+                        className="btn small"
                         disabled={act.busy || !ws.writable}
                         onClick={() =>
                           void act.run(async () => {
@@ -395,14 +399,19 @@ export function CloseMonths() {
         </div>
       ) : null}
       {rows.length > 0 ? (
-        <p class="muted small">
+        <p className="muted small">
           Closing freezes meals, leave and extras. Payments are not frozen: a claim can still be
           made, confirmed or settled after the month is closed, so nobody has to rush the supplier.
         </p>
       ) : null}
       {open.length > 1 ? (
         <div>
-          <button class="btn" disabled={act.busy || !ws.writable} onClick={() => setConfirm("all")}>
+          <button
+            type="button"
+            className="btn"
+            disabled={act.busy || !ws.writable}
+            onClick={() => setConfirm("all")}
+          >
             Close {monthLabel(selected)} for everyone
           </button>
         </div>
@@ -419,9 +428,10 @@ export function CloseMonths() {
             ? " Some of them still have a claim waiting for the supplier, or a query open. Those carry on after the close."
             : ""}
         </p>
-        <div class="row">
+        <div className="row">
           <button
-            class="btn"
+            type="button"
+            className="btn"
             onClick={() =>
               void act.run(async () => {
                 await postJson(`${ws.api}/closes`, { month: selected });
@@ -433,7 +443,7 @@ export function CloseMonths() {
           >
             Close them
           </button>
-          <button class="btn ghost" onClick={() => setConfirm(null)}>
+          <button type="button" className="btn ghost" onClick={() => setConfirm(null)}>
             Cancel
           </button>
         </div>

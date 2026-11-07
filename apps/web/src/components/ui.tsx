@@ -46,12 +46,12 @@ export function PageHead({
   actions?: ReactNode;
 }) {
   return (
-    <div class="pagehead">
-      <div class="pagehead-text">
+    <div className="pagehead">
+      <div className="pagehead-text">
         <h1>{title}</h1>
-        {lead ? <p class="lead">{lead}</p> : null}
+        {lead ? <p className="lead">{lead}</p> : null}
       </div>
-      {actions ? <div class="row">{actions}</div> : null}
+      {actions ? <div className="row">{actions}</div> : null}
     </div>
   );
 }
@@ -59,22 +59,22 @@ export function PageHead({
 /** The top of one part of a screen. */
 export function SectionHead({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
-    <div class="sechead">
+    <div className="sechead">
       <h2>{title}</h2>
-      {actions ? <div class="row">{actions}</div> : null}
+      {actions ? <div className="row">{actions}</div> : null}
     </div>
   );
 }
 
 export const Spinner = ({ label = "Loading" }: { label?: string }) => (
-  <p class="muted small" role="status" aria-live="polite">
+  <p className="muted small" role="status" aria-live="polite">
     {label}…
   </p>
 );
 
 export const Problem = ({ error }: { error: Error | string | null | undefined }) =>
   error ? (
-    <div class="banner bad" role="alert">
+    <div className="banner bad" role="alert">
       {typeof error === "string" ? error : error.message}
     </div>
   ) : null;
@@ -111,10 +111,10 @@ export function Field({
   id?: string;
 }) {
   return (
-    <div class="field">
-      <label for={id}>{label}</label>
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
       {children}
-      {hint ? <span class="hint">{hint}</span> : null}
+      {hint ? <span className="hint">{hint}</span> : null}
     </div>
   );
 }
@@ -130,7 +130,7 @@ export function Form({
 }) {
   return (
     <form
-      class="form"
+      className="form"
       onSubmit={(e: FormEvent) => {
         e.preventDefault();
         void onSubmit();
@@ -164,7 +164,7 @@ export function Dialog({
   }, [open]);
   return (
     <dialog ref={ref} onClose={onClose} aria-labelledby={titleId}>
-      <div class="stack" style={{ ["--gap" as string]: "16px" }}>
+      <div className="stack" style={{ ["--gap" as string]: "16px" }}>
         <h3 id={titleId}>{title}</h3>
         {open ? children : null}
       </div>
@@ -196,7 +196,7 @@ export function Toaster() {
   }, []);
   return message ? (
     <div
-      class={`toast ${message.tone}`}
+      className={`toast ${message.tone}`}
       role={message.tone === "bad" ? "alert" : "status"}
       aria-live={message.tone === "bad" ? "assertive" : "polite"}
     >
@@ -231,7 +231,7 @@ export const Chip = ({
 }: {
   tone?: "good" | "warn" | "bad";
   children: ReactNode;
-}) => <span class={`chip ${tone ?? ""}`}>{children}</span>;
+}) => <span className={`chip ${tone ?? ""}`}>{children}</span>;
 
 /** One figure. The few that answer “where do I stand?” are `lead` and sit larger above the rest. */
 export const Tile = ({
@@ -245,9 +245,9 @@ export const Tile = ({
   projected?: boolean;
   lead?: boolean;
 }) => (
-  <div class={`tile${lead ? " lead" : ""}${projected ? " projected" : ""}`}>
-    <div class="k">{label}</div>
-    <div class="v">{value}</div>
+  <div className={`tile${lead ? " lead" : ""}${projected ? " projected" : ""}`}>
+    <div className="k">{label}</div>
+    <div className="v">{value}</div>
   </div>
 );
 
@@ -264,7 +264,12 @@ export function MonthPicker({
   current: string;
 }) {
   return (
-    <select aria-label="Month" value={value} onChange={(e) => onChange(e.target.value)} class="fit">
+    <select
+      aria-label="Month"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="fit"
+    >
       {[...months].reverse().map((m) => (
         <option key={m} value={m}>
           {m === current ? `Current month (${monthLabel(m)})` : monthLabel(m)}
@@ -286,7 +291,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
     <>
       <button
         type="button"
-        class="icon-btn copy"
+        className="icon-btn copy"
         aria-label={label}
         title="Copy"
         data-state={state === "copied" ? "copied" : undefined}
@@ -297,16 +302,16 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
           )
         }
       >
-        <svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <svg className="i-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <rect x="9" y="9" width="11" height="11" rx="2" />
           <path d="M5 15V6a2 2 0 0 1 2-2h9" />
         </svg>
-        <svg class="i-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <svg className="i-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
-        <span class="copy-label">Copied</span>
+        <span className="copy-label">Copied</span>
       </button>
-      <span class="sr" role="status">
+      <span className="sr" role="status">
         {state === "copied"
           ? "Copied to the clipboard."
           : state === "failed"

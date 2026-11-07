@@ -1,9 +1,8 @@
 ---
-
 title: Conformance
 description:
-What the design check enforces, how to run it, how to waive a rule with a reason, and what only a
-person or another test can judge.
+  What the design check enforces, how to run it, how to waive a rule with a reason, and what only a
+  person or another test can judge.
 ---
 
 # Conformance
@@ -14,8 +13,8 @@ test in the suite (`apps/web/src/design.test.ts`), and in the compose test run, 
 the same build a broken test does.
 
 ```console
-npm run design              # one line: kept, or how many places leave it
-node scripts/check-design.mjs --list    # every place, with its file, line, rule and text
+$ npm run design              # one line: kept, or how many places leave it
+$ node scripts/check-design.mjs --list    # every place, with its file, line, rule and text
 ```
 
 At the time of writing the app has **no departures** and **three waivers**.
@@ -60,7 +59,7 @@ margin-left: -1px; /* design: it overlaps the rule beside it by that rule's own 
 
 ```tsx
 // design: a place taken from where the page is scrolled, so it cannot be a class
-<div style={{ top: y }} />;
+<div style={{ top: y }} />
 ```
 
 In CSS the comment sits on the same line, or on a line of the same declaration. In a component it

@@ -1,9 +1,8 @@
 ---
-
 title: How a bill is worked out
 description:
-Rate cards, working days, holidays, exceptions and extras, with a month worked through to the
-rupee.
+  Rate cards, working days, holidays, exceptions and extras, with a month worked through to the
+  rupee.
 ---
 
 # How a bill is worked out

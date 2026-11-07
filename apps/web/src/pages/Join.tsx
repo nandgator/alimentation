@@ -23,10 +23,10 @@ function Accept() {
     );
   }, [go]);
   return (
-    <div class="narrow solo">
-      <div class="card stack">
+    <div className="narrow solo">
+      <div className="card stack">
         <h1>Joining your kitchen</h1>
-        {error ? <Problem error={error} /> : <p class="muted">One moment…</p>}
+        {error ? <Problem error={error} /> : <p className="muted">One moment…</p>}
       </div>
     </div>
   );

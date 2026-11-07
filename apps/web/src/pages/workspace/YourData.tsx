@@ -40,22 +40,22 @@ function Usage() {
   const tone =
     m.state === "OVER" ? "bad" : m.state === "ASK" ? "warn" : m.state === "WATCH" ? "warn" : "";
   return (
-    <section class="card stack" aria-label="Usage">
+    <section className="card stack" aria-label="Usage">
       <h2>Free tier</h2>
-      {m.state === "OK" ? <p class="muted">Well within the free tier.</p> : null}
+      {m.state === "OK" ? <p className="muted">Well within the free tier.</p> : null}
       {m.state === "WATCH" ? (
-        <div class="banner warn">
+        <div className="banner warn">
           You have used more than 70 percent of the free allowance in one measure.
         </div>
       ) : null}
       {m.state === "ASK" ? (
-        <div class="banner warn">
+        <div className="banner warn">
           You are close to a free limit. Moving to a database of your own takes one click, and you
           can do it whenever you like below.
         </div>
       ) : null}
       {m.state === "OVER" ? (
-        <div class="banner bad">
+        <div className="banner bad">
           You have reached a free limit
           {m.graceEndsOn
             ? `. New entries pause after ${date(m.graceEndsOn)} (${GRACE_DAYS} days of grace)`
@@ -67,14 +67,14 @@ function Usage() {
         const pct = Math.min(100, Math.round((m.ratios[k] ?? 0) * 100));
         return (
           <div key={k}>
-            <div class="row between">
+            <div className="row between">
               <span>{NAMES[k]}</span>
-              <span class="muted small num">
+              <span className="muted small num">
                 {k === "bytes" ? size(m.usage[k]) : nf.format(m.usage[k])} · {pct}%
               </span>
             </div>
             <div
-              class={`meter ${pct >= 100 ? "bad" : pct >= 70 ? "warn" : ""}`}
+              className={`meter ${pct >= 100 ? "bad" : pct >= 70 ? "warn" : ""}`}
               role="img"
               aria-label={`${NAMES[k]}: ${pct} percent of the free allowance`}
             >
@@ -83,7 +83,7 @@ function Usage() {
           </div>
         );
       })}
-      <p class="muted small">{tone ? "" : "The meter warns you well before anything stops."}</p>
+      <p className="muted small">{tone ? "" : "The meter warns you well before anything stops."}</p>
     </section>
   );
 }
@@ -106,23 +106,23 @@ function Move() {
 
   if (done)
     return (
-      <section class="card stack" aria-label="Moved">
+      <section className="card stack" aria-label="Moved">
         <h2>Moved</h2>
-        <div class="banner good">
+        <div className="banner good">
           {done.target === "database"
             ? "Your kitchen now lives in your own database, and is served from there."
             : "Your kitchen now lives on your own instance."}
         </div>
         <p>
           Everything was copied and every statement was recomputed from the raw entries and matched
-          to the paisa. Checksum <code class="small">{done.digest.slice(0, 16)}…</code>
+          to the paisa. Checksum <code className="small">{done.digest.slice(0, 16)}…</code>
         </p>
-        <p class="muted">
+        <p className="muted">
           The old copy stays read-only until {date(done.oldCopyRemovedBy.slice(0, 10))}, then it is
           removed.
         </p>
         {done.movedTo ? (
-          <a class="btn" href={done.movedTo}>
+          <a className="btn" href={done.movedTo}>
             Open it at the new address
           </a>
         ) : null}
@@ -130,19 +130,20 @@ function Move() {
     );
 
   return (
-    <section class="card stack" aria-label="Move">
+    <section className="card stack" aria-label="Move">
       <h2>Move to a place of your own</h2>
-      <p class="muted">
+      <p className="muted">
         Nothing changes here until the copy has been checked. Everyone signs in as before, with the
         same email. This copy stays read-only for seven days, in case you change your mind.
       </p>
-      <div class="row" role="tablist" aria-label="Where to">
+      <div className="row" role="tablist" aria-label="Where to">
         {(["database", "instance"] as const).map((k) => (
           <button
+            type="button"
             key={k}
             role="tab"
             aria-selected={kind === k}
-            class={`btn small ${kind === k ? "" : "ghost"}`}
+            className={`btn small ${kind === k ? "" : "ghost"}`}
             onClick={() => {
               setKind(k);
               reset();
@@ -202,7 +203,7 @@ function Move() {
           </Field>
         ) : null}
         <div>
-          <button class="btn ghost" disabled={check.busy || !ws.writable}>
+          <button type="submit" className="btn ghost" disabled={check.busy || !ws.writable}>
             Check it first
           </button>
         </div>
@@ -210,14 +211,14 @@ function Move() {
 
       {preview ? (
         preview.ok ? (
-          <div class="stack">
-            <div class="banner good">It will work. Nothing has been changed.</div>
-            <ol class="stack plain-list" style={{ ["--gap" as string]: "var(--space-1)" }}>
+          <div className="stack">
+            <div className="banner good">It will work. Nothing has been changed.</div>
+            <ol className="stack plain-list" style={{ ["--gap" as string]: "var(--space-1)" }}>
               {preview.steps.map((s) => (
                 <li key={s}>{s}</li>
               ))}
             </ol>
-            <p class="muted small">
+            <p className="muted small">
               {Object.entries(preview.counts)
                 .filter(([, n]) => n > 0)
                 .map(([k, n]) => `${k.replace(/_/g, " ")} ${nf.format(n)}`)
@@ -243,14 +244,18 @@ function Move() {
                 />
               </Field>
               <div>
-                <button class="btn accent" disabled={go.busy || confirm !== ws.slug}>
+                <button
+                  type="submit"
+                  className="btn accent"
+                  disabled={go.busy || confirm !== ws.slug}
+                >
                   Move now
                 </button>
               </div>
             </Form>
           </div>
         ) : (
-          <div class="banner bad" role="alert">
+          <div className="banner bad" role="alert">
             <div>
               {preview.problems.map((p) => (
                 <p key={p}>{p}</p>
@@ -267,16 +272,17 @@ function Export() {
   const ws = useWorkspace();
   const act = useAction();
   return (
-    <section class="card stack" aria-label="Export">
+    <section className="card stack" aria-label="Export">
       <h2>Take a copy</h2>
-      <p class="muted">
+      <p className="muted">
         Everything in this kitchen, in an open format, with a checksum. It works at any time,
         including when you are over the limit.
       </p>
       <Problem error={act.error} />
       <div>
         <button
-          class="btn ghost"
+          type="button"
+          className="btn ghost"
           disabled={act.busy}
           onClick={() =>
             void act.run(async () => {
@@ -306,9 +312,9 @@ function Wipe() {
   const act = useAction();
   if (receipt)
     return (
-      <section class="card stack" aria-label="Deleted">
+      <section className="card stack" aria-label="Deleted">
         <h2>Deleted</h2>
-        <div class="banner good">
+        <div className="banner good">
           The keys are destroyed and the kitchen is gone. Nothing of it can be read.
         </div>
         <p>
@@ -316,20 +322,20 @@ function Wipe() {
           receipt: <a href={`/receipt/${receipt}`}>/receipt/{receipt.slice(0, 8)}…</a>. It names no
           one.
         </p>
-        <button class="btn" onClick={() => navigate("/app")}>
+        <button type="button" className="btn" onClick={() => navigate("/app")}>
           Back to your kitchens
         </button>
       </section>
     );
   return (
-    <section class="card stack danger" aria-label="Delete">
+    <section className="card stack danger" aria-label="Delete">
       <h2>Delete everything</h2>
       <p>
         The keys are destroyed first, so from that moment nothing in this kitchen can be read by
         anyone, including us. Then the database is removed, then every record of who was in it. This
         cannot be undone.
       </p>
-      <p class="muted small">
+      <p className="muted small">
         Take a copy first if you may want it. Copies you have already downloaded are yours and are
         not touched.
       </p>
@@ -356,7 +362,7 @@ function Wipe() {
           />
         </Field>
         <div>
-          <button class="btn danger" disabled={act.busy || confirm !== ws.slug}>
+          <button type="submit" className="btn danger" disabled={act.busy || confirm !== ws.slug}>
             Delete this kitchen
           </button>
         </div>
@@ -368,7 +374,7 @@ function Wipe() {
 export function YourData() {
   const ws = useWorkspace();
   return (
-    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead
         title="Your data"
         lead={`${ws.boot.workspace.name} · /w/${ws.slug}. This is yours: take it, move it, or delete it.`}

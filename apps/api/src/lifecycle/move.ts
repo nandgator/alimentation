@@ -405,7 +405,7 @@ export async function moveToInstance(
 /** Puts a workspace back to work after a move that stopped part-way. Only for a move that sent nothing. */
 export async function releaseMove(p: PlatformDeps, workspaceId: string): Promise<void> {
   const row = await p.control.workspaceById(workspaceId);
-  if (!row || row.state !== "MIGRATING") return;
+  if (row?.state !== "MIGRATING") return;
   const dsns = await readDsns(p.keyring, row.id, row.dsnEnc);
   const owner = p.openDb(dsns.owner, { ephemeral: true });
   try {

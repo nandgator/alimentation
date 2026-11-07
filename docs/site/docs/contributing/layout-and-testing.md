@@ -1,5 +1,4 @@
 ---
-
 title: Layout and testing
 description: Where things live, how to run every check, and how the tests are themselves tested.
 ---
@@ -49,7 +48,7 @@ decides what each role may do; the list only decides what is shown.
 The whole suite, on the Postgres this project targets, in containers:
 
 ```console
-docker compose -f compose.test.yaml run --rm test
+$ docker compose -f compose.test.yaml run --rm test
 ```
 
 That runs formatting, types, the promise ledger, the design checker and every test, with the
@@ -59,15 +58,15 @@ Without Docker, have Node 24 or later (`.nvmrc` says 24) and a PostgreSQL 15 or 
 role can create roles and databases:
 
 ```console
-npm install
-export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
-npm run format:check
-npm run typecheck
-npm run promises
-npm run design
-npm test                 # unit and database tests
-npm run test:e2e         # the app in a real browser, desktop and phone
-npm run drift:db         # breaks each database guard on purpose
+$ npm install
+$ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
+$ npm run format:check
+$ npm run typecheck
+$ npm run promises
+$ npm run design
+$ npm test                 # unit and database tests
+$ npm run test:e2e         # the app in a real browser, desktop and phone
+$ npm run drift:db         # breaks each database guard on purpose
 ```
 
 `ALIMENTATION_TEST_PG_LOG=/path/to/postgres.log` makes the Postgres-log check run. CI sets

@@ -1,9 +1,8 @@
 ---
-
 title: The rules document
 description:
-The typed, versioned, effective-dated document that holds a kitchen's rules, with every field, its
-default and how a version takes effect.
+  The typed, versioned, effective-dated document that holds a kitchen's rules, with every field, its
+  default and how a version takes effect.
 ---
 
 # The rules document

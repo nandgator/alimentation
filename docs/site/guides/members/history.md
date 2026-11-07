@@ -1,9 +1,8 @@
 ---
-
 title: History, and using it with no signal
 description:
-Seeing everything that has been done to your records and by whom, reading your bill offline, and
-putting the app on your phone.
+  Seeing everything that has been done to your records and by whom, reading your bill offline, and
+  putting the app on your phone.
 ---
 
 # History, and using it with no signal

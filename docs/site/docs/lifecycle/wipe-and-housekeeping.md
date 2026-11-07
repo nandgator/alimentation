@@ -1,9 +1,8 @@
 ---
-
 title: Wipe and housekeeping
 description:
-How a kitchen is erased in an order that makes the data unreadable first, what the receipt says,
-and the slow work that finishes interrupted jobs.
+  How a kitchen is erased in an order that makes the data unreadable first, what the receipt says,
+  and the slow work that finishes interrupted jobs.
 ---
 
 # Wipe and housekeeping

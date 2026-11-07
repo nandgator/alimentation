@@ -1,9 +1,8 @@
 ---
-
 title: AI helpers
 description:
-What it means for an AI helper to act for you in a kitchen, what it can and cannot do, and how you
-see what it did.
+  What it means for an AI helper to act for you in a kitchen, what it can and cannot do, and how you
+  see what it did.
 ---
 
 # AI helpers

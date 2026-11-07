@@ -1,5 +1,4 @@
 ---
-
 title: Running the books as the admin
 description: People, prices, holidays, rules, settlements and closing, and what each screen is for.
 ---

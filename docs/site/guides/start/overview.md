@@ -1,9 +1,8 @@
 ---
-
 title: The idea in one minute
 description:
-What Alimentation does for a small kitchen, how a month works, and what it deliberately does not
-do.
+  What Alimentation does for a small kitchen, how a month works, and what it deliberately does not
+  do.
 ---
 
 # The idea in one minute

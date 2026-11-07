@@ -68,7 +68,7 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
         />
       </Field>
       {role === "consumer" ? (
-        <div class="pair">
+        <div className="pair">
           <Field label="Eating from" id="pfrom">
             <input id="pfrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           </Field>
@@ -78,20 +78,20 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
         </div>
       ) : null}
       <div>
-        <button class="btn" disabled={act.busy}>
+        <button type="submit" className="btn" disabled={act.busy}>
           Save
         </button>
       </div>
       {person ? (
-        <div class="dlg-foot">
-          <p class="muted small">
+        <div className="dlg-foot">
+          <p className="muted small">
             {person.status === "ACTIVE"
               ? "Disabling keeps their history and stops new entries."
               : "Disabled: their history is kept and no new entries can be made."}
           </p>
           <button
             type="button"
-            class="btn ghost small"
+            className="btn ghost small"
             disabled={act.busy}
             onClick={() =>
               void act.run(async () => {
@@ -118,7 +118,7 @@ function Invite({ person }: { person: PersonDto }) {
   const [link, setLink] = useState<string | null>(null);
   const act = useAction();
   return link ? (
-    <div class="stack">
+    <div className="stack">
       <p>
         Send this link to {person.name}. It works once, for 7 days, and only with the email you
         typed.
@@ -130,7 +130,8 @@ function Invite({ person }: { person: PersonDto }) {
         aria-label="Invitation link"
       />
       <button
-        class="btn ghost"
+        type="button"
+        className="btn ghost"
         onClick={() => void navigator.clipboard?.writeText(link).then(() => toast("Copied."))}
       >
         Copy
@@ -158,7 +159,7 @@ function Invite({ person }: { person: PersonDto }) {
         />
       </Field>
       <div>
-        <button class="btn" disabled={act.busy}>
+        <button type="submit" className="btn" disabled={act.busy}>
           Make a link
         </button>
       </div>
@@ -171,18 +172,23 @@ export function People() {
   const [edit, setEdit] = useState<PersonDto | "new" | null>(null);
   const [invite, setInvite] = useState<PersonDto | null>(null);
   return (
-    <div class="stack">
+    <div className="stack">
       <PageHead
         title="People"
         lead="Everyone you feed, and the people who help run the kitchen."
         actions={
-          <button class="btn" disabled={!ws.writable} onClick={() => setEdit("new")}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!ws.writable}
+            onClick={() => setEdit("new")}
+          >
             Add a person
           </button>
         }
       />
       <div
-        class="tablewrap"
+        className="tablewrap"
         tabIndex={0}
         role="region"
         aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -201,15 +207,15 @@ export function People() {
           </thead>
           <tbody>
             {ws.boot.people.map((p) => (
-              <tr key={p.id} class={p.status === "DISABLED" ? "projected" : ""}>
-                <td class="linked">
+              <tr key={p.id} className={p.status === "DISABLED" ? "projected" : ""}>
+                <td className="linked">
                   <button
                     type="button"
                     disabled={!ws.writable}
                     aria-label={`Edit ${p.name}`}
                     onClick={() => setEdit(p)}
                   >
-                    <span class="nm">{p.name}</span>
+                    <span className="nm">{p.name}</span>
                     {p.status === "DISABLED" ? <Chip>Disabled</Chip> : null}
                   </button>
                 </td>
@@ -218,11 +224,11 @@ export function People() {
                 <td>{p.contact ?? "-"}</td>
                 <td>{p.activeFrom ? date(p.activeFrom) : "-"}</td>
                 <td>{p.activeTo ? date(p.activeTo) : "-"}</td>
-                <td class="r">
+                <td className="r">
                   {!p.linked && p.status === "ACTIVE" ? (
                     <button
                       type="button"
-                      class="quiet"
+                      className="quiet"
                       disabled={!ws.writable}
                       onClick={() => setInvite(p)}
                     >
@@ -235,7 +241,7 @@ export function People() {
           </tbody>
         </table>
       </div>
-      <p class="muted small">
+      <p className="muted small">
         {ws.boot.meter
           ? `${ws.boot.meter.usage.people} of the free tier’s people allowance used. `
           : ""}

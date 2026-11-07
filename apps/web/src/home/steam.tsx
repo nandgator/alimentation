@@ -136,7 +136,7 @@ export function Steam({ vent }: { vent: Vent }) {
   const id = `steam-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const area = room(vent);
   return (
-    <g class="steam">
+    <g className="steam">
       <defs>
         <linearGradient
           id={`${id}-ramp`}
@@ -151,7 +151,7 @@ export function Steam({ vent }: { vent: Vent }) {
           <stop offset="0.6" stopOpacity="0.95" />
           <stop offset="1" stopOpacity="1" />
         </linearGradient>
-        <mask id={id} class="air" maskUnits="userSpaceOnUse" {...area}>
+        <mask id={id} className="air" maskUnits="userSpaceOnUse" {...area}>
           <rect {...area} fill={`url(#${id}-ramp)`} />
         </mask>
       </defs>
@@ -160,7 +160,7 @@ export function Steam({ vent }: { vent: Vent }) {
           // Four units into the lid, so a wisp's foot is behind it.
           <g key={i} transform={`translate(${w.x} ${vent.lid + 4})`}>
             <g
-              class="wisp"
+              className="wisp"
               style={
                 {
                   "--sway": w.sway,

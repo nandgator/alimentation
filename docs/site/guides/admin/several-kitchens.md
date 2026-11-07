@@ -1,9 +1,8 @@
 ---
-
 title: Running more than one kitchen
 description:
-Seeing all your kitchens at a glance, copying a setup from one to another, and letting a head
-office see how each is doing without seeing anyone's name.
+  Seeing all your kitchens at a glance, copying a setup from one to another, and letting a head
+  office see how each is doing without seeing anyone's name.
 ---
 
 # Running more than one kitchen
