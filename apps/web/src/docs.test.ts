@@ -378,7 +378,9 @@ describe("code and diagrams in the pages", () => {
   it("numbers a listing from its length, and leaves commands and plain text alone unless asked", () => {
     expect(build(fence("ts", ten)).html).toContain('class="code numbered has-bar"');
     expect(build(fence("ts", "const a = 1;")).html).not.toContain("data-n=");
-    expect(build(fence("sh", Array(8).fill("npm test").join("\n"))).html).not.toContain("data-n=");
+    expect(build(fence("sh", Array(8).fill("bun run test").join("\n"))).html).not.toContain(
+      "data-n=",
+    );
     expect(build(fence("text", Array(8).fill("x").join("\n"))).html).not.toContain("data-n=");
     expect(build(fence("ts numbers", "const a = 1;")).html).toContain('data-n="1"');
     expect(build(fence("ts nonumbers", ten)).html).not.toContain("data-n=");

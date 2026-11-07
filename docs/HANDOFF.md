@@ -68,11 +68,11 @@ These need accounts, keys or real traffic that the build did not have. Each has 
    relies on container-query units, `color-mix`, `overflow: clip` and the separate `translate` and
    `rotate` properties, which every browser has had since 2023; older ones are not supported.
 7. **The reference image and the proxy.** The reference image was built from the real Dockerfile
-   (the one change was to make the sandbox proxy's certificate known to `npm ci`, as the sandbox
-   asks), run, and opened in a browser: 257 MB, runs as `node`, answers `/healthz`, refuses a POST,
-   loads Scalar with nothing refused. Caddy and `compose.proxy.yaml` were not run: Docker Hub was
-   rate-limiting pulls, and fetching the binary another way was not allowed. What was run is the
-   reference behind a stand-in proxy that strips `/reference` and redirects the bare path, in a
+   (the one change was to make the sandbox proxy's certificate known to the package install, as the
+   sandbox asks), run, and opened in a browser: 257 MB, runs as `node`, answers `/healthz`, refuses
+   a POST, loads Scalar with nothing refused. Caddy and `compose.proxy.yaml` were not run: Docker
+   Hub was rate-limiting pulls, and fetching the binary another way was not allowed. What was run is
+   the reference behind a stand-in proxy that strips `/reference` and redirects the bare path, in a
    browser, with nothing refused.
 
 ## Decisions worth knowing
