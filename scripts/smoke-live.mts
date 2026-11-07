@@ -4,7 +4,7 @@ import { must as defined } from "@alimentation/core";
 //   APP_URL=https://alimentation.example.workers.dev \
 //   SESSION_SECRETS=... CONTROL_DATABASE_URL=... \
 //   NEON_API_KEY=...            (optional: also checks Neon agrees the project is gone) \
-//   npx tsx scripts/smoke-live.mts
+//   bunx tsx scripts/smoke-live.mts
 //
 // It makes its own test account in the control database and signs a short session for it, so no
 // login is needed; makes a kitchen (on a real Neon project, when that is how the deployment

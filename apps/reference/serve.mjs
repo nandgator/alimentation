@@ -15,7 +15,7 @@ const port = Number(process.env.PORT ?? 8788);
 
 if (!existsSync(join(site, "index.html")))
   throw new Error(
-    `Nothing to serve in ${site}. Build it first: npm run build -w @alimentation/reference`,
+    `Nothing to serve in ${site}. Build it first: bun run --filter @alimentation/reference build`,
   );
 
 /** The headers for every file, from the `_headers` file that Cloudflare reads too. */

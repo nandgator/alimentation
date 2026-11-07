@@ -8,12 +8,12 @@ description:
 # Conformance
 
 A design system nobody checks is a suggestion. `scripts/check-design.mjs` reads every stylesheet and
-component of the web app and fails when one leaves the system. It runs as `npm run design`, as a
+component of the web app and fails when one leaves the system. It runs as `bun run design`, as a
 test in the suite (`apps/web/src/design.test.ts`), and in the compose test run, so a departure fails
 the same build a broken test does.
 
 ```console
-$ npm run design              # one line: kept, or how many places leave it
+$ bun run design              # one line: kept, or how many places leave it
 $ node scripts/check-design.mjs --list    # every place, with its file, line, rule and text
 ```
 
@@ -88,7 +88,7 @@ elsewhere:
    the words beside them may not.
 3. If a rule of the check needs to move (a new breakpoint, a new radius), change the scale in
    `scripts/check-design.mjs`, add a case to `design.test.ts`, and say why in the commit.
-4. Run `npm run design` and the end-to-end tests.
+4. Run `bun run design` and the end-to-end tests.
 
 ## The checker is itself tested
 

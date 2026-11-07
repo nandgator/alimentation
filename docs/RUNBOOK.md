@@ -31,12 +31,12 @@ The same settings, with what the server refuses, are in the hosted documentation
 that page.
 
 Make the two secrets with `node apps/api/dist/cli.mjs keys:generate` (after
-`npm run build:server -w @alimentation/api`).
+`bun run --filter @alimentation/api build:server`).
 
 ## On your machine
 
 ```sh
-npm install
+bun install
 docker compose -f compose.test.yaml run --rm test      # format, types, promises, and every test, on Postgres 18
 ```
 
@@ -44,20 +44,20 @@ Without Docker: have a Postgres 15 or newer whose login role can create roles an
 
 ```sh
 export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
-npm test                                                 # unit and database tests
-npm run test:e2e                                         # the app in a real browser, desktop and phone
-npm run drift:db                                         # breaks each database guard on purpose; see docs/DRIFT.md
-npm run design                                           # the application keeps to its design system (also part of npm test)
+bun run test                                                 # unit and database tests
+bun run test:e2e                                         # the app in a real browser, desktop and phone
+bun run drift:db                                         # breaks each database guard on purpose; see docs/DRIFT.md
+bun run design                                           # the application keeps to its design system (also part of bun run test)
 ```
 
-The browser tests need Chromium (`npx playwright install chromium`, or `PLAYWRIGHT_CHROMIUM_PATH`).
+The browser tests need Chromium (`bunx playwright install chromium`, or `PLAYWRIGHT_CHROMIUM_PATH`).
 The check that no personal data reaches the Postgres log needs that log to be readable:
 `ALIMENTATION_TEST_PG_LOG=/path/to/postgres.log` (the compose file does this for you, and CI
 requires it).
 
-To work on it with live reload, run the API (`npm run dev:api`, with the settings above and
+To work on it with live reload, run the API (`bun run dev:api`, with the settings above and
 `AUTH_DEV=1`, `NODE_ENV=development`, `APP_ORIGIN=http://localhost:5173`) and the web app
-(`npm run dev:web`) side by side.
+(`bun run dev:web`) side by side.
 
 ### Sign in through a real provider, on your machine
 
@@ -74,11 +74,11 @@ not, for each provider, is in `/docs/self-hosting/sign-in-locally/`.
 
 ### The API reference
 
-`npm run dev:reference` builds the reference from the server's routes and serves it at
+`bun run dev:reference` builds the reference from the server's routes and serves it at
 <http://localhost:8788>; `docker compose --profile reference up -d --build reference` does the same
-in a container; `npm run build:reference` then
-`npx wrangler deploy -c apps/reference/wrangler.jsonc` puts it on Cloudflare. Nothing in it can send
-a request: the API answers only a browser on its own site.
+in a container; `bun run build:reference` then
+`bunx wrangler deploy -c apps/reference/wrangler.jsonc` puts it on Cloudflare. Nothing in it can
+send a request: the API answers only a browser on its own site.
 
 ## A. The shared service on Cloudflare and Neon (**not run against the real services**)
 
@@ -102,7 +102,7 @@ step 7.
    `CONTROL_DATABASE_URL` (both with `?sslmode=require`):
 
    ```sh
-   npm run build:server -w @alimentation/api
+   bun run --filter @alimentation/api build:server
    CONTROL_OWNER_URL=… CONTROL_DATABASE_URL=… node apps/api/dist/cli.mjs migrate:control
    ```
 
@@ -111,13 +111,13 @@ step 7.
 4. **Secrets.** From `apps/api`, with `wrangler login` done:
 
    ```sh
-   for s in APP_ORIGIN SESSION_SECRETS MASTER_KEYS CONTROL_DATABASE_URL OIDC_ISSUER OIDC_CLIENT_ID OIDC_CLIENT_SECRET OPERATOR_EMAILS NEON_API_KEY NEON_REGION; do npx wrangler secret put $s; done
+   for s in APP_ORIGIN SESSION_SECRETS MASTER_KEYS CONTROL_DATABASE_URL OIDC_ISSUER OIDC_CLIENT_ID OIDC_CLIENT_SECRET OPERATOR_EMAILS NEON_API_KEY NEON_REGION; do bunx wrangler secret put $s; done
    ```
 
    `NEON_REGION` is a region id such as `aws-ap-southeast-1`. **Back up `MASTER_KEYS` somewhere that
    is not Cloudflare.** Without it no kitchen can be read, by design.
 
-5. **Deploy.** `npm run build:web && npm run deploy -w @alimentation/api` (that is
+5. **Deploy.** `bun run build:web && bun run --filter @alimentation/api deploy` (that is
    `wrangler deploy`). Static files cost nothing; only `/api`, `/auth` and `/_migrate` run the
    Worker. An hourly schedule runs housekeeping.
 6. **Cloudflare's free daily request cap (100,000) is for the whole account.** The per-kitchen
@@ -126,7 +126,7 @@ step 7.
 7. **Check it.**
 
    ```sh
-   APP_URL=https://<your host> SESSION_SECRETS=… CONTROL_DATABASE_URL=… NEON_API_KEY=… npm run smoke:live
+   APP_URL=https://<your host> SESSION_SECRETS=… CONTROL_DATABASE_URL=… NEON_API_KEY=… bun run smoke:live
    ```
 
    It makes a kitchen on a real Neon project, uses it, takes a copy, deletes it, checks the receipt,
@@ -180,12 +180,12 @@ mirror.
 
 ## Documentation
 
-`npm run build:web` builds the app and then the two documentation sites into `apps/web/dist/guides`
-and `apps/web/dist/docs` (`npm run docs -w @alimentation/web` rebuilds only them, after the app has
-been built once). The source is the Markdown in `docs/site/guides` (for people who use a kitchen)
-and `docs/site/docs` (for whoever runs or builds on it); each site's `nav.json` is its contents. The
-build fails on a broken link, an orphan page, a duplicate title or a missing heading. The server
-that serves the app serves them, so nothing more is deployed.
+`bun run build:web` builds the app and then the two documentation sites into `apps/web/dist/guides`
+and `apps/web/dist/docs` (`bun run --filter @alimentation/web docs` rebuilds only them, after the
+app has been built once). The source is the Markdown in `docs/site/guides` (for people who use a
+kitchen) and `docs/site/docs` (for whoever runs or builds on it); each site's `nav.json` is its
+contents. The build fails on a broken link, an orphan page, a duplicate title or a missing heading.
+The server that serves the app serves them, so nothing more is deployed.
 
 ## Operating
 

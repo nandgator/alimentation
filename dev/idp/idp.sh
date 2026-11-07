@@ -53,7 +53,7 @@ case "$cmd" in
     ;;
   down) compose down ;;
   status) compose ps ;;
-  test) cd "$ROOT" && IDP="$PROVIDER" APP_URL="${APP_URL:-http://localhost:${PORT:-8787}}" npm run test:idp -w @alimentation/web ;;
+  test) cd "$ROOT" && IDP="$PROVIDER" APP_URL="${APP_URL:-http://localhost:${PORT:-8787}}" bun run --filter @alimentation/web test:idp ;;
   reset)
     compose down -v || true
     rm -rf "${STATE:?}/$PROVIDER"

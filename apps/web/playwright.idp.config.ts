@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Signing in through a real identity provider, run on this machine by `dev/idp/idp.sh up <provider>`:
- *   IDP=authelia npm run test:idp -w @alimentation/web
+ *   IDP=authelia bun run --filter @alimentation/web test:idp
  * It drives the running instance, so nothing is started here. APP_URL is where that is (the default
  * is the compose file's). The provider's certificate comes from the local authority that idp.sh made,
  * which a browser has not been told to trust, hence ignoreHTTPSErrors: it is for this one machine.

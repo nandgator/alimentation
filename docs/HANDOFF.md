@@ -15,7 +15,7 @@ up, including its owner in six months.
 | Web app (`apps/web`)             | Done. Home page, role screens, offline reading, installable. Tested in a real browser on desktop and phone, with accessibility checks.                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Trust and transparency           | Done. Late entries are marked, never refused unless a kitchen sets a cut-off; members and the supplier read, in words, what was done to their own records (**History**).                                                                                                                                                                                                                                                                                                                                                                                        |
 | Menu and layout                  | Done. One list of screens drives the menu, routes and role guards; a grouped sidebar that can be hidden; a bottom bar tested at four phone widths.                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Design system                    | Done. Tokens in `styles.css`, documented at `/docs/design/`, enforced by `npm run design`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Design system                    | Done. Tokens in `styles.css`, documented at `/docs/design/`, enforced by `bun run design`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | Documentation                    | Done. Two hosted sites built from `docs/site`: `/guides` for people, `/docs` for technicians, each opening on a short front page. No framework (see `docs/DESIGN.md` section 12).                                                                                                                                                                                                                                                                                                                                                                               |
 | API reference (`apps/reference`) | Done. Its own site, apart from the docs and the app: every route is listed once in `apps/api/src/openapi.ts` with the schema the route itself parses (`schemas.ts`), built with Scalar, served read only. A test fails if a route or an error code is missing; it is its own image (`--profile reference`), its own Cloudflare assets deploy and its own CI job.                                                                                                                                                                                                |
 | Sign-in on a machine             | Done for Authelia with LLDAP: `dev/idp/idp.sh up\|test\|down\|reset authelia`, run and tested in a real browser. Other providers are written up, not run (`/docs/self-hosting/sign-in-locally/`). The OpenID client asks userinfo for an email the identity token leaves out, takes the secret in a Basic header when that is the only way offered, and one email is one account across providers. Google, Microsoft, Apple and Meta were compared before and after: Google identical; the others were refused before and still are, for reasons written there. |
@@ -32,13 +32,13 @@ up, including its owner in six months.
 
 ```sh
 docker compose -f compose.test.yaml run --rm test      # format, types, promises, design, every test on Postgres 18
-npm run test:e2e                                       # the app and both documentation sites, in a real browser, desktop and phone
-npm run drift:db                                       # 69 database guards removed in turn; each must be noticed
-npm run smoke:compose && npm run smoke:worker          # the image, and the Worker in the Workers runtime
+bun run test:e2e                                       # the app and both documentation sites, in a real browser, desktop and phone
+bun run drift:db                                       # 69 database guards removed in turn; each must be noticed
+bun run smoke:compose && bun run smoke:worker          # the image, and the Worker in the Workers runtime
 ```
 
 CI (`.github/workflows/ci.yml`) runs the first, the e2e, both smokes. The home page's promises are
-kept honest by `npm run promises`: a promise with no test tagged `[P<n>]`, or a page that disagrees
+kept honest by `bun run promises`: a promise with no test tagged `[P<n>]`, or a page that disagrees
 with `docs/PROMISES.md`, fails the build.
 
 ## Not proven here
@@ -48,7 +48,7 @@ These need accounts, keys or real traffic that the build did not have. Each has 
 
 1. **Neon's terms for an operator running other organisations' kitchens on Free-plan projects.** Ask
    Neon or read the terms before launch. If the answer is no, the same code runs on any Postgres.
-2. **How Neon's real API answers.** `npm run smoke:live` makes a kitchen on a real project and
+2. **How Neon's real API answers.** `bun run smoke:live` makes a kitchen on a real project and
    removes it. One field is unconfirmed: `history_retention_seconds: 0`.
 3. **Whether a Worker request fits in 10 ms of CPU on the free plan.** It works in the Workers
    runtime; the figure that matters is only known on the real platform. `smoke:live` prints timings.
@@ -58,15 +58,15 @@ These need accounts, keys or real traffic that the build did not have. Each has 
    not read on the vendor's own page.
 6. **A browser other than Chromium, beyond the newest parts.** The suites run on Chromium (desktop
    and a phone profile). The docs and the several-kitchens screens also run in Firefox and in
-   WebKit, Safari's engine, on a desktop (`npx playwright install firefox webkit`, then
-   `npm run test:browsers -w @alimentation/web`): 46 passed and 4 skipped, the skips being what a
-   browser cannot do (Firefox draws no page that moves with the scroll and glides into no next page;
-   the phone test is for a phone). Not run in either: the rest of the suite, the home page's motion,
-   and a real phone. WebKit logs a refused stylesheet for any `select` under a policy that allows no
-   inline style; it is WebKit's own, a page with nothing but a select does it, and the select works,
-   so `watchPage` leaves that one message out for WebKit only. The home page relies on
-   container-query units, `color-mix`, `overflow: clip` and the separate `translate` and `rotate`
-   properties, which every browser has had since 2023; older ones are not supported.
+   WebKit, Safari's engine, on a desktop (`bunx playwright install firefox webkit`, then
+   `bun run --filter @alimentation/web test:browsers`): 46 passed and 4 skipped, the skips being
+   what a browser cannot do (Firefox draws no page that moves with the scroll and glides into no
+   next page; the phone test is for a phone). Not run in either: the rest of the suite, the home
+   page's motion, and a real phone. WebKit logs a refused stylesheet for any `select` under a policy
+   that allows no inline style; it is WebKit's own, a page with nothing but a select does it, and
+   the select works, so `watchPage` leaves that one message out for WebKit only. The home page
+   relies on container-query units, `color-mix`, `overflow: clip` and the separate `translate` and
+   `rotate` properties, which every browser has had since 2023; older ones are not supported.
 7. **The reference image and the proxy.** The reference image was built from the real Dockerfile
    (the one change was to make the sandbox proxy's certificate known to `npm ci`, as the sandbox
    asks), run, and opened in a browser: 257 MB, runs as `node`, answers `/healthz`, refuses a POST,
@@ -101,7 +101,7 @@ These need accounts, keys or real traffic that the build did not have. Each has 
   (`apps/web/src/home/month.ts`, pinned by a test): days up to today are frozen, days after it are
   tentative and can be changed, and the bill shows what is frozen so far and what is expected. Words
   are plain on purpose; the technical detail sits in one section at the bottom. Each promise's title
-  on the page is the ledger's wording, and `npm run promises` fails if they drift.
+  on the page is the ledger's wording, and `bun run promises` fails if they drift.
 - **One idea of depth on the home page.** Whatever hangs on the wall or lies against it throws a
   shadow (the chalkboard, the picture of the kitchen, the step in view, the receipt, the shelves);
   flat things (buttons, day tiles, text) do not. It is two tokens in `home.css`, `--lift` and
@@ -165,7 +165,7 @@ These need accounts, keys or real traffic that the build did not have. Each has 
 
 ```text
 packages/core/src      engine.ts (statements), policy.ts (per-kitchen rules), validate.ts, limits.ts, bundle.ts
-apps/api/migrations    workspace/ and control/ SQL; src/db/migrations.generated.ts is built from them (npm run build:server does it)
+apps/api/migrations    workspace/ and control/ SQL; src/db/migrations.generated.ts is built from them (bun run build:server does it)
 apps/api/src           app.ts (routes), workspace/ (service), lifecycle/ (move, receive, wipe, rewrap, housekeeping),
                        placement/ (pg-database, neon, external), limits/ (gate), crypto/, worker.ts, node.ts, cli.ts
 apps/web/src           pages/Home.tsx, pages/workspace/* (sections.ts lists the screens), sw.ts (offline), styles.css (the tokens)

@@ -9,7 +9,7 @@ Everything an operator does outside the browser is one command, `cli.mjs`. It is
 server:
 
 ```console
-$ npm run build:server -w @alimentation/api
+$ bun run --filter @alimentation/api build:server
 $ node apps/api/dist/cli.mjs <command>
 ```
 

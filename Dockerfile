@@ -9,25 +9,27 @@
 
 ARG NODE=24-alpine
 
+# Packages are installed with bun, from bun.lock; Node stays the runtime and runs the scripts.
 FROM docker.io/library/node:${NODE} AS deps
+COPY --from=docker.io/oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /src
-COPY package.json package-lock.json ./
+COPY package.json bun.lock ./
 COPY packages/core/package.json packages/core/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/reference/package.json apps/reference/
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 
 # Everything, for running the tests.
 FROM deps AS dev
 COPY . .
-CMD ["npm", "test"]
+CMD ["bun", "run", "test"]
 
 FROM dev AS build
-RUN npm run build:server -w @alimentation/api \
+RUN bun run --filter @alimentation/api build:server \
  && mkdir -p apps/web/dist \
- && if [ -f apps/web/index.html ]; then npm run build:web; fi \
- && npm run build:reference
+ && if [ -f apps/web/index.html ]; then bun run build:web; fi \
+ && bun run build:reference
 
 # The API reference: its own small image, apart from the app, started with `--profile reference`.
 FROM docker.io/library/node:${NODE} AS reference

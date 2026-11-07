@@ -48,12 +48,12 @@ You need Node 24 or later and a PostgreSQL 15 or later whose login role can crea
 databases (Postgres 18 is recommended).
 
 ```console
-$ npm install
+$ bun install
 $ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
-$ npm test
+$ bun run test
 ```
 
-To work on it with live reload, run `npm run dev:api` and `npm run dev:web` side by side.
+To work on it with live reload, run `bun run dev:api` and `bun run dev:web` side by side.
 
 ## Next
 

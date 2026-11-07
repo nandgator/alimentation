@@ -216,7 +216,7 @@ $ docker compose ps
 ```sh
 # A script, which has no prompt and nothing coming back.
 set -eu
-npm run build
+bun run build
 ```
 
 The colours are tokens (`--board`, `--board-ink`, `--board-dim` and the `--code-*` set), so a

@@ -45,7 +45,8 @@ services:
       [
         "sh",
         "-c",
-        "npm run format:check && npm run typecheck && npm run promises && npm run design && npm test",
+        "bun run check:md && bun run check:ts && bun run typecheck && bun run promises && bun run
+        design && bun run test",
       ]
     volumes:
       - pg:/pg:ro

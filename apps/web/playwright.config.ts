@@ -5,7 +5,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Drives the built app through a real browser, against the real server and a real Postgres:
- *   npm run test:e2e -w @alimentation/web
+ *   bun run --filter @alimentation/web test:e2e
  * Needs Postgres (ALIMENTATION_TEST_PG, a role able to create databases and roles). Locally,
  * PLAYWRIGHT_CHROMIUM_PATH can point at an installed Chromium.
  */

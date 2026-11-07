@@ -39,9 +39,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build:worker -w @alimentation/api
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter @alimentation/api build:worker
       - run: scripts/smoke-worker.sh
 
   # The API reference is a site of its own: built from the server's routes, with Scalar, and served
@@ -54,9 +54,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build:reference
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build:reference
       - run: |
           PORT=18788 node apps/reference/serve.mjs &
           for _ in $(seq 1 20); do curl -fsS localhost:18788/healthz >/dev/null 2>&1 && break; sleep 1; done
@@ -75,7 +75,8 @@ jobs:
           POSTGRES_PASSWORD: ci
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s --health-retries 20
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s
+          --health-retries 20
     env:
       ALIMENTATION_TEST_PG: postgres://postgres:ci@127.0.0.1:5432/postgres
     steps:
@@ -83,10 +84,10 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:e2e
       - if: failure()
         uses: actions/upload-artifact@v5
         with:
