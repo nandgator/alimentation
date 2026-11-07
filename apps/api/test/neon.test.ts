@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 import { nodeOpenDb } from "../src/db/node.ts";
-import { NeonPlacement, type NeonOptions } from "../src/placement/neon.ts";
+import { type NeonOptions, NeonPlacement } from "../src/placement/neon.ts";
 import { ApiError } from "../src/workspace/errors.ts";
 import { ADMIN_URL } from "./support/pg.ts";
 

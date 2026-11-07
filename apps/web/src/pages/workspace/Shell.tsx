@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { Link, Route, Switch, useLocation, useParams } from "wouter";
 import type { BootstrapDto, Role } from "@alimentation/core";
+import { type ComponentType, useEffect, useMemo, useRef, useState } from "react";
+import { Link, Route, Switch, useLocation, useParams } from "wouter";
 import { api, setActingAs } from "../../api.ts";
 import { AppBar, RequireSignIn } from "../../components/Chrome.tsx";
 import { ThemeSwitch } from "../../components/ThemeSwitch.tsx";
 import { Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { useMedia } from "../../home/motion.tsx";
 import { Audit } from "./Audit.tsx";
-import { WorkspaceProvider, type Workspace } from "./context.tsx";
+import { type Workspace, WorkspaceProvider } from "./context.tsx";
 import { Daily } from "./Daily.tsx";
 import { Dashboard } from "./Dashboard.tsx";
 import { History } from "./History.tsx";
-import { Holidays, Settlements, CloseMonths } from "./Money.tsx";
 import { LogPage } from "./LogPage.tsx";
+import { CloseMonths, Holidays, Settlements } from "./Money.tsx";
 import { Payments } from "./Payments.tsx";
 import { People } from "./People.tsx";
 import { Rates } from "./Rates.tsx";
@@ -20,9 +20,9 @@ import {
   groupsFor,
   hrefOf,
   isHere,
-  sectionsFor,
   type Section,
   type SectionKey,
+  sectionsFor,
 } from "./sections.ts";
 import { YourData } from "./YourData.tsx";
 

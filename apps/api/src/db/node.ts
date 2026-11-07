@@ -1,5 +1,5 @@
 import pg from "pg";
-import { dbFromPool, pgTypes, type Db } from "./driver.ts";
+import { type Db, dbFromPool, pgTypes } from "./driver.ts";
 
 /** A pool of connections over `pg`, for Node. */
 export function nodeDb(connectionString: string, opts: { max?: number } = {}): Db {

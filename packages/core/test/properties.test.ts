@@ -2,19 +2,19 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   buildStatements,
+  type Claim,
+  type Decision,
   daysBetween,
+  type LogChange,
+  type LogEntry,
   ledgerMonth,
   monthEnd,
   monthStart,
   rupees,
-  weekdayOf,
-  type Claim,
-  type Decision,
-  type LogChange,
-  type LogEntry,
   type Settlement,
+  weekdayOf,
 } from "../src/index.ts";
-import { CARD_APR, CARD_NOV, JOVIAL, close, policyWith, prep } from "./fixtures.ts";
+import { CARD_APR, CARD_NOV, close, JOVIAL, policyWith, prep } from "./fixtures.ts";
 
 const OCT = daysBetween(monthStart("2026-10"), monthEnd("2026-10")).filter(
   (d) => weekdayOf(d) >= 1 && weekdayOf(d) <= 5,

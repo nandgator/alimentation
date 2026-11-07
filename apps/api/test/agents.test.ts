@@ -3,9 +3,9 @@ import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AGENT_SCOPES } from "../src/agent-scopes.ts";
 import { toolName } from "../src/agents.ts";
-import { OPERATIONS, PERSON_ONLY, accessKey, agentScopeOf } from "../src/openapi.ts";
-import { emptyDatabase, seedKitchen, type Kitchen } from "./support/kitchen.ts";
-import { makePlatform, type Client, type TestPlatform } from "./support/platform.ts";
+import { accessKey, agentScopeOf, OPERATIONS, PERSON_ONLY } from "../src/openapi.ts";
+import { emptyDatabase, type Kitchen, seedKitchen } from "./support/kitchen.ts";
+import { type Client, makePlatform, type TestPlatform } from "./support/platform.ts";
 
 /**
  * A person can give an AI agent a key. It acts as that person, in one role, in one kitchen, for the scopes it

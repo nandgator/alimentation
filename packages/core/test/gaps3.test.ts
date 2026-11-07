@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   checkLogEntry,
   closeSnapshot,
+  type Issue,
   ledgerDay,
   monthRange,
   rupees,
-  type Issue,
 } from "../src/index.ts";
-import { JOVIAL, SMRUTI, entry, policyWith, prep } from "./fixtures.ts";
+import { entry, JOVIAL, policyWith, prep, SMRUTI } from "./fixtures.ts";
 
 describe("a leave day is priced after the switches made before it", () => {
   it("uses Veg when a Switch to Veg comes before the leave on a Non Veg day", () => {

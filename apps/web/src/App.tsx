@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { lazy, Suspense } from "react";
 import { Link, Route, Switch } from "wouter";
 import { Toaster } from "./components/ui.tsx";
 import { Home } from "./pages/Home.tsx";

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   DEFAULT_POLICY,
   dayName,
@@ -6,6 +5,7 @@ import {
   type RateCard,
   type Weekday,
 } from "@alimentation/core";
+import { useState } from "react";
 import { getJson, postJson } from "../../api.ts";
 import {
   Dialog,

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { Carrier, STATIONS, StageWorld, poseAt } from "./art.tsx";
+import { Carrier, poseAt, STATIONS, StageWorld } from "./art.tsx";
 import { Lines, smoothDamp, useLive, useMedia } from "./motion.tsx";
 import { CARRIER_VENT, Steam } from "./steam.tsx";
 

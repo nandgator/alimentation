@@ -1,10 +1,10 @@
 import {
+  type ElementType,
   Fragment,
+  type RefObject,
   useEffect,
   useLayoutEffect,
   useState,
-  type ElementType,
-  type RefObject,
 } from "react";
 
 /** Whether a media query matches, kept current. False until the browser says otherwise. */

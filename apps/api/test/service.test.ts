@@ -1,10 +1,11 @@
-import { rupees, type Policy } from "@alimentation/core";
+import { type Policy, rupees } from "@alimentation/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ApiError } from "../src/workspace/errors.ts";
 import type { Actor } from "../src/workspace/context.ts";
-import { makeFixture, type Fixture } from "./support/fixture.ts";
+import { ApiError } from "../src/workspace/errors.ts";
+import { type Fixture, makeFixture } from "./support/fixture.ts";
 
-import { MENU, at, seedSpec } from "./support/spec.ts";
+import { at, MENU, seedSpec } from "./support/spec.ts";
+
 const thrown = async (p: Promise<unknown>): Promise<ApiError> => {
   try {
     await p;

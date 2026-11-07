@@ -1,5 +1,5 @@
-import { createContext, useContext } from "react";
 import type { BootstrapDto, Role } from "@alimentation/core";
+import { createContext, useContext } from "react";
 
 export interface Workspace {
   slug: string;

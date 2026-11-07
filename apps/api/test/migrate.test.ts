@@ -6,9 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   checksum,
   currentVersion,
-  migrate,
-  MigrationDriftError,
   type Migration,
+  MigrationDriftError,
+  migrate,
 } from "../src/db/migrate.ts";
 import { CONTROL_MIGRATIONS, WORKSPACE_MIGRATIONS } from "../src/db/migrations.generated.ts";
 import { ADMIN_URL } from "./support/pg.ts";

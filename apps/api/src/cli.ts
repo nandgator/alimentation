@@ -1,14 +1,14 @@
+import { randomBytes, randomUUID } from "node:crypto";
 import { loadConfig } from "./config.ts";
 import { ControlRepo } from "./control/repo.ts";
-import { nodeDb } from "./db/node.ts";
+import { Keyring } from "./crypto/keys.ts";
 import { migrate } from "./db/migrate.ts";
 import { CONTROL_MIGRATIONS, WORKSPACE_MIGRATIONS } from "./db/migrations.generated.ts";
+import { nodeDb } from "./db/node.ts";
 import { readDsns } from "./directory.ts";
-import { Keyring } from "./crypto/keys.ts";
-import { rewrapAll } from "./lifecycle/rewrap.ts";
 import { selfHost } from "./instance.ts";
+import { rewrapAll } from "./lifecycle/rewrap.ts";
 import { PgDatabasePlacement } from "./placement/pgdatabase.ts";
-import { randomBytes, randomUUID } from "node:crypto";
 
 /**
  *   keys:generate     print a new MASTER_KEYS and SESSION_SECRETS

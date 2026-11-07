@@ -1,7 +1,7 @@
+import { dayName, type IsoDate, type LedgerDto, weekdayOf } from "@alimentation/core";
 import { useState } from "react";
-import { dayName, weekdayOf, type IsoDate, type LedgerDto } from "@alimentation/core";
-import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { getJson } from "../../api.ts";
+import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { date, money } from "../../format.ts";
 import { useWorkspace } from "./context.tsx";
 

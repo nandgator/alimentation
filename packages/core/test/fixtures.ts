@@ -1,16 +1,18 @@
+import type { Holiday, MonthClose } from "../src/index.ts";
 import {
-  prepare,
-  rupees,
   type Claim,
+  DEFAULT_POLICY,
   type Decision,
   type EngineData,
   type LogEntry,
   type Person,
+  type Policy,
+  type PolicyVersion,
+  prepare,
   type RateCard,
+  rupees,
   type Settlement,
 } from "../src/index.ts";
-import type { Holiday, MonthClose } from "../src/index.ts";
-import { DEFAULT_POLICY, type Policy, type PolicyVersion } from "../src/index.ts";
 
 /** The spec's seed data (section 10), with every amount in paise. */
 export const ADMIN: Person = {

@@ -4,44 +4,43 @@ import {
   type OrganisationKitchenDto,
   type Role,
 } from "@alimentation/core";
-import { Hono, type Context } from "hono";
+import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import * as z from "zod";
-import { OidcClient, OidcError } from "./auth/oidc.ts";
-import { SESSION_TTL, type TokenSigner } from "./auth/session.ts";
-import type { Config } from "./config.ts";
-import type { AccountRow, AgentKeyRow, ControlRepo } from "./control/repo.ts";
 import {
   DEFAULT_KEY_DAYS,
-  MAX_ACTIVE_KEYS,
   hashAgentToken,
   looksLikeAgentToken,
+  MAX_ACTIVE_KEYS,
   newAgentToken,
   routeFor,
   toolsFor,
 } from "./agents.ts";
-import { schemaOf } from "./openapi.ts";
-import { SECURITY_HEADERS } from "./security.ts";
+import { OidcClient, OidcError } from "./auth/oidc.ts";
+import { SESSION_TTL, type TokenSigner } from "./auth/session.ts";
+import type { Config } from "./config.ts";
+import type { AccountRow, AgentKeyRow, ControlRepo } from "./control/repo.ts";
 import { sameSecret } from "./crypto/aead.ts";
 import { KeysDestroyedError } from "./crypto/keys.ts";
 import type { Directory, WorkspaceHandle } from "./directory.ts";
-import type { Gate } from "./limits/gate.ts";
 import { exportWorkspace } from "./lifecycle/bundleio.ts";
 import { housekeeping } from "./lifecycle/housekeeping.ts";
 import { moveToDatabase, moveToInstance, previewMove, releaseMove } from "./lifecycle/move.ts";
 import { receiveWorkspace } from "./lifecycle/receive.ts";
 import { toReceipt, wipeWorkspace } from "./lifecycle/wipe.ts";
+import type { Gate } from "./limits/gate.ts";
+import { schemaOf } from "./openapi.ts";
 import { acceptInvite, claimAutoInvites, createInvite } from "./platform/invites.ts";
 import { capacityNow, createWorkspace, type PlatformDeps } from "./platform/workspaces.ts";
 import {
   AcceptInvite,
   CloseMonth,
   ConfirmBody,
+  CreateAgentKey,
   CreateClaim,
   CreateHoliday,
-  CreatePerson,
-  CreateAgentKey,
   CreateOrganisation,
+  CreatePerson,
   CreatePolicy,
   CreateRateCard,
   CreateSettlement,
@@ -68,7 +67,8 @@ import {
   UpdateHoliday,
   UpdatePerson,
 } from "./schemas.ts";
-import { resolveActors, type Actor } from "./workspace/context.ts";
+import { SECURITY_HEADERS } from "./security.ts";
+import { type Actor, resolveActors } from "./workspace/context.ts";
 import { ApiError, forbidden, invalid } from "./workspace/errors.ts";
 
 export interface AppDeps {

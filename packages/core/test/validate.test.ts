@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type Actor,
   checkClaim,
   checkClaimWithdrawal,
   checkDecision,
@@ -8,11 +9,10 @@ import {
   checkRateCard,
   checkReversal,
   hasErrors,
-  isMonthClosed,
-  rupees,
-  type Actor,
   type Issue,
+  isMonthClosed,
   type NewLogEntry,
+  rupees,
 } from "../src/index.ts";
 import { claim, close, decision, entry, policyWith, prep } from "./fixtures.ts";
 

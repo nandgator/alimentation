@@ -1,6 +1,6 @@
 import type { PlatformDeps } from "../platform/workspaces.ts";
 import { releaseMove } from "./move.ts";
-import { UNDO_DAYS, destroyRetired, wipeWorkspace } from "./wipe.ts";
+import { destroyRetired, UNDO_DAYS, wipeWorkspace } from "./wipe.ts";
 
 const DAY = 86_400_000;
 const MOVE_PATIENCE_MS = 30 * 60_000;

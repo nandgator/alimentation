@@ -5,8 +5,8 @@ import {
   dbError,
   fakeEnc,
   newWorkspace,
-  seed,
   type Seeded,
+  seed,
   type TestWorkspace,
 } from "./support/pg.ts";
 

@@ -1,4 +1,4 @@
-import { type JWTPayload, createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, type JWTPayload, jwtVerify } from "jose";
 import { randomBytes, toBase64Url } from "../crypto/aead.ts";
 
 /**

@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { Db } from "../src/db/driver.ts";
 import { FieldCipher } from "../src/crypto/fields.ts";
 import { loadWorkspaceKeys } from "../src/crypto/keys.ts";
+import type { Db } from "../src/db/driver.ts";
 import { readDsns } from "../src/directory.ts";
 import { isPrivateHost, targetProblem } from "../src/lifecycle/targets.ts";
+import { emptyDatabase, type Kitchen, seedKitchen } from "./support/kitchen.ts";
 import { ADMIN_URL } from "./support/pg.ts";
-import { emptyDatabase, seedKitchen, type Kitchen } from "./support/kitchen.ts";
-import { makePlatform, type Client, type TestPlatform } from "./support/platform.ts";
+import { type Client, makePlatform, type TestPlatform } from "./support/platform.ts";
 
 const ownTables = async (pool: pg.Pool) =>
   (

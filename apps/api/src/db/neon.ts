@@ -1,5 +1,5 @@
 import { Client, neonConfig, types } from "@neondatabase/serverless";
-import { dbFromPool, pgTypes, type Db } from "./driver.ts";
+import { type Db, dbFromPool, pgTypes } from "./driver.ts";
 
 /**
  * A database reached over Neon's serverless driver, for Cloudflare Workers.

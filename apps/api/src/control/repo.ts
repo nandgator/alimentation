@@ -1,8 +1,8 @@
 import type { Limits, Role } from "@alimentation/core";
-import type { Db, Row } from "../db/driver.ts";
-import type { Bytes } from "../crypto/aead.ts";
-import type { PlacementRef } from "../placement/types.ts";
 import type { AgentScope } from "../agent-scopes.ts";
+import type { Bytes } from "../crypto/aead.ts";
+import type { Db, Row } from "../db/driver.ts";
+import type { PlacementRef } from "../placement/types.ts";
 import { ApiError } from "../workspace/errors.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON

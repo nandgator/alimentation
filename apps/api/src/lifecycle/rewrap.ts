@@ -1,6 +1,5 @@
 import type { ControlRepo, Wrapped } from "../control/repo.ts";
-import { dataAad, logAad, Keyring } from "../crypto/keys.ts";
-import { dsnAad } from "../crypto/keys.ts";
+import { dataAad, dsnAad, Keyring, logAad } from "../crypto/keys.ts";
 
 export interface RewrapReport {
   workspaces: number;

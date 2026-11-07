@@ -1,12 +1,12 @@
-import { migrate } from "../db/migrate.ts";
 import type { Db } from "../db/driver.ts";
+import { migrate } from "../db/migrate.ts";
 import { WORKSPACE_MIGRATIONS } from "../db/migrations.generated.ts";
 import {
-  randomSecret,
   type Credentials,
   type Placement,
   type PlacementRef,
   type Provisioned,
+  randomSecret,
 } from "./types.ts";
 
 /** Everything a workspace database contains that this program put there, and nothing else. */

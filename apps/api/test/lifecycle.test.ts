@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import {
   assembleBundle,
-  canonicalJson,
-  rupees,
-  parseBundle,
   type Bundle,
+  canonicalJson,
+  parseBundle,
+  rupees,
 } from "@alimentation/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FieldCipher } from "../src/crypto/fields.ts";
@@ -13,7 +13,7 @@ import { nodeDb } from "../src/db/node.ts";
 import { exportWorkspace, readBundleBody } from "../src/lifecycle/bundleio.ts";
 import { importBundle } from "../src/lifecycle/import.ts";
 import { WorkspaceService } from "../src/workspace/service.ts";
-import { makeFixture, type Fixture } from "./support/fixture.ts";
+import { type Fixture, makeFixture } from "./support/fixture.ts";
 import { newWorkspace } from "./support/pg.ts";
 import { at, seedSpec } from "./support/spec.ts";
 
@@ -94,7 +94,6 @@ async function richSource(): Promise<{ fx: Fixture; jovial: string; smruti: stri
 }
 
 /** A bundle without its manifest, which is what the manifest is made from. */
-// biome-ignore lint/suspicious/noExplicitAny: callers hand it parsed JSON and hand the result on as a bundle
 const withoutManifest = (bundle: any): any => {
   const { manifest: _manifest, ...rest } = bundle;
   return rest;

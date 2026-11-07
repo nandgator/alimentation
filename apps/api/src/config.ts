@@ -1,10 +1,10 @@
-import * as z from "zod";
 import {
-  FREE_LIMITS,
-  REFERENCE_CAPACITY,
   type CapacityInputs,
+  FREE_LIMITS,
   type Limits,
+  REFERENCE_CAPACITY,
 } from "@alimentation/core";
+import * as z from "zod";
 
 /**
  * Everything a deployment can be told, in one place. Secrets arrive as environment

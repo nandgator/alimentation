@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { addDays, monthEnd, monthOf, monthStart, type IsoDate, type Month } from "./dates.ts";
+import { addDays, type IsoDate, type Month, monthEnd, monthOf, monthStart } from "./dates.ts";
 
 /**
  * The rules a workspace has chosen. A policy is a document, versioned and

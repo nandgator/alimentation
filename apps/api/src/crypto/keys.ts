@@ -1,4 +1,4 @@
-import { aesKey, fromBase64, hmacKey, open, randomBytes, seal, toHex, type Bytes } from "./aead.ts";
+import { aesKey, type Bytes, fromBase64, hmacKey, open, randomBytes, seal, toHex } from "./aead.ts";
 
 /**
  * Keys, in three layers.

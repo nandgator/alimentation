@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { WORKSPACE_MIGRATIONS } from "../../src/db/migrations.generated.ts";
-import { PgDatabasePlacement, type PgDatabaseOptions } from "../../src/placement/pgdatabase.ts";
+import { type PgDatabaseOptions, PgDatabasePlacement } from "../../src/placement/pgdatabase.ts";
 import type { PlacementRef } from "../../src/placement/types.ts";
 
 export const ADMIN_URL =

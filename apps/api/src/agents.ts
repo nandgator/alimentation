@@ -1,6 +1,6 @@
-import { randomBytes, toBase64Url, type Bytes } from "./crypto/aead.ts";
 import { AGENT_SCOPES, type AgentScope } from "./agent-scopes.ts";
-import { OPERATIONS, agentScopeOf, type Operation } from "./openapi.ts";
+import { type Bytes, randomBytes, toBase64Url } from "./crypto/aead.ts";
+import { agentScopeOf, OPERATIONS, type Operation } from "./openapi.ts";
 
 /**
  * The parts of agent access that are not the request itself: what a key looks like, which routes a scope

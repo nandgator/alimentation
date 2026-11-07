@@ -1,4 +1,4 @@
-import { fieldAad, openText, sealText, type Bytes } from "./aead.ts";
+import { type Bytes, fieldAad, openText, sealText } from "./aead.ts";
 import type { WorkspaceKeys } from "./keys.ts";
 
 /** Encrypts and decrypts the personal fields of one workspace. */

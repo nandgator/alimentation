@@ -1,7 +1,7 @@
 // Embeds the SQL files as a TypeScript module so Workers, which have no filesystem,
 // carry the same migrations Node does. `--check` fails if the module is stale.
-import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "apps", "api");

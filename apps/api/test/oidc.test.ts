@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { SignJWT, exportJWK, generateKeyPair } from "jose";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { OidcClient } from "../src/auth/oidc.ts";
-import { loadConfig } from "../src/config.ts";
 import { TokenSigner } from "../src/auth/session.ts";
+import { loadConfig } from "../src/config.ts";
 import { randomBytes } from "../src/crypto/aead.ts";
-import { startMockOidc, type MockOidc, type MockOidcOptions } from "./support/mockOidc.ts";
+import { type MockOidc, type MockOidcOptions, startMockOidc } from "./support/mockOidc.ts";
 import { makePlatform, type TestPlatform } from "./support/platform.ts";
 
 const b64 = () => Buffer.from(randomBytes(32)).toString("base64");

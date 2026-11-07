@@ -1,7 +1,7 @@
 import { Link, useParams } from "wouter";
+import { getJson } from "../api.ts";
 import { AppBar } from "../components/Chrome.tsx";
 import { Problem, Spinner, useLoad } from "../components/ui.tsx";
-import { getJson } from "../api.ts";
 
 interface Receipt {
   workspaceId: string;

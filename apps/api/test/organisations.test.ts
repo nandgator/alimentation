@@ -1,9 +1,9 @@
+import { headline, type OrganisationDto } from "@alimentation/core";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { headline, type OrganisationDto } from "@alimentation/core";
-import { seedKitchen, type Kitchen } from "./support/kitchen.ts";
 import { ControlRepo } from "../src/control/repo.ts";
-import { makePlatform, type Client, type TestPlatform } from "./support/platform.ts";
+import { type Kitchen, seedKitchen } from "./support/kitchen.ts";
+import { type Client, makePlatform, type TestPlatform } from "./support/platform.ts";
 
 /**
  * A head office sees each kitchen's totals for the month, and nothing that names anyone. A kitchen is in an

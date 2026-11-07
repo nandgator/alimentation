@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import { type BrowserContext, expect, type Page, type TestInfo } from "@playwright/test";
 
 export async function signIn(page: Page, email: string, name: string) {
   await page.goto("/signin");

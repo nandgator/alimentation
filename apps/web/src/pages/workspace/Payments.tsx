@@ -1,12 +1,12 @@
-import { useState } from "react";
 import {
-  PAY_METHODS,
-  diffDays,
-  localNow,
   type ClaimDto,
   type ClaimStatus,
+  diffDays,
+  localNow,
+  PAY_METHODS,
   type PayMethod,
 } from "@alimentation/core";
+import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
 import {
   Chip,

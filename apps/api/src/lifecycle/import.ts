@@ -1,11 +1,11 @@
 import {
+  type Bundle,
   canonicalJson,
   compareTotals,
   digestOf,
   parseBundle,
-  unsupportedRules,
-  type Bundle,
   type TotalMismatch,
+  unsupportedRules,
 } from "@alimentation/core";
 import type { FieldCipher } from "../crypto/fields.ts";
 import type { Db, Tx } from "../db/driver.ts";

@@ -7,7 +7,7 @@
 // from an edge, is measured in the browser: apps/web/e2e/controls.spec.ts.) A line that
 // has a good reason to break a rule says so, in the same line: /* design: the reason */.
 // Run by `npm run design`, and by the test suite.
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
