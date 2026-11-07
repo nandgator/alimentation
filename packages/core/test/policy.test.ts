@@ -8,15 +8,15 @@ import {
   EngineError,
   ledgerMonth,
   monthRange,
+  type Policy,
   PolicySchema,
   policyForMonth,
   policyOn,
   rateCardStartAllowed,
   rupees,
   STATUS_LABEL,
-  type Policy,
 } from "../src/index.ts";
-import { CARD_APR, CARD_NOV, JOVIAL, SMRUTI, close, entry, policyWith, prep } from "./fixtures.ts";
+import { CARD_APR, CARD_NOV, close, entry, JOVIAL, policyWith, prep, SMRUTI } from "./fixtures.ts";
 
 const jovialOct = (over: Parameters<typeof prep>[0]) =>
   buildStatements(prep(over), ["jovial"], ["2026-10"])[0]!;

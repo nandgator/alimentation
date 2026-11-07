@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
+import { postJson } from "../api.ts";
 import { AppBar } from "../components/Chrome.tsx";
 import { Field, Form, useAction } from "../components/ui.tsx";
-import { postJson } from "../api.ts";
 import { useSession } from "../session.tsx";
 
 const safeNext = (n: string | null) => (n?.startsWith("/") && !n.startsWith("//") ? n : "/app");

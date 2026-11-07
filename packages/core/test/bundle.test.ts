@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  BUNDLE_FORMAT,
   assembleBundle,
+  BUNDLE_FORMAT,
+  type BundleBody,
   canonicalJson,
   compareTotals,
   countsOf,
+  DEFAULT_POLICY,
   digestOf,
+  type EngineData,
   expectedTotals,
   parseBundle,
   rupees,
   sha256Hex,
   unsupportedRules,
-  DEFAULT_POLICY,
-  type BundleBody,
-  type EngineData,
 } from "../src/index.ts";
 import { CARD_APR, HOLIDAYS } from "./fixtures.ts";
 

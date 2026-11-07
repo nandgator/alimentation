@@ -1,7 +1,7 @@
+import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createHash } from "node:crypto";
-import { SignJWT, exportJWK, generateKeyPair } from "jose";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 
 export interface MockOidc {
   issuer: string;

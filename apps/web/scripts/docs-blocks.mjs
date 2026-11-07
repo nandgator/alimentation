@@ -14,6 +14,7 @@
 // tokens. So a diagram, like code, is right in the light and the dark theme without being drawn again.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
+import { renderMermaidSVG } from "beautiful-mermaid";
 import hljs from "highlight.js/lib/core";
 import bash from "highlight.js/lib/languages/bash";
 import css from "highlight.js/lib/languages/css";
@@ -27,7 +28,6 @@ import sql from "highlight.js/lib/languages/sql";
 import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
-import { renderMermaidSVG } from "beautiful-mermaid";
 
 const LANGUAGES = {
   bash,

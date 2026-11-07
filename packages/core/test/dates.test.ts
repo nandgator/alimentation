@@ -8,6 +8,7 @@ import {
   formatDisplayDate,
   formatDisplayMonth,
   formatMoney,
+  fractionOf,
   fromEpochDay,
   isValidDate,
   localNow,
@@ -16,7 +17,6 @@ import {
   rupees,
   toEpochDay,
   weekdayOf,
-  fractionOf,
 } from "../src/index.ts";
 
 describe("calendar arithmetic", () => {

@@ -1,8 +1,9 @@
 // Draws the app icons from one design: a tiffin carrier (handle, lid, three tiers, side clips) on
 // curry-leaf green.
 //   node scripts/make-icons.mjs
-import { chromium } from "@playwright/test";
+
 import { writeFileSync } from "node:fs";
+import { chromium } from "@playwright/test";
 
 const GREEN = "#1F4D3A";
 const TILE = "#EEF1EC";

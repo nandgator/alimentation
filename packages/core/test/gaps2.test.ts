@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
-  type EngineError,
   buildStatements,
   checkLogChange,
   checkLogEntry,
   compareText,
+  type EngineError,
   fromEpochDay,
+  type Issue,
   ledgerDay,
   monthStart,
+  type NewLogEntry,
   parseDate,
   rupees,
   toEpochDay,
-  type Issue,
-  type NewLogEntry,
 } from "../src/index.ts";
-import { CARD_APR, JOVIAL, entry, policyWith, prep } from "./fixtures.ts";
+import { CARD_APR, entry, JOVIAL, policyWith, prep } from "./fixtures.ts";
 
 describe("the last day of a 400-year cycle, which random sampling will almost never reach", () => {
   it.each(["0000-02-29", "0400-02-29", "1600-02-29", "2000-02-29", "2400-02-29", "9600-02-29"])(

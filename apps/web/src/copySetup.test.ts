@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { Holiday, IsoDate, RateCard } from "@alimentation/core";
+import { describe, expect, it } from "vitest";
 import { applyPlan, planCopy, type Snapshot, type What } from "./copySetup.ts";
 
 const d = (s: string) => s as IsoDate;

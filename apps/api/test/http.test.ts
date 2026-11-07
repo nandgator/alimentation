@@ -1,9 +1,9 @@
-import { openSync, closeSync, readSync, statSync } from "node:fs";
+import { closeSync, openSync, readSync, statSync } from "node:fs";
+import { rupees } from "@alimentation/core";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rupees } from "@alimentation/core";
 import { ADMIN_URL } from "./support/pg.ts";
-import { MENU, makePlatform, type Client, type TestPlatform } from "./support/platform.ts";
+import { type Client, MENU, makePlatform, type TestPlatform } from "./support/platform.ts";
 
 const RATES = {
   effectiveFrom: "2026-04-01",

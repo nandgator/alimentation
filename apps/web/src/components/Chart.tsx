@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { month as monthLabel, money } from "../format.ts";
+import { money, month as monthLabel } from "../format.ts";
 
 export interface Series {
   name: string;

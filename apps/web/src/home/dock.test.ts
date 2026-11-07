@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  type Box,
   carried,
   carrierIn,
   courierAt,
-  journeyAt,
-  standOn,
-  STILL,
-  tiffinIn,
-  type Box,
   type Hand,
+  journeyAt,
+  STILL,
+  standOn,
+  tiffinIn,
   type Where,
 } from "./dock.ts";
 

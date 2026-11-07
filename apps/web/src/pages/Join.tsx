@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { postJson } from "../api.ts";
 import { AppBar, RequireSignIn } from "../components/Chrome.tsx";
 import { Problem } from "../components/ui.tsx";
-import { postJson } from "../api.ts";
 
 const KEY = "pending-invite";
 

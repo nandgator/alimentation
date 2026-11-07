@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { THEMES, THEME_LABEL, useTheme } from "../theme.ts";
+import { THEME_LABEL, THEMES, useTheme } from "../theme.ts";
 
 /** Automatic, light or dark: three choices in one group, set on the system's setting until someone picks. */
 export function ThemeSwitch({ className }: { className?: string }) {

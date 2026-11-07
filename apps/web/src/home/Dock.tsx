@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 import { CARRIER_BOX, Carrier } from "./art.tsx";
-import { carried, journeyAt, STILL, type Box, type Courier, type Hand } from "./dock.ts";
+import { type Box, type Courier, carried, type Hand, journeyAt, STILL } from "./dock.ts";
 import { useMedia } from "./motion.tsx";
 
 const boxOf = (el: Element): Box => {

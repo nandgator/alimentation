@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { makePlatform, type Client, type TestPlatform } from "./support/platform.ts";
+import { type Client, makePlatform, type TestPlatform } from "./support/platform.ts";
 
 /**
  * One human is one account, however many kitchens they are in and however many ways they have signed in.

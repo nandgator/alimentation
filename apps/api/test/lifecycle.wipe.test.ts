@@ -1,16 +1,16 @@
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { newWorkspaceKeys, loadWorkspaceKeys, KeysDestroyedError } from "../src/crypto/keys.ts";
-import { FieldCipher } from "../src/crypto/fields.ts";
 import type { Bytes } from "../src/crypto/aead.ts";
+import { FieldCipher } from "../src/crypto/fields.ts";
+import { KeysDestroyedError, loadWorkspaceKeys, newWorkspaceKeys } from "../src/crypto/keys.ts";
+import { nodeOpenDb } from "../src/db/node.ts";
 import { readDsns } from "../src/directory.ts";
 import { freezeWorkspace, unfreezeWorkspace } from "../src/lifecycle/move.ts";
-import { nodeOpenDb } from "../src/db/node.ts";
 import { OUR_DOMAINS, OUR_FUNCTIONS, OUR_TABLES } from "../src/placement/external.ts";
 import type { Placement } from "../src/placement/types.ts";
 import { emptyDatabase, seedKitchen } from "./support/kitchen.ts";
-import { makePlatform, type TestPlatform } from "./support/platform.ts";
 import { ADMIN_URL, newWorkspace } from "./support/pg.ts";
+import { makePlatform, type TestPlatform } from "./support/platform.ts";
 
 const admin = async <T>(fn: (c: pg.Client) => Promise<T>): Promise<T> => {
   const c = new pg.Client({ connectionString: ADMIN_URL });

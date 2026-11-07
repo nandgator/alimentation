@@ -1,6 +1,6 @@
 import type { ExecutionContext } from "@cloudflare/workers-types";
-import { housekeeping } from "./lifecycle/housekeeping.ts";
 import { neonOpenDb, useLocalProxy } from "./db/neon.ts";
+import { housekeeping } from "./lifecycle/housekeeping.ts";
 import { NeonPlacement } from "./placement/neon.ts";
 import { createRuntime } from "./runtime.ts";
 

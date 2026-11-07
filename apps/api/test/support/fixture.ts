@@ -4,8 +4,8 @@ import { Keyring, loadWorkspaceKeys, newWorkspaceKeys } from "../../src/crypto/k
 import type { Db } from "../../src/db/driver.ts";
 import { nodeDb } from "../../src/db/node.ts";
 import type { Actor } from "../../src/workspace/context.ts";
+import { type WorkspaceInfo, WorkspaceService } from "../../src/workspace/service.ts";
 import { initializeWorkspace } from "../../src/workspace/setup.ts";
-import { WorkspaceService, type WorkspaceInfo } from "../../src/workspace/service.ts";
 import { newWorkspace, type TestWorkspace } from "./pg.ts";
 
 export interface Fixture {

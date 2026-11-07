@@ -1,7 +1,7 @@
+import { FREE_LIMITS, GRACE_DAYS, THRESHOLDS } from "@alimentation/core";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { FREE_LIMITS, GRACE_DAYS, THRESHOLDS } from "@alimentation/core";
-import { getJson, type Capacity } from "../api.ts";
+import { type Capacity, getJson } from "../api.ts";
 import { Mark } from "../components/Mark.tsx";
 import { ThemeSwitch } from "../components/ThemeSwitch.tsx";
 import { Defs, HeroScene } from "../home/art.tsx";

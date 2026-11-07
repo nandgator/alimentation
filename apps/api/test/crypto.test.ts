@@ -3,17 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   aesKey,
   fieldAad,
-  open,
   OpenError,
+  open,
+  openText,
   randomBytes,
   seal,
   sealText,
-  openText,
 } from "../src/crypto/aead.ts";
 import { FieldCipher } from "../src/crypto/fields.ts";
 import {
-  KeysDestroyedError,
   Keyring,
+  KeysDestroyedError,
   loadWorkspaceKeys,
   newWorkspaceKeys,
   pseudonym,

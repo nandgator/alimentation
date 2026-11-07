@@ -1,8 +1,8 @@
 import {
   addHeadlines,
-  headline,
   type BootstrapDto,
   type Headline,
+  headline,
   type OrganisationKitchenDto,
   type Role,
 } from "@alimentation/core";

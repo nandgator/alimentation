@@ -1,8 +1,8 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.ts";
-import { ERROR_CODES, OPERATIONS, TAGS, buildOpenApi } from "../src/openapi.ts";
+import { buildOpenApi, ERROR_CODES, OPERATIONS, TAGS } from "../src/openapi.ts";
 
 /**
  * The API reference is built from `OPERATIONS`, and the server is built from `buildApp`. These

@@ -1,4 +1,4 @@
-import { useId, type CSSProperties } from "react";
+import { type CSSProperties, useId } from "react";
 
 /*
  * Steam over a lid. A wisp is one long S-curve, anchored behind the lid, along which a stretch of line travels up

@@ -1,9 +1,9 @@
 import {
-  BUNDLE_FORMAT,
   assembleBundle,
-  expectedTotals,
+  BUNDLE_FORMAT,
   type Bundle,
   type BundleBody,
+  expectedTotals,
 } from "@alimentation/core";
 import type { FieldCipher } from "../crypto/fields.ts";
 import type { Tx } from "../db/driver.ts";

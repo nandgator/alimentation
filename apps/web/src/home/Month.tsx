@@ -1,21 +1,21 @@
-import { useMemo, useState } from "react";
 import { addMonths, formatMoney, monthOf, parseDate, weekdayOf } from "@alimentation/core";
-import { Lines } from "./motion.tsx";
+import { useMemo, useState } from "react";
 import {
-  CHAPATIS,
-  SAMPLE_CARD,
-  SAMPLE_PERSON,
-  WEEKDAY_NAMES,
   board,
+  CHAPATIS,
   dayLabel,
   isFrozen,
+  type Marks,
   monthLabel,
   nextMark,
+  SAMPLE_CARD,
+  SAMPLE_PERSON,
   startingMarks,
   todayIso,
+  WEEKDAY_NAMES,
   weeks,
-  type Marks,
 } from "./month.ts";
+import { Lines } from "./motion.tsx";
 
 const rupee = (p: number) => formatMoney(p).replace(/^-$/, "₹0");
 const monthName = (label: string) => label.split(" ")[0];

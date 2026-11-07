@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  describeAudit,
-  lateByDays,
-  whoLabel,
   type AuditRow,
+  describeAudit,
   type HistoryContext,
+  lateByDays,
   type Role,
+  whoLabel,
 } from "../src/index.ts";
 
 const ROLES: Record<string, Role> = {

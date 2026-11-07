@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { expectAccessible, firstOfMonth, signIn } from "./support.ts";
 
 const MENU = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" };

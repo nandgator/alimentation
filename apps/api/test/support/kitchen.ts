@@ -1,7 +1,7 @@
 import { rupees } from "@alimentation/core";
 import pg from "pg";
 import { ADMIN_URL } from "./pg.ts";
-import { MENU, type Client, type TestPlatform } from "./platform.ts";
+import { type Client, MENU, type TestPlatform } from "./platform.ts";
 
 export const RATES = {
   effectiveFrom: "2026-04-01",

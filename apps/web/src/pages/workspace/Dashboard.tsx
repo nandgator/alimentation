@@ -1,5 +1,6 @@
+import { addMonths, STATUS_LABEL, type StatementDto } from "@alimentation/core";
 import { useMemo, useState } from "react";
-import { STATUS_LABEL, addMonths, type StatementDto } from "@alimentation/core";
+import { getJson } from "../../api.ts";
 import { BarChart } from "../../components/Chart.tsx";
 import {
   Chip,
@@ -10,7 +11,6 @@ import {
   Tile,
   useLoad,
 } from "../../components/ui.tsx";
-import { getJson } from "../../api.ts";
 import { date, money, month as monthLabel } from "../../format.ts";
 import { useWorkspace } from "./context.tsx";
 

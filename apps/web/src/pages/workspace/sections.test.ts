@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GROUP_LABEL, SECTIONS, groupsFor, hrefOf, isHere, sectionsFor } from "./sections.ts";
+import { GROUP_LABEL, groupsFor, hrefOf, isHere, SECTIONS, sectionsFor } from "./sections.ts";
 
 describe("the screens of a kitchen", () => {
   it("lists each screen once, with a unique address and name", () => {

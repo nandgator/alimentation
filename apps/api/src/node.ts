@@ -1,11 +1,11 @@
+import { existsSync } from "node:fs";
+import { relative, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { existsSync } from "node:fs";
-import { resolve, relative } from "node:path";
 import { nodeOpenDb } from "./db/node.ts";
-import { scheduleHousekeeping } from "./lifecycle/housekeeping.ts";
 import { selfHost } from "./instance.ts";
+import { scheduleHousekeeping } from "./lifecycle/housekeeping.ts";
 import { PgDatabasePlacement } from "./placement/pgdatabase.ts";
 import { createRuntime } from "./runtime.ts";
 

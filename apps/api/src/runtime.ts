@@ -1,16 +1,16 @@
-import { buildApp, type AppDeps } from "./app.ts";
+import { type AppDeps, buildApp } from "./app.ts";
 import { OidcClient } from "./auth/oidc.ts";
 import { TokenSigner } from "./auth/session.ts";
-import { loadConfig, type Config } from "./config.ts";
+import { type Config, loadConfig } from "./config.ts";
 import { ControlRepo } from "./control/repo.ts";
 import { Keyring } from "./crypto/keys.ts";
 import type { Db } from "./db/driver.ts";
 import { Directory } from "./directory.ts";
 import { Gate } from "./limits/gate.ts";
-import { ApiError } from "./workspace/errors.ts";
 import { ExternalPlacement } from "./placement/external.ts";
 import type { Credentials, Placement, PlacementRef, Provisioned } from "./placement/types.ts";
 import type { PlatformDeps } from "./platform/workspaces.ts";
+import { ApiError } from "./workspace/errors.ts";
 
 export interface RuntimeOptions {
   env: Record<string, string | undefined>;

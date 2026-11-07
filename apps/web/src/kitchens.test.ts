@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import type { BootstrapDto, KitchenTotals, OrganisationKitchenDto } from "@alimentation/core";
-import { figuresOf, sumOrganisation, totalsOf, type KitchenFigures } from "./kitchens.ts";
+import { describe, expect, it } from "vitest";
+import { figuresOf, type KitchenFigures, sumOrganisation, totalsOf } from "./kitchens.ts";
 
 const stmt = (personId: string, billed: number, paid: number, earlierUnpaid = 0) => ({
   personId,

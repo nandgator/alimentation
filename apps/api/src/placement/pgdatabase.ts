@@ -1,11 +1,11 @@
 import pg from "pg";
-import { migrate, type Migration } from "../db/migrate.ts";
+import { type Migration, migrate } from "../db/migrate.ts";
 import {
-  randomSecret,
   type Credentials,
   type Placement,
   type PlacementRef,
   type Provisioned,
+  randomSecret,
 } from "./types.ts";
 
 export interface PgDatabaseOptions {

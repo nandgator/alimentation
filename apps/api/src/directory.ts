@@ -4,16 +4,16 @@ import type { Bytes } from "./crypto/aead.ts";
 import { FieldCipher } from "./crypto/fields.ts";
 import {
   dsnAad,
+  type Keyring,
   KeysDestroyedError,
   loadWorkspaceKeys,
   pseudonym,
-  type Keyring,
   type WorkspaceKeys,
 } from "./crypto/keys.ts";
 import type { Db } from "./db/driver.ts";
-import { migrate, type Migration } from "./db/migrate.ts";
+import { type Migration, migrate } from "./db/migrate.ts";
 import { WORKSPACE_MIGRATIONS } from "./db/migrations.generated.ts";
-import { WorkspaceService, type WorkspaceInfo } from "./workspace/service.ts";
+import { type WorkspaceInfo, WorkspaceService } from "./workspace/service.ts";
 
 export interface Dsns {
   app: string;

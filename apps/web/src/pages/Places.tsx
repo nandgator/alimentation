@@ -1,11 +1,11 @@
-import { Suspense, lazy, useEffect, useState } from "react";
 import type { BootstrapDto } from "@alimentation/core";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { api, getJson, postJson, type Capacity } from "../api.ts";
+import { api, type Capacity, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
 import { Chip, Field, Form, Tile, useAction } from "../components/ui.tsx";
 import { money } from "../format.ts";
-import { figuresOf, isRunning, totalsOf, type KitchenFigures } from "../kitchens.ts";
+import { figuresOf, isRunning, type KitchenFigures, totalsOf } from "../kitchens.ts";
 import { useSession } from "../session.tsx";
 
 // Needed only by someone who runs several kitchens, so everyone else does not download it.
