@@ -1,8 +1,8 @@
-import * as z from 'zod';
-import { monthOf } from './dates.ts';
-import { buildStatements, consumers, monthRange, prepare, type EngineData } from './engine.ts';
-import { PolicySchema } from './policy.ts';
-import { LOG_CHANGES, PAY_METHODS, SETTLEMENT_TYPES } from './types.ts';
+import * as z from "zod";
+import { monthOf } from "./dates.ts";
+import { buildStatements, consumers, monthRange, prepare, type EngineData } from "./engine.ts";
+import { PolicySchema } from "./policy.ts";
+import { LOG_CHANGES, PAY_METHODS, SETTLEMENT_TYPES } from "./types.ts";
 
 /**
  * The portable form of a workspace: everything in it, in plain, versioned,
@@ -13,7 +13,7 @@ import { LOG_CHANGES, PAY_METHODS, SETTLEMENT_TYPES } from './types.ts';
  * them. Treat a bundle like the ledger it is.
  */
 
-export const BUNDLE_FORMAT = 'alimentation.workspace.v1' as const;
+export const BUNDLE_FORMAT = "alimentation.workspace.v1" as const;
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const month = z.string().regex(/^\d{4}-\d{2}$/);
@@ -47,7 +47,7 @@ export const BundleSchema = z
           extraChapati: int,
           extraBhakri: int,
           extrasPerMonth: int,
-          menu: z.record(z.string().regex(/^[0-6]$/), z.enum(['Veg', 'Non Veg'])),
+          menu: z.record(z.string().regex(/^[0-6]$/), z.enum(["Veg", "Non Veg"])),
           note: nullable(z.string()),
           createdBy: nullable(uuid),
         })
@@ -69,10 +69,10 @@ export const BundleSchema = z
       z
         .object({
           id: uuid,
-          role: z.enum(['admin', 'supplier', 'consumer']),
+          role: z.enum(["admin", "supplier", "consumer"]),
           name: z.string(),
           contact: nullable(z.string()),
-          status: z.enum(['ACTIVE', 'DISABLED']),
+          status: z.enum(["ACTIVE", "DISABLED"]),
           activeFrom: nullable(date),
           activeTo: nullable(date),
           createdAt: z.string(),
@@ -112,7 +112,7 @@ export const BundleSchema = z
       z
         .object({
           claimId: uuid,
-          decision: z.enum(['Confirmed', 'Disputed']),
+          decision: z.enum(["Confirmed", "Disputed"]),
           note: nullable(z.string()),
           decidedBy: uuid,
           decidedAt: z.string(),
@@ -173,7 +173,7 @@ export const BundleSchema = z
       z
         .object({
           personId: uuid,
-          role: z.enum(['admin', 'supplier', 'consumer']),
+          role: z.enum(["admin", "supplier", "consumer"]),
           email: z.string(),
         })
         .strict(),
@@ -200,39 +200,39 @@ export const BundleSchema = z
   .strict();
 
 export type Bundle = z.infer<typeof BundleSchema>;
-export type ExpectedTotal = Bundle['expected'][number];
-export type BundleBody = Omit<Bundle, 'manifest'>;
+export type ExpectedTotal = Bundle["expected"][number];
+export type BundleBody = Omit<Bundle, "manifest">;
 
 /** Stable text for any JSON value: keys sorted, no whitespace. Two equal values give equal text. */
 export function canonicalJson(v: unknown): string {
-  if (v === null || typeof v !== 'object') return JSON.stringify(v) ?? 'null';
+  if (v === null || typeof v !== "object") return JSON.stringify(v) ?? "null";
   if (Array.isArray(v))
-    return `[${v.map((x) => canonicalJson(x === undefined ? null : x)).join(',')}]`;
+    return `[${v.map((x) => canonicalJson(x === undefined ? null : x)).join(",")}]`;
   const entries = Object.entries(v as Record<string, unknown>)
     .filter(([, x]) => x !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return `{${entries.map(([k, x]) => `${JSON.stringify(k)}:${canonicalJson(x)}`).join(',')}}`;
+  return `{${entries.map(([k, x]) => `${JSON.stringify(k)}:${canonicalJson(x)}`).join(",")}}`;
 }
 
 export async function sha256Hex(text: string): Promise<string> {
-  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 const TABLES = [
-  'policies',
-  'rateCards',
-  'holidays',
-  'people',
-  'log',
-  'claims',
-  'decisions',
-  'reversals',
-  'settlements',
-  'closes',
-  'audit',
-  'members',
-  'expected',
+  "policies",
+  "rateCards",
+  "holidays",
+  "people",
+  "log",
+  "claims",
+  "decisions",
+  "reversals",
+  "settlements",
+  "closes",
+  "audit",
+  "members",
+  "expected",
 ] as const;
 
 export function countsOf(b: BundleBody): Record<string, number> {
@@ -258,7 +258,7 @@ export async function parseBundle(raw: unknown): Promise<ParsedBundle> {
       ok: false,
       problems: shaped.error.issues
         .slice(0, 8)
-        .map((i) => `${i.path.join('.') || 'bundle'}: ${i.message}`),
+        .map((i) => `${i.path.join(".") || "bundle"}: ${i.message}`),
     };
   }
   const bundle = shaped.data;
@@ -269,18 +269,18 @@ export async function parseBundle(raw: unknown): Promise<ParsedBundle> {
     if (manifest.counts[t] !== counts[t])
       problems.push(`${t}: the manifest says ${manifest.counts[t]} but there are ${counts[t]}`);
   if ((await digestOf(body)) !== manifest.digest)
-    problems.push('the checksum does not match: the bundle was altered after it was made');
+    problems.push("the checksum does not match: the bundle was altered after it was made");
   return problems.length ? { ok: false, problems } : { ok: true, bundle };
 }
 
 /** Rules in the bundle that this release does not understand. They are listed and the move is refused. */
-export function unsupportedRules(b: Pick<Bundle, 'policies'>): string[] {
+export function unsupportedRules(b: Pick<Bundle, "policies">): string[] {
   const out: string[] = [];
   for (const p of b.policies) {
     const r = PolicySchema.safeParse(p.doc);
     if (!r.success) {
       out.push(
-        `The rules from ${p.effectiveFrom} use something this version does not know: ${r.error.issues[0]?.path.join('.') || 'unknown'} (${r.error.issues[0]?.message})`,
+        `The rules from ${p.effectiveFrom} use something this version does not know: ${r.error.issues[0]?.path.join(".") || "unknown"} (${r.error.issues[0]?.message})`,
       );
     }
   }
@@ -313,7 +313,7 @@ export function expectedTotals(data: EngineData): ExpectedTotal[] {
 export interface TotalMismatch {
   personId: string;
   month: string;
-  field: keyof Omit<ExpectedTotal, 'personId' | 'month'> | 'missing' | 'unexpected';
+  field: keyof Omit<ExpectedTotal, "personId" | "month"> | "missing" | "unexpected";
   expected: unknown;
   actual: unknown;
 }
@@ -332,13 +332,13 @@ export function compareTotals(
       out.push({
         personId: e.personId,
         month: e.month,
-        field: 'missing',
+        field: "missing",
         expected: e.billed,
         actual: null,
       });
       continue;
     }
-    for (const f of ['liveTotal', 'billed', 'paid', 'balance', 'openQueries', 'status'] as const) {
+    for (const f of ["liveTotal", "billed", "paid", "balance", "openQueries", "status"] as const) {
       if (a[f] !== e[f])
         out.push({ personId: e.personId, month: e.month, field: f, expected: e[f], actual: a[f] });
     }
@@ -347,7 +347,7 @@ export function compareTotals(
     out.push({
       personId: a.personId,
       month: a.month,
-      field: 'unexpected',
+      field: "unexpected",
       expected: null,
       actual: a.billed,
     });

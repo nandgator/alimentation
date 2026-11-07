@@ -27,7 +27,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -40,11 +40,11 @@ services:
       db:
         condition: service_healthy
     ports:
-      - '${PORT:-8787}:8787'
+      - "${PORT:-8787}:8787"
     volumes:
       - instance:/data
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- "http://127.0.0.1:$$PORT/api/health" >/dev/null || exit 1']
+      test: ["CMD-SHELL", 'wget -qO- "http://127.0.0.1:$$PORT/api/health" >/dev/null || exit 1']
       interval: 15s
       timeout: 3s
       start_period: 20s
@@ -52,7 +52,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8787}
-      DEDICATED: '1'
+      DEDICATED: "1"
       PLACEMENT_ADMIN_URL: postgres://postgres:${DB_PASSWORD}@db:5432/postgres
       AUTH_DEV: ${AUTH_DEV:-0}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
@@ -66,15 +66,15 @@ services:
   # It is not started unless asked for:
   #   docker compose --profile reference up -d --build reference     then  http://localhost:8788
   reference:
-    profiles: ['reference']
+    profiles: ["reference"]
     build:
       context: .
       target: reference
     restart: unless-stopped
     ports:
-      - '${REFERENCE_PORT:-8788}:8788'
+      - "${REFERENCE_PORT:-8788}:8788"
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- "http://127.0.0.1:8788/healthz" >/dev/null || exit 1']
+      test: ["CMD-SHELL", 'wget -qO- "http://127.0.0.1:8788/healthz" >/dev/null || exit 1']
       interval: 15s
       timeout: 3s
       start_period: 5s

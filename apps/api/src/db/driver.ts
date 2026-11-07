@@ -42,7 +42,7 @@ export function dbFromPool(pool: PoolLike): Db {
       let tail: Promise<unknown> = Promise.resolve();
       try {
         await client.query(
-          opts?.snapshot ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : 'BEGIN',
+          opts?.snapshot ? "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY" : "BEGIN",
         );
         const tx: Tx = {
           query<R extends Row = Row>(text: string, values?: unknown[]) {
@@ -52,12 +52,12 @@ export function dbFromPool(pool: PoolLike): Db {
           },
         };
         const out = await fn(tx);
-        await client.query('COMMIT');
+        await client.query("COMMIT");
         return out;
       } catch (e) {
         try {
           await tail; // nothing is left running when the transaction ends
-          await client.query('ROLLBACK');
+          await client.query("ROLLBACK");
         } catch {
           broken = true; // a connection that cannot roll back is not reused
         }
@@ -86,10 +86,10 @@ type Parser = (v: string) => unknown;
  * Everything else is left to the driver's own parsers, which is what turns bytea
  * into bytes and jsonb into objects.
  */
-export function pgTypes(fallback: (oid: number, format?: 'text' | 'binary') => Parser) {
+export function pgTypes(fallback: (oid: number, format?: "text" | "binary") => Parser) {
   return {
-    getTypeParser(oid: number, format?: 'text' | 'binary'): Parser {
-      if (format === 'binary') return fallback(oid, format);
+    getTypeParser(oid: number, format?: "text" | "binary"): Parser {
+      if (format === "binary") return fallback(oid, format);
       switch (oid) {
         case 1082: // date
           return (v) => v;

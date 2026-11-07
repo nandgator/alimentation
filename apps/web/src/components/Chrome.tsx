@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
-import { Link, useLocation } from 'wouter';
-import { useSession } from '../session.tsx';
-import { Mark } from './Mark.tsx';
-import { PageHead } from './ui.tsx';
+import type { ReactNode } from "react";
+import { Link, useLocation } from "wouter";
+import { useSession } from "../session.tsx";
+import { Mark } from "./Mark.tsx";
+import { PageHead } from "./ui.tsx";
 
 /** The bar across the top of every page that is not the home page. */
 export function AppBar({
@@ -18,25 +18,25 @@ export function AppBar({
   const { me, signOut } = useSession();
   const [, go] = useLocation();
   return (
-    <header className="topbar">
-      <div className={wide ? 'wrap wide' : 'wrap'}>
+    <header class="topbar">
+      <div class={wide ? "wrap wide" : "wrap"}>
         {lead}
-        <Link href={me?.account ? '/app' : '/'} className="brand">
-          <Mark /> <span className="brand-text">Alimentation</span>
+        <Link href={me?.account ? "/app" : "/"} class="brand">
+          <Mark /> <span class="brand-text">Alimentation</span>
         </Link>
-        <div className="grow" />
+        <div class="grow" />
         {children}
-        <a className="small helplink" href="/guides/">
+        <a class="small helplink" href="/guides/">
           Help
         </a>
         {me?.account ? (
           <>
-            <span className="muted small account who" title={me.account.email}>
+            <span class="muted small account who" title={me.account.email}>
               {me.account.name ?? me.account.email}
             </span>
             <button
-              className="btn ghost small"
-              onClick={() => void signOut().then(() => go('/'))}
+              class="btn ghost small"
+              onClick={() => void signOut().then(() => go("/"))}
               type="button"
             >
               Sign out
@@ -58,8 +58,8 @@ export function Page({
   children: ReactNode;
 }) {
   return (
-    <div className="page">
-      <div className="wrap">
+    <div class="page">
+      <div class="wrap">
         <PageHead title={title} actions={actions} />
         {children}
       </div>
@@ -71,7 +71,7 @@ export function Page({
 export function RequireSignIn({ children }: { children: ReactNode }) {
   const { me } = useSession();
   const [location, go] = useLocation();
-  if (me === undefined) return <p className="muted wrap waiting">Loading…</p>;
+  if (me === undefined) return <p class="muted wrap waiting">Loading…</p>;
   if (!me?.account) {
     go(`/signin?next=${encodeURIComponent(location)}`, { replace: true });
     return null;

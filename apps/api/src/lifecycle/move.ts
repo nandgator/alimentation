@@ -4,30 +4,31 @@ import {
   unsupportedRules,
   type Bundle,
   type Limits,
-} from '@alimentation/core';
-import type { AccountRow } from '../control/repo.ts';
-import { FieldCipher } from '../crypto/fields.ts';
-import { loadWorkspaceKeys, newWorkspaceKeys } from '../crypto/keys.ts';
-import type { Db } from '../db/driver.ts';
-import { readDsns, sealDsns, type WorkspaceHandle } from '../directory.ts';
+} from "@alimentation/core";
+import type { AccountRow } from "../control/repo.ts";
+import { FieldCipher } from "../crypto/fields.ts";
+import { loadWorkspaceKeys, newWorkspaceKeys } from "../crypto/keys.ts";
+import type { Db } from "../db/driver.ts";
+import { readDsns, sealDsns, type WorkspaceHandle } from "../directory.ts";
 import {
   ExternalPlacement,
   prepareExternalTarget,
   type TargetCheck,
-} from '../placement/external.ts';
-import type { PlatformDeps } from '../platform/workspaces.ts';
-import { ApiError, invalid } from '../workspace/errors.ts';
-import { exportWorkspace } from './bundleio.ts';
-import { AUDITED, importBundle, type ImportReport } from './import.ts';
-import { targetProblem } from './targets.ts';
-import { UNDO_DAYS } from './wipe.ts';
+} from "../placement/external.ts";
+import type { PlatformDeps } from "../platform/workspaces.ts";
+import { ApiError, invalid } from "../workspace/errors.ts";
+import { exportWorkspace } from "./bundleio.ts";
+import { AUDITED, importBundle, type ImportReport } from "./import.ts";
+import { targetProblem } from "./targets.ts";
+import { UNDO_DAYS } from "./wipe.ts";
 
 export type MoveTarget =
-  { kind: 'database'; url: string } | { kind: 'instance'; url: string; token: string };
+  | { kind: "database"; url: string }
+  | { kind: "instance"; url: string; token: string };
 
 export interface MovePreview {
   ok: boolean;
-  target: MoveTarget['kind'];
+  target: MoveTarget["kind"];
   problems: string[];
   counts: Record<string, number>;
   digest: string | null;
@@ -36,7 +37,7 @@ export interface MovePreview {
 }
 
 export interface MoveResult {
-  target: MoveTarget['kind'];
+  target: MoveTarget["kind"];
   digest: string;
   counts: Record<string, number>;
   /** Where the workspace can now be found, for a move to another instance. */
@@ -54,14 +55,14 @@ export async function freezeWorkspace(owner: Db, waitSeconds = 10): Promise<void
     await tx.query(`SET LOCAL lock_timeout = '${wait}s'`);
     // Takes a lock that waits for writers in flight; once held, new writes see the flag below.
     await tx.query(
-      `LOCK TABLE workspace, ${AUDITED.filter((t) => t !== 'workspace').join(', ')} IN SHARE ROW EXCLUSIVE MODE`,
+      `LOCK TABLE workspace, ${AUDITED.filter((t) => t !== "workspace").join(", ")} IN SHARE ROW EXCLUSIVE MODE`,
     );
-    await tx.query('UPDATE workspace SET read_only = true');
+    await tx.query("UPDATE workspace SET read_only = true");
   });
 }
 
 export async function unfreezeWorkspace(owner: Db): Promise<void> {
-  await owner.tx(async (tx) => void (await tx.query('UPDATE workspace SET read_only = false')));
+  await owner.tx(async (tx) => void (await tx.query("UPDATE workspace SET read_only = false")));
 }
 
 async function bundleOf(p: PlatformDeps, handle: WorkspaceHandle, owner: Db): Promise<Bundle> {
@@ -92,21 +93,21 @@ export interface PushReply {
 
 const clean = (v: unknown): string[] =>
   (Array.isArray(v) ? v : [v])
-    .filter((x): x is string => typeof x === 'string')
+    .filter((x): x is string => typeof x === "string")
     .map((x) => x.slice(0, 300))
     .slice(0, 10);
 
 export async function push(
   p: PlatformDeps,
-  target: Extract<MoveTarget, { kind: 'instance' }>,
+  target: Extract<MoveTarget, { kind: "instance" }>,
   payload: PushPayload,
 ): Promise<PushReply> {
   let res: Response;
   try {
     res = await p.fetch(`${new URL(target.url).origin}/_migrate/receive`, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${target.token}` },
+      method: "POST",
+      redirect: "manual",
+      headers: { "content-type": "application/json", authorization: `Bearer ${target.token}` },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(120_000),
     });
@@ -114,7 +115,7 @@ export async function push(
     return {
       definite: false,
       ok: false,
-      problems: ['Could not reach that address.'],
+      problems: ["Could not reach that address."],
       digest: null,
       url: null,
     };
@@ -136,32 +137,32 @@ export async function push(
       : clean(json.problems ?? error).length
         ? clean(json.problems ?? error)
         : res.status === 401
-          ? ['That token was not accepted.']
+          ? ["That token was not accepted."]
           : res.status === 404
-            ? ['That address is not an instance that accepts workspaces.']
+            ? ["That address is not an instance that accepts workspaces."]
             : [`The other side answered ${res.status}.`],
-    digest: typeof json.digest === 'string' ? json.digest : null,
-    url: typeof json.url === 'string' ? json.url : null,
+    digest: typeof json.digest === "string" ? json.digest : null,
+    url: typeof json.url === "string" ? json.url : null,
   };
 }
 
 // --- looking before moving -----------------------------------------------------
 
-const steps = (kind: MoveTarget['kind']): string[] =>
-  kind === 'database'
+const steps = (kind: MoveTarget["kind"]): string[] =>
+  kind === "database"
     ? [
-        'Your database is checked and prepared. Nothing of yours is touched.',
-        'A trial copy is made and checked, then thrown away.',
-        'Writing stops for a few seconds while the real copy is made. Reading carries on.',
-        'Every statement is recalculated from the copy and compared with the original, to the paisa.',
+        "Your database is checked and prepared. Nothing of yours is touched.",
+        "A trial copy is made and checked, then thrown away.",
+        "Writing stops for a few seconds while the real copy is made. Reading carries on.",
+        "Every statement is recalculated from the copy and compared with the original, to the paisa.",
         `If anything differs, nothing changes and writing resumes. If it all matches, you are switched over, and the old copy is removed after ${UNDO_DAYS} days, or sooner if you ask.`,
       ]
     : [
-        'Your instance is asked whether it will take the workspace. Nothing is sent but the question.',
-        'Writing stops for a few seconds while the workspace is sent.',
-        'Your instance recalculates every statement and compares it with the original, to the paisa.',
+        "Your instance is asked whether it will take the workspace. Nothing is sent but the question.",
+        "Writing stops for a few seconds while the workspace is sent.",
+        "Your instance recalculates every statement and compares it with the original, to the paisa.",
         `If anything differs, nothing changes and writing resumes. If it all matches, this address points to your instance, and the copy here is removed after ${UNDO_DAYS} days, or sooner if you ask.`,
-        'People sign in again at the new address with the same email; their roles come with them.',
+        "People sign in again at the new address with the same email; their roles come with them.",
       ];
 
 /** Checks a target and the workspace without changing either. */
@@ -180,10 +181,10 @@ export async function previewMove(
   };
   const bad = targetProblem(target.url, target.kind, p.config.production);
   if (bad) return { ...out, problems: [bad] };
-  if (handle.row.state !== 'ACTIVE')
-    return { ...out, problems: ['This workspace is already being moved or has moved.'] };
+  if (handle.row.state !== "ACTIVE")
+    return { ...out, problems: ["This workspace is already being moved or has moved."] };
 
-  if (target.kind === 'database') {
+  if (target.kind === "database") {
     out.problems.push(
       ...(await prepareExternalTarget(p.openDb, target.url, { checkOnly: true })).problems,
     );
@@ -194,7 +195,7 @@ export async function previewMove(
     out.counts = bundle.manifest.counts;
     out.digest = bundle.manifest.digest;
     out.problems.push(...unsupportedRules(bundle));
-    if (target.kind === 'instance') {
+    if (target.kind === "instance") {
       const reply = await push(p, target, { slug: handle.row.slug, bundle, dryRun: true });
       if (!reply.ok) out.problems.push(...reply.problems);
     }
@@ -210,8 +211,8 @@ export async function previewMove(
 const refused = (r: ImportReport) =>
   new ApiError(
     422,
-    'copy_differs',
-    `The copy did not match the original, so nothing was changed. ${r.problems.slice(0, 3).join(' ')}`,
+    "copy_differs",
+    `The copy did not match the original, so nothing was changed. ${r.problems.slice(0, 3).join(" ")}`,
   );
 
 /**
@@ -225,11 +226,11 @@ export async function moveToDatabase(
   _by: AccountRow,
   url: string,
 ): Promise<MoveResult> {
-  const bad = targetProblem(url, 'database', p.config.production);
+  const bad = targetProblem(url, "database", p.config.production);
   if (bad) throw invalid(bad);
   const row = handle.row;
   if (!(await p.control.beginMove(row.id)))
-    throw new ApiError(409, 'busy', 'This workspace is already being moved or has moved.');
+    throw new ApiError(409, "busy", "This workspace is already being moved or has moved.");
   p.directory.invalidate(row.slug);
 
   const owner = p.openDb(handle.dsns.owner, { ephemeral: true });
@@ -239,7 +240,7 @@ export async function moveToDatabase(
   let switched = false;
   try {
     target = await prepareExternalTarget(p.openDb, url);
-    if (!target.ok) throw new ApiError(422, 'target_unusable', target.problems.join(' '));
+    if (!target.ok) throw new ApiError(422, "target_unusable", target.problems.join(" "));
     targetDb = p.openDb(target.ownerUrl, { ephemeral: true });
 
     const wrapped = await newWorkspaceKeys(p.keyring, row.id);
@@ -260,14 +261,14 @@ export async function moveToDatabase(
     const links = await p.control.membershipLinks(row.id);
     await targetDb.tx(async (tx) => {
       for (const l of links)
-        await tx.query('SELECT bind_account($1, $2)', [l.personId, l.accountId]);
+        await tx.query("SELECT bind_account($1, $2)", [l.personId, l.accountId]);
     });
 
     const removeBy = new Date(p.now().getTime() + UNDO_DAYS * DAY);
     await p.control.rehome(
       row.id,
       {
-        placement: { kind: 'external', data: {} },
+        placement: { kind: "external", data: {} },
         dsnEnc: await sealDsns(p.keyring, row.id, { app: target.appUrl!, owner: target.ownerUrl }),
         ...wrapped,
       },
@@ -290,10 +291,10 @@ export async function moveToDatabase(
     await p.control.setLimits(row.id, lifted).catch(() => undefined);
     p.directory.invalidate(row.slug);
     await p.control
-      .event('workspace.moved', row.id, { to: 'database', digest: bundle.manifest.digest })
+      .event("workspace.moved", row.id, { to: "database", digest: bundle.manifest.digest })
       .catch(() => undefined);
     return {
-      target: 'database',
+      target: "database",
       digest: bundle.manifest.digest,
       counts: bundle.manifest.counts,
       movedTo: null,
@@ -305,11 +306,11 @@ export async function moveToDatabase(
       if (target?.touched)
         await new ExternalPlacement(p.openDb)
           .destroy(
-            { kind: 'external', data: {} },
+            { kind: "external", data: {} },
             { ownerUrl: target.ownerUrl, appUrl: target.appUrl ?? target.ownerUrl },
           )
           .catch(() => undefined);
-      await p.control.setState(row.id, 'ACTIVE');
+      await p.control.setState(row.id, "ACTIVE");
       p.directory.invalidate(row.slug);
     }
     throw e;
@@ -327,18 +328,18 @@ export async function moveToInstance(
   p: PlatformDeps,
   handle: WorkspaceHandle,
   _by: AccountRow,
-  target: Extract<MoveTarget, { kind: 'instance' }>,
+  target: Extract<MoveTarget, { kind: "instance" }>,
 ): Promise<MoveResult> {
-  const bad = targetProblem(target.url, 'instance', p.config.production);
+  const bad = targetProblem(target.url, "instance", p.config.production);
   if (bad) throw invalid(bad);
   const row = handle.row;
   if (!(await p.control.beginMove(row.id)))
-    throw new ApiError(409, 'busy', 'This workspace is already being moved or has moved.');
+    throw new ApiError(409, "busy", "This workspace is already being moved or has moved.");
   p.directory.invalidate(row.slug);
 
   const owner = p.openDb(handle.dsns.owner, { ephemeral: true });
   let frozen = false;
-  let outcome: 'none' | 'unsure' | 'done' = 'none';
+  let outcome: "none" | "unsure" | "done" = "none";
   try {
     const trial = await push(p, target, {
       slug: row.slug,
@@ -348,51 +349,51 @@ export async function moveToInstance(
     if (!trial.ok)
       throw new ApiError(
         422,
-        'target_refused',
-        trial.problems.join(' ') || 'That instance would not take the workspace.',
+        "target_refused",
+        trial.problems.join(" ") || "That instance would not take the workspace.",
       );
 
     await p.control.setMoveTarget(row.id, target.url);
     await freezeWorkspace(owner);
     frozen = true;
     const bundle = await bundleOf(p, handle, owner);
-    outcome = 'unsure'; // from here until an answer arrives, the other side may or may not have it
+    outcome = "unsure"; // from here until an answer arrives, the other side may or may not have it
     const reply = await push(p, target, { slug: row.slug, bundle, dryRun: false });
     if (reply.definite && !reply.ok) {
-      outcome = 'none';
+      outcome = "none";
       throw new ApiError(
         422,
-        'target_refused',
-        `Nothing was changed. ${reply.problems.join(' ')}`.trim(),
+        "target_refused",
+        `Nothing was changed. ${reply.problems.join(" ")}`.trim(),
       );
     }
     if (!reply.ok || reply.digest !== bundle.manifest.digest) {
-      await p.control.event('workspace.move_unconfirmed', row.id, {}).catch(() => undefined);
+      await p.control.event("workspace.move_unconfirmed", row.id, {}).catch(() => undefined);
       throw new ApiError(
         502,
-        'move_unconfirmed',
-        'We could not confirm the other instance has the workspace. It is read-only here until an operator has checked, and nothing is lost.',
+        "move_unconfirmed",
+        "We could not confirm the other instance has the workspace. It is read-only here until an operator has checked, and nothing is lost.",
       );
     }
-    outcome = 'done';
+    outcome = "done";
     const movedTo = reply.url ?? `${new URL(target.url).origin}/w/${row.slug}`;
     await p.control.setMoved(row.id, movedTo);
     p.directory.invalidate(row.slug);
     await p.control
-      .event('workspace.moved', row.id, { to: 'instance', digest: bundle.manifest.digest })
+      .event("workspace.moved", row.id, { to: "instance", digest: bundle.manifest.digest })
       .catch(() => undefined);
     return {
-      target: 'instance',
+      target: "instance",
       digest: bundle.manifest.digest,
       counts: bundle.manifest.counts,
       movedTo,
       oldCopyRemovedBy: new Date(p.now().getTime() + UNDO_DAYS * DAY).toISOString(),
     };
   } catch (e) {
-    if (outcome === 'none') {
+    if (outcome === "none") {
       if (frozen) await unfreezeWorkspace(owner).catch(() => undefined);
       await p.control.setMoveTarget(row.id, null).catch(() => undefined);
-      await p.control.setState(row.id, 'ACTIVE');
+      await p.control.setState(row.id, "ACTIVE");
       p.directory.invalidate(row.slug);
     }
     throw e;
@@ -404,7 +405,7 @@ export async function moveToInstance(
 /** Puts a workspace back to work after a move that stopped part-way. Only for a move that sent nothing. */
 export async function releaseMove(p: PlatformDeps, workspaceId: string): Promise<void> {
   const row = await p.control.workspaceById(workspaceId);
-  if (!row || row.state !== 'MIGRATING') return;
+  if (!row || row.state !== "MIGRATING") return;
   const dsns = await readDsns(p.keyring, row.id, row.dsnEnc);
   const owner = p.openDb(dsns.owner, { ephemeral: true });
   try {
@@ -413,6 +414,6 @@ export async function releaseMove(p: PlatformDeps, workspaceId: string): Promise
     await owner.close();
   }
   await p.control.setMoveTarget(row.id, null);
-  await p.control.setState(row.id, 'ACTIVE');
+  await p.control.setState(row.id, "ACTIVE");
   p.directory.invalidate(row.slug);
 }

@@ -1,5 +1,5 @@
-@import '@fontsource/young-serif/index.css';
-@import '@fontsource-variable/figtree/index.css';
+@import "@fontsource/young-serif/index.css";
+@import "@fontsource-variable/figtree/index.css";
 
 /* ---------- Tokens ---------------------------------------------------------
    A kitchen: tile-white walls, curry-leaf green, turmeric, steel. Dark mode keeps
@@ -59,7 +59,7 @@
   --text-lg: 1.25rem;
   --text-xl: 1.625rem;
   --text-2xl: 2.25rem;
-  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   /* Space, on a grid of two pixels: these are the steps the layout reaches for. Anything between is
      written as a multiple of two. */
   --space-1: 4px;
@@ -114,8 +114,8 @@
     0 12px 24px -8px rgb(8 22 15 / 0.24);
   --elev-toast: 0 2px 6px rgb(8 22 15 / 0.16), 0 14px 28px -10px rgb(8 22 15 / 0.38);
   --elev-dialog: 0 2px 6px rgb(8 22 15 / 0.14), 0 28px 64px -16px rgb(8 22 15 / 0.45);
-  --serif: 'Young Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
-  --sans: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --serif: "Young Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --sans: "Figtree Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --gutter: 16px;
   /* How long things take: a press, a slide, an arrival, and a change of theme. */
   --dur-1: 140ms;
@@ -127,7 +127,7 @@
   --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
+  :root:not([data-theme="light"]) {
     --bg: #0e1713;
     --paper-2: #15221c;
     --card: #1a2923;
@@ -152,7 +152,7 @@
     --elev-dialog: 0 0 0 1px rgb(255 255 255 / 0.09), 0 28px 64px -16px rgb(0 0 0 / 0.75);
   }
 }
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
   color-scheme: dark;
   --bad-ink: #1a1206;
   --elev-menu: 0 0 0 1px rgb(255 255 255 / 0.1), 0 14px 28px -8px rgb(0 0 0 / 0.6);
@@ -178,7 +178,7 @@
   --field-green: #1a4331;
   --board: #1b2d25;
 }
-:root[data-theme='light'] {
+:root[data-theme="light"] {
   color-scheme: light;
 }
 
@@ -196,7 +196,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 400 var(--text-base)/1.55 var(--sans);
+  font: 400 var(--text-base) / 1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   /* Young Serif's own figures are old-style (a "10" reads as "IO"); money wants the lining ones. */
@@ -276,7 +276,7 @@ a {
   font-variant-numeric: lining-nums tabular-nums;
 }
 .eyebrow {
-  font: 600 var(--text-sm)/1.2 var(--sans);
+  font: 600 var(--text-sm) / 1.2 var(--sans);
   color: var(--ink-2);
 }
 
@@ -287,7 +287,7 @@ a {
   border-radius: var(--radius-pill);
   padding: 12px 22px;
   min-height: var(--control);
-  font: 600 var(--text-md)/1 var(--sans);
+  font: 600 var(--text-md) / 1 var(--sans);
   cursor: pointer;
   background: var(--brand);
   color: var(--brand-ink);
@@ -349,7 +349,7 @@ a {
 }
 .field > label,
 .field > .label {
-  font: 600 var(--text-sm)/1.2 var(--sans);
+  font: 600 var(--text-sm) / 1.2 var(--sans);
   color: var(--ink-2);
 }
 .field .hint {
@@ -420,7 +420,7 @@ select {
     border: 1px solid var(--hair);
     border-radius: var(--radius-md);
     box-shadow: var(--elev-menu);
-    font: 500 var(--text-md)/1.3 var(--sans);
+    font: 500 var(--text-md) / 1.3 var(--sans);
     max-block-size: min(22rem, 50svh);
     opacity: 1;
     transform: none;
@@ -522,7 +522,7 @@ select.fit {
 summary {
   cursor: pointer;
 }
-input[type='checkbox'] {
+input[type="checkbox"] {
   width: 20px;
   min-height: 20px;
   accent-color: var(--brand);
@@ -557,7 +557,7 @@ input[type='checkbox'] {
   min-width: 0;
 }
 /* A field beside a button takes what the button leaves; a tick box beside its words stays a tick box. */
-.row > input:not([type='checkbox'], [type='radio']) {
+.row > input:not([type="checkbox"], [type="radio"]) {
   flex: 1 1 0;
   width: auto;
   min-width: 0;
@@ -592,7 +592,7 @@ input[type='checkbox'] {
   align-items: center;
   border-radius: var(--radius-pill);
   padding: 4px 10px;
-  font: 600 var(--text-xs)/1.4 var(--sans);
+  font: 600 var(--text-xs) / 1.4 var(--sans);
   background: var(--paper-2);
   color: var(--ink-2);
   white-space: nowrap;
@@ -629,13 +629,13 @@ input[type='checkbox'] {
   padding: 14px 16px;
 }
 .tile .k {
-  font: 600 var(--text-xs)/1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
 }
 .tile .v {
-  font: 400 var(--text-xl)/1.2 var(--serif);
+  font: 400 var(--text-xl) / 1.2 var(--serif);
   margin-top: 6px;
   font-variant-numeric: lining-nums tabular-nums;
 }
@@ -687,7 +687,7 @@ td {
   white-space: nowrap;
 }
 th {
-  font: 600 var(--text-xs)/1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--sans);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -755,7 +755,7 @@ td.linked > button[disabled] .nm {
   border-radius: var(--radius-sm);
   background: none;
   color: var(--brand);
-  font: 600 var(--text-sm)/1 var(--sans);
+  font: 600 var(--text-sm) / 1 var(--sans);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -900,7 +900,7 @@ dialog::backdrop {
   font-weight: 600;
 }
 .brand {
-  font: 400 var(--text-lg)/1 var(--serif);
+  font: 400 var(--text-lg) / 1 var(--serif);
   font-variant-numeric: lining-nums;
   color: var(--ink);
   text-decoration: none;
@@ -927,7 +927,7 @@ dialog::backdrop {
   font-size: var(--text-sm);
   white-space: nowrap;
 }
-.nav a[aria-current='page'] {
+.nav a[aria-current="page"] {
   background: var(--brand);
   color: var(--brand-ink);
 }
@@ -1056,14 +1056,14 @@ dialog::backdrop {
   border-radius: var(--radius);
 }
 .kitchen-name {
-  font: 400 var(--text-lg)/1.15 var(--serif);
+  font: 400 var(--text-lg) / 1.15 var(--serif);
   font-variant-numeric: lining-nums;
   overflow-wrap: anywhere;
 }
 .acting {
   display: grid;
   gap: 4px;
-  font: 600 var(--text-xs)/1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--sans);
   color: var(--ink-2);
 }
 .acting select {
@@ -1104,7 +1104,7 @@ dialog::backdrop {
 .theme-switch legend {
   padding: 0;
   margin-bottom: var(--space-1);
-  font: 600 var(--text-xs)/1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--sans);
   color: var(--ink-2);
 }
 .theme-opts {
@@ -1133,7 +1133,7 @@ dialog::backdrop {
   min-height: var(--control-sm);
   padding: 0 var(--space-3);
   border-radius: var(--radius-pill);
-  font: 600 var(--text-sm)/1 var(--sans);
+  font: 600 var(--text-sm) / 1 var(--sans);
   color: var(--ink-2);
   transition:
     background-color var(--dur-1) ease,
@@ -1159,10 +1159,10 @@ dialog::backdrop {
 }
 /* A menu that is hidden is a drawer: it slides over the page and never moves it. Only transform and
    opacity move, and with reduced motion it simply appears. */
-.shell[data-pinned='false'] {
+.shell[data-pinned="false"] {
   grid-template-columns: minmax(0, 1fr);
 }
-.shell[data-pinned='false'] .side {
+.shell[data-pinned="false"] .side {
   position: fixed;
   z-index: var(--z-drawer);
   top: var(--topbar-h);
@@ -1179,7 +1179,7 @@ dialog::backdrop {
     transform var(--dur-2) var(--ease-out),
     visibility 0s linear var(--dur-2);
 }
-.shell[data-pinned='false'] .side[data-open='true'] {
+.shell[data-pinned="false"] .side[data-open="true"] {
   transform: none;
   visibility: visible;
   box-shadow: var(--elev-menu);
@@ -1198,7 +1198,7 @@ dialog::backdrop {
     opacity var(--dur-2) ease,
     visibility 0s linear var(--dur-2);
 }
-.side-backdrop[data-open='true'] {
+.side-backdrop[data-open="true"] {
   opacity: 1;
   visibility: visible;
   transition:
@@ -1211,7 +1211,7 @@ dialog::backdrop {
 }
 .side-title {
   padding: 0 12px 6px;
-  font: 600 var(--text-xs)/1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -1229,12 +1229,12 @@ dialog::backdrop {
   font-weight: 600;
   font-size: var(--text-md);
 }
-.side nav a[aria-current='page'] {
+.side nav a[aria-current="page"] {
   background: var(--brand);
   color: var(--brand-ink);
 }
 @media (hover: hover) and (pointer: fine) {
-  .side nav a:not([aria-current='page']):hover {
+  .side nav a:not([aria-current="page"]):hover {
     background: var(--paper-2);
     color: var(--ink);
   }
@@ -1251,7 +1251,7 @@ dialog::backdrop {
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-ink);
-  font: 700 var(--text-xs)/1 var(--sans);
+  font: 700 var(--text-xs) / 1 var(--sans);
 }
 .side .count {
   margin-left: 0;
@@ -1329,14 +1329,14 @@ dialog::backdrop {
     text-align: center;
     cursor: pointer;
   }
-  .nav > a[aria-current='page'] {
+  .nav > a[aria-current="page"] {
     background: var(--brand);
     color: var(--brand-ink);
   }
   .nav .more {
     appearance: none;
   }
-  .nav[data-open='true'] .more {
+  .nav[data-open="true"] .more {
     background: var(--paper-2);
     color: var(--ink);
   }
@@ -1374,7 +1374,7 @@ dialog::backdrop {
     border-radius: var(--radius-lg);
     box-shadow: var(--elev-menu);
   }
-  .nav[data-open='true'] .extras {
+  .nav[data-open="true"] .extras {
     display: grid;
   }
   .nav .extras-group {
@@ -1398,7 +1398,7 @@ dialog::backdrop {
     font-size: var(--text-md);
     white-space: normal;
   }
-  .nav .extras-group a[aria-current='page'] {
+  .nav .extras-group a[aria-current="page"] {
     background: var(--brand);
     color: var(--brand-ink);
   }
@@ -1423,7 +1423,7 @@ dialog::backdrop {
   }
 }
 @media (max-width: 720px) and (prefers-reduced-motion: no-preference) {
-  .nav[data-open='true'] .extras {
+  .nav[data-open="true"] .extras {
     animation: panel-in var(--dur-2) var(--ease-out);
   }
   @keyframes panel-in {
@@ -1513,7 +1513,7 @@ dialog::backdrop {
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--ink-2);
-  font: 600 var(--text-xs)/1 var(--sans);
+  font: 600 var(--text-xs) / 1 var(--sans);
   cursor: pointer;
 }
 .icon-btn svg {
@@ -1567,7 +1567,7 @@ dialog::backdrop {
   padding: 0;
   background: none;
   color: inherit;
-  font: var(--text-sm)/1.6 var(--mono);
+  font: var(--text-sm) / 1.6 var(--mono);
   white-space: pre;
 }
 .code-bar {
@@ -1578,7 +1578,7 @@ dialog::backdrop {
   padding: 4px 8px 4px 18px;
   border-bottom: 1px solid color-mix(in srgb, var(--board-ink) 14%, transparent);
   color: var(--board-dim);
-  font: 600 var(--text-xs)/1 var(--sans);
+  font: 600 var(--text-xs) / 1 var(--sans);
   letter-spacing: 0.02em;
 }
 .code-name {
@@ -1615,19 +1615,19 @@ dialog::backdrop {
 .copy .copy-label {
   display: none;
 }
-.copy[data-state='copied'] {
+.copy[data-state="copied"] {
   padding: 0 var(--space-3);
   color: var(--code-string);
   border-color: color-mix(in srgb, var(--code-string) 55%, transparent);
 }
-.copy[data-state='copied'] .i-copy {
+.copy[data-state="copied"] .i-copy {
   display: none;
 }
-.copy[data-state='copied'] .i-check,
-.copy[data-state='copied'] .copy-label {
+.copy[data-state="copied"] .i-check,
+.copy[data-state="copied"] .copy-label {
   display: inline;
 }
-.copy[data-state='copied'] .i-check {
+.copy[data-state="copied"] .i-check {
   display: block;
 }
 @media (hover: hover) {
@@ -1637,7 +1637,7 @@ dialog::backdrop {
   }
   .code:hover .copy,
   .code:focus-within .copy,
-  .code .copy[data-state='copied'] {
+  .code .copy[data-state="copied"] {
     opacity: 1;
   }
   .code .copy:hover {
@@ -1667,13 +1667,13 @@ dialog::backdrop {
 /* A console: a prompt before each command that is typed, an indent where there is none, so that what comes
    back lines up under what was typed. */
 .code.console .line::before {
-  content: '';
+  content: "";
   display: inline-block;
   min-width: 2ch;
   user-select: none;
 }
 .code.console .line.cmd::before {
-  content: '$';
+  content: "$";
   color: var(--code-string);
 }
 .code.console .line.out {

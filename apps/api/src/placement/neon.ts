@@ -1,8 +1,8 @@
-import type { Db } from '../db/driver.ts';
-import type { Migration } from '../db/migrate.ts';
-import { ApiError } from '../workspace/errors.ts';
-import { prepareExternalTarget } from './external.ts';
-import type { Credentials, Placement, PlacementRef, Provisioned } from './types.ts';
+import type { Db } from "../db/driver.ts";
+import type { Migration } from "../db/migrate.ts";
+import { ApiError } from "../workspace/errors.ts";
+import { prepareExternalTarget } from "./external.ts";
+import type { Credentials, Placement, PlacementRef, Provisioned } from "./types.ts";
 
 /**
  * One Neon project per workspace, made and removed through Neon's API.
@@ -29,11 +29,11 @@ export interface NeonOptions {
   /** Per-project caps Neon enforces by suspending that project's compute. */
   quota?: Partial<
     Record<
-      | 'logical_size_bytes'
-      | 'compute_time_seconds'
-      | 'active_time_seconds'
-      | 'written_data_bytes'
-      | 'data_transfer_bytes',
+      | "logical_size_bytes"
+      | "compute_time_seconds"
+      | "active_time_seconds"
+      | "written_data_bytes"
+      | "data_transfer_bytes",
       number
     >
   >;
@@ -64,21 +64,21 @@ class NeonError extends Error {
     message: string,
   ) {
     super(message);
-    this.name = 'NeonError';
+    this.name = "NeonError";
   }
 }
 
-const TERMINAL_OK = new Set(['finished', 'skipped']);
-const TERMINAL_BAD = new Set(['failed', 'error', 'cancelled']);
+const TERMINAL_OK = new Set(["finished", "skipped"]);
+const TERMINAL_BAD = new Set(["failed", "error", "cancelled"]);
 
 export class NeonPlacement implements Placement {
-  readonly kind = 'neon-project' as const;
+  readonly kind = "neon-project" as const;
   private readonly base: string;
   private readonly doFetch: typeof fetch;
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(private readonly o: NeonOptions) {
-    this.base = (o.baseUrl ?? 'https://console.neon.tech/api/v2').replace(/\/+$/, '');
+    this.base = (o.baseUrl ?? "https://console.neon.tech/api/v2").replace(/\/+$/, "");
     this.doFetch = o.fetch ?? fetch;
     this.sleep = o.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   }
@@ -92,16 +92,16 @@ export class NeonPlacement implements Placement {
           method,
           headers: {
             authorization: `Bearer ${this.o.apiKey}`,
-            accept: 'application/json',
-            ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+            accept: "application/json",
+            ...(body === undefined ? {} : { "content-type": "application/json" }),
           },
           body: body === undefined ? undefined : JSON.stringify(body),
         });
       } catch {
-        throw new NeonError(0, 'could not reach the database host');
+        throw new NeonError(0, "could not reach the database host");
       }
       if ((res.status === 429 || res.status === 423) && attempt < 4) {
-        const wait = Number(res.headers.get('retry-after'));
+        const wait = Number(res.headers.get("retry-after"));
         await this.sleep(
           Math.min(10_000, (Number.isFinite(wait) && wait > 0 ? wait : 1 + attempt) * 1000),
         );
@@ -109,11 +109,11 @@ export class NeonPlacement implements Placement {
       }
       const text = await res.text();
       if (!res.ok) {
-        let detail = '';
+        let detail = "";
         try {
-          detail = String((JSON.parse(text) as { message?: string }).message ?? '');
+          detail = String((JSON.parse(text) as { message?: string }).message ?? "");
         } catch {
-          detail = '';
+          detail = "";
         }
         throw new NeonError(res.status, detail.slice(0, 200) || `status ${res.status}`);
       }
@@ -130,11 +130,11 @@ export class NeonPlacement implements Placement {
             0,
             `a step failed while making the project: ${op.error ?? op.status}`,
           );
-        if (i >= 120) throw new NeonError(0, 'making the project took too long');
+        if (i >= 120) throw new NeonError(0, "making the project took too long");
         await this.sleep(500);
         op = (
           await this.api<{ operation: Operation }>(
-            'GET',
+            "GET",
             `/projects/${projectId}/operations/${op.id}`,
           )
         ).operation;
@@ -150,7 +150,7 @@ export class NeonPlacement implements Placement {
       pg_version: this.o.pgVersion ?? 18,
       store_passwords: true,
       history_retention_seconds: this.o.historyRetentionSeconds ?? 0,
-      branch: { role_name: 'owner', database_name: 'workspace' },
+      branch: { role_name: "owner", database_name: "workspace" },
       ...(this.o.orgId ? { org_id: this.o.orgId } : {}),
       ...(this.o.quota && Object.keys(this.o.quota).length
         ? { settings: { quota: this.o.quota } }
@@ -159,24 +159,24 @@ export class NeonPlacement implements Placement {
 
     let created: CreatedProject;
     try {
-      created = await this.api<CreatedProject>('POST', '/projects', { project });
+      created = await this.api<CreatedProject>("POST", "/projects", { project });
     } catch (e) {
       this.report(e);
       throw unavailable(e);
     }
     const ref: PlacementRef = {
-      kind: 'neon-project',
+      kind: "neon-project",
       data: { projectId: created.project.id, branchId: created.branch.id },
     };
     try {
       await this.settle(created.project.id, created.operations);
       const ownerUrl = created.connection_uris[0]?.connection_uri;
-      if (!ownerUrl) throw new NeonError(0, 'no connection was returned for the new project');
+      if (!ownerUrl) throw new NeonError(0, "no connection was returned for the new project");
       const prepared = await prepareExternalTarget(this.o.openDb, ownerUrl);
       if (!prepared.ok || !prepared.appUrl)
         throw new NeonError(
           0,
-          prepared.problems.join(' ') || 'the new database could not be prepared',
+          prepared.problems.join(" ") || "the new database could not be prepared",
         );
       return { ref, ownerUrl, appUrl: prepared.appUrl };
     } catch (e) {
@@ -200,7 +200,7 @@ export class NeonPlacement implements Placement {
     const id = ref.data.projectId;
     if (!id) return;
     try {
-      await this.api('DELETE', `/projects/${encodeURIComponent(id)}`);
+      await this.api("DELETE", `/projects/${encodeURIComponent(id)}`);
     } catch (e) {
       if (e instanceof NeonError && e.status === 404) return;
       throw e;
@@ -211,7 +211,7 @@ export class NeonPlacement implements Placement {
     const id = ref.data.projectId;
     if (!id) return false;
     try {
-      await this.api('GET', `/projects/${encodeURIComponent(id)}`);
+      await this.api("GET", `/projects/${encodeURIComponent(id)}`);
       return true;
     } catch (e) {
       if (e instanceof NeonError && e.status === 404) return false;
@@ -225,6 +225,6 @@ const unavailable = (e: unknown) =>
     ? e
     : new ApiError(
         503,
-        'placement_unavailable',
-        'The database for a new workspace could not be made just now. Nothing was created; try again in a minute.',
+        "placement_unavailable",
+        "The database for a new workspace could not be made just now. Nothing was created; try again in a minute.",
       );

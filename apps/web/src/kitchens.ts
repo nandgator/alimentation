@@ -5,7 +5,7 @@ import {
   type Headline,
   type OrganisationKitchenDto,
   type Role,
-} from '@alimentation/core';
+} from "@alimentation/core";
 
 /**
  * What the list of a person's kitchens says about each. Every figure is worked out in the browser from what
@@ -33,7 +33,7 @@ export function figuresOf(boot: BootstrapDto, fromDevice = false): KitchenFigure
 }
 
 /** The kitchens a person runs or cooks for are owed money; the ones they eat at are owed theirs. */
-export const isRunning = (role: Role) => role === 'admin' || role === 'supplier';
+export const isRunning = (role: Role) => role === "admin" || role === "supplier";
 
 export interface Totals {
   /** Everything above is in this currency; there is no total when the kitchens use more than one. */

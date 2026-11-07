@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { smoothDamp } from './motion.tsx';
+import { describe, expect, it } from "vitest";
+import { smoothDamp } from "./motion.tsx";
 
 /** Runs the follower at 60 frames a second, with the goal as a function of time, and returns every frame. */
 function run(goal: (t: number) => number, seconds: number, from = 0, fps = 60) {
@@ -14,8 +14,8 @@ function run(goal: (t: number) => number, seconds: number, from = 0, fps = 60) {
   return frames;
 }
 
-describe('the follower that carries the tiffin from place to place', () => {
-  it('arrives, without passing the place, and is still on arrival', () => {
+describe("the follower that carries the tiffin from place to place", () => {
+  it("arrives, without passing the place, and is still on arrival", () => {
     const frames = run(() => 2, 3);
     expect(frames.every((f) => f.x <= 2)).toBe(true);
     expect(frames.every((f, i) => i === 0 || f.x >= frames[i - 1]!.x)).toBe(true);
@@ -24,7 +24,7 @@ describe('the follower that carries the tiffin from place to place', () => {
     expect(Math.abs(end.v)).toBeLessThan(0.001);
   });
 
-  it('takes about a second to cross a place, and starts gently', () => {
+  it("takes about a second to cross a place, and starts gently", () => {
     const frames = run(() => 1, 2);
     expect(frames.find((f) => f.x > 0.99)!.t).toBeGreaterThan(0.8);
     expect(frames.find((f) => f.x > 0.99)!.t).toBeLessThan(1.4);
@@ -32,7 +32,7 @@ describe('the follower that carries the tiffin from place to place', () => {
     expect(frames[0]!.x).toBeLessThan(0.01);
   });
 
-  it('never jumps when the place changes in mid-flight, however often it does', () => {
+  it("never jumps when the place changes in mid-flight, however often it does", () => {
     // A page scrolled hard up and down: the place flips between the ends every 0.3 seconds.
     const frames = run((t) => (Math.floor(t / 0.3) % 2 === 0 ? 2 : 0), 6, 1);
     let worstStep = 0;
@@ -49,7 +49,7 @@ describe('the follower that carries the tiffin from place to place', () => {
     expect(frames.every((f) => f.x >= -0.001 && f.x <= 2.001)).toBe(true);
   });
 
-  it('copes with a long frame, as a tab that was in the background produces', () => {
+  it("copes with a long frame, as a tab that was in the background produces", () => {
     const [x, v] = smoothDamp(0, 2, 0, 0.3, 0.05);
     expect(x).toBeGreaterThan(0);
     expect(x).toBeLessThan(2);

@@ -1,11 +1,11 @@
-import { parseBundle, unsupportedRules } from '@alimentation/core';
-import { FieldCipher } from '../crypto/fields.ts';
-import { loadWorkspaceKeys, newWorkspaceKeys } from '../crypto/keys.ts';
-import { WORKSPACE_MIGRATIONS } from '../db/migrations.generated.ts';
-import { sealDsns } from '../directory.ts';
-import { claimAutoInvites } from '../platform/invites.ts';
-import { capacityNow, checkSlug, limitsFor, type PlatformDeps } from '../platform/workspaces.ts';
-import { importBundle } from './import.ts';
+import { parseBundle, unsupportedRules } from "@alimentation/core";
+import { FieldCipher } from "../crypto/fields.ts";
+import { loadWorkspaceKeys, newWorkspaceKeys } from "../crypto/keys.ts";
+import { WORKSPACE_MIGRATIONS } from "../db/migrations.generated.ts";
+import { sealDsns } from "../directory.ts";
+import { claimAutoInvites } from "../platform/invites.ts";
+import { capacityNow, checkSlug, limitsFor, type PlatformDeps } from "../platform/workspaces.ts";
+import { importBundle } from "./import.ts";
 
 const INVITE_DAYS = 90;
 
@@ -15,7 +15,7 @@ export interface ReceiveReport {
   ok: boolean;
   dryRun: boolean;
   /** `slug_taken` and `full` are told apart from a bundle that is wrong, because the caller can act on them. */
-  code: 'ok' | 'invalid' | 'slug_taken' | 'full';
+  code: "ok" | "invalid" | "slug_taken" | "full";
   problems: string[];
   digest: string | null;
   counts: Record<string, number>;
@@ -35,7 +35,7 @@ export async function receiveWorkspace(
   const report: ReceiveReport = {
     ok: false,
     dryRun: input.dryRun,
-    code: 'invalid',
+    code: "invalid",
     problems: [],
     digest: null,
     counts: {},
@@ -51,16 +51,16 @@ export async function receiveWorkspace(
   const unsupported = unsupportedRules(bundle);
   if (unsupported.length) return { ...report, problems: unsupported };
   if (await p.control.workspaceBySlug(input.slug))
-    return { ...report, code: 'slug_taken', problems: ['That address is already taken here.'] };
+    return { ...report, code: "slug_taken", problems: ["That address is already taken here."] };
   if (!(await capacityNow(p)).open)
     return {
       ...report,
-      code: 'full',
-      problems: ['This instance has no room for another workspace.'],
+      code: "full",
+      problems: ["This instance has no room for another workspace."],
     };
 
   report.url = `${p.config.appOrigin}/w/${input.slug}`;
-  if (input.dryRun) return { ...report, ok: true, code: 'ok' };
+  if (input.dryRun) return { ...report, ok: true, code: "ok" };
 
   const id = crypto.randomUUID();
   const provisioned = await p.placement.provision(id, WORKSPACE_MIGRATIONS);
@@ -96,7 +96,7 @@ export async function receiveWorkspace(
       if (!p.config.dedicated)
         await owner.tx(
           async (tx) =>
-            void (await tx.query('UPDATE workspace SET people_cap = $1, row_cap = $2', [
+            void (await tx.query("UPDATE workspace SET people_cap = $1, row_cap = $2", [
               limits.people,
               limits.rows,
             ])),
@@ -120,12 +120,12 @@ export async function receiveWorkspace(
       const account = await p.control.accountByEmail(email);
       if (account) await claimAutoInvites(p, account);
     }
-    await p.control.event('workspace.received', id, { placement: provisioned.ref.kind });
-    return { ...report, ok: true, code: 'ok' };
+    await p.control.event("workspace.received", id, { placement: provisioned.ref.kind });
+    return { ...report, ok: true, code: "ok" };
   } catch (e) {
     if (inserted) await p.control.deleteWorkspaceRow(id).catch(() => undefined);
     await p.placement.destroy(provisioned.ref).catch(() => undefined);
-    if (e instanceof Refused) return { ...report, ok: false, code: 'invalid', url: null };
+    if (e instanceof Refused) return { ...report, ok: false, code: "invalid", url: null };
     throw e;
   }
 }

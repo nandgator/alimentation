@@ -1,23 +1,23 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
+import AxeBuilder from "@axe-core/playwright";
+import { expect, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
 
 export async function signIn(page: Page, email: string, name: string) {
-  await page.goto('/signin');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Name').fill(name);
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.waitForURL('**/app');
+  await page.goto("/signin");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Name").fill(name);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL("**/app");
 }
 
 /** Fails on anything a person with a screen reader or low vision would hit, serious or worse. */
 export async function expectAccessible(page: Page, where: string) {
   const result = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
-  const bad = result.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+  const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(
     bad.map((v) => `${where}: ${v.id} (${v.nodes.length}): ${v.nodes[0]?.html.slice(0, 120)}`),
-    'accessibility',
+    "accessibility",
   ).toEqual([]);
 }
 
@@ -46,7 +46,7 @@ export async function shot(page: Page, info: TestInfo, name: string) {
 
 export const firstOfMonth = () => {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 };
 
 /**
@@ -57,7 +57,7 @@ export const firstOfMonth = () => {
 export function aWorkingDayThisMonth(): string {
   const d = new Date();
   const iso = (t: Date) =>
-    `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
   for (let i = 0; i < 31; i++) {
     const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i);
     if (t.getMonth() !== d.getMonth()) break;
@@ -82,13 +82,13 @@ export function watchPage(page: Page): string[] {
   // WebKit reports, as a refused stylesheet, the one it draws a select's own popup with, under any policy that
   // allows no inline style. It is WebKit's and not the page's: a page with nothing but a select does it, and the
   // select works. Anything else it refuses is still reported.
-  const webkit = page.context().browser()?.browserType().name() === 'webkit';
+  const webkit = page.context().browser()?.browserType().name() === "webkit";
   const itsOwnSelect =
     /^Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline'/;
-  page.on('console', (m) => {
+  page.on("console", (m) => {
     if (webkit && itsOwnSelect.test(m.text())) return;
     if (/Content Security Policy|Refused to/i.test(m.text())) seen.push(m.text().slice(0, 200));
   });
-  page.on('pageerror', (e) => seen.push(`script error: ${e.message}`.slice(0, 200)));
+  page.on("pageerror", (e) => seen.push(`script error: ${e.message}`.slice(0, 200)));
   return seen;
 }

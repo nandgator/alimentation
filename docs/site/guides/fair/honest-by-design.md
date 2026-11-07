@@ -1,29 +1,46 @@
 ---
+
 title: Honest by design
-description: How Alimentation keeps honest people honest without locking anyone out, what each role could try, and what is deliberately left to trust.
+description:
+How Alimentation keeps honest people honest without locking anyone out, what each role could try,
+and what is deliberately left to trust.
 ---
 
 # Honest by design
 
-Alimentation is made for people who know each other: a mess, a tiffin service, a home kitchen. It does not try to stop a determined thief. It aims for something more useful in a place like this:
+Alimentation is made for people who know each other: a mess, a tiffin service, a home kitchen. It
+does not try to stop a determined thief. It aims for something more useful in a place like this:
 
 > **Honest mistakes are easy to fix. Dishonesty is hard to hide.**
 
-That is a balance. Rules that are too tight punish the supplier who was ill for a week and the member who was away. Rules that are too loose mean nobody can trust a bill. Here is where the line is drawn, and why.
+That is a balance. Rules that are too tight punish the supplier who was ill for a week and the
+member who was away. Rules that are too loose mean nobody can trust a bill. Here is where the line
+is drawn, and why.
 
 ## Six things that hold everywhere
 
-**1. The name and the time are put there by the system.** Every entry, claim, decision and payment carries who made it and when. Nobody types those in, and nobody can change them afterwards, not even by trying to send something clever.
+**1. The name and the time are put there by the system.** Every entry, claim, decision and payment
+carries who made it and when. Nobody types those in, and nobody can change them afterwards, not even
+by trying to send something clever.
 
-**2. The important records are only ever added to.** Rate cards, rules, decisions, reversals, settlements and the audit trail cannot be edited or deleted by anyone through the app. This is not just a missing button: the system itself refuses.
+**2. The important records are only ever added to.** Rate cards, rules, decisions, reversals,
+settlements and the audit trail cannot be edited or deleted by anyone through the app. This is not
+just a missing button: the system itself refuses.
 
-**3. The people a change affects can see it.** A member sees their own bill, their own claims and their own **History**, in words, with who did each thing. The supplier sees the same for everything they can see. The admin sees the full **Audit**. So "the admin removed my entry" is not something only the admin can know. [What each person can see](#who-can-see-what) is spelled out below.
+**3. The people a change affects can see it.** A member sees their own bill, their own claims and
+their own **History**, in words, with who did each thing. The supplier sees the same for everything
+they can see. The admin sees the full **Audit**. So "the admin removed my entry" is not something
+only the admin can know. [What each person can see](#who-can-see-what) is spelled out below.
 
-**4. Money takes two.** A member says they paid. The supplier decides. Neither can finish the job alone, and the first decision is final. Only the admin can reverse it, with a reason, in the open.
+**4. Money takes two.** A member says they paid. The supplier decides. Neither can finish the job
+alone, and the first decision is final. Only the admin can reverse it, with a reason, in the open.
 
-**5. A closed month stays closed.** Closing freezes what each person is billed. Later changes to a meal show as **Changed after close** and by how much. They never alter the bill.
+**5. A closed month stays closed.** Closing freezes what each person is billed. Later changes to a
+meal show as **Changed after close** and by how much. They never alter the bill.
 
-**6. Late is allowed, quiet is not.** An entry added after its day is accepted, and is marked **Late** to everyone who can see it, with the number of days. See [Month end and catching up](/guides/admin/month-end/).
+**6. Late is allowed, quiet is not.** An entry added after its day is accepted, and is marked
+**Late** to everyone who can see it, with the number of days. See
+[Month end and catching up](/guides/admin/month-end/).
 
 ## Who can see what
 
@@ -40,7 +57,9 @@ Trust needs some transparency, but not all of it. Everyone sees what affects the
 | **Who the other people in a sentence are**                    | Roles only: _"The admin"_, _"The supplier"_, never another member's name | Roles, and members' names                              | Everyone                      |
 | **Whether an entry was added late, and by how many days**     | Yes                                                                      | Yes                                                    | Yes                           |
 
-None of this can be switched off, by the admin or anyone else. See [the privacy page](/guides/fair/privacy/) for what is kept private even from whoever runs the service.
+None of this can be switched off, by the admin or anyone else. See
+[the privacy page](/guides/fair/privacy/) for what is kept private even from whoever runs the
+service.
 
 ## What each role could try
 
@@ -67,19 +86,27 @@ None of this can be switched off, by the admin or anyone else. See [the privacy 
 
 Rigid rules are a kind of unfairness. So:
 
-- **A supplier who was unavailable** loses nothing. Claims wait, and are decided when the supplier is back, even after the month has closed.
-- **A member who was away** can add what they forgot until the month closes, or ask the admin afterwards.
-- **A month's catch-up window** can be a fixed number of days after the month ends, so the deadline is known to everyone. See [the rules](/guides/admin/kitchen-rules/).
-- **A mistake** has a path: a member withdraws a pending claim, an admin reverses a decision, and every step is recorded.
+- **A supplier who was unavailable** loses nothing. Claims wait, and are decided when the supplier
+  is back, even after the month has closed.
+- **A member who was away** can add what they forgot until the month closes, or ask the admin
+  afterwards.
+- **A month's catch-up window** can be a fixed number of days after the month ends, so the deadline
+  is known to everyone. See [the rules](/guides/admin/kitchen-rules/).
+- **A mistake** has a path: a member withdraws a pending claim, an admin reverses a decision, and
+  every step is recorded.
 
 ## What is left to trust
 
 Some things no software can settle, and Alimentation does not pretend to.
 
-- **One person holding two roles.** In a kitchen where the owner is both admin and supplier, nobody checks them. The protection is that everything they do is visible to the member it affects.
-- **Two people who agree to cheat together.** If a member and the supplier both say a payment was made, it was, as far as the books go.
+- **One person holding two roles.** In a kitchen where the owner is both admin and supplier, nobody
+  checks them. The protection is that everything they do is visible to the member it affects.
+- **Two people who agree to cheat together.** If a member and the supplier both say a payment was
+  made, it was, as far as the books go.
 - **The money itself.** Alimentation records an agreement about a payment. It cannot see the bank.
-- **Whoever runs the computer.** Someone who runs their own copy of Alimentation owns its records and can change them with their own tools. That is what owning it means. The system's rules guard everything that goes through the app.
+- **Whoever runs the computer.** Someone who runs their own copy of Alimentation owns its records
+  and can change them with their own tools. That is what owning it means. The system's rules guard
+  everything that goes through the app.
 
 ## Turning the dials
 

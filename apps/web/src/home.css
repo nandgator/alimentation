@@ -18,12 +18,12 @@
   overflow-x: clip;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .home {
+  :root:not([data-theme="light"]) .home {
     --lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 28px 44px -16px rgb(0 0 0 / 0.85);
     --lift-cut: drop-shadow(0 24px 28px rgb(0 0 0 / 0.6));
   }
 }
-:root[data-theme='dark'] .home {
+:root[data-theme="dark"] .home {
   --lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 28px 44px -16px rgb(0 0 0 / 0.85);
   --lift-cut: drop-shadow(0 24px 28px rgb(0 0 0 / 0.6));
 }
@@ -310,8 +310,8 @@ main > section.section:not(.hero) {
   opacity: 0;
   pointer-events: none;
 }
-.hero[data-lifted='true'] .hero-carrier .carrier,
-.hero[data-lifted='true'] .hero-carrier .steam {
+.hero[data-lifted="true"] .hero-carrier .carrier,
+.hero[data-lifted="true"] .hero-carrier .steam {
   opacity: 0;
 }
 
@@ -381,7 +381,7 @@ main > section.section:not(.hero) {
   border-radius: 999px;
   background: color-mix(in srgb, var(--board) 80%, white);
   color: var(--board-ink);
-  font: 400 1.6rem/1 var(--sans);
+  font: 400 1.6rem / 1 var(--sans);
   padding: 0 0 3px;
   cursor: pointer;
   transition:
@@ -442,7 +442,7 @@ main > section.section:not(.hero) {
 /* A weekday that belongs to the month before or after: its number, faint, and no tile. */
 .day-out {
   padding: 8px;
-  font: 400 0.95rem/1 var(--serif);
+  font: 400 0.95rem / 1 var(--serif);
   font-variant-numeric: lining-nums;
   color: var(--board-dim);
 }
@@ -456,7 +456,7 @@ main > section.section:not(.hero) {
   color: var(--board);
 }
 .day .d {
-  font: 400 1.05rem/1 var(--serif);
+  font: 400 1.05rem / 1 var(--serif);
   font-variant-numeric: lining-nums;
 }
 .day .m {
@@ -568,14 +568,14 @@ main > section.section:not(.hero) {
   background: color-mix(in srgb, var(--board) 90%, white);
 }
 .board-key .k-chapati::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: auto 0 0 0;
   height: 4px;
   background: var(--accent);
 }
 .day-chapati::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: auto 0 0 0;
   height: 5px;
@@ -642,7 +642,7 @@ main > section.section:not(.hero) {
   font-size: 0.95rem;
 }
 .board-bill .sofar b {
-  font: 400 1.5rem/1 var(--serif);
+  font: 400 1.5rem / 1 var(--serif);
   font-variant-numeric: lining-nums;
 }
 .board-bill .sofar + .total {
@@ -723,7 +723,7 @@ main > section.section:not(.hero) {
   transition: background-color 240ms ease;
 }
 .steps li::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -955,7 +955,7 @@ main > section.section:not(.hero) {
   line-height: 1.5;
 }
 .receipt .mono {
-  font: 500 0.8rem/1.4 var(--mono);
+  font: 500 0.8rem / 1.4 var(--mono);
   word-break: break-all;
 }
 .receipt .tick {
@@ -972,7 +972,7 @@ main > section.section:not(.hero) {
 }
 .receipt .seal {
   margin-top: 14px;
-  font: 400 1.05rem/1.35 var(--serif);
+  font: 400 1.05rem / 1.35 var(--serif);
   font-variant-numeric: lining-nums;
   color: var(--paper-ink);
 }
@@ -1180,15 +1180,15 @@ main > section.section:not(.hero) {
     animation: wisp-sway var(--swing) ease-in-out var(--at) infinite alternate;
   }
   /* Only while it can be seen. */
-  .hero:not([data-live='true']) .steam *,
-  .moving:not([data-live='true']) .steam * {
+  .hero:not([data-live="true"]) .steam *,
+  .moving:not([data-live="true"]) .steam * {
     animation-play-state: paused;
   }
   /* On the shelf of the Moving stage the carrier steams when it is set down, and not while it is in the air. */
   .stage .steam {
     transition: opacity 1600ms ease 300ms;
   }
-  .moving[data-hop='true'] .stage .steam {
+  .moving[data-hop="true"] .stage .steam {
     opacity: 0;
     transition-duration: 240ms;
     transition-delay: 0s;
@@ -1229,9 +1229,9 @@ main > section.section:not(.hero) {
   }
 
   /* Below the first screen: each part arrives once, as it is reached. */
-  .reveal-on [data-reveal='true'],
-  .reveal-on [data-reveal='row'],
-  .reveal-on [data-reveal='board'] {
+  .reveal-on [data-reveal="true"],
+  .reveal-on [data-reveal="row"],
+  .reveal-on [data-reveal="board"] {
     opacity: 0;
     transform: translateY(24px);
     transition:
@@ -1239,20 +1239,20 @@ main > section.section:not(.hero) {
       transform 900ms var(--ease-expo);
     transition-delay: var(--d, 0ms);
   }
-  .reveal-on [data-reveal='row'] {
+  .reveal-on [data-reveal="row"] {
     transform: translateY(16px);
   }
-  .reveal-on [data-reveal='board'] {
+  .reveal-on [data-reveal="board"] {
     transform: translateY(40px);
   }
   .reveal-on [data-reveal].is-in {
     opacity: 1;
     transform: none;
   }
-  .reveal-on [data-reveal='lines'] .line-in {
+  .reveal-on [data-reveal="lines"] .line-in {
     transform: translateY(108%);
   }
-  .reveal-on [data-reveal='lines'].is-in .line-in {
+  .reveal-on [data-reveal="lines"].is-in .line-in {
     transform: none;
     transition: transform 900ms var(--ease-expo);
     transition-delay: calc(var(--i) * 90ms);
@@ -1265,10 +1265,10 @@ main > section.section:not(.hero) {
     transition-delay: calc(var(--i) * 70ms);
   }
   /* It prints from the top down: the header shows first, the torn edge last. */
-  .reveal-on [data-reveal='print'] .paper {
+  .reveal-on [data-reveal="print"] .paper {
     clip-path: inset(0 0 100% 0);
   }
-  .reveal-on [data-reveal='print'].is-in .paper {
+  .reveal-on [data-reveal="print"].is-in .paper {
     clip-path: inset(0 0 0 0);
     transition: clip-path 1600ms var(--ease-in-out);
   }
@@ -1287,9 +1287,9 @@ main > section.section:not(.hero) {
      back lets it go, where a timed arrival is always a beat behind a fast hand and snaps. The same arrivals,
      timed, are what the rules above give a browser that cannot. */
   @supports (animation-timeline: view()) {
-    .reveal-on [data-reveal='true'],
-    .reveal-on [data-reveal='row'],
-    .reveal-on [data-reveal='board'] {
+    .reveal-on [data-reveal="true"],
+    .reveal-on [data-reveal="row"],
+    .reveal-on [data-reveal="board"] {
       opacity: 1;
       transform: none;
       transition: none;
@@ -1297,15 +1297,15 @@ main > section.section:not(.hero) {
       animation-timeline: view();
       animation-range: entry 0% entry 100%;
     }
-    .reveal-on [data-reveal='row'] {
+    .reveal-on [data-reveal="row"] {
       --rise: 16px;
     }
-    .reveal-on [data-reveal='board'] {
+    .reveal-on [data-reveal="board"] {
       --rise: 40px;
       animation-range: entry 0% cover 21%;
     }
     /* The receipt prints as the page is read down to it, and each check is stamped as it comes into view. */
-    .reveal-on [data-reveal='print'] .paper {
+    .reveal-on [data-reveal="print"] .paper {
       clip-path: none;
       transition: none;
       animation: print linear both;
@@ -1349,8 +1349,8 @@ main > section.section:not(.hero) {
     }
     /* Headings: each line rises from behind its baseline as the heading comes up the screen, one a little after
        the other. Rests as the timed rules above leave it, which is risen. */
-    .reveal-on [data-reveal='lines'] .line-in,
-    .reveal-on [data-reveal='lines'].is-in .line-in {
+    .reveal-on [data-reveal="lines"] .line-in,
+    .reveal-on [data-reveal="lines"].is-in .line-in {
       transform: none;
       transition: none;
       animation: line-rise linear both;

@@ -12,22 +12,22 @@
 // class names (coloured in docs.css, from the design system's own tokens) and a diagram has its style
 // element and style attribute taken out and its colours set by the same stylesheet, from the same
 // tokens. So a diagram, like code, is right in the light and the dark theme without being drawn again.
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { relative, resolve, sep } from 'node:path';
-import hljs from 'highlight.js/lib/core';
-import bash from 'highlight.js/lib/languages/bash';
-import css from 'highlight.js/lib/languages/css';
-import diff from 'highlight.js/lib/languages/diff';
-import dockerfile from 'highlight.js/lib/languages/dockerfile';
-import ini from 'highlight.js/lib/languages/ini';
-import javascript from 'highlight.js/lib/languages/javascript';
-import json from 'highlight.js/lib/languages/json';
-import markdown from 'highlight.js/lib/languages/markdown';
-import sql from 'highlight.js/lib/languages/sql';
-import typescript from 'highlight.js/lib/languages/typescript';
-import xml from 'highlight.js/lib/languages/xml';
-import yaml from 'highlight.js/lib/languages/yaml';
-import { renderMermaidSVG } from 'beautiful-mermaid';
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
+import hljs from "highlight.js/lib/core";
+import bash from "highlight.js/lib/languages/bash";
+import css from "highlight.js/lib/languages/css";
+import diff from "highlight.js/lib/languages/diff";
+import dockerfile from "highlight.js/lib/languages/dockerfile";
+import ini from "highlight.js/lib/languages/ini";
+import javascript from "highlight.js/lib/languages/javascript";
+import json from "highlight.js/lib/languages/json";
+import markdown from "highlight.js/lib/languages/markdown";
+import sql from "highlight.js/lib/languages/sql";
+import typescript from "highlight.js/lib/languages/typescript";
+import xml from "highlight.js/lib/languages/xml";
+import yaml from "highlight.js/lib/languages/yaml";
+import { renderMermaidSVG } from "beautiful-mermaid";
 
 const LANGUAGES = {
   bash,
@@ -47,41 +47,41 @@ for (const [name, grammar] of Object.entries(LANGUAGES)) hljs.registerLanguage(n
 
 /** What the label above a block says, by the grammar's own name. */
 const LABEL = {
-  bash: 'Shell',
-  css: 'CSS',
-  diff: 'Diff',
-  dockerfile: 'Dockerfile',
-  ini: 'TOML',
-  javascript: 'JavaScript',
-  json: 'JSON',
-  markdown: 'Markdown',
-  sql: 'SQL',
-  typescript: 'TypeScript',
-  xml: 'HTML',
-  yaml: 'YAML',
+  bash: "Shell",
+  css: "CSS",
+  diff: "Diff",
+  dockerfile: "Dockerfile",
+  ini: "TOML",
+  javascript: "JavaScript",
+  json: "JSON",
+  markdown: "Markdown",
+  sql: "SQL",
+  typescript: "TypeScript",
+  xml: "HTML",
+  yaml: "YAML",
 };
 /** Fences with no highlighting. */
-const PLAIN = new Set(['', 'text', 'txt', 'plain', 'plaintext']);
+const PLAIN = new Set(["", "text", "txt", "plain", "plaintext"]);
 /** A block of commands to type is not a listing: it is not numbered unless asked. */
-const COMMANDS = new Set(['bash']);
+const COMMANDS = new Set(["bash"]);
 /** From this many lines on, a listing is numbered, so that it can be pointed at. */
 const NUMBER_FROM = 6;
 /** A whole file is shown only when it is short; a longer one needs a range. */
 const WHOLE_FILE_MOST = 60;
 
 const esc = (s) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** `ts file=a/b.ts#L1-L9 hl=2,4-5 title="Two words" numbers` as a language and its settings. */
 export function parseFence(info) {
   const words = [];
   const re = /([\w-]+)=("[^"]*"|\S+)|(\S+)/g;
-  for (const m of (info ?? '').matchAll(re)) words.push(m);
-  const first = words[0] && words[0][3] ? words.shift()[3] : '';
+  for (const m of (info ?? "").matchAll(re)) words.push(m);
+  const first = words[0] && words[0][3] ? words.shift()[3] : "";
   const settings = {};
   const flags = new Set();
   for (const m of words) {
-    if (m[1]) settings[m[1]] = m[2].replace(/^"|"$/g, '');
+    if (m[1]) settings[m[1]] = m[2].replace(/^"|"$/g, "");
     else flags.add(m[3]);
   }
   return { lang: first.toLowerCase(), settings, flags };
@@ -90,7 +90,7 @@ export function parseFence(info) {
 /** `3,5-7` as the set of lines 3, 5, 6 and 7. */
 function lineSet(spec, where) {
   const out = new Set();
-  for (const part of spec.split(',')) {
+  for (const part of spec.split(",")) {
     const m = /^(\d+)(?:-(\d+))?$/.exec(part.trim());
     if (!m) throw new Error(`${where}: "${part}" is not a line or a range of lines (hl=3,5-7)`);
     const from = Number(m[1]);
@@ -108,20 +108,20 @@ function lineSet(spec, where) {
 export function splitLines(html) {
   const lines = [];
   const open = [];
-  let line = '';
+  let line = "";
   for (const m of html.matchAll(/<span[^>]*>|<\/span>|[^<]+/g)) {
     const piece = m[0];
-    if (piece.startsWith('<span')) {
+    if (piece.startsWith("<span")) {
       open.push(piece);
       line += piece;
-    } else if (piece === '</span>') {
+    } else if (piece === "</span>") {
       open.pop();
       line += piece;
     } else {
-      piece.split('\n').forEach((text, i) => {
+      piece.split("\n").forEach((text, i) => {
         if (i > 0) {
-          lines.push(line + '</span>'.repeat(open.length));
-          line = open.join('');
+          lines.push(line + "</span>".repeat(open.length));
+          line = open.join("");
         }
         line += text;
       });
@@ -140,7 +140,7 @@ function excerpt(path, where, repo) {
     throw new Error(`${where}: file=${m[1]} is outside the repository`);
   if (!existsSync(file) || !statSync(file).isFile())
     throw new Error(`${where}: file=${m[1]} does not exist`);
-  const all = readFileSync(file, 'utf8').replace(/\n$/, '').split('\n');
+  const all = readFileSync(file, "utf8").replace(/\n$/, "").split("\n");
   const from = m[2] ? Number(m[2]) : 1;
   const to = m[3] ? Number(m[3]) : m[2] ? from : all.length;
   if (from < 1 || to < from || to > all.length)
@@ -152,10 +152,10 @@ function excerpt(path, where, repo) {
       `${where}: ${m[1]} is ${all.length} lines; name the lines to show (file=${m[1]}#L1-L30)`,
     );
   return {
-    text: all.slice(from - 1, to).join('\n'),
+    text: all.slice(from - 1, to).join("\n"),
     first: from,
     last: to,
-    name: relative(repo, file).split(sep).join('/'),
+    name: relative(repo, file).split(sep).join("/"),
   };
 }
 
@@ -165,19 +165,19 @@ function canonical(name, where) {
   const grammar = hljs.getLanguage(name);
   if (!grammar)
     throw new Error(
-      `${where}: no highlighting for "${name}". It can be ${[...Object.keys(LANGUAGES), 'text'].join(', ')}, or one of their usual names (ts, sh, yml, html...)`,
+      `${where}: no highlighting for "${name}". It can be ${[...Object.keys(LANGUAGES), "text"].join(", ")}, or one of their usual names (ts, sh, yml, html...)`,
     );
   return Object.keys(LANGUAGES).find((key) => hljs.getLanguage(key) === grammar) ?? name;
 }
 
 /** A word that follows a dash is part of an option (`--rm`), not a command of its own, whatever it spells. */
 const optionsAreNotCommands = (html) =>
-  html.replace(/(\s--?)<span class="hljs-built_in">([\w-]+)<\/span>/g, '$1$2');
+  html.replace(/(\s--?)<span class="hljs-built_in">([\w-]+)<\/span>/g, "$1$2");
 
 function highlight(text, lang) {
-  if (PLAIN.has(lang)) return text.split('\n').map(esc);
+  if (PLAIN.has(lang)) return text.split("\n").map(esc);
   const html = hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
-  return splitLines(lang === 'bash' ? optionsAreNotCommands(html) : html);
+  return splitLines(lang === "bash" ? optionsAreNotCommands(html) : html);
 }
 
 /**
@@ -188,30 +188,30 @@ function highlight(text, lang) {
 export function parseConsole(text) {
   const rows = [];
   let going = false;
-  for (const raw of text.split('\n')) {
+  for (const raw of text.split("\n")) {
     if (going) {
-      rows.push({ kind: 'cont', text: raw });
+      rows.push({ kind: "cont", text: raw });
       going = /\\\s*$/.test(raw);
       continue;
     }
     const typed = /^\$ ?(.*)$/.exec(raw);
     if (typed) {
-      rows.push({ kind: 'cmd', text: typed[1] });
+      rows.push({ kind: "cmd", text: typed[1] });
       going = /\\\s*$/.test(typed[1]);
-    } else rows.push({ kind: 'out', text: raw });
+    } else rows.push({ kind: "out", text: raw });
   }
   return rows;
 }
 
 /** The block itself: a bar with what it is, then the code. The copy button is added by the page's script. */
-function figure({ cls, bar, klass = '', body }) {
+function figure({ cls, bar, klass = "", body }) {
   return `<figure class="${cls}">${bar}<pre tabindex="0"><code${klass}>${body}</code></pre></figure>\n`;
 }
 
 const barOf = (label, range) =>
   label
-    ? `<figcaption class="code-bar"><span class="code-name">${esc(label)}</span>${range ? `<span class="code-range">${range}</span>` : ''}</figcaption>`
-    : '';
+    ? `<figcaption class="code-bar"><span class="code-name">${esc(label)}</span>${range ? `<span class="code-range">${range}</span>` : ""}</figcaption>`
+    : "";
 
 /**
  * The Markdown of a page with the lines of every `file=` excerpt put in, for a reader that gets the text and
@@ -234,8 +234,8 @@ export function createBlocks({ repo }) {
 
   function code(token, where) {
     const { lang: asked, settings, flags } = parseFence(token.lang);
-    if (asked === 'mermaid') return diagram(token.text, settings, where);
-    if (asked === 'console') return consoleBlock(token.text, settings, where);
+    if (asked === "mermaid") return diagram(token.text, settings, where);
+    if (asked === "console") return consoleBlock(token.text, settings, where);
     // An empty block is never what was meant: it is a fence left open, or one left behind.
     if (!settings.file && !token.text.trim())
       throw new Error(
@@ -260,9 +260,9 @@ export function createBlocks({ repo }) {
     const lang = canonical(asked, where);
     const lines = highlight(text, lang);
     const plain = PLAIN.has(lang);
-    const numbered = flags.has('nonumbers')
+    const numbered = flags.has("nonumbers")
       ? false
-      : flags.has('numbers') ||
+      : flags.has("numbers") ||
         !!settings.file ||
         (lines.length >= NUMBER_FROM && !COMMANDS.has(lang) && !plain);
     const marked = settings.hl ? lineSet(settings.hl, where) : new Set();
@@ -270,48 +270,48 @@ export function createBlocks({ repo }) {
     const body = lines
       .map((html, i) => {
         const n = first + i;
-        const cls = marked.has(i + 1) ? 'line hl' : 'line';
-        return `<span class="${cls}"${numbered ? ` data-n="${n}"` : ''}>${html}</span>`;
+        const cls = marked.has(i + 1) ? "line hl" : "line";
+        return `<span class="${cls}"${numbered ? ` data-n="${n}"` : ""}>${html}</span>`;
       })
-      .join('\n');
+      .join("\n");
     const label = settings.title ?? name ?? (plain ? null : (LABEL[lang] ?? lang));
     const bar = barOf(label, range);
-    const cls = ['code', numbered ? 'numbered' : '', bar ? 'has-bar' : '']
+    const cls = ["code", numbered ? "numbered" : "", bar ? "has-bar" : ""]
       .filter(Boolean)
-      .join(' ');
-    const klass = plain ? '' : ` class="language-${esc(lang)} hljs"`;
+      .join(" ");
+    const klass = plain ? "" : ` class="language-${esc(lang)} hljs"`;
     return figure({ cls, bar, klass, body });
   }
 
   function consoleBlock(text, settings, where) {
-    const rows = parseConsole(text.replace(/\n$/, ''));
-    if (!rows.some((r) => r.kind === 'cmd'))
+    const rows = parseConsole(text.replace(/\n$/, ""));
+    if (!rows.some((r) => r.kind === "cmd"))
       throw new Error(
         `${where}: a console block shows a command typed: start the line with "$ " (use sh for a script)`,
       );
     const lines = [];
-    for (let i = 0; i < rows.length;) {
-      if (rows[i].kind === 'out') {
-        lines.push({ kind: 'out', html: esc(rows[i].text) });
+    for (let i = 0; i < rows.length; ) {
+      if (rows[i].kind === "out") {
+        lines.push({ kind: "out", html: esc(rows[i].text) });
         i++;
         continue;
       }
       // A command and its continuation lines are highlighted as one, so a quote that runs over a line break holds.
       let j = i + 1;
-      while (j < rows.length && rows[j].kind === 'cont') j++;
+      while (j < rows.length && rows[j].kind === "cont") j++;
       const chunk = rows
         .slice(i, j)
         .map((r) => r.text)
-        .join('\n');
-      highlight(chunk, 'bash').forEach((html, k) =>
-        lines.push({ kind: k === 0 ? 'cmd' : 'cont', html }),
+        .join("\n");
+      highlight(chunk, "bash").forEach((html, k) =>
+        lines.push({ kind: k === 0 ? "cmd" : "cont", html }),
       );
       i = j;
     }
-    const body = lines.map((l) => `<span class="line ${l.kind}">${l.html}</span>`).join('\n');
+    const body = lines.map((l) => `<span class="line ${l.kind}">${l.html}</span>`).join("\n");
     return figure({
-      cls: 'code console has-bar',
-      bar: barOf(settings.title ?? 'Console'),
+      cls: "code console has-bar",
+      bar: barOf(settings.title ?? "Console"),
       klass: ' class="language-console hljs"',
       body,
     });
@@ -331,51 +331,51 @@ export function createBlocks({ repo }) {
     }
     // The stylesheet it came with moves to the site's, scoped, without the font it asks a third party for.
     const styles = [...svg.matchAll(/<style>([\s\S]*?)<\/style>/g)];
-    svg = svg.replace(/<style>[\s\S]*?<\/style>\s*/g, '');
+    svg = svg.replace(/<style>[\s\S]*?<\/style>\s*/g, "");
     for (const [, sheet] of styles) diagramStyles.add(scope(sheet, where));
     // The colours it was given on its root element, which the stylesheet gives it instead.
-    svg = svg.replace(/^<svg([^>]*?) style="[^"]*"/, '<svg$1');
+    svg = svg.replace(/^<svg([^>]*?) style="[^"]*"/, "<svg$1");
     const id = `diagram-${++diagrams}`;
     svg = svg.replace(/^<svg /, `<svg role="img" aria-labelledby="${id}" focusable="false" `);
     // What the policy would refuse, or would send a reader's browser to someone else, is not allowed through.
     for (const [bad, what] of [
-      [/\sstyle\s*=/i, 'an inline style'],
-      [/<style/i, 'a style element'],
-      [/<script/i, 'a script'],
-      [/\son[a-z]+\s*=/i, 'an event handler'],
-      [/https?:\/\/(?!www\.w3\.org\/)/i, 'an address outside the site'],
-      [/@import/i, 'an import'],
+      [/\sstyle\s*=/i, "an inline style"],
+      [/<style/i, "a style element"],
+      [/<script/i, "a script"],
+      [/\son[a-z]+\s*=/i, "an event handler"],
+      [/https?:\/\/(?!www\.w3\.org\/)/i, "an address outside the site"],
+      [/@import/i, "an import"],
     ])
       if (bad.test(svg)) throw new Error(`${where}: the diagram "${title}" comes out with ${what}`);
-    return `<figure class="diagram" role="group" aria-labelledby="${id}"><div class="diagram-scroll" tabindex="0" role="region" aria-label="Diagram: ${esc(title)}; scrolls sideways when it is wider than the screen">${svg}</div><figcaption id="${id}">${esc(title)}</figcaption><details class="diagram-source"><summary>The diagram as text</summary>${figure({ cls: 'code has-bar', bar: barOf('Mermaid'), body: esc(source) })}</details></figure>\n`;
+    return `<figure class="diagram" role="group" aria-labelledby="${id}"><div class="diagram-scroll" tabindex="0" role="region" aria-label="Diagram: ${esc(title)}; scrolls sideways when it is wider than the screen">${svg}</div><figcaption id="${id}">${esc(title)}</figcaption><details class="diagram-source"><summary>The diagram as text</summary>${figure({ cls: "code has-bar", bar: barOf("Mermaid"), body: esc(source) })}</details></figure>\n`;
   }
 
   /** The stylesheet a diagram came with, for diagrams only: no `@import`, and every selector under `.diagram`. */
   function scope(sheet, where) {
-    const withoutComments = sheet.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import[^;]*;/g, '');
+    const withoutComments = sheet.replace(/\/\*[\s\S]*?\*\//g, "").replace(/@import[^;]*;/g, "");
     if (/@(media|supports|font-face|keyframes)/.test(withoutComments))
       throw new Error(`${where}: a diagram brought a kind of rule that is not handled here`);
     const rules = [];
     for (const m of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const selectors = m[1]
-        .split(',')
+        .split(",")
         .map((s) => s.trim())
         .filter(Boolean)
         .map((s) => `.diagram ${s}`);
       // The font is the site's own, set in docs.css.
       const declarations = m[2]
-        .split(';')
+        .split(";")
         .map((d) => d.trim())
         .filter((d) => d && !/^font-family\s*:/.test(d));
       if (declarations.length)
-        rules.push(`${selectors.join(', ')} {\n  ${declarations.join(';\n  ')};\n}`);
+        rules.push(`${selectors.join(", ")} {\n  ${declarations.join(";\n  ")};\n}`);
     }
-    return rules.join('\n');
+    return rules.join("\n");
   }
 
   return {
     code,
     /** What the diagrams drawn so far need added to the site's stylesheet. */
-    diagramCss: () => [...diagramStyles].join('\n'),
+    diagramCss: () => [...diagramStyles].join("\n"),
   };
 }

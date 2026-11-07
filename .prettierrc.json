@@ -1,6 +1,20 @@
 {
+  "$schema": "https://raw.githubusercontent.com/SchemaStore/schemastore/refs/heads/master/src/schemas/json/prettierrc.json",
+  "proseWrap": "always",
   "printWidth": 100,
-  "singleQuote": true,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": false,
   "trailingComma": "all",
-  "semi": true
+  "endOfLine": "lf",
+  "overrides": [
+    {
+      "files": "*.md",
+      "options": {
+        "parser": "markdown",
+        "embeddedLanguageFormatting": "auto"
+      }
+    }
+  ]
 }

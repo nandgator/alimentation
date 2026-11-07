@@ -21,7 +21,7 @@ import {
   type Person,
   type RateCard,
   type Statement,
-} from '@alimentation/core';
+} from "@alimentation/core";
 
 /**
  * The home page's sample kitchen. It runs the same billing engine the app does, on a made-up person
@@ -29,51 +29,51 @@ import {
  * frozen, days after today are tentative and can still be changed.
  */
 export const SAMPLE_PERSON: Person = {
-  id: 'meera',
-  name: 'Meera',
-  role: 'consumer',
+  id: "meera",
+  name: "Meera",
+  role: "consumer",
   activeFrom: null,
   activeTo: null,
 };
 
 export const SAMPLE_CARD: RateCard = {
-  id: 'sample',
-  effectiveFrom: '2000-01-01',
+  id: "sample",
+  effectiveFrom: "2000-01-01",
   veg: rupees(120),
   nonVeg: rupees(150),
   extraChapati: rupees(10),
   extraBhakri: rupees(20),
   extrasPerMonth: rupees(30),
-  menu: { 1: 'Veg', 2: 'Veg', 3: 'Non Veg', 4: 'Veg', 5: 'Non Veg' },
+  menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
   note: null,
 };
 
 export const WEEKDAY_NAMES = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
 ] as const;
 export const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ] as const;
 
 /** What a day can be, in the order a tap steps through them. */
-export const MARKS = ['meal', 'leave', 'switch', 'chapati'] as const;
+export const MARKS = ["meal", "leave", "switch", "chapati"] as const;
 export type Mark = (typeof MARKS)[number];
 export type Marks = Readonly<Record<IsoDate, Mark>>;
 
@@ -81,7 +81,7 @@ export type Marks = Readonly<Record<IsoDate, Mark>>;
 export const CHAPATIS = 2;
 
 export function nextMark(m: Mark | undefined): Mark {
-  return MARKS[(MARKS.indexOf(m ?? 'meal') + 1) % MARKS.length]!;
+  return MARKS[(MARKS.indexOf(m ?? "meal") + 1) % MARKS.length]!;
 }
 
 /** The visitor's own date, as the page sees it. */
@@ -129,7 +129,7 @@ export function weeks(month: Month): IsoDate[][] {
 export function nthWorkingDay(from: IsoDate, n: number): IsoDate {
   const step = n < 0 ? -1 : 1;
   let date = from;
-  for (let left = Math.abs(n); left > 0;) {
+  for (let left = Math.abs(n); left > 0; ) {
     date = addDays(date, step);
     if (isWorking(date)) left--;
   }
@@ -142,11 +142,11 @@ export function nthWorkingDay(from: IsoDate, n: number): IsoDate {
  */
 export function startingMarks(today: IsoDate): Marks {
   return {
-    [nthWorkingDay(today, -6)]: 'chapati',
-    [nthWorkingDay(today, -3)]: 'leave',
-    [nthWorkingDay(today, 2)]: 'leave',
-    [nthWorkingDay(today, 4)]: 'switch',
-    [nthWorkingDay(today, 7)]: 'chapati',
+    [nthWorkingDay(today, -6)]: "chapati",
+    [nthWorkingDay(today, -3)]: "leave",
+    [nthWorkingDay(today, 2)]: "leave",
+    [nthWorkingDay(today, 4)]: "switch",
+    [nthWorkingDay(today, 7)]: "chapati",
   };
 }
 
@@ -173,11 +173,11 @@ export interface Board {
 export function board(marks: Marks, today: IsoDate, month: Month): Board {
   const log: LogEntry[] = [];
   for (const [date, mark] of Object.entries(marks)) {
-    if (mark === 'leave') log.push(entry(date, 'Leave', null));
-    if (mark === 'chapati') log.push(entry(date, 'Extra Chapati', CHAPATIS));
-    if (mark === 'switch') {
+    if (mark === "leave") log.push(entry(date, "Leave", null));
+    if (mark === "chapati") log.push(entry(date, "Extra Chapati", CHAPATIS));
+    if (mark === "switch") {
       const served = SAMPLE_CARD.menu[weekdayOf(date)];
-      log.push(entry(date, served === 'Veg' ? 'Switch to Non Veg' : 'Switch to Veg', null));
+      log.push(entry(date, served === "Veg" ? "Switch to Non Veg" : "Switch to Veg", null));
     }
   }
   // Billed from the first of last month, so the month before this one can be looked at too.
@@ -187,7 +187,7 @@ export function board(marks: Marks, today: IsoDate, month: Month): Board {
   };
   const data: EngineData = {
     today,
-    policies: [{ effectiveFrom: '2000-01-01', doc: DEFAULT_POLICY }],
+    policies: [{ effectiveFrom: "2000-01-01", doc: DEFAULT_POLICY }],
     rateCards: [SAMPLE_CARD],
     holidays: [],
     people: [person],

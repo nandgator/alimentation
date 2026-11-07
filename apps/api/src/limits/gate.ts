@@ -1,5 +1,5 @@
-import type { Limits } from '@alimentation/core';
-import type { ControlRepo } from '../control/repo.ts';
+import type { Limits } from "@alimentation/core";
+import type { ControlRepo } from "../control/repo.ts";
 
 /**
  * Keeps one workspace from using up everyone's share of a free host's daily
@@ -35,7 +35,7 @@ export interface GateOptions {
 
 export type GateVerdict =
   | { allowed: true }
-  | { allowed: false; reason: 'rate' | 'daily' | 'global'; retryAfterSeconds: number };
+  | { allowed: false; reason: "rate" | "daily" | "global"; retryAfterSeconds: number };
 
 interface Bucket {
   tokens: number;
@@ -47,7 +47,8 @@ export class Gate {
   private pending = new Map<string, { requests: number; rejected: number }>();
   private lastFlush = 0;
   private cache:
-    { day: string; at: number; total: number; byWorkspace: Map<string, number> } | undefined;
+    | { day: string; at: number; total: number; byWorkspace: Map<string, number> }
+    | undefined;
   private flushing: Promise<void> | undefined;
 
   constructor(private readonly o: GateOptions) {}
@@ -66,7 +67,7 @@ export class Gate {
     );
   }
 
-  private async snapshot(): Promise<NonNullable<Gate['cache']>> {
+  private async snapshot(): Promise<NonNullable<Gate["cache"]>> {
     const day = this.day();
     const at = this.o.now().getTime();
     if (
@@ -97,18 +98,18 @@ export class Gate {
     );
     b.at = now;
     this.buckets.set(ws.id, b);
-    if (b.tokens < 1) return this.refuse(ws.id, 'rate', 1);
+    if (b.tokens < 1) return this.refuse(ws.id, "rate", 1);
     b.tokens -= 1;
 
     const snap = await this.snapshot();
     const mine = (snap.byWorkspace.get(ws.id) ?? 0) + (this.pending.get(ws.id)?.requests ?? 0);
     if (!opts.essential && mine >= ws.limits.requestsPerDay * this.o.hardCapFactor)
-      return this.refuse(ws.id, 'daily', this.secondsToMidnight());
+      return this.refuse(ws.id, "daily", this.secondsToMidnight());
     let pendingTotal = 0;
     for (const p of this.pending.values()) pendingTotal += p.requests;
     const nearCap = snap.total + pendingTotal >= this.o.accountDailyCap * (1 - this.o.headroom / 2);
     if (!opts.essential && nearCap && mine >= ws.limits.requestsPerDay)
-      return this.refuse(ws.id, 'global', this.secondsToMidnight());
+      return this.refuse(ws.id, "global", this.secondsToMidnight());
 
     const p = this.pending.get(ws.id) ?? { requests: 0, rejected: 0 };
     p.requests++;
@@ -119,7 +120,7 @@ export class Gate {
 
   private refuse(
     id: string,
-    reason: 'rate' | 'daily' | 'global',
+    reason: "rate" | "daily" | "global",
     retryAfterSeconds: number,
   ): GateVerdict {
     const p = this.pending.get(id) ?? { requests: 0, rejected: 0 };

@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import type { OrganisationDto, OrganisationKitchenDto } from '@alimentation/core';
-import { Link, useParams } from 'wouter';
-import { api, getJson, postJson } from '../api.ts';
-import { AppBar, Page, RequireSignIn } from '../components/Chrome.tsx';
+import { useState } from "react";
+import type { OrganisationDto, OrganisationKitchenDto } from "@alimentation/core";
+import { Link, useParams } from "wouter";
+import { api, getJson, postJson } from "../api.ts";
+import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
 import {
   Chip,
   CopyButton,
@@ -14,44 +14,44 @@ import {
   toast,
   useAction,
   useLoad,
-} from '../components/ui.tsx';
-import { money, month as monthLabel } from '../format.ts';
-import { sumOrganisation } from '../kitchens.ts';
-import { useSession } from '../session.tsx';
+} from "../components/ui.tsx";
+import { money, month as monthLabel } from "../format.ts";
+import { sumOrganisation } from "../kitchens.ts";
+import { useSession } from "../session.tsx";
 
-const WHY: Record<NonNullable<OrganisationKitchenDto['unavailable']>, string> = {
-  moved: 'Has moved',
-  busy: 'Has used its requests for today',
-  unreadable: 'Could not be read just now',
+const WHY: Record<NonNullable<OrganisationKitchenDto["unavailable"]>, string> = {
+  moved: "Has moved",
+  busy: "Has used its requests for today",
+  unreadable: "Could not be read just now",
 };
 
 function Totals({ kitchens }: { kitchens: OrganisationKitchenDto[] }) {
   const sum = sumOrganisation(kitchens);
   if (!sum)
     return (
-      <p className="muted">
+      <p class="muted">
         {kitchens.length === 0
-          ? 'No kitchen shares its totals with this organisation yet.'
-          : 'There are no figures to add up: the kitchens cannot be read, or they keep their books in different currencies.'}
+          ? "No kitchen shares its totals with this organisation yet."
+          : "There are no figures to add up: the kitchens cannot be read, or they keep their books in different currencies."}
       </p>
     );
   return (
-    <div className="tilegroups">
-      <div className="tiles lead">
+    <div class="tilegroups">
+      <div class="tiles lead">
         <Tile lead label="Billed" value={money(sum.billed)} />
         <Tile lead label="Paid" value={money(sum.paid)} />
         <Tile lead label="Owed" value={money(sum.owed)} />
       </div>
-      <div className="tiles">
+      <div class="tiles">
         <Tile label="People fed" value={sum.consumers} />
         <Tile label="Meals" value={sum.meals} />
-        <Tile label="To confirm" value={sum.toConfirm || '-'} />
-        <Tile label="Not set up" value={sum.setup || '-'} />
+        <Tile label="To confirm" value={sum.toConfirm || "-"} />
+        <Tile label="Not set up" value={sum.setup || "-"} />
       </div>
       {sum.unread > 0 ? (
-        <p className="muted small">
-          {sum.unread} kitchen{sum.unread === 1 ? '' : 's'} could not be read and{' '}
-          {sum.unread === 1 ? 'is' : 'are'} not in these figures.
+        <p class="muted small">
+          {sum.unread} kitchen{sum.unread === 1 ? "" : "s"} could not be read and{" "}
+          {sum.unread === 1 ? "is" : "are"} not in these figures.
         </p>
       ) : null}
     </div>
@@ -63,12 +63,12 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
   const act = useAction();
   const mine = new Set((me?.workspaces ?? []).map((w) => w.slug));
   return (
-    <section className="stack" aria-labelledby="kitchens-h">
+    <section class="stack" aria-labelledby="kitchens-h">
       <h2 id="kitchens-h">Kitchens</h2>
       <Problem error={act.error} />
       {data.kitchens.length > 0 ? (
         <div
-          className="tablewrap"
+          class="tablewrap"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -77,12 +77,12 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
             <thead>
               <tr>
                 <th>Kitchen</th>
-                <th className="r">People</th>
-                <th className="r">Meals</th>
-                <th className="r">Billed</th>
-                <th className="r">Paid</th>
-                <th className="r">Owed</th>
-                <th className="r">To confirm</th>
+                <th class="r">People</th>
+                <th class="r">Meals</th>
+                <th class="r">Billed</th>
+                <th class="r">Paid</th>
+                <th class="r">Owed</th>
+                <th class="r">To confirm</th>
                 <th />
               </tr>
             </thead>
@@ -92,11 +92,11 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
                   <td>
                     {mine.has(k.slug) ? <Link href={`/w/${k.slug}`}>{k.name}</Link> : k.name}
                     {k.totals ? (
-                      <div className="muted small">
+                      <div class="muted small">
                         {monthLabel(k.totals.month)}
                         {k.totals.setup > 0 ? (
                           <>
-                            {' '}
+                            {" "}
                             <Chip tone="warn">Needs setting up</Chip>
                           </>
                         ) : null}
@@ -105,21 +105,21 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
                   </td>
                   {k.totals ? (
                     <>
-                      <td className="r">{k.totals.consumers}</td>
-                      <td className="r">{k.totals.meals}</td>
-                      <td className="r">{money(k.totals.billed)}</td>
-                      <td className="r">{money(k.totals.paid)}</td>
-                      <td className="r">{money(k.totals.owed)}</td>
-                      <td className="r">{k.totals.toConfirm || '-'}</td>
+                      <td class="r">{k.totals.consumers}</td>
+                      <td class="r">{k.totals.meals}</td>
+                      <td class="r">{money(k.totals.billed)}</td>
+                      <td class="r">{money(k.totals.paid)}</td>
+                      <td class="r">{money(k.totals.owed)}</td>
+                      <td class="r">{k.totals.toConfirm || "-"}</td>
                     </>
                   ) : (
-                    <td colSpan={6} className="muted">
-                      {k.unavailable ? WHY[k.unavailable] : ''}
+                    <td colSpan={6} class="muted">
+                      {k.unavailable ? WHY[k.unavailable] : ""}
                     </td>
                   )}
-                  <td className="r">
+                  <td class="r">
                     <button
-                      className="btn ghost small"
+                      class="btn ghost small"
                       disabled={act.busy}
                       onClick={() =>
                         void act.run(async () => {
@@ -147,14 +147,14 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
 function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () => void }) {
   const { me } = useSession();
   const act = useAction();
-  const [slug, setSlug] = useState('');
+  const [slug, setSlug] = useState("");
   const [link, setLink] = useState<string | null>(null);
   const already = new Set(data.kitchens.map((k) => k.slug));
   const mine = (me?.workspaces ?? []).filter(
-    (w) => w.state === 'ACTIVE' && w.roles.includes('admin') && !already.has(w.slug),
+    (w) => w.state === "ACTIVE" && w.roles.includes("admin") && !already.has(w.slug),
   );
   return (
-    <section className="card stack" aria-labelledby="add-h">
+    <section class="card stack" aria-labelledby="add-h">
       <h2 id="add-h">Add a kitchen</h2>
       {mine.length > 0 ? (
         <Form
@@ -164,7 +164,7 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
               await postJson(`/api/organisations/${data.organisation.id}/kitchens`, {
                 slug: slug || mine[0]!.slug,
               });
-              setSlug('');
+              setSlug("");
               onChange();
             })
           }
@@ -182,22 +182,22 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
               ))}
             </select>
           </Field>
-          <button className="btn" disabled={act.busy}>
+          <button class="btn" disabled={act.busy}>
             Add it
           </button>
         </Form>
       ) : (
-        <p className="muted">There is no other kitchen of yours to add.</p>
+        <p class="muted">There is no other kitchen of yours to add.</p>
       )}
       <hr />
       <p>
         <strong>A kitchen someone else runs.</strong> Make a link and send it to its admin. They
-        paste it under <em>Your data</em> in that kitchen, see that it is for{' '}
+        paste it under <em>Your data</em> in that kitchen, see that it is for{" "}
         {data.organisation.name}, and choose to share. It works for seven days.
       </p>
       <div>
         <button
-          className="btn ghost"
+          class="btn ghost"
           disabled={act.busy}
           onClick={() =>
             void act.run(async () => {
@@ -213,7 +213,7 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
       </div>
       {link ? (
         <Field label="The link" id="join-link" hint="Select it all and copy it.">
-          <span className="row" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+          <span class="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
             <input id="join-link" readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
             <CopyButton text={link} label="Copy the link" />
           </span>
@@ -226,22 +226,22 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
 function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () => void }) {
   const { me } = useSession();
   const act = useAction();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   return (
-    <section className="card stack" aria-labelledby="people-h">
+    <section class="card stack" aria-labelledby="people-h">
       <h2 id="people-h">Head office</h2>
-      <p className="muted">
+      <p class="muted">
         These people see the totals above. They see no names, and they are not members of any
         kitchen because of this.
       </p>
-      <ul className="plain-list">
+      <ul class="plain-list">
         {data.members.map((m) => (
           <li key={m.accountId}>
             {m.name ?? m.email}
-            {m.name ? <span className="muted"> · {m.email}</span> : null}{' '}
+            {m.name ? <span class="muted"> · {m.email}</span> : null}{" "}
             {data.members.length > 1 ? (
               <button
-                className="btn ghost small"
+                class="btn ghost small"
                 disabled={act.busy}
                 onClick={() =>
                   void act.run(async () => {
@@ -252,7 +252,7 @@ function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () =>
                   })
                 }
               >
-                {m.accountId === me?.account?.id ? 'Leave' : 'Remove'}
+                {m.accountId === me?.account?.id ? "Leave" : "Remove"}
               </button>
             ) : null}
           </li>
@@ -263,7 +263,7 @@ function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () =>
         onSubmit={() =>
           act.run(async () => {
             await postJson(`/api/organisations/${data.organisation.id}/members`, { email });
-            setEmail('');
+            setEmail("");
             onChange();
           })
         }
@@ -277,7 +277,7 @@ function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () =>
             onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
-        <button className="btn ghost" disabled={act.busy}>
+        <button class="btn ghost" disabled={act.busy}>
           Add
         </button>
       </Form>
@@ -286,13 +286,13 @@ function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () =>
 }
 
 export function Organisation() {
-  const { id = '' } = useParams();
+  const { id = "" } = useParams();
   const list = useLoad(() => getJson<OrganisationDto>(`/api/organisations/${id}`), [id]);
   return (
     <>
       <AppBar />
       <RequireSignIn>
-        <Page title={list.data?.organisation.name ?? 'Organisation'}>
+        <Page title={list.data?.organisation.name ?? "Organisation"}>
           <p>
             <Link href="/app">← Your kitchens</Link>
           </p>
@@ -300,15 +300,15 @@ export function Organisation() {
             error={
               list.error
                 ? list.error.status === 404
-                  ? 'There is no such organisation, or you are not in its head office.'
+                  ? "There is no such organisation, or you are not in its head office."
                   : list.error
                 : null
             }
           />
           {list.loading && !list.data ? <Spinner /> : null}
           {list.data ? (
-            <div className="stack" style={{ ['--gap' as string]: 'var(--space-5)' }}>
-              <p className="muted">
+            <div class="stack" style={{ ["--gap" as string]: "var(--space-5)" }}>
+              <p class="muted">
                 Each kitchen's totals for its month: how many people, how many meals, what was
                 billed, paid and is owed. Nothing here names anyone.
               </p>

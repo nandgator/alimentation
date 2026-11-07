@@ -45,7 +45,7 @@ export function parseDate(s: IsoDate): { y: number; m: number; d: number } {
 }
 
 export function formatDate(y: number, m: number, d: number): IsoDate {
-  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 /** Days since 1970-01-01 (proleptic Gregorian). Howard Hinnant's algorithm. */
@@ -105,7 +105,7 @@ export function addMonths(mo: Month, n: number): Month {
   const { y, m } = parseDate(monthStart(mo));
   const idx = y * 12 + (m - 1) + n;
   const ny = Math.floor(idx / 12);
-  return `${String(ny).padStart(4, '0')}-${String((idx % 12) + 1).padStart(2, '0')}`;
+  return `${String(ny).padStart(4, "0")}-${String((idx % 12) + 1).padStart(2, "0")}`;
 }
 
 /** Every month from `from` to `to`, inclusive. Empty when `to` is before `from`. */
@@ -135,14 +135,14 @@ function formatterFor(timeZone: string): Intl.DateTimeFormat {
   let f = formatters.get(timeZone);
   // Stryker disable next-line ConditionalExpression: the cache changes speed, never results
   if (!f) {
-    f = new Intl.DateTimeFormat('en-GB', {
+    f = new Intl.DateTimeFormat("en-GB", {
       timeZone,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
     // Stryker disable next-line all: the cache changes speed, never results
     formatters.set(timeZone, f);
@@ -185,20 +185,20 @@ export function wallClock(date: IsoDate, time: string): string {
   return `${date} ${time}`;
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ] as const;
 
 export function dayName(w: Weekday): string {
@@ -208,11 +208,11 @@ export function dayName(w: Weekday): string {
 /** `dd-MMM-yyyy`, as the spec shows dates. */
 export function formatDisplayDate(s: IsoDate): string {
   const { y, m, d } = parseDate(s);
-  return `${String(d).padStart(2, '0')}-${MONTH_NAMES[m - 1]}-${y}`;
+  return `${String(d).padStart(2, "0")}-${MONTH_NAMES[m - 1]}-${y}`;
 }
 
 /** `MMM-yy`, as the spec shows months. */
 export function formatDisplayMonth(mo: Month): string {
   const { y, m } = parseDate(monthStart(mo));
-  return `${MONTH_NAMES[m - 1]}-${String(y % 100).padStart(2, '0')}`;
+  return `${MONTH_NAMES[m - 1]}-${String(y % 100).padStart(2, "0")}`;
 }

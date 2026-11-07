@@ -1,20 +1,20 @@
-import { useState } from 'react';
-import type { PersonDto, Role } from '@alimentation/core';
-import { api, postJson } from '../../api.ts';
-import { Chip, Dialog, Field, Form, PageHead, toast, useAction } from '../../components/ui.tsx';
-import { date } from '../../format.ts';
-import { useWorkspace } from './context.tsx';
+import { useState } from "react";
+import type { PersonDto, Role } from "@alimentation/core";
+import { api, postJson } from "../../api.ts";
+import { Chip, Dialog, Field, Form, PageHead, toast, useAction } from "../../components/ui.tsx";
+import { date } from "../../format.ts";
+import { useWorkspace } from "./context.tsx";
 
-const ROLES: Role[] = ['consumer', 'supplier', 'admin'];
-const LABEL: Record<Role, string> = { consumer: 'Member', supplier: 'Supplier', admin: 'Admin' };
+const ROLES: Role[] = ["consumer", "supplier", "admin"];
+const LABEL: Record<Role, string> = { consumer: "Member", supplier: "Supplier", admin: "Admin" };
 
 function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () => void }) {
   const ws = useWorkspace();
-  const [name, setName] = useState(person?.name ?? '');
-  const [role, setRole] = useState<Role>(person?.role ?? 'consumer');
-  const [contact, setContact] = useState(person?.contact ?? '');
-  const [from, setFrom] = useState(person?.activeFrom ?? '');
-  const [to, setTo] = useState(person?.activeTo ?? '');
+  const [name, setName] = useState(person?.name ?? "");
+  const [role, setRole] = useState<Role>(person?.role ?? "consumer");
+  const [contact, setContact] = useState(person?.contact ?? "");
+  const [from, setFrom] = useState(person?.activeFrom ?? "");
+  const [to, setTo] = useState(person?.activeTo ?? "");
   const act = useAction();
   return (
     <Form
@@ -29,7 +29,7 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
           };
           if (person) await api.patch(`${ws.api}/people/${person.id}`, body);
           else await postJson(`${ws.api}/people`, { ...body, role });
-          toast('Saved.');
+          toast("Saved.");
           onDone();
           ws.reload();
         })
@@ -67,8 +67,8 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
           onChange={(e) => setContact(e.target.value)}
         />
       </Field>
-      {role === 'consumer' ? (
-        <div className="pair">
+      {role === "consumer" ? (
+        <div class="pair">
           <Field label="Eating from" id="pfrom">
             <input id="pfrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           </Field>
@@ -78,33 +78,33 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
         </div>
       ) : null}
       <div>
-        <button className="btn" disabled={act.busy}>
+        <button class="btn" disabled={act.busy}>
           Save
         </button>
       </div>
       {person ? (
-        <div className="dlg-foot">
-          <p className="muted small">
-            {person.status === 'ACTIVE'
-              ? 'Disabling keeps their history and stops new entries.'
-              : 'Disabled: their history is kept and no new entries can be made.'}
+        <div class="dlg-foot">
+          <p class="muted small">
+            {person.status === "ACTIVE"
+              ? "Disabling keeps their history and stops new entries."
+              : "Disabled: their history is kept and no new entries can be made."}
           </p>
           <button
             type="button"
-            className="btn ghost small"
+            class="btn ghost small"
             disabled={act.busy}
             onClick={() =>
               void act.run(async () => {
                 await api.patch(`${ws.api}/people/${person.id}`, {
-                  status: person.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
+                  status: person.status === "ACTIVE" ? "DISABLED" : "ACTIVE",
                 });
-                toast(person.status === 'ACTIVE' ? 'Disabled.' : 'Enabled.');
+                toast(person.status === "ACTIVE" ? "Disabled." : "Enabled.");
                 onDone();
                 ws.reload();
               })
             }
           >
-            {person.status === 'ACTIVE' ? 'Disable' : 'Enable'} {person.name}
+            {person.status === "ACTIVE" ? "Disable" : "Enable"} {person.name}
           </button>
         </div>
       ) : null}
@@ -114,11 +114,11 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
 
 function Invite({ person }: { person: PersonDto }) {
   const ws = useWorkspace();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [link, setLink] = useState<string | null>(null);
   const act = useAction();
   return link ? (
-    <div className="stack">
+    <div class="stack">
       <p>
         Send this link to {person.name}. It works once, for 7 days, and only with the email you
         typed.
@@ -130,8 +130,8 @@ function Invite({ person }: { person: PersonDto }) {
         aria-label="Invitation link"
       />
       <button
-        className="btn ghost"
-        onClick={() => void navigator.clipboard?.writeText(link).then(() => toast('Copied.'))}
+        class="btn ghost"
+        onClick={() => void navigator.clipboard?.writeText(link).then(() => toast("Copied."))}
       >
         Copy
       </button>
@@ -158,7 +158,7 @@ function Invite({ person }: { person: PersonDto }) {
         />
       </Field>
       <div>
-        <button className="btn" disabled={act.busy}>
+        <button class="btn" disabled={act.busy}>
           Make a link
         </button>
       </div>
@@ -168,21 +168,21 @@ function Invite({ person }: { person: PersonDto }) {
 
 export function People() {
   const ws = useWorkspace();
-  const [edit, setEdit] = useState<PersonDto | 'new' | null>(null);
+  const [edit, setEdit] = useState<PersonDto | "new" | null>(null);
   const [invite, setInvite] = useState<PersonDto | null>(null);
   return (
-    <div className="stack">
+    <div class="stack">
       <PageHead
         title="People"
         lead="Everyone you feed, and the people who help run the kitchen."
         actions={
-          <button className="btn" disabled={!ws.writable} onClick={() => setEdit('new')}>
+          <button class="btn" disabled={!ws.writable} onClick={() => setEdit("new")}>
             Add a person
           </button>
         }
       />
       <div
-        className="tablewrap"
+        class="tablewrap"
         tabIndex={0}
         role="region"
         aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -201,28 +201,28 @@ export function People() {
           </thead>
           <tbody>
             {ws.boot.people.map((p) => (
-              <tr key={p.id} className={p.status === 'DISABLED' ? 'projected' : ''}>
-                <td className="linked">
+              <tr key={p.id} class={p.status === "DISABLED" ? "projected" : ""}>
+                <td class="linked">
                   <button
                     type="button"
                     disabled={!ws.writable}
                     aria-label={`Edit ${p.name}`}
                     onClick={() => setEdit(p)}
                   >
-                    <span className="nm">{p.name}</span>
-                    {p.status === 'DISABLED' ? <Chip>Disabled</Chip> : null}
+                    <span class="nm">{p.name}</span>
+                    {p.status === "DISABLED" ? <Chip>Disabled</Chip> : null}
                   </button>
                 </td>
                 <td>{LABEL[p.role]}</td>
                 <td>{p.linked ? <Chip tone="good">Yes</Chip> : <Chip>Not yet</Chip>}</td>
-                <td>{p.contact ?? '-'}</td>
-                <td>{p.activeFrom ? date(p.activeFrom) : '-'}</td>
-                <td>{p.activeTo ? date(p.activeTo) : '-'}</td>
-                <td className="r">
-                  {!p.linked && p.status === 'ACTIVE' ? (
+                <td>{p.contact ?? "-"}</td>
+                <td>{p.activeFrom ? date(p.activeFrom) : "-"}</td>
+                <td>{p.activeTo ? date(p.activeTo) : "-"}</td>
+                <td class="r">
+                  {!p.linked && p.status === "ACTIVE" ? (
                     <button
                       type="button"
-                      className="quiet"
+                      class="quiet"
                       disabled={!ws.writable}
                       onClick={() => setInvite(p)}
                     >
@@ -235,19 +235,19 @@ export function People() {
           </tbody>
         </table>
       </div>
-      <p className="muted small">
+      <p class="muted small">
         {ws.boot.meter
           ? `${ws.boot.meter.usage.people} of the free tier’s people allowance used. `
-          : ''}
+          : ""}
         Disabling someone keeps their history and stops new entries.
       </p>
       <Dialog
         open={!!edit}
         onClose={() => setEdit(null)}
-        title={edit === 'new' ? 'Add a person' : 'Edit person'}
+        title={edit === "new" ? "Add a person" : "Edit person"}
       >
         {edit ? (
-          <PersonForm person={edit === 'new' ? null : edit} onDone={() => setEdit(null)} />
+          <PersonForm person={edit === "new" ? null : edit} onDone={() => setEdit(null)} />
         ) : null}
       </Dialog>
       <Dialog open={!!invite} onClose={() => setInvite(null)} title="Invite">

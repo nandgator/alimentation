@@ -1,19 +1,19 @@
-import { useState } from 'react';
-import { useLocation } from 'wouter';
-import { postJson } from '../api.ts';
-import { Field, Form, useAction } from '../components/ui.tsx';
-import { useSession } from '../session.tsx';
-import { CopySetup } from './CopySetup.tsx';
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { postJson } from "../api.ts";
+import { Field, Form, useAction } from "../components/ui.tsx";
+import { useSession } from "../session.tsx";
+import { CopySetup } from "./CopySetup.tsx";
 
 function NewOrganisation({ first }: { first: boolean }) {
   const [, go] = useLocation();
   const { refresh } = useSession();
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const act = useAction();
   return (
-    <section className="card stack" aria-labelledby="org-h">
-      <h2 id="org-h">{first ? 'Start an organisation' : 'Start another organisation'}</h2>
-      <p className="muted">
+    <section class="card stack" aria-labelledby="org-h">
+      <h2 id="org-h">{first ? "Start an organisation" : "Start another organisation"}</h2>
+      <p class="muted">
         A head office over several kitchens. It sees how each is doing: how many people, how many
         meals, what was billed, paid and is owed. It never sees a name. A kitchen joins only when
         its own admin agrees, and can stop whenever it likes.
@@ -22,7 +22,7 @@ function NewOrganisation({ first }: { first: boolean }) {
         error={act.error}
         onSubmit={() =>
           act.run(async () => {
-            const made = await postJson<{ id: string }>('/api/organisations', { name });
+            const made = await postJson<{ id: string }>("/api/organisations", { name });
             await refresh();
             go(`/org/${made.id}`);
           })
@@ -37,7 +37,7 @@ function NewOrganisation({ first }: { first: boolean }) {
             onChange={(e) => setName(e.target.value)}
           />
         </Field>
-        <button className="btn" disabled={act.busy}>
+        <button class="btn" disabled={act.busy}>
           Start it
         </button>
       </Form>

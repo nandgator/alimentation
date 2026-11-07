@@ -1,16 +1,16 @@
-import { buildApp, type AppDeps } from './app.ts';
-import { OidcClient } from './auth/oidc.ts';
-import { TokenSigner } from './auth/session.ts';
-import { loadConfig, type Config } from './config.ts';
-import { ControlRepo } from './control/repo.ts';
-import { Keyring } from './crypto/keys.ts';
-import type { Db } from './db/driver.ts';
-import { Directory } from './directory.ts';
-import { Gate } from './limits/gate.ts';
-import { ApiError } from './workspace/errors.ts';
-import { ExternalPlacement } from './placement/external.ts';
-import type { Credentials, Placement, PlacementRef, Provisioned } from './placement/types.ts';
-import type { PlatformDeps } from './platform/workspaces.ts';
+import { buildApp, type AppDeps } from "./app.ts";
+import { OidcClient } from "./auth/oidc.ts";
+import { TokenSigner } from "./auth/session.ts";
+import { loadConfig, type Config } from "./config.ts";
+import { ControlRepo } from "./control/repo.ts";
+import { Keyring } from "./crypto/keys.ts";
+import type { Db } from "./db/driver.ts";
+import { Directory } from "./directory.ts";
+import { Gate } from "./limits/gate.ts";
+import { ApiError } from "./workspace/errors.ts";
+import { ExternalPlacement } from "./placement/external.ts";
+import type { Credentials, Placement, PlacementRef, Provisioned } from "./placement/types.ts";
+import type { PlatformDeps } from "./platform/workspaces.ts";
 
 export interface RuntimeOptions {
   env: Record<string, string | undefined>;
@@ -19,14 +19,14 @@ export interface RuntimeOptions {
   placement: Placement | null;
   now?: () => Date;
   fetch?: typeof fetch;
-  log?: AppDeps['log'];
-  schedule?: AppDeps['schedule'];
+  log?: AppDeps["log"];
+  schedule?: AppDeps["schedule"];
 }
 
 const noPlacement: Placement = {
-  kind: 'external',
+  kind: "external",
   async provision(): Promise<Provisioned> {
-    throw new ApiError(501, 'no_placement', 'This deployment cannot create workspaces.');
+    throw new ApiError(501, "no_placement", "This deployment cannot create workspaces.");
   },
   async destroy(_ref: PlacementRef, _creds?: Credentials): Promise<void> {},
   async exists(): Promise<boolean> {
@@ -63,9 +63,9 @@ export async function createRuntime(o: RuntimeOptions) {
     keyring,
     placement,
     placementFor: (kind) => {
-      if (kind === 'external') return external;
+      if (kind === "external") return external;
       if (kind === placement.kind) return placement;
-      throw new ApiError(501, 'no_placement', `This deployment cannot manage ${kind} databases.`);
+      throw new ApiError(501, "no_placement", `This deployment cannot manage ${kind} databases.`);
     },
     fetch: o.fetch ?? fetch,
     openDb: o.openDb,

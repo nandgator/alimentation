@@ -1,8 +1,8 @@
-import type { ExecutionContext } from '@cloudflare/workers-types';
-import { housekeeping } from './lifecycle/housekeeping.ts';
-import { neonOpenDb, useLocalProxy } from './db/neon.ts';
-import { NeonPlacement } from './placement/neon.ts';
-import { createRuntime } from './runtime.ts';
+import type { ExecutionContext } from "@cloudflare/workers-types";
+import { housekeeping } from "./lifecycle/housekeeping.ts";
+import { neonOpenDb, useLocalProxy } from "./db/neon.ts";
+import { NeonPlacement } from "./placement/neon.ts";
+import { createRuntime } from "./runtime.ts";
 
 /**
  * The Cloudflare Workers entry. Static files (the web app) are served by the
@@ -22,19 +22,19 @@ let current: ExecutionContext | undefined;
 
 function build(bindings: Bindings) {
   const env = Object.fromEntries(
-    Object.entries(bindings).filter((e): e is [string, string] => typeof e[1] === 'string'),
+    Object.entries(bindings).filter((e): e is [string, string] => typeof e[1] === "string"),
   );
   if (env.NEON_WS_PROXY) useLocalProxy(env.NEON_WS_PROXY);
   const openDb = neonOpenDb();
   const placement = env.NEON_API_KEY
     ? new NeonPlacement({
         apiKey: env.NEON_API_KEY,
-        regionId: env.NEON_REGION ?? 'aws-ap-southeast-1',
+        regionId: env.NEON_REGION ?? "aws-ap-southeast-1",
         orgId: env.NEON_ORG_ID,
         openDb,
         quota: env.NEON_QUOTA_JSON ? JSON.parse(env.NEON_QUOTA_JSON) : undefined,
         onError: (detail) =>
-          console.log(JSON.stringify({ t: new Date().toISOString(), msg: 'neon', detail })),
+          console.log(JSON.stringify({ t: new Date().toISOString(), msg: "neon", detail })),
       })
     : null;
   return createRuntime({
@@ -62,7 +62,7 @@ export default {
     current = ctx;
     ctx.waitUntil(
       housekeeping(deps.platform).then((r) =>
-        console.log(JSON.stringify({ t: new Date().toISOString(), msg: 'housekeeping', ...r })),
+        console.log(JSON.stringify({ t: new Date().toISOString(), msg: "housekeeping", ...r })),
       ),
     );
   },

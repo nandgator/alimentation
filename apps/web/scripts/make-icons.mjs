@@ -1,16 +1,16 @@
 // Draws the app icons from one design: a tiffin carrier (handle, lid, three tiers, side clips) on
 // curry-leaf green.
 //   node scripts/make-icons.mjs
-import { chromium } from '@playwright/test';
-import { writeFileSync } from 'node:fs';
+import { chromium } from "@playwright/test";
+import { writeFileSync } from "node:fs";
 
-const GREEN = '#1F4D3A';
-const TILE = '#EEF1EC';
-const TURMERIC = '#F0B323';
+const GREEN = "#1F4D3A";
+const TILE = "#EEF1EC";
+const TURMERIC = "#F0B323";
 
 // `inset` shrinks the drawing so a maskable icon keeps it inside the safe zone.
 const svg = ({ rounded, inset }) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" ${rounded ? 'rx="112"' : ''} fill="${GREEN}"/>
+  <rect width="512" height="512" ${rounded ? 'rx="112"' : ""} fill="${GREEN}"/>
   <g transform="translate(256 256) scale(${inset * 17}) translate(-12 -12.5)">
     <g fill="${TILE}">
       <rect x="7" y="2.4" width="10" height="1.8" rx="0.9"/>
@@ -28,17 +28,17 @@ const svg = ({ rounded, inset }) => `<svg xmlns="http://www.w3.org/2000/svg" vie
   </g>
 </svg>`;
 
-writeFileSync('public/favicon.svg', svg({ rounded: true, inset: 1 }));
+writeFileSync("public/favicon.svg", svg({ rounded: true, inset: 1 }));
 
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
 });
 const page = await browser.newPage();
 for (const [file, size, opts] of [
-  ['icon-192.png', 192, { rounded: true, inset: 1 }],
-  ['icon-512.png', 512, { rounded: true, inset: 1 }],
-  ['icon-180.png', 180, { rounded: false, inset: 0.86 }],
-  ['icon-maskable-512.png', 512, { rounded: false, inset: 0.74 }],
+  ["icon-192.png", 192, { rounded: true, inset: 1 }],
+  ["icon-512.png", 512, { rounded: true, inset: 1 }],
+  ["icon-180.png", 180, { rounded: false, inset: 0.86 }],
+  ["icon-maskable-512.png", 512, { rounded: false, inset: 0.74 }],
 ]) {
   await page.setViewportSize({ width: size, height: size });
   await page.setContent(
@@ -47,4 +47,4 @@ for (const [file, size, opts] of [
   await page.screenshot({ path: `public/${file}`, omitBackground: true });
 }
 await browser.close();
-console.log('icons written');
+console.log("icons written");

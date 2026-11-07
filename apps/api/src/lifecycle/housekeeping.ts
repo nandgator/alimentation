@@ -1,6 +1,6 @@
-import type { PlatformDeps } from '../platform/workspaces.ts';
-import { releaseMove } from './move.ts';
-import { UNDO_DAYS, destroyRetired, wipeWorkspace } from './wipe.ts';
+import type { PlatformDeps } from "../platform/workspaces.ts";
+import { releaseMove } from "./move.ts";
+import { UNDO_DAYS, destroyRetired, wipeWorkspace } from "./wipe.ts";
 
 const DAY = 86_400_000;
 const MOVE_PATIENCE_MS = 30 * 60_000;
@@ -54,28 +54,28 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
   };
 
   await each(
-    'finish wipe',
+    "finish wipe",
     () => p.control.wiping(),
     async (w) => {
       if ((await wipeWorkspace(p, w.id)).done) r.wipesFinished++;
     },
   );
   await each(
-    'wipe again',
+    "wipe again",
     () => p.control.wipedButPresent(),
     async (w) => {
       if ((await wipeWorkspace(p, w.id)).done) r.wipedAgain++;
     },
   );
   await each(
-    'wipe moved copy',
+    "wipe moved copy",
     () => p.control.movedBefore(new Date(now.getTime() - UNDO_DAYS * DAY)),
     async (w) => {
       if ((await wipeWorkspace(p, w.id)).done) r.movedCopiesWiped++;
     },
   );
   await each(
-    'remove old copy',
+    "remove old copy",
     () => p.control.retiredDue(now),
     async (old) => {
       await destroyRetired(p, old);
@@ -83,7 +83,7 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
     },
   );
   await each(
-    'release stalled move',
+    "release stalled move",
     () => p.control.stuckMoving(new Date(now.getTime() - MOVE_PATIENCE_MS)),
     async (w) => {
       if (w.movedToUrl) {
@@ -95,12 +95,12 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
     },
   );
 
-  await guard('prune usage', async () => {
+  await guard("prune usage", async () => {
     r.usageRowsPruned = await p.control.pruneUsage(
       new Date(now.getTime() - 35 * DAY).toISOString().slice(0, 10),
     );
   });
-  await guard('prune invitations', async () => {
+  await guard("prune invitations", async () => {
     r.invitesPruned = await p.control.pruneInvites(new Date(now.getTime() - 30 * DAY));
   });
   return r;

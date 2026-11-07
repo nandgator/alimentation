@@ -1,23 +1,23 @@
-import type { IsoDate, Month, Weekday } from './dates.ts';
-import type { Paise } from './money.ts';
+import type { IsoDate, Month, Weekday } from "./dates.ts";
+import type { Paise } from "./money.ts";
 
-export type Role = 'admin' | 'supplier' | 'consumer';
-export type MealType = 'Veg' | 'Non Veg';
+export type Role = "admin" | "supplier" | "consumer";
+export type MealType = "Veg" | "Non Veg";
 
 export const LOG_CHANGES = [
-  'Leave',
-  'Switch to Veg',
-  'Switch to Non Veg',
-  'Extra Chapati',
-  'Extra Bhakri',
-  'Supplier Off',
+  "Leave",
+  "Switch to Veg",
+  "Switch to Non Veg",
+  "Extra Chapati",
+  "Extra Bhakri",
+  "Supplier Off",
 ] as const;
 export type LogChange = (typeof LOG_CHANGES)[number];
 
-export const PAY_METHODS = ['UPI', 'Cash', 'Bank transfer', 'Other'] as const;
+export const PAY_METHODS = ["UPI", "Cash", "Bank transfer", "Other"] as const;
 export type PayMethod = (typeof PAY_METHODS)[number];
 
-export const SETTLEMENT_TYPES = ['Payment', 'Query', 'Query Resolved'] as const;
+export const SETTLEMENT_TYPES = ["Payment", "Query", "Query Resolved"] as const;
 export type SettlementType = (typeof SETTLEMENT_TYPES)[number];
 
 export interface Person {
@@ -80,7 +80,7 @@ export interface Claim {
 
 export interface Decision {
   claimId: string;
-  decision: 'Confirmed' | 'Disputed';
+  decision: "Confirmed" | "Disputed";
   note: string | null;
   decidedBy: string;
   decidedAt: string;
@@ -112,11 +112,11 @@ export interface MonthClose {
 }
 
 export class EngineError extends Error {
-  readonly code: 'NO_RATE_CARD' | 'NO_MENU' | 'BAD_INPUT';
+  readonly code: "NO_RATE_CARD" | "NO_MENU" | "BAD_INPUT";
   readonly date: IsoDate | null;
-  constructor(code: EngineError['code'], message: string, date: IsoDate | null = null) {
+  constructor(code: EngineError["code"], message: string, date: IsoDate | null = null) {
     super(message);
-    this.name = 'EngineError';
+    this.name = "EngineError";
     this.code = code;
     this.date = date;
   }

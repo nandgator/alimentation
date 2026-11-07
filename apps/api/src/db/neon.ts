@@ -1,5 +1,5 @@
-import { Client, neonConfig, types } from '@neondatabase/serverless';
-import { dbFromPool, pgTypes, type Db } from './driver.ts';
+import { Client, neonConfig, types } from "@neondatabase/serverless";
+import { dbFromPool, pgTypes, type Db } from "./driver.ts";
 
 /**
  * A database reached over Neon's serverless driver, for Cloudflare Workers.
@@ -9,7 +9,7 @@ import { dbFromPool, pgTypes, type Db } from './driver.ts';
  * speaks over a WebSocket, which is what a Worker is allowed to open.
  */
 export function neonDb(connectionString: string): Db {
-  const parsers = pgTypes((oid, format) => types.getTypeParser(oid, format as 'text'));
+  const parsers = pgTypes((oid, format) => types.getTypeParser(oid, format as "text"));
   return dbFromPool({
     async connect() {
       const client = new Client({
@@ -20,7 +20,7 @@ export function neonDb(connectionString: string): Db {
       return {
         query: (text: string, values?: unknown[]) => client.query(text, values),
         release: () => void client.end().catch(() => undefined),
-      } as Awaited<ReturnType<Parameters<typeof dbFromPool>[0]['connect']>>;
+      } as Awaited<ReturnType<Parameters<typeof dbFromPool>[0]["connect"]>>;
     },
     async end() {},
   });

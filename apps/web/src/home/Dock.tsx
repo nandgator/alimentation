@@ -1,7 +1,7 @@
-import { useLayoutEffect, useRef } from 'react';
-import { CARRIER_BOX, Carrier } from './art.tsx';
-import { carried, journeyAt, STILL, type Box, type Courier, type Hand } from './dock.ts';
-import { useMedia } from './motion.tsx';
+import { useLayoutEffect, useRef } from "react";
+import { CARRIER_BOX, Carrier } from "./art.tsx";
+import { carried, journeyAt, STILL, type Box, type Courier, type Hand } from "./dock.ts";
+import { useMedia } from "./motion.tsx";
 
 const boxOf = (el: Element): Box => {
   const r = el.getBoundingClientRect();
@@ -13,7 +13,7 @@ const holderOf = (el: Element): Element | null => {
   for (let up = el.parentElement; up; up = up.parentElement) {
     const style = getComputedStyle(up);
     // (An element with no box of its own, as on a phone, holds nothing.)
-    if (style.position === 'sticky' && style.display !== 'contents') return up;
+    if (style.position === "sticky" && style.display !== "contents") return up;
   }
   return null;
 };
@@ -41,7 +41,7 @@ const inFlow = (heading: Element, holder: Element | null): Box => {
  */
 export function Dock({ chapters }: { chapters: readonly string[] }) {
   const flyer = useRef<SVGSVGElement>(null);
-  const reduce = useMedia('(prefers-reduced-motion: reduce)');
+  const reduce = useMedia("(prefers-reduced-motion: reduce)");
 
   // Before the first paint, so the bar's mark is never seen for a moment where the carrier is still on its shelf.
   useLayoutEffect(() => {
@@ -49,9 +49,9 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
     // The page it is drawn in: it is the first thing in it, and a child's layout effect runs before its parent's ref is set.
     const home = fly?.parentElement;
     if (!home || !fly || reduce) return;
-    const scene = home.querySelector('.hero-scene');
-    const mark = home.querySelector<SVGSVGElement>('.hnav .mark');
-    const hero = home.querySelector<HTMLElement>('.hero');
+    const scene = home.querySelector(".hero-scene");
+    const mark = home.querySelector<SVGSVGElement>(".hnav .mark");
+    const hero = home.querySelector<HTMLElement>(".hero");
     if (!scene || !mark || !hero) return;
     // What each chapter's heading is held by, which changes only with the screen's shape.
     const find = () =>
@@ -73,7 +73,7 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
       fly.style.transform = `translate(${d.box.left.toFixed(2)}px, ${d.box.top.toFixed(2)}px) scale(${(d.box.width / CARRIER_BOX.width).toFixed(4)}, ${(d.box.height / CARRIER_BOX.height).toFixed(4)})`;
       mark.style.opacity = String(Math.round(d.mark * 1000) / 1000);
       hero.dataset.lifted = String(d.lifted);
-      mark.classList.toggle('is-docked', d.docked);
+      mark.classList.toggle("is-docked", d.docked);
     };
     const journey = () =>
       journeyAt({
@@ -122,33 +122,33 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
       hand = { gap: Math.round(trip.progress) - trip.progress, speed: 0 };
       draw(trip.courier(Math.round(trip.progress)), Math.round(trip.progress));
     }
-    window.addEventListener('scroll', scrolled, { passive: true });
+    window.addEventListener("scroll", scrolled, { passive: true });
     const reshaped = () => {
       headings = find();
       soon();
     };
-    window.addEventListener('resize', reshaped);
+    window.addEventListener("resize", reshaped);
     // Fonts and pictures settling move things without a scroll.
     const watch = new ResizeObserver(soon);
     watch.observe(hero);
     return () => {
-      window.removeEventListener('scroll', scrolled);
-      window.removeEventListener('resize', reshaped);
+      window.removeEventListener("scroll", scrolled);
+      window.removeEventListener("resize", reshaped);
       watch.disconnect();
       clearTimeout(timer);
       if (raf) cancelAnimationFrame(raf);
       delete fly.dataset.at;
-      fly.style.opacity = '';
-      fly.style.transform = '';
-      mark.style.opacity = '';
-      mark.classList.remove('is-docked');
+      fly.style.opacity = "";
+      fly.style.transform = "";
+      mark.style.opacity = "";
+      mark.classList.remove("is-docked");
       delete hero.dataset.lifted;
     };
   }, [reduce, chapters]);
 
   return (
     <svg
-      className="flyer"
+      class="flyer"
       ref={flyer}
       viewBox={`${CARRIER_BOX.x} ${CARRIER_BOX.y} ${CARRIER_BOX.width} ${CARRIER_BOX.height}`}
       width={CARRIER_BOX.width}

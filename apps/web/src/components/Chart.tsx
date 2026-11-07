@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react';
-import { month as monthLabel, money } from '../format.ts';
+import { useLayoutEffect, useRef, useState } from "react";
+import { month as monthLabel, money } from "../format.ts";
 
 export interface Series {
   name: string;
@@ -50,10 +50,10 @@ export function BarChart({
   const ticks = [0, 0.5, 1].map((f) => f * top);
 
   return (
-    <figure className="stack chart-figure">
-      <div ref={box} className="chart-box">
+    <figure class="stack chart-figure">
+      <div ref={box} class="chart-box">
         <svg
-          className="chart"
+          class="chart"
           width={W}
           height={H}
           viewBox={`0 0 ${W} ${H}`}
@@ -62,9 +62,9 @@ export function BarChart({
         >
           {ticks.map((t) => (
             <g key={t}>
-              <line className="grid" x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} />
+              <line class="grid" x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} />
               <text x={pad.l - 8} y={y(t) + 4} textAnchor="end">
-                {t === 0 ? '0' : money(Math.round(t))}
+                {t === 0 ? "0" : money(Math.round(t))}
               </text>
             </g>
           ))}
@@ -78,20 +78,20 @@ export function BarChart({
                   return (
                     <rect
                       key={s.name}
-                      className={`s${Math.min(j, 3)} ${projected[i] ? 'proj' : ''}`}
+                      class={`s${Math.min(j, 3)} ${projected[i] ? "proj" : ""}`}
                       x={x0 + j * bw}
                       y={y(v)}
                       width={bw - 2}
                       height={pad.t + ih - y(v)}
                       rx="3"
                     >
-                      <title>{`${s.name} · ${monthLabel(c)}${projected[i] ? ' (projected)' : ''} · ${money(v)}`}</title>
+                      <title>{`${s.name} · ${monthLabel(c)}${projected[i] ? " (projected)" : ""} · ${money(v)}`}</title>
                     </rect>
                   );
                 })}
                 <text x={pad.l + i * band + band / 2} y={H - 8} textAnchor="middle">
                   {monthLabel(c)}
-                  {projected[i] ? '*' : ''}
+                  {projected[i] ? "*" : ""}
                 </text>
               </g>
             );
@@ -99,19 +99,19 @@ export function BarChart({
         </svg>
       </div>
       {series.length > 1 ? (
-        <div className="legend">
+        <div class="legend">
           {series.map((s, j) => (
             <span key={s.name}>
-              <i className={`s${Math.min(j, 3)}`} />
+              <i class={`s${Math.min(j, 3)}`} />
               {s.name}
             </span>
           ))}
         </div>
       ) : null}
       <details>
-        <summary className="muted small">Show these figures as a table</summary>
+        <summary class="muted small">Show these figures as a table</summary>
         <div
-          className="tablewrap chart-table"
+          class="tablewrap chart-table"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -121,7 +121,7 @@ export function BarChart({
               <tr>
                 <th>Month</th>
                 {series.map((s) => (
-                  <th key={s.name} className="r">
+                  <th key={s.name} class="r">
                     {s.name}
                   </th>
                 ))}
@@ -132,10 +132,10 @@ export function BarChart({
                 <tr key={c}>
                   <td>
                     {monthLabel(c)}
-                    {projected[i] ? '*' : ''}
+                    {projected[i] ? "*" : ""}
                   </td>
                   {series.map((s) => (
-                    <td key={s.name} className="r">
+                    <td key={s.name} class="r">
                       {money(s.values[i] ?? 0)}
                     </td>
                   ))}
@@ -144,7 +144,7 @@ export function BarChart({
             </tbody>
           </table>
         </div>
-        <p className="muted small">* projected</p>
+        <p class="muted small">* projected</p>
       </details>
     </figure>
   );

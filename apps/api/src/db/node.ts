@@ -1,5 +1,5 @@
-import pg from 'pg';
-import { dbFromPool, pgTypes, type Db } from './driver.ts';
+import pg from "pg";
+import { dbFromPool, pgTypes, type Db } from "./driver.ts";
 
 /** A pool of connections over `pg`, for Node. */
 export function nodeDb(connectionString: string, opts: { max?: number } = {}): Db {
@@ -7,11 +7,11 @@ export function nodeDb(connectionString: string, opts: { max?: number } = {}): D
     connectionString,
     max: opts.max ?? 5,
     types: pgTypes((oid, format) =>
-      pg.types.getTypeParser(oid, format as 'text'),
+      pg.types.getTypeParser(oid, format as "text"),
     ) as unknown as pg.CustomTypesConfig,
   });
   // A connection that drops while idle (the database restarting, a deploy) must not take the process down.
-  pool.on('error', () => undefined);
+  pool.on("error", () => undefined);
   return dbFromPool(pool as unknown as Parameters<typeof dbFromPool>[0]);
 }
 

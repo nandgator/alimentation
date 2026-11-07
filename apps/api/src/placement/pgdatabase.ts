@@ -1,12 +1,12 @@
-import pg from 'pg';
-import { migrate, type Migration } from '../db/migrate.ts';
+import pg from "pg";
+import { migrate, type Migration } from "../db/migrate.ts";
 import {
   randomSecret,
   type Credentials,
   type Placement,
   type PlacementRef,
   type Provisioned,
-} from './types.ts';
+} from "./types.ts";
 
 export interface PgDatabaseOptions {
   /** Superuser, or a role that can create roles and databases. */
@@ -25,13 +25,13 @@ export interface PgDatabaseOptions {
  * and a statement timeout so that one workspace cannot hold the cluster.
  */
 export class PgDatabasePlacement implements Placement {
-  readonly kind = 'pg-database' as const;
+  readonly kind = "pg-database" as const;
   constructor(private readonly opts: PgDatabaseOptions) {}
 
   private names(workspaceId: string) {
-    const short = workspaceId.replace(/-/g, '').slice(0, 16).toLowerCase();
-    if (!/^[0-9a-f]{16}$/.test(short)) throw new Error('workspace id must be a UUID');
-    const pre = this.opts.prefix ?? 'ws';
+    const short = workspaceId.replace(/-/g, "").slice(0, 16).toLowerCase();
+    if (!/^[0-9a-f]{16}$/.test(short)) throw new Error("workspace id must be a UUID");
+    const pre = this.opts.prefix ?? "ws";
     return {
       database: `${pre}_${short}`,
       owner: `${pre}_${short}_own`,
@@ -56,7 +56,7 @@ export class PgDatabasePlacement implements Placement {
     try {
       // format() quotes identifiers and literals on the server, so nothing here is spliced by hand.
       const run = async (template: string, ...args: string[]) => {
-        const r = await admin.query('SELECT format($1, VARIADIC $2::text[]) AS q', [
+        const r = await admin.query("SELECT format($1, VARIADIC $2::text[]) AS q", [
           template,
           args,
         ]);
@@ -64,44 +64,44 @@ export class PgDatabasePlacement implements Placement {
       };
       const limit = String(Math.trunc(Number(this.opts.connectionLimit ?? 10)));
       await run(
-        'CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS',
+        "CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS",
         n.owner,
         ownerPassword,
       );
       await run(
-        'CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT %s',
+        "CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT %s",
         n.app,
         appPassword,
         limit,
       );
-      await run('CREATE DATABASE %I OWNER %I', n.database, n.owner);
-      await run('REVOKE ALL ON DATABASE %I FROM PUBLIC', n.database);
-      await run('GRANT CONNECT ON DATABASE %I TO %I', n.database, n.app);
+      await run("CREATE DATABASE %I OWNER %I", n.database, n.owner);
+      await run("REVOKE ALL ON DATABASE %I FROM PUBLIC", n.database);
+      await run("GRANT CONNECT ON DATABASE %I TO %I", n.database, n.app);
       const settings: [string, string][] = [
-        ['statement_timeout', this.opts.statementTimeout ?? '5s'],
-        ['lock_timeout', this.opts.lockTimeout ?? '2s'],
-        ['idle_in_transaction_session_timeout', this.opts.idleInTransactionTimeout ?? '10s'],
+        ["statement_timeout", this.opts.statementTimeout ?? "5s"],
+        ["lock_timeout", this.opts.lockTimeout ?? "2s"],
+        ["idle_in_transaction_session_timeout", this.opts.idleInTransactionTimeout ?? "10s"],
       ];
       for (const [k, v] of settings)
-        await run('ALTER ROLE %I IN DATABASE %I SET %s = %L', n.app, n.database, k, v);
+        await run("ALTER ROLE %I IN DATABASE %I SET %s = %L", n.app, n.database, k, v);
 
       const ownerUrl = this.withUser(this.opts.adminUrl, n.owner, ownerPassword, n.database);
       const owner = new pg.Client({ connectionString: ownerUrl });
       await owner.connect();
       try {
-        await owner.query('REVOKE ALL ON SCHEMA public FROM PUBLIC');
-        await migrate(owner, migrations, { settings: { 'alimentation.app_role': n.app } });
+        await owner.query("REVOKE ALL ON SCHEMA public FROM PUBLIC");
+        await migrate(owner, migrations, { settings: { "alimentation.app_role": n.app } });
       } finally {
         await owner.end();
       }
       return {
-        ref: { kind: 'pg-database', data: { database: n.database, owner: n.owner, app: n.app } },
+        ref: { kind: "pg-database", data: { database: n.database, owner: n.owner, app: n.app } },
         ownerUrl,
         appUrl: this.withUser(this.opts.adminUrl, n.app, appPassword, n.database),
       };
     } catch (e) {
       await this.destroy({
-        kind: 'pg-database',
+        kind: "pg-database",
         data: { database: n.database, owner: n.owner, app: n.app },
       }).catch(() => undefined);
       throw e;
@@ -112,24 +112,24 @@ export class PgDatabasePlacement implements Placement {
 
   async destroy(ref: PlacementRef, _creds?: Credentials): Promise<void> {
     const { database, owner, app } = ref.data as Record<string, string>;
-    if (!database || !owner || !app) throw new Error('not a pg-database reference');
+    if (!database || !owner || !app) throw new Error("not a pg-database reference");
     const admin = new pg.Client({ connectionString: this.opts.adminUrl });
     await admin.connect();
     try {
       await admin.query(
-        'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()',
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()",
         [database],
       );
       const drop = async (template: string, ident: string) => {
-        const r = await admin.query('SELECT format($1, VARIADIC $2::text[]) AS q', [
+        const r = await admin.query("SELECT format($1, VARIADIC $2::text[]) AS q", [
           template,
           [ident],
         ]);
         await admin.query(String(r.rows[0]!.q));
       };
-      await drop('DROP DATABASE IF EXISTS %I WITH (FORCE)', database);
-      await drop('DROP ROLE IF EXISTS %I', app);
-      await drop('DROP ROLE IF EXISTS %I', owner);
+      await drop("DROP DATABASE IF EXISTS %I WITH (FORCE)", database);
+      await drop("DROP ROLE IF EXISTS %I", app);
+      await drop("DROP ROLE IF EXISTS %I", owner);
     } finally {
       await admin.end();
     }
@@ -146,8 +146,8 @@ export class PgDatabasePlacement implements Placement {
     const admin = new pg.Client({ connectionString: this.opts.adminUrl });
     await admin.connect();
     try {
-      const r = await admin.query('SELECT format($1, VARIADIC $2::text[]) AS q', [
-        'REVOKE CONNECT ON DATABASE %I FROM PUBLIC',
+      const r = await admin.query("SELECT format($1, VARIADIC $2::text[]) AS q", [
+        "REVOKE CONNECT ON DATABASE %I FROM PUBLIC",
         [database],
       ]);
       await admin.query(String(r.rows[0]!.q));
@@ -178,7 +178,7 @@ export class PgDatabasePlacement implements Placement {
     const admin = new pg.Client({ connectionString: this.opts.adminUrl });
     await admin.connect();
     try {
-      const r = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [database]);
+      const r = await admin.query("SELECT 1 FROM pg_database WHERE datname = $1", [database]);
       return r.rows.length > 0;
     } finally {
       await admin.end();

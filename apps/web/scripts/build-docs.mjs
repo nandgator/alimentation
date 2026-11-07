@@ -18,59 +18,59 @@ import {
   readdirSync,
   rmSync,
   writeFileSync,
-} from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { Marked } from 'marked';
-import { createBlocks, expandExcerpts } from './docs-blocks.mjs';
+} from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { Marked } from "marked";
+import { createBlocks, expandExcerpts } from "./docs-blocks.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 /** The two sites. A page in one may link to a page in the other. */
 const SITES = [
-  { dir: 'guides', base: '/guides/', name: 'Guides', brand: 'guides' },
-  { dir: 'docs', base: '/docs/', name: 'Docs', brand: 'docs' },
+  { dir: "guides", base: "/guides/", name: "Guides", brand: "guides" },
+  { dir: "docs", base: "/docs/", name: "Docs", brand: "docs" },
 ];
 /** Where the stylesheet and scripts both sites share are put. */
-const ASSETS = '/doc-assets/';
-const REPO = resolve(here, '..', '..', '..');
+const ASSETS = "/doc-assets/";
+const REPO = resolve(here, "..", "..", "..");
 
 const esc = (s) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const plain = (html) =>
   html
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
     .trim();
 const slugify = (s) =>
   plain(s)
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'section';
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "section";
 
 function frontMatter(text, file) {
   const m = /^---\n([\s\S]*?)\n---\n/.exec(text);
   if (!m) throw new Error(`${file}: missing front matter (title, description)`);
   const meta = {};
-  for (const line of m[1].split('\n')) {
+  for (const line of m[1].split("\n")) {
     const kv = /^(\w+):\s*(.*)$/.exec(line);
     if (kv) meta[kv[1]] = kv[2].trim();
   }
-  for (const k of ['title', 'description'])
+  for (const k of ["title", "description"])
     if (!meta[k]) throw new Error(`${file}: front matter needs a ${k}`);
   return { meta, body: text.slice(m[0].length) };
 }
 
 // The content-security policy forbids inline style attributes, so alignment is a class.
 const cellClass = (align) =>
-  align === 'right' ? ' class="r"' : align === 'center' ? ' class="c"' : '';
+  align === "right" ? ' class="r"' : align === "center" ? ' class="c"' : "";
 
-const CALLOUT = { NOTE: 'Note', TIP: 'Tip', WARNING: 'Warning', IMPORTANT: 'Important' };
+const CALLOUT = { NOTE: "Note", TIP: "Tip", WARNING: "Warning", IMPORTANT: "Important" };
 
 /** One Markdown parser per page, so heading ids are unique within the page and collected for its contents. */
 function renderer(toc, blocks, file) {
@@ -87,7 +87,7 @@ function renderer(toc, blocks, file) {
         const anchor =
           depth > 1
             ? `<a class="anchor" href="#${id}" aria-label="Link to this section: ${esc(plain(inner))}">#</a>`
-            : '';
+            : "";
         return `<h${depth} id="${id}">${inner}${anchor}</h${depth}>\n`;
       },
       blockquote({ tokens }) {
@@ -100,20 +100,20 @@ function renderer(toc, blocks, file) {
       link({ href, title, tokens }) {
         const text = this.parser.parseInline(tokens);
         const external = /^https?:\/\//.test(href);
-        return `<a href="${esc(href)}"${title ? ` title="${esc(title)}"` : ''}${external ? ' rel="noopener noreferrer"' : ''}>${text}</a>`;
+        return `<a href="${esc(href)}"${title ? ` title="${esc(title)}"` : ""}${external ? ' rel="noopener noreferrer"' : ""}>${text}</a>`;
       },
       table(token) {
         const head = token.header
           .map((c) => `<th${cellClass(c.align)}>${this.parser.parseInline(c.tokens)}</th>`)
-          .join('');
+          .join("");
         const rows = token.rows
           .map(
             (r) =>
               `<tr>${r
                 .map((c) => `<td${cellClass(c.align)}>${this.parser.parseInline(c.tokens)}</td>`)
-                .join('')}</tr>`,
+                .join("")}</tr>`,
           )
-          .join('');
+          .join("");
         return `<div class="tablewrap" tabindex="0" role="region" aria-label="Table; scrolls sideways when it is wider than the screen"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>\n`;
       },
       code(token) {
@@ -125,13 +125,13 @@ function renderer(toc, blocks, file) {
         const soft =
           text.length > 22
             ? safe.replace(/(&(?:amp|lt|gt|quot|#39);)|([/?,=])/g, (m, ent, ch) =>
-                ent ? (ent === '&amp;' ? `${ent}<wbr>` : ent) : `${ch}<wbr>`,
+                ent ? (ent === "&amp;" ? `${ent}<wbr>` : ent) : `${ch}<wbr>`,
               )
             : safe;
         return `<code>${soft}</code>`;
       },
       checkbox({ checked }) {
-        return `<span class="tick" aria-hidden="true">${checked ? '&#9745;' : '&#9744;'}</span> `;
+        return `<span class="tick" aria-hidden="true">${checked ? "&#9745;" : "&#9744;"}</span> `;
       },
     },
   });
@@ -143,35 +143,35 @@ function renderer(toc, blocks, file) {
  * no menu beside it. What goes in them is in the site's home.json, so a page cannot be built without it.
  */
 function readHome(srcRoot, site, file) {
-  const path = join(srcRoot, site.dir, 'home.json');
+  const path = join(srcRoot, site.dir, "home.json");
   if (!existsSync(path))
     throw new Error(`${file} is a home page, so ${site.dir}/home.json is needed`);
-  const h = JSON.parse(readFileSync(path, 'utf8'));
+  const h = JSON.parse(readFileSync(path, "utf8"));
   const need = (ok, what) => {
     if (!ok) throw new Error(`${site.dir}/home.json: ${what}`);
   };
-  const text = (v) => typeof v === 'string' && v.trim().length > 0;
+  const text = (v) => typeof v === "string" && v.trim().length > 0;
   need(
     h.hero && text(h.hero.name) && text(h.hero.text) && text(h.hero.tagline),
-    'the hero needs a name, a text and a tagline',
+    "the hero needs a name, a text and a tagline",
   );
   need(
     Array.isArray(h.hero.actions) && h.hero.actions.length >= 1 && h.hero.actions.length <= 2,
-    'the hero has one or two actions',
+    "the hero has one or two actions",
   );
   for (const x of h.hero.actions)
     need(
-      text(x.text) && text(x.link) && ['brand', 'alt'].includes(x.kind),
+      text(x.text) && text(x.link) && ["brand", "alt"].includes(x.kind),
       'each action needs text, a link and a kind of "brand" or "alt"',
     );
   need(
     Array.isArray(h.features) && h.features.length >= 3 && h.features.length <= 6,
-    'there are three to six feature cards',
+    "there are three to six feature cards",
   );
   for (const f of h.features)
     need(
       text(f.title) && text(f.details) && text(f.link),
-      'each card needs a title, details and a link',
+      "each card needs a title, details and a link",
     );
   return h;
 }
@@ -180,15 +180,15 @@ function homeHtml(h) {
   const actions = h.hero.actions
     .map(
       (x) =>
-        `<a class="btn${x.kind === 'alt' ? ' ghost' : ''}" href="${esc(x.link)}">${esc(x.text)}</a>`,
+        `<a class="btn${x.kind === "alt" ? " ghost" : ""}" href="${esc(x.link)}">${esc(x.text)}</a>`,
     )
-    .join('');
+    .join("");
   const cards = h.features
     .map(
       (f) =>
         `<a class="feature" href="${esc(f.link)}"><h2>${esc(f.title)}</h2><p>${esc(f.details)}</p></a>`,
     )
-    .join('');
+    .join("");
   return `<section class="home-hero"><h1><span class="home-name">${esc(h.hero.name)}</span> <span class="home-text">${esc(h.hero.text)}</span></h1><p class="home-tagline">${esc(h.hero.tagline)}</p><p class="home-actions">${actions}</p></section>
 <section class="home-features" aria-label="Where to start">${cards}</section>
 `;
@@ -197,7 +197,7 @@ function homeHtml(h) {
 /** One site's pages in reading order, from its nav.json, each read, rendered and checked. */
 function loadSite(srcRoot, site, blocks) {
   const src = join(srcRoot, site.dir);
-  const nav = JSON.parse(readFileSync(join(src, 'nav.json'), 'utf8'));
+  const nav = JSON.parse(readFileSync(join(src, "nav.json"), "utf8"));
   const pages = [];
   const seen = new Set();
   for (const section of nav.sections) {
@@ -207,16 +207,16 @@ function loadSite(srcRoot, site, blocks) {
       const file = `${site.dir}/${slug}.md`;
       if (!existsSync(join(srcRoot, file)))
         throw new Error(`${site.dir}/nav.json lists ${file}, which does not exist`);
-      const { meta, body } = frontMatter(readFileSync(join(srcRoot, file), 'utf8'), file);
+      const { meta, body } = frontMatter(readFileSync(join(srcRoot, file), "utf8"), file);
       const toc = [];
       const rendered = renderer(toc, blocks, file).parse(body);
-      const layout = meta.layout ?? 'doc';
-      if (layout !== 'doc' && layout !== 'home')
+      const layout = meta.layout ?? "doc";
+      if (layout !== "doc" && layout !== "home")
         throw new Error(`${file}: layout is "doc" or "home", not "${layout}"`);
-      if (layout === 'home' && slug !== 'index')
+      if (layout === "home" && slug !== "index")
         throw new Error(`${file}: only a site's index page can be a home page`);
-      let front = '';
-      if (layout === 'home') {
+      let front = "";
+      if (layout === "home") {
         if (/<h1[ >]/.test(rendered))
           throw new Error(`${file}: a home page takes its one heading from the hero`);
         front = homeHtml(readHome(srcRoot, site, file));
@@ -231,7 +231,7 @@ function loadSite(srcRoot, site, blocks) {
         section: section.title,
         title: meta.title,
         description: meta.description,
-        url: slug === 'index' ? site.base : `${site.base}${slug}/`,
+        url: slug === "index" ? site.base : `${site.base}${slug}/`,
         layout,
         front,
         body: rendered,
@@ -245,13 +245,13 @@ function loadSite(srcRoot, site, blocks) {
   const walk = (dir) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       if (e.isDirectory()) walk(join(dir, e.name));
-      else if (e.name.endsWith('.md'))
-        onDisk.push(relative(src, join(dir, e.name)).replace(/\\/g, '/'));
+      else if (e.name.endsWith(".md"))
+        onDisk.push(relative(src, join(dir, e.name)).replace(/\\/g, "/"));
     }
   };
   walk(src);
   for (const f of onDisk)
-    if (!seen.has(f.replace(/\.md$/, '')))
+    if (!seen.has(f.replace(/\.md$/, "")))
       throw new Error(`${site.dir}/${f} is not in ${site.dir}/nav.json, so nobody could find it`);
   const titles = new Set();
   for (const p of pages) {
@@ -268,14 +268,14 @@ function checkLinks(pages) {
   for (const p of pages) {
     const ids = new Set([...p.html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
     for (const m of p.html.matchAll(/href="([^"]+)"/g)) {
-      const href = m[1].replace(/&amp;/g, '&');
+      const href = m[1].replace(/&amp;/g, "&");
       if (/^(https?:|mailto:)/.test(href)) continue;
-      if (href.startsWith('#')) {
+      if (href.startsWith("#")) {
         if (!ids.has(href.slice(1))) problems.push(`${p.file}: no section "${href}" on this page`);
         continue;
       }
       if (!SITES.some((x) => href.startsWith(x.base.slice(0, -1)))) continue; // the app and the home page have their own tests
-      const [path, frag] = href.split('#');
+      const [path, frag] = href.split("#");
       const target = byUrl.get(path);
       if (!target) {
         problems.push(`${p.file}: ${href} is not a page`);
@@ -286,7 +286,7 @@ function checkLinks(pages) {
     }
   }
   if (problems.length)
-    throw new Error(`Broken links in the documentation:\n  ${problems.join('\n  ')}`);
+    throw new Error(`Broken links in the documentation:\n  ${problems.join("\n  ")}`);
 }
 
 const searchEntry = (p) => ({
@@ -310,14 +310,14 @@ function navHtml(site, current) {
       const links = s.pages
         .map((slug) => {
           const p = site.pages.find((x) => x.slug === slug);
-          return `<a href="${p.url}"${p.slug === current.slug ? ' aria-current="page"' : ''}>${esc(p.title)}</a>`;
+          return `<a href="${p.url}"${p.slug === current.slug ? ' aria-current="page"' : ""}>${esc(p.title)}</a>`;
         })
-        .join('');
+        .join("");
       // Only the section being read is open: the rest are a heading each, so the contents fit on a screen.
-      const open = s.pages.includes(current.slug) ? ' open' : '';
+      const open = s.pages.includes(current.slug) ? " open" : "";
       return `<details class="docs-group"${open}><summary class="docs-group-title">${esc(s.title)}</summary><div class="docs-links">${links}</div></details>`;
     })
-    .join('');
+    .join("");
 }
 
 function pageHtml(site, page, css, index) {
@@ -327,23 +327,23 @@ function pageHtml(site, page, css, index) {
   const toc = page.toc.length
     ? `<nav class="docs-toc" aria-label="On this page"><p class="docs-group-title" aria-hidden="true">On this page</p>${page.toc
         .map((t) => `<a class="toc-${t.depth}" href="#${t.id}">${esc(t.text)}</a>`)
-        .join('')}</nav>`
-    : '';
+        .join("")}</nav>`
+    : "";
   const pager = `<nav class="docs-pager" aria-label="Previous and next page">${
     prev
       ? `<a class="prev" href="${prev.url}"><span>Previous</span>${esc(prev.title)}</a>`
-      : '<span></span>'
-  }${next ? `<a class="next" href="${next.url}"><span>Next</span>${esc(next.title)}</a>` : '<span></span>'}</nav>`;
+      : "<span></span>"
+  }${next ? `<a class="next" href="${next.url}"><span>Next</span>${esc(next.title)}</a>` : "<span></span>"}</nav>`;
   const title =
-    page.slug === 'index'
+    page.slug === "index"
       ? `Alimentation ${meta.brand}`
       : `${page.title} · Alimentation ${meta.brand}`;
   const switcher = `<nav class="docs-switch" aria-label="Documentation">${SITES.map(
-    (x) => `<a href="${x.base}"${x.dir === meta.dir ? ' aria-current="true"' : ''}>${x.name}</a>`,
-  ).join('')}</nav>`;
-  const home = page.layout === 'home';
+    (x) => `<a href="${x.base}"${x.dir === meta.dir ? ' aria-current="true"' : ""}>${x.name}</a>`,
+  ).join("")}</nav>`;
+  const home = page.layout === "home";
   const other = SITES.find((x) => x.dir !== meta.dir);
-  const foot = `<footer class="docs-foot"><p class="muted small">Alimentation keeps the accounts of small kitchens. <a href="/">Home</a> · <a href="/app">Open the app</a> · <a href="${other.base}">${other.name}</a>${meta.dir === 'docs' ? ' · <a href="/reference/">API reference</a>' : ''}</p></footer>`;
+  const foot = `<footer class="docs-foot"><p class="muted small">Alimentation keeps the accounts of small kitchens. <a href="/">Home</a> · <a href="/app">Open the app</a> · <a href="${other.base}">${other.name}</a>${meta.dir === "docs" ? ' · <a href="/reference/">API reference</a>' : ""}</p></footer>`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -359,11 +359,11 @@ function pageHtml(site, page, css, index) {
 <script src="${ASSETS}switch.js"></script>
 <script src="${ASSETS}docs.js" defer></script>
 </head>
-<body class="docs site-${meta.dir}${home ? ' is-home' : ''}">
+<body class="docs site-${meta.dir}${home ? " is-home" : ""}">
 <a class="skip" href="#content">Skip to the page</a>
 <header class="docs-top">
   <div class="docs-top-in">
-    ${home ? '' : '<button type="button" class="docs-menu" aria-expanded="false" aria-controls="docs-nav">Menu</button>'}
+    ${home ? "" : '<button type="button" class="docs-menu" aria-expanded="false" aria-controls="docs-nav">Menu</button>'}
     <a class="docs-brand" href="${meta.base}">${MARK}<span>Alimentation <b>${meta.brand}</b></span></a>
     ${switcher}
     <div class="docs-search" role="search">
@@ -379,7 +379,7 @@ function pageHtml(site, page, css, index) {
 ${
   home
     ? `<main id="content" class="docs-home" tabindex="-1">
-${page.front}${page.body.trim() ? `<article class="docs-article home-body">\n${page.body}</article>\n` : ''}${foot}
+${page.front}${page.body.trim() ? `<article class="docs-article home-body">\n${page.body}</article>\n` : ""}${foot}
 </main>`
     : `<div class="docs-shell">
   <nav id="docs-nav" class="docs-nav" aria-label="${esc(meta.name)} contents">${navHtml(site, page)}</nav>
@@ -401,10 +401,10 @@ ${page.html}
 
 /** The stylesheet the app's build produced, so the pages share its fonts, colours and light and dark modes. */
 function appStylesheet(dist) {
-  const index = join(dist, 'index.html');
+  const index = join(dist, "index.html");
   if (!existsSync(index)) throw new Error(`${index} not found: run the web build first`);
-  const m = /href="(\/assets\/[^"]+\.css)"/.exec(readFileSync(index, 'utf8'));
-  if (!m) throw new Error('the web build has no stylesheet to share');
+  const m = /href="(\/assets\/[^"]+\.css)"/.exec(readFileSync(index, "utf8"));
+  if (!m) throw new Error("the web build has no stylesheet to share");
   return m[1];
 }
 
@@ -418,60 +418,60 @@ const llmsLine = (p) => `- [${p.title}](${p.url}): ${p.description}`;
  */
 function llmsFiles(sites) {
   const head = [
-    '# Alimentation',
-    '',
-    '> Alimentation keeps the accounts of small kitchens and messes: who ate what, what each person owes and what has been paid. It is open source, and anyone can run their own.',
-    '',
+    "# Alimentation",
+    "",
+    "> Alimentation keeps the accounts of small kitchens and messes: who ate what, what each person owes and what has been paid. It is open source, and anyone can run their own.",
+    "",
     "Paths below are on the same host as this file. Amounts in the API are whole paise (hundredths of a rupee), dates are `YYYY-MM-DD` in the kitchen's own time zone, and no password is ever involved: a person signs in with an identity provider, and an agent uses a key a person gave it.",
-    '',
-    '## For an AI agent',
-    '',
-    '- [AI agents and MCP](/docs/api/agents/): how a person gives an agent a key, what the key may and may not do, how what it does is recorded, and the MCP server at `/mcp`',
-    '- [API reference](/reference/): every route, with who may call it, what it takes and what it returns, and whether an agent may call it (served only where the reference site is running)',
-    '- [llms-full.txt](/llms-full.txt): all the pages below, in one file',
-    '',
+    "",
+    "## For an AI agent",
+    "",
+    "- [AI agents and MCP](/docs/api/agents/): how a person gives an agent a key, what the key may and may not do, how what it does is recorded, and the MCP server at `/mcp`",
+    "- [API reference](/reference/): every route, with who may call it, what it takes and what it returns, and whether an agent may call it (served only where the reference site is running)",
+    "- [llms-full.txt](/llms-full.txt): all the pages below, in one file",
+    "",
   ];
   const sections = sites.flatMap((x) => {
     const bySection = new Map();
     for (const p of x.pages) {
-      if (p.layout === 'home') continue;
+      if (p.layout === "home") continue;
       if (!bySection.has(p.section)) bySection.set(p.section, []);
       bySection.get(p.section).push(p);
     }
     return [...bySection].flatMap(([name, pages]) => [
       `## ${x.site.name}: ${name}`,
-      '',
+      "",
       ...pages.map(llmsLine),
-      '',
+      "",
     ]);
   });
   const full = [
-    '# Alimentation: the whole documentation',
-    '',
-    'Every page of the guides (for people who use a kitchen) and the docs (for people who run or build it), in order. Paths are on the same host as this file.',
-    '',
+    "# Alimentation: the whole documentation",
+    "",
+    "Every page of the guides (for people who use a kitchen) and the docs (for people who run or build it), in order. Paths are on the same host as this file.",
+    "",
     ...sites.flatMap((x) =>
       x.pages
-        .filter((p) => p.layout !== 'home')
+        .filter((p) => p.layout !== "home")
         .flatMap((p) => [
-          '---',
-          '',
+          "---",
+          "",
           `Source: ${p.url}`,
-          '',
+          "",
           expandExcerpts(p.markdown, REPO, p.file).trim(),
-          '',
+          "",
         ]),
     ),
   ];
   return {
-    short: `${[...head, ...sections].join('\n').trim()}\n`,
-    full: `${full.join('\n').trim()}\n`,
+    short: `${[...head, ...sections].join("\n").trim()}\n`,
+    full: `${full.join("\n").trim()}\n`,
   };
 }
 
 export function buildDocs({
-  src = join(REPO, 'docs', 'site'),
-  dist = join(REPO, 'apps', 'web', 'dist'),
+  src = join(REPO, "docs", "site"),
+  dist = join(REPO, "apps", "web", "dist"),
 } = {}) {
   // One set of blocks for both sites: the diagrams drawn in any page add to the one stylesheet.
   const blocks = createBlocks({ repo: REPO });
@@ -481,27 +481,27 @@ export function buildDocs({
   const assets = join(dist, ASSETS);
   rmSync(assets, { recursive: true, force: true });
   mkdirSync(assets, { recursive: true });
-  cpSync(join(here, 'docs', 'docs.js'), join(assets, 'docs.js'));
-  cpSync(join(here, 'docs', 'switch.js'), join(assets, 'switch.js'));
+  cpSync(join(here, "docs", "docs.js"), join(assets, "docs.js"));
+  cpSync(join(here, "docs", "switch.js"), join(assets, "switch.js"));
   writeFileSync(
-    join(assets, 'docs.css'),
-    `${readFileSync(join(here, 'docs', 'docs.css'), 'utf8')}\n/* What the diagrams drawn in these pages came with, scoped to them. */\n${blocks.diagramCss()}\n`,
+    join(assets, "docs.css"),
+    `${readFileSync(join(here, "docs", "docs.css"), "utf8")}\n/* What the diagrams drawn in these pages came with, scoped to them. */\n${blocks.diagramCss()}\n`,
   );
   const llms = llmsFiles(sites);
-  writeFileSync(join(dist, 'llms.txt'), llms.short);
-  writeFileSync(join(dist, 'llms-full.txt'), llms.full);
+  writeFileSync(join(dist, "llms.txt"), llms.short);
+  writeFileSync(join(dist, "llms-full.txt"), llms.full);
   const written = [];
   for (const site of sites) {
     const out = join(dist, site.site.dir);
     rmSync(out, { recursive: true, force: true });
     mkdirSync(out, { recursive: true });
     site.pages.forEach((p, i) => {
-      const dir = p.slug === 'index' ? out : join(out, p.slug);
+      const dir = p.slug === "index" ? out : join(out, p.slug);
       mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, 'index.html'), pageHtml(site, p, css, i));
+      writeFileSync(join(dir, "index.html"), pageHtml(site, p, css, i));
       written.push(p.url);
     });
-    writeFileSync(join(out, 'search-index.json'), JSON.stringify(site.pages.map(searchEntry)));
+    writeFileSync(join(out, "search-index.json"), JSON.stringify(site.pages.map(searchEntry)));
   }
   return {
     pages: written,
@@ -513,6 +513,6 @@ export function buildDocs({
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const r = buildDocs();
   console.log(
-    `documentation: ${r.sites.map((x) => `${x.pages.length} pages in /${x.dir}/`).join(', ')}`,
+    `documentation: ${r.sites.map((x) => `${x.pages.length} pages in /${x.dir}/`).join(", ")}`,
   );
 }

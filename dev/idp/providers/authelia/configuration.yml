@@ -3,7 +3,7 @@
 theme: auto
 
 server:
-  address: 'tcp://0.0.0.0:9091/'
+  address: "tcp://0.0.0.0:9091/"
   # Authelia insists on https for its own address, so it is served over a certificate from the
   # local authority in dev/idp/.state.
   tls:
@@ -18,11 +18,11 @@ authentication_backend:
     disable: true
   ldap:
     implementation: lldap
-    address: 'ldap://lldap:3890'
-    base_dn: 'dc=example,dc=com'
+    address: "ldap://lldap:3890"
+    base_dn: "dc=example,dc=com"
     # The directory's own administrator, for simplicity on one machine. A real set-up gives Authelia a
     # user of its own in the read-only group.
-    user: 'uid=admin,ou=people,dc=example,dc=com'
+    user: "uid=admin,ou=people,dc=example,dc=com"
 
 access_control:
   default_policy: one_factor
@@ -46,22 +46,22 @@ notifier:
 identity_providers:
   oidc:
     jwks:
-      - key_id: 'local'
-        algorithm: 'RS256'
-        use: 'sig'
+      - key_id: "local"
+        algorithm: "RS256"
+        use: "sig"
         key: { { secret "/secrets/oidc_jwks.pem" | mindent 10 "|" | msquote } }
     clients:
-      - client_id: 'alimentation'
-        client_name: 'Alimentation (local)'
+      - client_id: "alimentation"
+        client_name: "Alimentation (local)"
         client_secret: '{{ secret "/secrets/client_secret_digest" }}'
         public: false
-        authorization_policy: 'one_factor'
+        authorization_policy: "one_factor"
         redirect_uris:
           - '{{ env "APP_ORIGIN" }}/auth/callback'
-        scopes: ['openid', 'profile', 'email']
-        response_types: ['code']
-        grant_types: ['authorization_code']
+        scopes: ["openid", "profile", "email"]
+        response_types: ["code"]
+        grant_types: ["authorization_code"]
         # How Alimentation proves itself at the token endpoint when its provider says nothing else.
-        token_endpoint_auth_method: 'client_secret_post'
+        token_endpoint_auth_method: "client_secret_post"
         require_pkce: true
-        pkce_challenge_method: 'S256'
+        pkce_challenge_method: "S256"

@@ -1,11 +1,11 @@
-import { randomUUID } from 'node:crypto';
-import pg from 'pg';
-import { WORKSPACE_MIGRATIONS } from '../../src/db/migrations.generated.ts';
-import { PgDatabasePlacement, type PgDatabaseOptions } from '../../src/placement/pgdatabase.ts';
-import type { PlacementRef } from '../../src/placement/types.ts';
+import { randomUUID } from "node:crypto";
+import pg from "pg";
+import { WORKSPACE_MIGRATIONS } from "../../src/db/migrations.generated.ts";
+import { PgDatabasePlacement, type PgDatabaseOptions } from "../../src/placement/pgdatabase.ts";
+import type { PlacementRef } from "../../src/placement/types.ts";
 
 export const ADMIN_URL =
-  process.env.ALIMENTATION_TEST_PG ?? 'postgres://pgadmin@127.0.0.1:5432/postgres';
+  process.env.ALIMENTATION_TEST_PG ?? "postgres://pgadmin@127.0.0.1:5432/postgres";
 
 export interface TestWorkspace {
   id: string;
@@ -43,11 +43,11 @@ export async function newWorkspace(opts: Partial<PgDatabaseOptions> = {}): Promi
 
 /** Bytes that satisfy the ciphertext domain (version 1, nonce, body, tag). Not real encryption. */
 export function fakeEnc(text: string): Buffer {
-  const body = Buffer.from(text, 'utf8');
+  const body = Buffer.from(text, "utf8");
   return Buffer.concat([Buffer.from([1]), Buffer.alloc(12, 7), body, Buffer.alloc(16, 9)]);
 }
 
-export type Actor = { role: 'admin' | 'supplier' | 'consumer'; personId: string };
+export type Actor = { role: "admin" | "supplier" | "consumer"; personId: string };
 
 /** Runs `fn` in one transaction as the application role, with the actor stated the way the server does. */
 export async function asActor<T>(
@@ -57,7 +57,7 @@ export async function asActor<T>(
 ): Promise<T> {
   const c = await pool.connect();
   try {
-    await c.query('BEGIN');
+    await c.query("BEGIN");
     if (actor) {
       await c.query(
         `SELECT set_config('app.role', $1, true), set_config('app.person_id', $2, true)`,
@@ -65,10 +65,10 @@ export async function asActor<T>(
       );
     }
     const out = await fn(c);
-    await c.query('COMMIT');
+    await c.query("COMMIT");
     return out;
   } catch (e) {
-    await c.query('ROLLBACK').catch(() => undefined);
+    await c.query("ROLLBACK").catch(() => undefined);
     throw e;
   } finally {
     c.release();
@@ -95,10 +95,10 @@ export async function seed(owner: pg.Pool): Promise<Seeded> {
   const q = (text: string, values: unknown[] = []) => owner.query(text, values);
   await q(`INSERT INTO workspace (name, time_zone) VALUES ('Test kitchen', 'Asia/Kolkata')`);
   for (const [id, role, name, from] of [
-    [adminId, 'admin', 'Owner', null],
-    [supplierId, 'supplier', 'Namrata', null],
-    [jovialId, 'consumer', 'Jovial', '2026-10-01'],
-    [smrutiId, 'consumer', 'Smruti', '2026-10-01'],
+    [adminId, "admin", "Owner", null],
+    [supplierId, "supplier", "Namrata", null],
+    [jovialId, "consumer", "Jovial", "2026-10-01"],
+    [smrutiId, "consumer", "Smruti", "2026-10-01"],
   ] as const) {
     await q(`INSERT INTO person (id, role, name_enc, active_from) VALUES ($1, $2, $3, $4)`, [
       id,
@@ -124,9 +124,9 @@ export async function seed(owner: pg.Pool): Promise<Seeded> {
       `INSERT INTO log_entry (on_date, person_id, all_consumers, change, qty, logged_by) VALUES ($1, $2, $3, $4, $5, $6)`,
       [date, person, all, change, qty, by],
     );
-  await log('2026-10-01', jovialId, 'Extra Bhakri', 2, jovialId);
-  await log('2026-10-16', smrutiId, 'Leave', null, smrutiId);
-  await log('2026-10-07', null, 'Supplier Off', null, supplierId, true);
+  await log("2026-10-01", jovialId, "Extra Bhakri", 2, jovialId);
+  await log("2026-10-16", smrutiId, "Leave", null, smrutiId);
+  await log("2026-10-07", null, "Supplier Off", null, supplierId, true);
   const claimJ = randomUUID();
   const claimS = randomUUID();
   for (const [id, who, amt] of [
@@ -155,10 +155,10 @@ export async function seed(owner: pg.Pool): Promise<Seeded> {
     [jovialId, adminId],
   );
   return {
-    admin: { role: 'admin', personId: adminId },
-    supplier: { role: 'supplier', personId: supplierId },
-    jovial: { role: 'consumer', personId: jovialId },
-    smruti: { role: 'consumer', personId: smrutiId },
+    admin: { role: "admin", personId: adminId },
+    supplier: { role: "supplier", personId: supplierId },
+    jovial: { role: "consumer", personId: jovialId },
+    smruti: { role: "consumer", personId: smrutiId },
     claimJ,
     claimS,
   };
@@ -170,9 +170,9 @@ export async function dbError(p: Promise<unknown>): Promise<{ code: string; mess
     await p;
   } catch (e) {
     const err = e as { code?: string; message: string };
-    return { code: err.code ?? '', message: err.message };
+    return { code: err.code ?? "", message: err.message };
   }
-  throw new Error('expected the database to refuse, but it accepted');
+  throw new Error("expected the database to refuse, but it accepted");
 }
 
 /**
@@ -183,9 +183,9 @@ export async function dbError(p: Promise<unknown>): Promise<{ code: string; mess
 async function applyDrift(ownerUrl: string, appUrl: string): Promise<void> {
   const raw = process.env.ALIMENTATION_DRIFT;
   if (!raw) return;
-  const { as, sql } = JSON.parse(raw) as { as: 'owner' | 'admin'; sql: string };
+  const { as, sql } = JSON.parse(raw) as { as: "owner" | "admin"; sql: string };
   let url = ownerUrl;
-  if (as === 'admin') {
+  if (as === "admin") {
     const u = new URL(ADMIN_URL);
     u.pathname = new URL(appUrl).pathname;
     url = u.toString();

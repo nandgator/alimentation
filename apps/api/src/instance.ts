@@ -1,11 +1,11 @@
-import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { Keyring } from './crypto/keys.ts';
-import { migrate } from './db/migrate.ts';
-import { CONTROL_MIGRATIONS } from './db/migrations.generated.ts';
-import { nodeDb } from './db/node.ts';
-import { PgDatabasePlacement } from './placement/pgdatabase.ts';
+import { randomBytes, randomUUID } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { Keyring } from "./crypto/keys.ts";
+import { migrate } from "./db/migrate.ts";
+import { CONTROL_MIGRATIONS } from "./db/migrations.generated.ts";
+import { nodeDb } from "./db/node.ts";
+import { PgDatabasePlacement } from "./placement/pgdatabase.ts";
 
 interface Saved {
   SESSION_SECRETS: string;
@@ -35,20 +35,20 @@ export async function selfHost(env: Env): Promise<Env> {
   if (!dir || !admin) return env;
   if (env.MASTER_KEYS && env.SESSION_SECRETS && env.CONTROL_DATABASE_URL) return env;
 
-  const file = join(dir, 'instance.json');
+  const file = join(dir, "instance.json");
   let saved: Saved | null = null;
   try {
-    saved = JSON.parse(await readFile(file, 'utf8')) as Saved;
+    saved = JSON.parse(await readFile(file, "utf8")) as Saved;
   } catch {
     saved = null;
   }
 
   if (!saved) {
     await mkdir(dir, { recursive: true });
-    const placement = new PgDatabasePlacement({ adminUrl: admin, prefix: 'control' });
+    const placement = new PgDatabasePlacement({ adminUrl: admin, prefix: "control" });
     const control = await placement.provision(randomUUID(), CONTROL_MIGRATIONS);
     saved = {
-      SESSION_SECRETS: randomBytes(32).toString('base64'),
+      SESSION_SECRETS: randomBytes(32).toString("base64"),
       MASTER_KEYS: (await Keyring.generate()).spec,
       CONTROL_DATABASE_URL: control.appUrl,
       CONTROL_OWNER_URL: control.ownerUrl,
@@ -59,7 +59,7 @@ export async function selfHost(env: Env): Promise<Env> {
     try {
       const role = new URL(saved.CONTROL_DATABASE_URL).username;
       await db.withClient((c) =>
-        migrate(c, CONTROL_MIGRATIONS, { settings: { 'alimentation.app_role': role } }),
+        migrate(c, CONTROL_MIGRATIONS, { settings: { "alimentation.app_role": role } }),
       );
     } finally {
       await db.close();

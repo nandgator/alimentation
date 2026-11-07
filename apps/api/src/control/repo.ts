@@ -1,9 +1,9 @@
-import type { Limits, Role } from '@alimentation/core';
-import type { Db, Row } from '../db/driver.ts';
-import type { Bytes } from '../crypto/aead.ts';
-import type { PlacementRef } from '../placement/types.ts';
-import type { AgentScope } from '../agent-scopes.ts';
-import { ApiError } from '../workspace/errors.ts';
+import type { Limits, Role } from "@alimentation/core";
+import type { Db, Row } from "../db/driver.ts";
+import type { Bytes } from "../crypto/aead.ts";
+import type { PlacementRef } from "../placement/types.ts";
+import type { AgentScope } from "../agent-scopes.ts";
+import { ApiError } from "../workspace/errors.ts";
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -13,7 +13,7 @@ export interface AccountRow {
   displayName: string | null;
 }
 
-export type WorkspaceState = 'ACTIVE' | 'MIGRATING' | 'MOVED' | 'WIPING';
+export type WorkspaceState = "ACTIVE" | "MIGRATING" | "MOVED" | "WIPING";
 
 export interface WorkspaceRow {
   id: string;
@@ -130,7 +130,7 @@ export class ControlRepo {
     name: string | null;
   }): Promise<AccountRow> {
     const email = a.email.trim().toLowerCase();
-    const columns = 'id, email, display_name';
+    const columns = "id, email, display_name";
     const row = (r: R) => ({ id: r.id, email: r.email, displayName: r.display_name });
     // Two sign-ins of one new person at once both find nobody and both try to make them; one of them loses
     // to the unique index, and on the next try finds what the other made.
@@ -157,24 +157,24 @@ export class ControlRepo {
           return row(made[0]!);
         });
       } catch (e) {
-        if ((e as { code?: string }).code !== '23505') throw e;
+        if ((e as { code?: string }).code !== "23505") throw e;
         if (attempt >= 3)
           throw new ApiError(
             409,
-            'conflict',
-            'That email address already belongs to another account here. Ask whoever runs this service.',
+            "conflict",
+            "That email address already belongs to another account here. Ask whoever runs this service.",
           );
       }
     }
   }
 
   async account(id: string): Promise<AccountRow | undefined> {
-    const r = await this.one<R>('SELECT id, email, display_name FROM account WHERE id = $1', [id]);
+    const r = await this.one<R>("SELECT id, email, display_name FROM account WHERE id = $1", [id]);
     return r && { id: r.id, email: r.email, displayName: r.display_name };
   }
 
   async accountByEmail(email: string): Promise<AccountRow | undefined> {
-    const r = await this.one<R>('SELECT id, email, display_name FROM account WHERE email = $1', [
+    const r = await this.one<R>("SELECT id, email, display_name FROM account WHERE email = $1", [
       email.toLowerCase(),
     ]);
     return r && { id: r.id, email: r.email, displayName: r.display_name };
@@ -183,7 +183,7 @@ export class ControlRepo {
   // --- workspaces ----------------------------------------------------------
 
   async insertWorkspace(
-    w: Omit<WorkspaceRow, 'createdAt' | 'overSince' | 'movedToUrl' | 'state'> & {
+    w: Omit<WorkspaceRow, "createdAt" | "overSince" | "movedToUrl" | "state"> & {
       createdBy: string | null;
     },
   ): Promise<void> {
@@ -206,7 +206,7 @@ export class ControlRepo {
   }
 
   async deleteWorkspaceRow(id: string): Promise<void> {
-    await this.many('DELETE FROM workspace WHERE id = $1', [id]);
+    await this.many("DELETE FROM workspace WHERE id = $1", [id]);
   }
 
   async workspaceBySlug(slug: string): Promise<WorkspaceRow | undefined> {
@@ -226,7 +226,7 @@ export class ControlRepo {
   }
 
   async allWorkspaces(): Promise<WorkspaceRow[]> {
-    return (await this.many<R>('SELECT * FROM workspace ORDER BY created_at')).map(toWorkspace);
+    return (await this.many<R>("SELECT * FROM workspace ORDER BY created_at")).map(toWorkspace);
   }
 
   async workspacesOf(accountId: string): Promise<{ workspace: WorkspaceRow; roles: Role[] }[]> {
@@ -240,7 +240,7 @@ export class ControlRepo {
   }
 
   async setState(id: string, state: WorkspaceState): Promise<void> {
-    await this.many('UPDATE workspace SET state = $2, state_since = $3 WHERE id = $1', [
+    await this.many("UPDATE workspace SET state = $2, state_since = $3 WHERE id = $1", [
       id,
       state,
       this.stamp(),
@@ -269,11 +269,11 @@ export class ControlRepo {
   }
 
   async setOverSince(id: string, date: string | null): Promise<void> {
-    await this.many('UPDATE workspace SET over_since = $2 WHERE id = $1', [id, date]);
+    await this.many("UPDATE workspace SET over_since = $2 WHERE id = $1", [id, date]);
   }
 
   async setLimits(id: string, limits: Limits): Promise<void> {
-    await this.many('UPDATE workspace SET limits = $2 WHERE id = $1', [id, JSON.stringify(limits)]);
+    await this.many("UPDATE workspace SET limits = $2 WHERE id = $1", [id, JSON.stringify(limits)]);
   }
 
   // --- organisations ------------------------------------------------------
@@ -305,13 +305,13 @@ export class ControlRepo {
   }
 
   async organisation(id: string): Promise<{ id: string; name: string } | undefined> {
-    const r = await this.one<R>('SELECT id, name FROM organisation WHERE id = $1', [id]);
+    const r = await this.one<R>("SELECT id, name FROM organisation WHERE id = $1", [id]);
     return r && { id: r.id, name: r.name };
   }
 
   async isOrganisationMember(organisationId: string, accountId: string): Promise<boolean> {
     return !!(await this.one(
-      'SELECT 1 FROM organisation_member WHERE organisation_id = $1 AND account_id = $2',
+      "SELECT 1 FROM organisation_member WHERE organisation_id = $1 AND account_id = $2",
       [organisationId, accountId],
     ));
   }
@@ -337,14 +337,14 @@ export class ControlRepo {
   /** False, and nothing removed, when this is the last member: an organisation is never left with no head office. */
   async removeOrganisationMember(organisationId: string, accountId: string): Promise<boolean> {
     return this.db.tx(async (tx) => {
-      await tx.query('SELECT id FROM organisation WHERE id = $1 FOR UPDATE', [organisationId]);
+      await tx.query("SELECT id FROM organisation WHERE id = $1 FOR UPDATE", [organisationId]);
       const [n] = await tx.query<R>(
-        'SELECT count(*)::int AS n FROM organisation_member WHERE organisation_id = $1',
+        "SELECT count(*)::int AS n FROM organisation_member WHERE organisation_id = $1",
         [organisationId],
       );
       if ((n?.n ?? 0) <= 1) return false;
       await tx.query(
-        'DELETE FROM organisation_member WHERE organisation_id = $1 AND account_id = $2',
+        "DELETE FROM organisation_member WHERE organisation_id = $1 AND account_id = $2",
         [organisationId, accountId],
       );
       return true;
@@ -366,19 +366,19 @@ export class ControlRepo {
     workspaceId: string,
     organisationId: string,
     byAccount: string,
-  ): Promise<'attached' | 'already' | 'other'> {
+  ): Promise<"attached" | "already" | "other"> {
     return this.db.tx(async (tx) => {
       const made = await tx.query(
         `INSERT INTO organisation_kitchen (workspace_id, organisation_id, added_by) VALUES ($1, $2, $3)
          ON CONFLICT (workspace_id) DO NOTHING RETURNING workspace_id`,
         [workspaceId, organisationId, byAccount],
       );
-      if (made.length > 0) return 'attached';
+      if (made.length > 0) return "attached";
       const [now] = await tx.query<R>(
-        'SELECT organisation_id FROM organisation_kitchen WHERE workspace_id = $1',
+        "SELECT organisation_id FROM organisation_kitchen WHERE workspace_id = $1",
         [workspaceId],
       );
-      return now?.organisation_id === organisationId ? 'already' : 'other';
+      return now?.organisation_id === organisationId ? "already" : "other";
     });
   }
 
@@ -510,7 +510,7 @@ export class ControlRepo {
 
   async rolesOf(accountId: string, workspaceId: string): Promise<Role[]> {
     const rows = await this.many<R>(
-      'SELECT role FROM membership WHERE account_id = $1 AND workspace_id = $2',
+      "SELECT role FROM membership WHERE account_id = $1 AND workspace_id = $2",
       [accountId, workspaceId],
     );
     return rows.map((r) => r.role as Role);
@@ -550,7 +550,7 @@ export class ControlRepo {
       })
     | undefined
   > {
-    const r = await this.one<R>('SELECT * FROM invite WHERE token_hash = $1', [Buffer.from(hash)]);
+    const r = await this.one<R>("SELECT * FROM invite WHERE token_hash = $1", [Buffer.from(hash)]);
     return (
       r && {
         ...r,
@@ -565,7 +565,7 @@ export class ControlRepo {
   }
 
   async markInviteAccepted(id: string): Promise<void> {
-    await this.many('UPDATE invite SET accepted_at = $2 WHERE id = $1', [id, this.stamp()]);
+    await this.many("UPDATE invite SET accepted_at = $2 WHERE id = $1", [id, this.stamp()]);
   }
 
   async pendingInvites(
@@ -663,7 +663,7 @@ export class ControlRepo {
 
   /** Notes where a move is headed before it starts, so a move that stalls can be told from one that never began. */
   async setMoveTarget(id: string, url: string | null): Promise<void> {
-    await this.many('UPDATE workspace SET moved_to_url = $2 WHERE id = $1', [id, url]);
+    await this.many("UPDATE workspace SET moved_to_url = $2 WHERE id = $1", [id, url]);
   }
 
   async movedBefore(cutoff: Date): Promise<WorkspaceRow[]> {
@@ -947,7 +947,7 @@ export class ControlRepo {
 
   async requestsToday(day: string): Promise<{ total: number; byWorkspace: Map<string, number> }> {
     const rows = await this.many<R>(
-      'SELECT workspace_id, requests FROM usage_daily WHERE day = $1',
+      "SELECT workspace_id, requests FROM usage_daily WHERE day = $1",
       [day],
     );
     return {
@@ -957,7 +957,7 @@ export class ControlRepo {
   }
 
   async event(kind: string, workspaceId: string | null, detail: Row = {}): Promise<void> {
-    await this.many('INSERT INTO platform_event (kind, workspace_id, detail) VALUES ($1,$2,$3)', [
+    await this.many("INSERT INTO platform_event (kind, workspace_id, detail) VALUES ($1,$2,$3)", [
       kind,
       workspaceId,
       JSON.stringify(detail),
@@ -966,7 +966,7 @@ export class ControlRepo {
 
   async events(limit = 100): Promise<R[]> {
     return this.many<R>(
-      'SELECT id, at, kind, workspace_id, detail FROM platform_event ORDER BY id DESC LIMIT $1',
+      "SELECT id, at, kind, workspace_id, detail FROM platform_event ORDER BY id DESC LIMIT $1",
       [limit],
     );
   }

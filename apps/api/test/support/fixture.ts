@@ -1,12 +1,12 @@
-import { FREE_LIMITS, localNow, type Role } from '@alimentation/core';
-import { FieldCipher } from '../../src/crypto/fields.ts';
-import { Keyring, loadWorkspaceKeys, newWorkspaceKeys } from '../../src/crypto/keys.ts';
-import type { Db } from '../../src/db/driver.ts';
-import { nodeDb } from '../../src/db/node.ts';
-import type { Actor } from '../../src/workspace/context.ts';
-import { initializeWorkspace } from '../../src/workspace/setup.ts';
-import { WorkspaceService, type WorkspaceInfo } from '../../src/workspace/service.ts';
-import { newWorkspace, type TestWorkspace } from './pg.ts';
+import { FREE_LIMITS, localNow, type Role } from "@alimentation/core";
+import { FieldCipher } from "../../src/crypto/fields.ts";
+import { Keyring, loadWorkspaceKeys, newWorkspaceKeys } from "../../src/crypto/keys.ts";
+import type { Db } from "../../src/db/driver.ts";
+import { nodeDb } from "../../src/db/node.ts";
+import type { Actor } from "../../src/workspace/context.ts";
+import { initializeWorkspace } from "../../src/workspace/setup.ts";
+import { WorkspaceService, type WorkspaceInfo } from "../../src/workspace/service.ts";
+import { newWorkspace, type TestWorkspace } from "./pg.ts";
 
 export interface Fixture {
   ws: TestWorkspace;
@@ -25,7 +25,7 @@ export interface Fixture {
 
 /** A real workspace database, real keys, and the service on top, with a clock the test controls. */
 export async function makeFixture(
-  opts: { limits?: typeof FREE_LIMITS | null; state?: WorkspaceInfo['state']; start?: string } = {},
+  opts: { limits?: typeof FREE_LIMITS | null; state?: WorkspaceInfo["state"]; start?: string } = {},
 ): Promise<Fixture> {
   const ws = await newWorkspace();
   const { keyring } = await Keyring.generate();
@@ -38,9 +38,9 @@ export async function makeFixture(
   const cipher = new FieldCipher(keys);
   const ownerDb = nodeDb(ws.ownerUrl);
   const ids = await initializeWorkspace(ownerDb, cipher, {
-    name: 'Test kitchen',
-    timeZone: 'Asia/Kolkata',
-    adminName: 'Owner',
+    name: "Test kitchen",
+    timeZone: "Asia/Kolkata",
+    adminName: "Owner",
     alsoSupplier: true,
     limits: opts.limits === undefined ? null : opts.limits,
   });
@@ -52,16 +52,16 @@ export async function makeFixture(
   });
   await ownerDb.close();
 
-  const clock = { now: new Date(opts.start ?? '2026-10-24T06:00:00Z') };
+  const clock = { now: new Date(opts.start ?? "2026-10-24T06:00:00Z") };
   const requests = { value: 0 };
   const overSince = { value: null as string | null };
   const info: WorkspaceInfo = {
     id: workspaceId,
-    slug: 'test-kitchen',
-    name: 'Test kitchen',
-    timeZone: 'Asia/Kolkata',
-    currency: 'INR',
-    state: opts.state ?? 'ACTIVE',
+    slug: "test-kitchen",
+    name: "Test kitchen",
+    timeZone: "Asia/Kolkata",
+    currency: "INR",
+    state: opts.state ?? "ACTIVE",
     movedTo: null,
     limits: opts.limits ?? FREE_LIMITS,
     overSince: null,
@@ -71,7 +71,7 @@ export async function makeFixture(
     tx: (fn, o) =>
       real.tx(async (tx) => {
         await tx.query(`SELECT set_config('alimentation.test_today', $1, true)`, [
-          localNow(clock.now, 'Asia/Kolkata').date,
+          localNow(clock.now, "Asia/Kolkata").date,
         ]);
         return fn(tx);
       }, o),
@@ -89,8 +89,8 @@ export async function makeFixture(
       info.overSince = d;
     },
   });
-  const admin: Actor = { personId: ids.adminId, role: 'admin' as Role };
-  const supplier: Actor = { personId: ids.supplierId!, role: 'supplier' as Role };
+  const admin: Actor = { personId: ids.adminId, role: "admin" as Role };
+  const supplier: Actor = { personId: ids.supplierId!, role: "supplier" as Role };
   return {
     ws,
     svc,
@@ -101,9 +101,9 @@ export async function makeFixture(
     supplier,
     requests,
     overSince,
-    async addConsumer(name, from = '2026-10-01') {
-      const { id } = await svc.createPerson(admin, { name, role: 'consumer', activeFrom: from });
-      return { personId: id, role: 'consumer' };
+    async addConsumer(name, from = "2026-10-01") {
+      const { id } = await svc.createPerson(admin, { name, role: "consumer", activeFrom: from });
+      return { personId: id, role: "consumer" };
     },
     async close() {
       await db.close();

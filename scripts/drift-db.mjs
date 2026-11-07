@@ -5,10 +5,10 @@
 //
 //   node scripts/drift-db.mjs            run every defect
 //   node scripts/drift-db.mjs rls        run those whose name contains "rls"
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const APP = `(SELECT value FROM meta WHERE key = 'app_role')`;
 const dropChecks = (table) => `DO $$ DECLARE c record; BEGIN
@@ -16,428 +16,428 @@ const dropChecks = (table) => `DO $$ DECLARE c record; BEGIN
     EXECUTE format('ALTER TABLE ${table} DROP CONSTRAINT %I', c.conname);
   END LOOP; END $$`;
 const asApp = (template, ...more) =>
-  `DO $$ BEGIN EXECUTE format('${template}', ${APP}${more.length ? ', ' + more.join(', ') : ''}); END $$`;
+  `DO $$ BEGIN EXECUTE format('${template}', ${APP}${more.length ? ", " + more.join(", ") : ""}); END $$`;
 
 // [name, as, sql, a fragment of the name of the test that must fail]
 const defects = [
   // Row-level security: who may read what.
   [
-    'rls: consumers read every person',
-    'owner',
+    "rls: consumers read every person",
+    "owner",
     `ALTER POLICY person_read ON person USING (true)`,
-    'only themselves',
+    "only themselves",
   ],
   [
-    'rls: consumers read every log entry',
-    'owner',
+    "rls: consumers read every log entry",
+    "owner",
     `ALTER POLICY log_read ON log_entry USING (app_role() IS NOT NULL)`,
-    'their own entries',
+    "their own entries",
   ],
   [
-    'rls: log readable with no role set (the leak found in review)',
-    'owner',
+    "rls: log readable with no role set (the leak found in review)",
+    "owner",
     `ALTER POLICY log_read ON log_entry USING (app_role() IN ('admin','supplier') OR person_id = app_person() OR all_consumers)`,
-    'shows nobody anything',
+    "shows nobody anything",
   ],
   [
-    'rls: consumers read every claim',
-    'owner',
+    "rls: consumers read every claim",
+    "owner",
     `ALTER POLICY claim_read ON claim USING (true)`,
-    'only their own claims',
+    "only their own claims",
   ],
   [
-    'rls: consumers read every decision',
-    'owner',
+    "rls: consumers read every decision",
+    "owner",
     `ALTER POLICY decision_read ON claim_decision USING (true)`,
-    'only their own claims',
+    "only their own claims",
   ],
   [
-    'rls: consumers read every settlement',
-    'owner',
+    "rls: consumers read every settlement",
+    "owner",
     `ALTER POLICY settlement_read ON settlement USING (true)`,
-    'only their own claims',
+    "only their own claims",
   ],
   [
-    'rls: consumers read every close',
-    'owner',
+    "rls: consumers read every close",
+    "owner",
     `ALTER POLICY close_read ON month_close USING (true)`,
-    'only their own claims',
+    "only their own claims",
   ],
   [
-    'rls: everyone reads the whole audit trail',
-    'owner',
+    "rls: everyone reads the whole audit trail",
+    "owner",
     `ALTER POLICY audit_admin_read ON audit_log USING (true)`,
-    'trail of their own records',
+    "trail of their own records",
   ],
   [
-    'rls: members read the trail of other members',
-    'owner',
+    "rls: members read the trail of other members",
+    "owner",
     `ALTER POLICY audit_member_read ON audit_log USING (app_role() = 'consumer')`,
-    'trail of their own records',
+    "trail of their own records",
   ],
   [
-    'rls: members cannot read the trail of their own records',
-    'owner',
+    "rls: members cannot read the trail of their own records",
+    "owner",
     `DROP POLICY audit_member_read ON audit_log`,
-    'trail of their own records',
+    "trail of their own records",
   ],
   [
-    'rls: the supplier reads the trail of people',
-    'owner',
+    "rls: the supplier reads the trail of people",
+    "owner",
     `ALTER POLICY audit_supplier_read ON audit_log USING (app_role() = 'supplier')`,
-    'not of people or the workspace',
+    "not of people or the workspace",
   ],
   [
-    'rls: row security off on person',
-    'owner',
+    "rls: row security off on person",
+    "owner",
     `ALTER TABLE person DISABLE ROW LEVEL SECURITY`,
-    'only themselves',
+    "only themselves",
   ],
   [
-    'rls: row security off on claim',
-    'owner',
+    "rls: row security off on claim",
+    "owner",
     `ALTER TABLE claim DISABLE ROW LEVEL SECURITY`,
-    'only their own claims',
+    "only their own claims",
   ],
   [
-    'rls: consumers write for anyone',
-    'owner',
+    "rls: consumers write for anyone",
+    "owner",
     `ALTER POLICY log_insert ON log_entry WITH CHECK (true)`,
-    'stops a consumer writing',
+    "stops a consumer writing",
   ],
   [
-    'rls: anyone decides claims',
-    'owner',
+    "rls: anyone decides claims",
+    "owner",
     `ALTER POLICY decision_supplier_insert ON claim_decision WITH CHECK (true)`,
-    'stops a consumer writing',
+    "stops a consumer writing",
   ],
   [
-    'rls: consumers insert prices',
-    'owner',
+    "rls: consumers insert prices",
+    "owner",
     `ALTER POLICY rate_card_admin_insert ON rate_card WITH CHECK (true)`,
-    'stops a consumer changing prices',
+    "stops a consumer changing prices",
   ],
   [
-    'rls: consumers insert settlements',
-    'owner',
+    "rls: consumers insert settlements",
+    "owner",
     `ALTER POLICY settlement_admin_insert ON settlement WITH CHECK (true)`,
-    'stops a consumer changing prices',
+    "stops a consumer changing prices",
   ],
   [
-    'rls: consumers edit people',
-    'owner',
+    "rls: consumers edit people",
+    "owner",
     `ALTER POLICY person_admin_update ON person USING (true) WITH CHECK (true)`,
-    'stops a consumer changing prices',
+    "stops a consumer changing prices",
   ],
   [
-    'rls: decided claims can be withdrawn',
-    'owner',
+    "rls: decided claims can be withdrawn",
+    "owner",
     `ALTER POLICY claim_delete ON claim USING (true)`,
-    'only until it is decided',
+    "only until it is decided",
   ],
   [
-    'rls: row security bypassed by the application role',
-    'admin',
-    asApp('ALTER ROLE %I BYPASSRLS'),
-    'only themselves',
+    "rls: row security bypassed by the application role",
+    "admin",
+    asApp("ALTER ROLE %I BYPASSRLS"),
+    "only themselves",
   ],
 
   // Append-only: decisions, settlements, prices, rules, the audit trail.
   [
-    'append-only: decisions updatable by the application role',
-    'owner',
-    asApp('GRANT UPDATE, DELETE ON claim_decision TO %I'),
-    'no right to change or remove',
+    "append-only: decisions updatable by the application role",
+    "owner",
+    asApp("GRANT UPDATE, DELETE ON claim_decision TO %I"),
+    "no right to change or remove",
   ],
   [
-    'append-only: settlements deletable by the application role',
-    'owner',
-    asApp('GRANT DELETE ON settlement TO %I'),
-    'no right to change or remove',
+    "append-only: settlements deletable by the application role",
+    "owner",
+    asApp("GRANT DELETE ON settlement TO %I"),
+    "no right to change or remove",
   ],
   [
-    'append-only: prices updatable by the application role',
-    'owner',
-    asApp('GRANT UPDATE ON rate_card TO %I'),
-    'no right to change or remove',
+    "append-only: prices updatable by the application role",
+    "owner",
+    asApp("GRANT UPDATE ON rate_card TO %I"),
+    "no right to change or remove",
   ],
   [
-    'append-only: audit trail writable by the application role',
-    'owner',
-    asApp('GRANT UPDATE, DELETE ON audit_log TO %I'),
-    'no right to change or remove',
+    "append-only: audit trail writable by the application role",
+    "owner",
+    asApp("GRANT UPDATE, DELETE ON audit_log TO %I"),
+    "no right to change or remove",
   ],
   [
-    'append-only: no trigger on decisions',
-    'owner',
+    "append-only: no trigger on decisions",
+    "owner",
     `DROP TRIGGER claim_decision_append_only ON claim_decision`,
-    'by trigger',
+    "by trigger",
   ],
   [
-    'append-only: no trigger on settlements',
-    'owner',
+    "append-only: no trigger on settlements",
+    "owner",
     `DROP TRIGGER settlement_append_only ON settlement`,
-    'by trigger',
+    "by trigger",
   ],
   [
-    'append-only: no trigger on prices',
-    'owner',
+    "append-only: no trigger on prices",
+    "owner",
     `DROP TRIGGER rate_card_append_only ON rate_card`,
-    'by trigger',
+    "by trigger",
   ],
   [
-    'append-only: no trigger on the audit trail',
-    'owner',
+    "append-only: no trigger on the audit trail",
+    "owner",
     `DROP TRIGGER audit_log_append_only ON audit_log`,
-    'by trigger',
+    "by trigger",
   ],
   [
-    'append-only: a second decision is allowed',
-    'owner',
+    "append-only: a second decision is allowed",
+    "owner",
     `ALTER TABLE claim_reversal DROP CONSTRAINT claim_reversal_claim_id_fkey; ALTER TABLE claim_decision DROP CONSTRAINT claim_decision_pkey`,
-    'decide a claim once',
+    "decide a claim once",
   ],
   [
-    'append-only: reversal not unique',
-    'owner',
+    "append-only: reversal not unique",
+    "owner",
     `ALTER TABLE claim_reversal DROP CONSTRAINT claim_reversal_pkey`,
-    'only the admin reverse',
+    "only the admin reverse",
   ],
   [
-    'append-only: decided claims deletable by the owner (no foreign key)',
-    'owner',
+    "append-only: decided claims deletable by the owner (no foreign key)",
+    "owner",
     `ALTER TABLE claim_decision DROP CONSTRAINT claim_decision_claim_id_fkey`,
-    'only until it is decided',
+    "only until it is decided",
   ],
 
   // Who did it, and when.
   [
-    'stamp: log entries keep a forged author',
-    'owner',
+    "stamp: log entries keep a forged author",
+    "owner",
     `DROP TRIGGER log_entry_stamp ON log_entry`,
-    'forged author',
+    "forged author",
   ],
   [
-    'stamp: decisions keep a forged decider',
-    'owner',
+    "stamp: decisions keep a forged decider",
+    "owner",
     `DROP TRIGGER claim_decision_stamp ON claim_decision`,
-    'forged decider',
+    "forged decider",
   ],
   [
-    'stamp: settlements keep a forged recorder',
-    'owner',
+    "stamp: settlements keep a forged recorder",
+    "owner",
     `DROP TRIGGER settlement_stamp ON settlement`,
-    'forged decider',
+    "forged decider",
   ],
   [
-    'stamp: claims keep a forged time',
-    'owner',
+    "stamp: claims keep a forged time",
+    "owner",
     `DROP TRIGGER claim_stamp ON claim`,
-    'forged decider',
+    "forged decider",
   ],
 
   // What an entry may be.
   [
-    'rules: weekends allowed',
-    'owner',
+    "rules: weekends allowed",
+    "owner",
     `CREATE OR REPLACE FUNCTION is_working_day(d date) RETURNS boolean LANGUAGE sql AS 'SELECT true'`,
-    'weekends',
+    "weekends",
   ],
   [
-    'rules: anyone is billed on any day',
-    'owner',
+    "rules: anyone is billed on any day",
+    "owner",
     `CREATE OR REPLACE FUNCTION person_billing(p_person uuid) RETURNS TABLE (role text, active_from date, active_to date) LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$ SELECT 'consumer'::text, '2000-01-01'::date, NULL::date $$`,
-    'not billed that day',
+    "not billed that day",
   ],
-  ['rules: entry shape unchecked', 'owner', dropChecks('log_entry'), 'shape of an entry'],
-  ['rules: second leave allowed', 'owner', `DROP INDEX log_entry_one_leave`, 'second leave'],
-  ['rules: second switch allowed', 'owner', `DROP INDEX log_entry_one_switch`, 'second leave'],
+  ["rules: entry shape unchecked", "owner", dropChecks("log_entry"), "shape of an entry"],
+  ["rules: second leave allowed", "owner", `DROP INDEX log_entry_one_leave`, "second leave"],
+  ["rules: second switch allowed", "owner", `DROP INDEX log_entry_one_switch`, "second leave"],
   [
-    'rules: second Supplier Off allowed',
-    'owner',
+    "rules: second Supplier Off allowed",
+    "owner",
     `DROP INDEX log_entry_one_supplier_off`,
-    'second leave',
+    "second leave",
   ],
   [
-    'rules: payments without an amount',
-    'owner',
-    dropChecks('settlement'),
-    'amount to record a payment',
+    "rules: payments without an amount",
+    "owner",
+    dropChecks("settlement"),
+    "amount to record a payment",
   ],
-  ['rules: disputes without a reason', 'owner', dropChecks('claim_decision'), 'reason to dispute'],
+  ["rules: disputes without a reason", "owner", dropChecks("claim_decision"), "reason to dispute"],
 
   // Closed months.
   [
-    'closed: month lock removed',
-    'owner',
+    "closed: month lock removed",
+    "owner",
     `DROP TRIGGER log_entry_stamp ON log_entry`,
-    'closed month',
+    "closed month",
   ],
   [
-    'closed: holidays unlocked',
-    'owner',
+    "closed: holidays unlocked",
+    "owner",
     `DROP TRIGGER holiday_guard ON holiday`,
-    'same lock to holidays',
+    "same lock to holidays",
   ],
   [
-    'closed: closes ignored',
-    'owner',
+    "closed: closes ignored",
+    "owner",
     `CREATE OR REPLACE FUNCTION month_closed(d date, pid uuid) RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS 'SELECT false'`,
-    'closed month',
+    "closed month",
   ],
 
   // Caps.
   [
-    'caps: people cap removed',
-    'owner',
+    "caps: people cap removed",
+    "owner",
     `DROP TRIGGER person_cap ON person`,
-    'adding people past the cap',
+    "adding people past the cap",
   ],
   [
-    'caps: record cap removed from log entries',
-    'owner',
+    "caps: record cap removed from log entries",
+    "owner",
     `DROP TRIGGER log_entry_cap ON log_entry`,
-    'every record against the cap',
+    "every record against the cap",
   ],
   [
-    'caps: record cap counts only what the caller can see',
-    'owner',
+    "caps: record cap counts only what the caller can see",
+    "owner",
     `ALTER FUNCTION enforce_row_cap() SECURITY INVOKER`,
-    'every record against the cap',
+    "every record against the cap",
   ],
 
   // Personal data.
   [
-    'pii: ciphertext check removed',
-    'owner',
+    "pii: ciphertext check removed",
+    "owner",
     `ALTER DOMAIN enc_blob DROP CONSTRAINT enc_blob_check`,
-    'plain text in a personal column',
+    "plain text in a personal column",
   ],
   [
-    'pii: a plain-text name column appears',
-    'owner',
+    "pii: a plain-text name column appears",
+    "owner",
     `ALTER TABLE person ADD COLUMN display_name text`,
-    'unreviewed plain-text column',
+    "unreviewed plain-text column",
   ],
   [
-    'pii: a plain-text note column appears',
-    'owner',
+    "pii: a plain-text note column appears",
+    "owner",
     `ALTER TABLE claim ADD COLUMN remark text`,
-    'unreviewed plain-text column',
+    "unreviewed plain-text column",
   ],
   [
-    'pii: a personal column loses its type',
-    'owner',
+    "pii: a personal column loses its type",
+    "owner",
     `ALTER TABLE person ALTER COLUMN contact_enc TYPE bytea`,
-    'typed as ciphertext',
+    "typed as ciphertext",
   ],
   [
-    'pii: audit trail stops recording people',
-    'owner',
+    "pii: audit trail stops recording people",
+    "owner",
     `DROP TRIGGER person_audit ON person`,
-    'audit trail as stored',
+    "audit trail as stored",
   ],
   [
-    'pii: audit trail stops recording decisions',
-    'owner',
+    "pii: audit trail stops recording decisions",
+    "owner",
     `DROP TRIGGER claim_decision_audit ON claim_decision`,
-    'each kind of change',
+    "each kind of change",
   ],
 
   // Read-only while moving.
   [
-    'frozen: the flag is ignored on log entries',
-    'owner',
+    "frozen: the flag is ignored on log entries",
+    "owner",
     `DROP TRIGGER log_entry_read_only ON log_entry`,
-    'database itself',
+    "database itself",
   ],
   [
-    'frozen: the flag is ignored on claims',
-    'owner',
+    "frozen: the flag is ignored on claims",
+    "owner",
     `DROP TRIGGER claim_read_only ON claim`,
-    'database itself',
+    "database itself",
   ],
   [
-    'frozen: the flag is ignored on people',
-    'owner',
+    "frozen: the flag is ignored on people",
+    "owner",
     `DROP TRIGGER person_read_only ON person`,
-    'database itself',
+    "database itself",
   ],
   [
-    'frozen: the flag is ignored on the workspace row',
-    'owner',
+    "frozen: the flag is ignored on the workspace row",
+    "owner",
     `DROP TRIGGER workspace_read_only ON workspace`,
-    'database itself',
+    "database itself",
   ],
   [
-    'frozen: the guard never fires',
-    'owner',
+    "frozen: the guard never fires",
+    "owner",
     `CREATE OR REPLACE FUNCTION guard_read_only() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`,
-    'database itself',
+    "database itself",
   ],
   [
-    'frozen: an automatic close ignores the flag',
-    'owner',
+    "frozen: an automatic close ignores the flag",
+    "owner",
     `UPDATE workspace SET read_only = false; CREATE OR REPLACE FUNCTION system_close_month(p_month date, p_consumer uuid, p_meals integer, p_billed bigint) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$ INSERT INTO month_close (for_month, consumer_id, meals, billed, closed_on) VALUES (p_month, p_consumer, p_meals, p_billed, now()::date) ON CONFLICT DO NOTHING $$`,
-    'automatic close',
+    "automatic close",
   ],
 
   // Credentials and limits.
   [
-    'creds: anyone may connect',
-    'owner',
+    "creds: anyone may connect",
+    "owner",
     `DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO PUBLIC', current_database()); END $$`,
-    'another workspace',
+    "another workspace",
   ],
   [
-    'creds: application role may create tables',
-    'owner',
+    "creds: application role may create tables",
+    "owner",
     `GRANT CREATE ON SCHEMA public TO PUBLIC`,
-    'build, empty',
+    "build, empty",
   ],
   [
-    'creds: helper functions open to everyone',
-    'owner',
+    "creds: helper functions open to everyone",
+    "owner",
     `GRANT EXECUTE ON FUNCTION grant_to_app(text, regclass) TO PUBLIC`,
-    'build, empty',
+    "build, empty",
   ],
-  ['creds: meta writable', 'owner', asApp('GRANT UPDATE ON meta TO %I'), 'build, empty'],
+  ["creds: meta writable", "owner", asApp("GRANT UPDATE ON meta TO %I"), "build, empty"],
   [
-    'creds: no connection limit',
-    'admin',
-    asApp('ALTER ROLE %I CONNECTION LIMIT -1'),
-    'how many connections',
+    "creds: no connection limit",
+    "admin",
+    asApp("ALTER ROLE %I CONNECTION LIMIT -1"),
+    "how many connections",
   ],
   [
-    'creds: no statement timeout',
-    'admin',
-    asApp('ALTER ROLE %I IN DATABASE %I RESET statement_timeout', 'current_database()'),
-    'runs too long',
+    "creds: no statement timeout",
+    "admin",
+    asApp("ALTER ROLE %I IN DATABASE %I RESET statement_timeout", "current_database()"),
+    "runs too long",
   ],
 
   // Who is asking, closing, time.
   [
-    'actor: disabled people still resolve',
-    'owner',
+    "actor: disabled people still resolve",
+    "owner",
     `CREATE OR REPLACE FUNCTION resolve_actor(p_account uuid) RETURNS TABLE (person_id uuid, role text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$ SELECT id, role FROM person WHERE account_id = p_account $$`,
-    'disabled person',
+    "disabled person",
   ],
-  ['actor: second account can bind', 'owner', `DROP INDEX person_account_role`, 'second account'],
+  ["actor: second account can bind", "owner", `DROP INDEX person_account_role`, "second account"],
   [
-    'close: automatic close ignores the due date',
-    'owner',
+    "close: automatic close ignores the due date",
+    "owner",
     `CREATE OR REPLACE FUNCTION workspace_today() RETURNS date LANGUAGE sql STABLE AS $$ SELECT '2999-01-01'::date $$`,
-    'only once it is due',
+    "only once it is due",
   ],
   [
-    'time: unknown zone accepted',
-    'owner',
+    "time: unknown zone accepted",
+    "owner",
     `DROP TRIGGER workspace_time_zone_known ON workspace`,
-    'time zone honest',
+    "time zone honest",
   ],
 
   // Placement.
-  ['migrate: runner without the lock', 'owner', `SELECT 1`, null], // control: a no-op defect must NOT be caught
+  ["migrate: runner without the lock", "owner", `SELECT 1`, null], // control: a no-op defect must NOT be caught
 ];
 
 const filter = process.argv[2];
@@ -445,48 +445,48 @@ const picks = defects.filter(([n]) => !filter || n.includes(filter));
 const out = [];
 let bad = 0;
 for (const [name, as, sql, expect] of picks) {
-  const dir = mkdtempSync(join(tmpdir(), 'drift-'));
-  const file = join(dir, 'r.json');
+  const dir = mkdtempSync(join(tmpdir(), "drift-"));
+  const file = join(dir, "r.json");
   const r = spawnSync(
-    'npx',
+    "npx",
     [
-      'vitest',
-      'run',
-      'apps/api/test/workspace.db.test.ts',
-      'apps/api/test/workspace.guards.test.ts',
-      '--reporter=json',
+      "vitest",
+      "run",
+      "apps/api/test/workspace.db.test.ts",
+      "apps/api/test/workspace.guards.test.ts",
+      "--reporter=json",
       `--outputFile=${file}`,
     ],
     {
       env: { ...process.env, ALIMENTATION_DRIFT: JSON.stringify({ as, sql }) },
-      encoding: 'utf8',
+      encoding: "utf8",
     },
   );
   let failed = [];
-  let setupBroke = false;
+  const setupBroke = false;
   try {
-    const j = JSON.parse(readFileSync(file, 'utf8'));
+    const j = JSON.parse(readFileSync(file, "utf8"));
     for (const f of j.testResults)
       for (const t of f.assertionResults)
-        if (t.status === 'failed') failed.push(t.fullName ?? t.title);
+        if (t.status === "failed") failed.push(t.fullName ?? t.title);
   } catch {
-    failed = ['(no report: ' + (r.stderr || '').slice(-200) + ')'];
+    failed = ["(no report: " + (r.stderr || "").slice(-200) + ")"];
   }
   rmSync(dir, { recursive: true, force: true });
   let verdict;
   if (expect === null)
     verdict =
       failed.length === 0
-        ? 'ok (control: nothing broken, nothing failed)'
-        : 'WRONG (control failed)';
-  else if (failed.length === 0) verdict = 'MISSED';
-  else if (setupBroke && !failed.some((f) => !f.startsWith('(suite failed')))
-    verdict = 'DEFECT DID NOT APPLY: ' + failed[0];
+        ? "ok (control: nothing broken, nothing failed)"
+        : "WRONG (control failed)";
+  else if (failed.length === 0) verdict = "MISSED";
+  else if (setupBroke && !failed.some((f) => !f.startsWith("(suite failed")))
+    verdict = "DEFECT DID NOT APPLY: " + failed[0];
   else if (failed.some((f) => f.toLowerCase().includes(expect.toLowerCase())))
     verdict =
-      failed.length > 12 ? 'caught (but broadly: ' + failed.length + ' failures)' : 'caught';
-  else verdict = 'CAUGHT BY THE WRONG TEST: ' + failed.slice(0, 2).join(' | ');
-  if (!verdict.startsWith('caught') && !verdict.startsWith('ok')) bad++;
+      failed.length > 12 ? "caught (but broadly: " + failed.length + " failures)" : "caught";
+  else verdict = "CAUGHT BY THE WRONG TEST: " + failed.slice(0, 2).join(" | ");
+  if (!verdict.startsWith("caught") && !verdict.startsWith("ok")) bad++;
   out.push(`${verdict.padEnd(10).slice(0, 60)}  ${name}`);
   console.log(out.at(-1));
 }

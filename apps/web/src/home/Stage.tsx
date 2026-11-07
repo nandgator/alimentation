@@ -1,7 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react';
-import { Carrier, STATIONS, StageWorld, poseAt } from './art.tsx';
-import { Lines, smoothDamp, useLive, useMedia } from './motion.tsx';
-import { CARRIER_VENT, Steam } from './steam.tsx';
+import { useLayoutEffect, useRef, useState } from "react";
+import { Carrier, STATIONS, StageWorld, poseAt } from "./art.tsx";
+import { Lines, smoothDamp, useLive, useMedia } from "./motion.tsx";
+import { CARRIER_VENT, Steam } from "./steam.tsx";
 
 /** About a third of the time the carrier takes to cross from one place to the next. */
 const SMOOTH = 0.3;
@@ -18,8 +18,8 @@ const LIFT = 84;
  */
 export function Stage() {
   const [step, setStep] = useState(0);
-  const narrow = useMedia('(max-width: 799px)');
-  const reduce = useMedia('(prefers-reduced-motion: reduce)');
+  const narrow = useMedia("(max-width: 799px)");
+  const reduce = useMedia("(prefers-reduced-motion: reduce)");
   const root = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
   const camera = useRef<SVGGElement>(null);
@@ -43,7 +43,7 @@ export function Stage() {
     const draw = () => {
       ride.style.transform = poseAt(f.p);
       lift.style.transform = `translateY(${(-LIFT * Math.sin(Math.PI * (f.p - Math.floor(f.p)))).toFixed(2)}px)`;
-      cam.style.transform = narrow ? `translateX(${(-f.p * 400).toFixed(2)}px)` : 'none';
+      cam.style.transform = narrow ? `translateX(${(-f.p * 400).toFixed(2)}px)` : "none";
     };
     const frame = (now: number) => {
       raf = 0;
@@ -93,26 +93,26 @@ export function Stage() {
     draw();
     // A change of screen (a phone turned, motion reduced) redraws where the carrier is.
     if (f.p !== f.goal) wake();
-    window.addEventListener('scroll', soon, { passive: true });
-    window.addEventListener('resize', soon);
+    window.addEventListener("scroll", soon, { passive: true });
+    window.addEventListener("resize", soon);
     return () => {
-      window.removeEventListener('scroll', soon);
-      window.removeEventListener('resize', soon);
+      window.removeEventListener("scroll", soon);
+      window.removeEventListener("resize", soon);
       if (raf) cancelAnimationFrame(raf);
       if (pick) cancelAnimationFrame(pick);
       delete top.dataset.hop;
     };
   }, [narrow, reduce]);
 
-  const view = narrow ? '0 130 400 400' : '0 0 1200 560';
+  const view = narrow ? "0 130 400 400" : "0 0 1200 560";
 
   return (
-    <div className="moving hwrap" data-step={step} ref={root}>
-      <div className="stage-col">
-        <Lines lines={['Start on our shelf.', 'Move when you’re ready.']} id="moving-title" />
-        <div className="stage-wrap">
+    <div class="moving hwrap" data-step={step} ref={root}>
+      <div class="stage-col">
+        <Lines lines={["Start on our shelf.", "Move when you’re ready."]} id="moving-title" />
+        <div class="stage-wrap">
           <svg
-            className="stage"
+            class="stage"
             viewBox={view}
             preserveAspectRatio="xMidYMid slice"
             aria-hidden="true"
@@ -120,7 +120,7 @@ export function Stage() {
           >
             <g ref={camera}>
               <StageWorld />
-              <g ref={mover} className="mover">
+              <g ref={mover} class="mover">
                 <g ref={lifter}>
                   <Steam vent={CARRIER_VENT} />
                   <Carrier clip="mine" />
@@ -130,15 +130,15 @@ export function Stage() {
           </svg>
         </div>
       </div>
-      <ol className="steps" aria-labelledby="moving-title">
-        <li ref={(n) => void (itemRefs.current[0] = n)} className={step === 0 ? 'on' : ''}>
+      <ol class="steps" aria-labelledby="moving-title">
+        <li ref={(n) => void (itemRefs.current[0] = n)} class={step === 0 ? "on" : ""}>
           <h3>{STATIONS[0].name}</h3>
           <p>
             Free while you are small. Your kitchen gets a book of its own, kept apart from every
             other kitchen’s, so a busy neighbour never slows you down.
           </p>
         </li>
-        <li ref={(n) => void (itemRefs.current[1] = n)} className={step === 1 ? 'on' : ''}>
+        <li ref={(n) => void (itemRefs.current[1] = n)} class={step === 1 ? "on" : ""}>
           <h3>{STATIONS[1].name}</h3>
           <p>
             Outgrown free? One tap moves everything to storage you hold, and we keep serving it. You
@@ -148,12 +148,12 @@ export function Stage() {
             First we practise the move, then recount every bill to the paisa, and only then switch.
             Your old copy stays readable for seven days, then it is wiped.
           </p>
-          <p className="catch">
+          <p class="catch">
             <b>The catch.</b> It needs somewhere to go: empty storage from any database provider, or
             your own copy of Alimentation.
           </p>
         </li>
-        <li ref={(n) => void (itemRefs.current[2] = n)} className={step === 2 ? 'on' : ''}>
+        <li ref={(n) => void (itemRefs.current[2] = n)} class={step === 2 ? "on" : ""}>
           <h3>{STATIONS[2].name}</h3>
           <p>
             Run all of it on a computer you control. One command starts it, and moving there is the

@@ -25,6 +25,6 @@ for a commercial decision. Rows marked UNKNOWN are open questions, not findings.
 
 ## Other studies
 
-| File                           | What                                                                                                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File                             | What                                                                                                                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [payload-cms.md](payload-cms.md) | Payload CMS's admin, run live and driven in a browser, and its source and guides: what it does well, where it falls short for a books app, and what was borrowed. |

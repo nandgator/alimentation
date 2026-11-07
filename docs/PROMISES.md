@@ -1,8 +1,8 @@
 # Promises ledger
 
-Every claim on the home page is listed here with the test that proves it. A test
-proves a promise by carrying the tag `[P<n>]` in its name. `scripts/check-promises.mjs`
-fails the build when a promise has no tagged test, or a tag names no promise.
+Every claim on the home page is listed here with the test that proves it. A test proves a promise by
+carrying the tag `[P<n>]` in its name. `scripts/check-promises.mjs` fails the build when a promise
+has no tagged test, or a tag names no promise.
 
 | ID  | Promise                                              | Proof (tagged tests)                                                                                                                   | Status |
 | --- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------ |
@@ -14,5 +14,5 @@ fails the build when a promise has no tagged test, or a tag names no promise.
 | P6  | Your data is yours to take, at any time.             | tagged in http.test.ts, lifecycle.move.test.ts, lifecycle.test.ts                                                                      | tested |
 | P7  | One person's records are invisible to everyone else. | tagged in http.test.ts, service.test.ts, workspace.db.test.ts                                                                          | tested |
 
-The limits stated beside each promise in `DESIGN.md` section 1 are part of the
-promise. The home page repeats them.
+The limits stated beside each promise in `DESIGN.md` section 1 are part of the promise. The home
+page repeats them.

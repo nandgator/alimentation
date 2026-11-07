@@ -1,4 +1,4 @@
-import type { Role } from '@alimentation/core';
+import type { Role } from "@alimentation/core";
 
 /**
  * Every screen of a kitchen, written down once: its address, its name, where it sits in the menu and
@@ -7,20 +7,20 @@ import type { Role } from '@alimentation/core';
  * role may do; this only decides what is shown.)
  */
 export type SectionKey =
-  | 'dashboard'
-  | 'daily'
-  | 'log'
-  | 'payments'
-  | 'history'
-  | 'people'
-  | 'rates'
-  | 'holidays'
-  | 'settlements'
-  | 'close'
-  | 'audit'
-  | 'data';
+  | "dashboard"
+  | "daily"
+  | "log"
+  | "payments"
+  | "history"
+  | "people"
+  | "rates"
+  | "holidays"
+  | "settlements"
+  | "close"
+  | "audit"
+  | "data";
 
-export type GroupKey = 'day' | 'kitchen' | 'books';
+export type GroupKey = "day" | "kitchen" | "books";
 
 export interface Section {
   key: SectionKey;
@@ -32,33 +32,33 @@ export interface Section {
 }
 
 export const GROUP_LABEL: Record<GroupKey, string> = {
-  day: 'Day to day',
-  kitchen: 'The kitchen',
-  books: 'The books',
+  day: "Day to day",
+  kitchen: "The kitchen",
+  books: "The books",
 };
 
-const EVERYONE: readonly Role[] = ['admin', 'supplier', 'consumer'];
-const ADMIN: readonly Role[] = ['admin'];
+const EVERYONE: readonly Role[] = ["admin", "supplier", "consumer"];
+const ADMIN: readonly Role[] = ["admin"];
 
 export const SECTIONS: readonly Section[] = [
-  { key: 'dashboard', path: '', label: 'Dashboard', group: 'day', roles: EVERYONE },
-  { key: 'daily', path: '/daily', label: 'Daily', group: 'day', roles: EVERYONE },
-  { key: 'log', path: '/log', label: 'My log', group: 'day', roles: EVERYONE },
-  { key: 'payments', path: '/payments', label: 'Payments', group: 'day', roles: EVERYONE },
+  { key: "dashboard", path: "", label: "Dashboard", group: "day", roles: EVERYONE },
+  { key: "daily", path: "/daily", label: "Daily", group: "day", roles: EVERYONE },
+  { key: "log", path: "/log", label: "My log", group: "day", roles: EVERYONE },
+  { key: "payments", path: "/payments", label: "Payments", group: "day", roles: EVERYONE },
   {
-    key: 'history',
-    path: '/history',
-    label: 'History',
-    group: 'day',
-    roles: ['supplier', 'consumer'],
+    key: "history",
+    path: "/history",
+    label: "History",
+    group: "day",
+    roles: ["supplier", "consumer"],
   },
-  { key: 'people', path: '/people', label: 'People', group: 'kitchen', roles: ADMIN },
-  { key: 'rates', path: '/rates', label: 'Rates & rules', group: 'kitchen', roles: ADMIN },
-  { key: 'holidays', path: '/holidays', label: 'Holidays', group: 'kitchen', roles: ADMIN },
-  { key: 'settlements', path: '/settlements', label: 'Settlements', group: 'books', roles: ADMIN },
-  { key: 'close', path: '/close', label: 'Month close', group: 'books', roles: ADMIN },
-  { key: 'audit', path: '/audit', label: 'Audit', group: 'books', roles: ADMIN },
-  { key: 'data', path: '/data', label: 'Your data', group: 'books', roles: ADMIN },
+  { key: "people", path: "/people", label: "People", group: "kitchen", roles: ADMIN },
+  { key: "rates", path: "/rates", label: "Rates & rules", group: "kitchen", roles: ADMIN },
+  { key: "holidays", path: "/holidays", label: "Holidays", group: "kitchen", roles: ADMIN },
+  { key: "settlements", path: "/settlements", label: "Settlements", group: "books", roles: ADMIN },
+  { key: "close", path: "/close", label: "Month close", group: "books", roles: ADMIN },
+  { key: "audit", path: "/audit", label: "Audit", group: "books", roles: ADMIN },
+  { key: "data", path: "/data", label: "Your data", group: "books", roles: ADMIN },
 ];
 
 export const sectionsFor = (role: Role): Section[] =>
@@ -81,6 +81,6 @@ export const hrefOf = (base: string, section: Section) => `${base}${section.path
 /** Whether `location` is this screen (or something under it). */
 export function isHere(base: string, section: Section, location: string): boolean {
   const href = hrefOf(base, section);
-  if (section.path === '') return location === href || location === `${href}/`;
+  if (section.path === "") return location === href || location === `${href}/`;
   return location === href || location.startsWith(`${href}/`);
 }

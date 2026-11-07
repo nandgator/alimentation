@@ -6,16 +6,16 @@
 //   node scripts/check-promises.mjs --write   rewrites the ledger's proof columns
 //
 // A test proves a promise by carrying the tag [P<n>] in its name.
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 
-const root = new URL('..', import.meta.url).pathname;
-const ledgerPath = join(root, 'docs/PROMISES.md');
-const write = process.argv.includes('--write');
+const root = new URL("..", import.meta.url).pathname;
+const ledgerPath = join(root, "docs/PROMISES.md");
+const write = process.argv.includes("--write");
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
-    if (['node_modules', 'dist', '.git', 'test-results', 'reports'].includes(name)) continue;
+    if (["node_modules", "dist", ".git", "test-results", "reports"].includes(name)) continue;
     const path = join(dir, name);
     if (statSync(path).isDirectory()) yield* walk(path);
     else yield path;
@@ -23,17 +23,17 @@ function* walk(dir) {
 }
 
 // Which promises exist, and in what order.
-const ledger = readFileSync(ledgerPath, 'utf8');
+const ledger = readFileSync(ledgerPath, "utf8");
 const rows = [...ledger.matchAll(/^\| (P\d+)\s+\| ([^|]+?)\s+\| ([^|]*?)\s+\| ([^|]*?)\s+\|$/gm)];
 const promises = rows.map((m) => ({ id: m[1], text: m[2] }));
-if (promises.length === 0) throw new Error('No promises found in docs/PROMISES.md');
+if (promises.length === 0) throw new Error("No promises found in docs/PROMISES.md");
 
 // Which tests name them.
 const proofs = new Map(promises.map((p) => [p.id, new Map()]));
 const unknown = [];
 for (const file of walk(root)) {
   if (!/\.(test|spec)\.tsx?$/.test(file)) continue;
-  const text = readFileSync(file, 'utf8');
+  const text = readFileSync(file, "utf8");
   for (const m of text.matchAll(/\b(?:it|test|describe)(?:\.\w+)*\(\s*(['"`])(.*?)\1/g)) {
     for (const tag of m[2].matchAll(/\[(P\d+)\]/g)) {
       const per = proofs.get(tag[1]);
@@ -52,11 +52,11 @@ for (const p of promises)
 for (const u of unknown) problems.push(`a test names a promise that is not in the ledger: ${u}`);
 
 // The home page must show exactly the ledger's promises, in the ledger's words.
-const home = readFileSync(join(root, 'apps/web/src/pages/Home.tsx'), 'utf8');
+const home = readFileSync(join(root, "apps/web/src/pages/Home.tsx"), "utf8");
 const shown = [...home.matchAll(/^\s+title: '([^']+)'/gm)].map((m) =>
-  m[1].replace(/’/g, "'").replace(/\.$/, '').toLowerCase(),
+  m[1].replace(/’/g, "'").replace(/\.$/, "").toLowerCase(),
 );
-const wanted = promises.map((p) => p.text.replace(/’/g, "'").replace(/\.$/, '').toLowerCase());
+const wanted = promises.map((p) => p.text.replace(/’/g, "'").replace(/\.$/, "").toLowerCase());
 if (shown.length !== wanted.length)
   problems.push(`the home page shows ${shown.length} promises and the ledger has ${wanted.length}`);
 else
@@ -68,15 +68,15 @@ else
   });
 
 // Rebuild the proof columns.
-const short = (f) => f.replace(/^.*\//, '');
+const short = (f) => f.replace(/^.*\//, "");
 let next = ledger;
 for (const p of promises) {
   const per = proofs.get(p.id);
   // A tag on a group of tests covers every test in it, so files are listed, not counted.
-  const proof = per.size ? `tagged in ${[...per.keys()].map(short).sort().join(', ')}` : 'none';
-  const status = per.size ? 'tested' : 'UNTESTED';
+  const proof = per.size ? `tagged in ${[...per.keys()].map(short).sort().join(", ")}` : "none";
+  const status = per.size ? "tested" : "UNTESTED";
   next = next.replace(
-    new RegExp(`^\\| ${p.id}\\s+\\| ([^|]+?)\\s+\\| [^|]*\\| [^|]*\\|$`, 'm'),
+    new RegExp(`^\\| ${p.id}\\s+\\| ([^|]+?)\\s+\\| [^|]*\\| [^|]*\\|$`, "m"),
     (_all, text) => `| ${p.id}  | ${text} | ${proof} | ${status} |`,
   );
 }
@@ -84,25 +84,25 @@ for (const p of promises) {
 if (write) {
   writeFileSync(ledgerPath, next);
   console.log(`ledger rewritten for ${promises.length} promises`);
-} else if (next.replace(/\s+/g, ' ') !== ledger.replace(/\s+/g, ' ')) {
+} else if (next.replace(/\s+/g, " ") !== ledger.replace(/\s+/g, " ")) {
   // Spacing differs after formatting; compare the cells.
   const cells = (t) =>
     [...t.matchAll(/^\| (P\d+)\s+\| ([^|]+?)\s+\| ([^|]*?)\s+\| ([^|]*?)\s+\|$/gm)].map((m) =>
-      m.slice(1).join('|'),
+      m.slice(1).join("|"),
     );
-  if (cells(next).join('\n') !== cells(ledger).join('\n'))
+  if (cells(next).join("\n") !== cells(ledger).join("\n"))
     problems.push(
-      'docs/PROMISES.md is out of date: run  node scripts/check-promises.mjs --write  and commit it',
+      "docs/PROMISES.md is out of date: run  node scripts/check-promises.mjs --write  and commit it",
     );
 }
 
 for (const p of promises) {
   const per = proofs.get(p.id);
   console.log(
-    `${p.id}  ${per.size ? 'tested ' : 'MISSING'}  ${per.size} file${per.size === 1 ? '' : 's'}  ${p.text}`,
+    `${p.id}  ${per.size ? "tested " : "MISSING"}  ${per.size} file${per.size === 1 ? "" : "s"}  ${p.text}`,
   );
 }
 if (problems.length) {
-  console.error('\n' + problems.map((x) => '✗ ' + x).join('\n'));
+  console.error("\n" + problems.map((x) => "✗ " + x).join("\n"));
   process.exit(1);
 }

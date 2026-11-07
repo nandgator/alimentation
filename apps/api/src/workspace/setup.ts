@@ -1,6 +1,6 @@
-import type { Limits } from '@alimentation/core';
-import type { FieldCipher } from '../crypto/fields.ts';
-import type { Db } from '../db/driver.ts';
+import type { Limits } from "@alimentation/core";
+import type { FieldCipher } from "../crypto/fields.ts";
+import type { Db } from "../db/driver.ts";
 
 export interface NewWorkspace {
   name: string;
@@ -25,18 +25,18 @@ export async function initializeWorkspace(
   const supplierId = input.alsoSupplier ? crypto.randomUUID() : null;
   await ownerDb.tx(async (tx) => {
     await tx.query(
-      'INSERT INTO workspace (name, time_zone, people_cap, row_cap) VALUES ($1, $2, $3, $4)',
+      "INSERT INTO workspace (name, time_zone, people_cap, row_cap) VALUES ($1, $2, $3, $4)",
       [input.name, input.timeZone, input.limits?.people ?? null, input.limits?.rows ?? null],
     );
     for (const [id, role] of [
-      [adminId, 'admin'],
-      [supplierId, 'supplier'],
+      [adminId, "admin"],
+      [supplierId, "supplier"],
     ] as const) {
       if (!id) continue;
       await tx.query(`INSERT INTO person (id, role, name_enc) VALUES ($1, $2, $3)`, [
         id,
         role,
-        await cipher.enc('person', 'name_enc', id, input.adminName),
+        await cipher.enc("person", "name_enc", id, input.adminName),
       ]);
     }
   });

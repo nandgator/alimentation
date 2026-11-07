@@ -1,24 +1,28 @@
 ---
+
 title: The command line
 description: The commands that make keys, set up and upgrade databases, and lock down a cluster.
 ---
 
 # The command line
 
-Everything an operator does outside the browser is one command, `cli.mjs`. It is built with the server:
+Everything an operator does outside the browser is one command, `cli.mjs`. It is built with the
+server:
 
 ```console
-$ npm run build:server -w @alimentation/api
-$ node apps/api/dist/cli.mjs <command>
+npm run build:server -w @alimentation/api
+node apps/api/dist/cli.mjs <command>
 ```
 
-In the Docker image it is already there as `node cli.mjs <command>`, and on Compose you run it in a throwaway container:
+In the Docker image it is already there as `node cli.mjs <command>`, and on Compose you run it in a
+throwaway container:
 
 ```console
-$ docker compose run --rm app node cli.mjs <command>
+docker compose run --rm app node cli.mjs <command>
 ```
 
-On an instance that keeps its own secrets in the `instance` volume, every command except `keys:generate` and `control:init` reads them from there, so you do not export anything first.
+On an instance that keeps its own secrets in the `instance` volume, every command except
+`keys:generate` and `control:init` reads them from there, so you do not export anything first.
 
 ## Commands
 
@@ -35,14 +39,16 @@ Anything else prints the usage line and exits with 2.
 
 ## Output
 
-Commands print one JSON object per line where they report anything, so they can be read by a person and by a script:
+Commands print one JSON object per line where they report anything, so they can be read by a person
+and by a script:
 
 ```console
 $ node cli.mjs keys:rewrap
 {"currentKey":2,"workspaces":14,"retiredCopies":0,"skipped":0,"stillOnOldKey":0}
 ```
 
-`control:init` and `keys:generate` print `NAME=value` lines you can paste into an environment file. Treat that output as a secret.
+`control:init` and `keys:generate` print `NAME=value` lines you can paste into an environment file.
+Treat that output as a secret.
 
 ## When to run what
 

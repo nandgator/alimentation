@@ -1,11 +1,15 @@
 ---
+
 title: Configuration
 description: Every setting an instance reads, what it does, and which ones are required where.
 ---
 
 # Configuration
 
-An instance is configured only through environment variables. On Node they come from the process environment. On Cloudflare Workers they are variables and secrets bound to the Worker. The server reads them once at start and refuses to run with a combination it considers unsafe, saying which setting is wrong.
+An instance is configured only through environment variables. On Node they come from the process
+environment. On Cloudflare Workers they are variables and secrets bound to the Worker. The server
+reads them once at start and refuses to run with a combination it considers unsafe, saying which
+setting is wrong.
 
 ## Required everywhere
 
@@ -16,9 +20,11 @@ An instance is configured only through environment variables. On Node they come 
 | `MASTER_KEYS`          | `1:base64,2:base64`. The highest number wraps new secrets, and the others still open what they wrapped.                            |
 | `CONTROL_DATABASE_URL` | The control database: who belongs to which kitchen, and where each kitchen lives. Give it the application role, not the owner.     |
 
-`node cli.mjs keys:generate` prints a fresh `MASTER_KEYS` and `SESSION_SECRETS`. See [the command line](/docs/self-hosting/cli/).
+`node cli.mjs keys:generate` prints a fresh `MASTER_KEYS` and `SESSION_SECRETS`. See
+[the command line](/docs/self-hosting/cli/).
 
-On a Compose or Docker install you do not set these four yourself: the server makes them on its first start and keeps them in the `instance` volume (see `INSTANCE_DIR`).
+On a Compose or Docker install you do not set these four yourself: the server makes them on its
+first start and keeps them in the `instance` volume (see `INSTANCE_DIR`).
 
 ## Sign-in
 
@@ -29,7 +35,8 @@ On a Compose or Docker install you do not set these four yourself: the server ma
 | `OPERATOR_EMAILS`                                     | Verified emails, comma separated, that may open `/operator` and the platform routes. Compared in lower case.                                                                                                     |
 | `AUTH_DEV`                                            | `1` signs anyone in with any email. For a trial and for tests. The server refuses it when `NODE_ENV=production`.                                                                                                 |
 
-Without a complete OIDC trio the server only starts when `AUTH_DEV=1`. In production that means it does not start without an identity provider.
+Without a complete OIDC trio the server only starts when `AUTH_DEV=1`. In production that means it
+does not start without an identity provider.
 
 ## Where kitchens live
 
@@ -75,4 +82,5 @@ See [Architecture](/docs/overview/architecture/) for what a placement is.
 | `MIGRATION_TOKEN` shorter than 24 characters | A short token can be guessed.                              |
 | `SESSION_SECRETS` or `MASTER_KEYS` too short | Neither could be 32 random bytes.                          |
 
-Settings are described in code by one schema (`apps/api/src/config.ts`), so this page and the server cannot drift for long: the schema is the list.
+Settings are described in code by one schema (`apps/api/src/config.ts`), so this page and the server
+cannot drift for long: the schema is the list.

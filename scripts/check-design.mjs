@@ -7,24 +7,24 @@
 // from an edge, is measured in the browser: apps/web/e2e/controls.spec.ts.) A line that
 // has a good reason to break a rule says so, in the same line: /* design: the reason */.
 // Run by `npm run design`, and by the test suite.
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const web = join(root, 'apps', 'web');
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const web = join(root, "apps", "web");
 
 /** What each file answers to. The home page's pictures are drawn, so shape and spacing are theirs. */
 const CSS = [
-  { file: 'apps/web/src/styles.css', rules: 'all' },
-  { file: 'apps/web/scripts/docs/docs.css', rules: 'all' },
-  { file: 'apps/web/src/home.css', rules: 'colour shadow layer important font' },
+  { file: "apps/web/src/styles.css", rules: "all" },
+  { file: "apps/web/scripts/docs/docs.css", rules: "all" },
+  { file: "apps/web/src/home.css", rules: "colour shadow layer important font" },
 ];
 
 const NUMBER = String.raw`-?\d*\.?\d+`;
 export const SCALES = {
   // The radii a shape may have. Anything round is a pill.
-  radius: new Set(['0', '4px', '8px', '12px', '16px', '999px', '50%']),
+  radius: new Set(["0", "4px", "8px", "12px", "16px", "999px", "50%"]),
   // Space is on a grid of two pixels up to 24, then these.
   space: new Set([28, 32, 40, 48, 56, 64, 80, 96]),
   // Type: rem steps, or something fluid, or a size taken from its parent.
@@ -32,7 +32,7 @@ export const SCALES = {
   // The widths at which the layout changes.
   breakpoints: new Set([480, 560, 720, 959, 960, 1199, 1200]),
   // How long things take, and how they move, are tokens; these are the plain exceptions.
-  easing: new Set(['ease', 'linear', 'ease-in', 'ease-out', 'ease-in-out']),
+  easing: new Set(["ease", "linear", "ease-in", "ease-out", "ease-in-out"]),
 };
 
 /** The text of a stylesheet with comments blanked (so lengths and line numbers stay) and waivers noted. */
@@ -40,31 +40,31 @@ function lines(text) {
   const waived = new Set();
   const stripped = text.replace(/\/\*([\s\S]*?)\*\//g, (m, body, offset) => {
     if (/^\s*design:/.test(body)) {
-      const line = text.slice(0, offset).split('\n').length + m.split('\n').length - 1;
-      for (let l = text.slice(0, offset).split('\n').length; l <= line; l++) waived.add(l);
+      const line = text.slice(0, offset).split("\n").length + m.split("\n").length - 1;
+      for (let l = text.slice(0, offset).split("\n").length; l <= line; l++) waived.add(l);
     }
-    return m.replace(/[^\n]/g, ' ');
+    return m.replace(/[^\n]/g, " ");
   });
-  return { rows: stripped.split('\n'), waived };
+  return { rows: stripped.split("\n"), waived };
 }
 
 /** The statements of a stylesheet, each with the lines it spans: a rule's opening, a declaration, a closing brace. */
 function statements(text) {
   const { rows, waived } = lines(text);
   const out = [];
-  let current = '';
+  let current = "";
   let start = 1;
   rows.forEach((row, i) => {
     for (const ch of row) {
       if (!current.trim()) start = i + 1;
-      if (ch === '{' || ch === '}' || ch === ';') {
+      if (ch === "{" || ch === "}" || ch === ";") {
         const body = current.trim();
-        if (body) out.push({ text: ch === ';' ? body : body, open: ch === '{', start, end: i + 1 });
-        if (ch === '}') out.push({ text: '}', close: true, start: i + 1, end: i + 1 });
-        current = '';
+        if (body) out.push({ text: ch === ";" ? body : body, open: ch === "{", start, end: i + 1 });
+        if (ch === "}") out.push({ text: "}", close: true, start: i + 1, end: i + 1 });
+        current = "";
       } else current += ch;
     }
-    current += '\n';
+    current += "\n";
   });
   const rest = current.trim();
   if (rest) out.push({ text: rest, start, end: rows.length });
@@ -78,42 +78,42 @@ const SELECT_ROOM_PX = 40;
 function rightPadding(value) {
   const parts = value.trim().split(/\s+/);
   const right = parts.length === 1 ? parts[0] : parts[1];
-  const m = /^(-?[\d.]+)(px|rem)$/.exec(right ?? '');
-  return m ? Number(m[1]) * (m[2] === 'rem' ? 16 : 1) : null;
+  const m = /^(-?[\d.]+)(px|rem)$/.exec(right ?? "");
+  return m ? Number(m[1]) * (m[2] === "rem" ? 16 : 1) : null;
 }
 
 /** What a rule must do if it styles a select: draw the arrow, or leave the arrow's room alone. */
 function selectProblems(rule, shared) {
-  const sels = rule.selector.split(',').map((x) => x.trim());
+  const sels = rule.selector.split(",").map((x) => x.trim());
   const styles = sels.some((x) => /(^|[\s>+~])select(\.[\w-]+)*$/.test(x));
   if (!styles) return [];
   const d = rule.decls;
-  const bare = sels.length === 1 && sels[0] === 'select';
+  const bare = sels.length === 1 && sels[0] === "select";
   const out = [];
-  if (bare && d.appearance === 'base-select') return out; // the open list: the arrow rule above still draws the closed select
+  if (bare && d.appearance === "base-select") return out; // the open list: the arrow rule above still draws the closed select
   if (bare) {
-    if (d.appearance !== 'none')
+    if (d.appearance !== "none")
       out.push(
-        'a select draws its own arrow: appearance none, so the browser does not put one where it likes',
+        "a select draws its own arrow: appearance none, so the browser does not put one where it likes",
       );
-    if (!/gradient\(|url\(/.test(d['background-image'] ?? ''))
-      out.push('a select with no arrow of its own has none: give it a background-image');
-    const room = /^[\d.]+px$/.test(d['padding-right'] ?? '') ? parseFloat(d['padding-right']) : 0;
+    if (!/gradient\(|url\(/.test(d["background-image"] ?? ""))
+      out.push("a select with no arrow of its own has none: give it a background-image");
+    const room = /^[\d.]+px$/.test(d["padding-right"] ?? "") ? parseFloat(d["padding-right"]) : 0;
     if (room < SELECT_ROOM_PX)
       out.push(
         `the arrow needs padding-right of ${SELECT_ROOM_PX}px or more, so the text stays clear of it`,
       );
     if (shared && rule.start < shared.start)
       out.push(
-        'the select rule must come after the shared input, select, textarea rule, or that padding wins',
+        "the select rule must come after the shared input, select, textarea rule, or that padding wins",
       );
     return out;
   }
-  if (d.appearance && d.appearance !== 'none' && d.appearance !== 'base-select')
-    out.push('a select keeps the shared arrow: appearance stays none');
+  if (d.appearance && d.appearance !== "none" && d.appearance !== "base-select")
+    out.push("a select keeps the shared arrow: appearance stays none");
   if (sels.length === 1) {
     // A list that names several controls (input, select, textarea) is the shared rule; the select rule overrides its padding.
-    const px = d['padding-right'] ? rightPadding(`0 ${d['padding-right']}`) : null;
+    const px = d["padding-right"] ? rightPadding(`0 ${d["padding-right"]}`) : null;
     const sh = d.padding ? rightPadding(d.padding) : null;
     const right = px ?? sh;
     if (right !== null && right < SELECT_ROOM_PX)
@@ -125,9 +125,9 @@ function selectProblems(rule, shared) {
 }
 
 /** The rules of one stylesheet's text. `rules` is `all`, or the names of those that apply. */
-export function checkCssText(text, file = 'a.css', rules = 'all') {
+export function checkCssText(text, file = "a.css", rules = "all") {
   const problems = [];
-  const want = (r) => rules === 'all' || rules.split(' ').includes(r);
+  const want = (r) => rules === "all" || rules.split(" ").includes(r);
   const { out, waived } = statements(text);
   let depth = 0;
   let reduced = 0; // the depth inside a reduced-motion block, while we are in one
@@ -140,14 +140,14 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
       const rule = open.pop();
       if (
         rule &&
-        want('control') &&
+        want("control") &&
         /^[^@]/.test(rule.selector) &&
         /\bselect\b/.test(rule.selector)
       )
         selectRules.push(rule);
       continue;
     }
-    const line = st.text.replace(/\s+/g, ' ');
+    const line = st.text.replace(/\s+/g, " ");
     if (st.open) {
       depth++;
       open.push({ selector: line, decls: {}, start: st.start });
@@ -155,12 +155,12 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
       const media = /@media\s*\(\s*(?:max|min)-width:\s*(\d+)px\s*\)/.exec(line);
       let isWaived = false;
       for (let l = st.start; l <= st.end; l++) isWaived ||= waived.has(l);
-      if (media && !isWaived && want('breakpoint') && !SCALES.breakpoints.has(Number(media[1])))
+      if (media && !isWaived && want("breakpoint") && !SCALES.breakpoints.has(Number(media[1])))
         problems.push({
           file,
           line: st.start,
-          rule: 'breakpoint',
-          why: `${media[1]}px is not one of ${[...SCALES.breakpoints].join(', ')}`,
+          rule: "breakpoint",
+          why: `${media[1]}px is not one of ${[...SCALES.breakpoints].join(", ")}`,
           text: line.slice(0, 110),
         });
       continue;
@@ -174,86 +174,86 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
       problems.push({ file, line: st.start, rule, why, text: line.slice(0, 110) });
     const [, prop, value] = decl;
     if (open.length) open[open.length - 1].decls[prop] = value.trim();
-    const isToken = prop.startsWith('--');
+    const isToken = prop.startsWith("--");
     const inReduced = reduced > 0;
 
     // Colour comes from a token. A token's own definition may name a colour; nothing else may.
     if (
-      want('colour') &&
+      want("colour") &&
       !isToken &&
       /#[0-9a-fA-F]{3,8}\b|\b(rgb|rgba|hsl|hsla|oklch|lab)\(/.test(value)
     )
-      add('colour', 'a raw colour: use a colour token');
+      add("colour", "a raw colour: use a colour token");
     // What rises above the page casts a shadow from the scale; nothing else invents one.
     if (
-      want('shadow') &&
+      want("shadow") &&
       !isToken &&
-      (prop === 'box-shadow' || /drop-shadow\(/.test(value)) &&
+      (prop === "box-shadow" || /drop-shadow\(/.test(value)) &&
       !/^(none|var\(--[a-z-]+\))$/.test(value.trim())
     )
-      add('shadow', 'a shadow that is not a token');
+      add("shadow", "a shadow that is not a token");
     if (
-      want('layer') &&
-      prop === 'z-index' &&
+      want("layer") &&
+      prop === "z-index" &&
       !/^(-?[0-2]|var\(--z-[a-z]+\)|calc\(var\(--z-[a-z]+\) [-+] \d+\))$/.test(value.trim())
     )
-      add('layer', 'a z-index that is not on the scale');
-    if (want('important') && /!important/.test(value) && !inReduced)
-      add('important', '!important outside the reduced-motion block');
+      add("layer", "a z-index that is not on the scale");
+    if (want("important") && /!important/.test(value) && !inReduced)
+      add("important", "!important outside the reduced-motion block");
     if (
-      want('font') &&
-      prop === 'font-family' &&
+      want("font") &&
+      prop === "font-family" &&
       !/^(inherit|var\(--(serif|sans|mono)\))$/.test(value.trim())
     )
-      add('font', 'a font that is not a token');
+      add("font", "a font that is not a token");
     if (
-      want('font') &&
-      prop === 'font' &&
+      want("font") &&
+      prop === "font" &&
       !isToken &&
       !/var\(--(serif|sans|mono)\)|^inherit$/.test(value)
     )
-      add('font', 'a font shorthand with no font token');
-    if (want('type') && prop === 'font-size' && !SCALES.fontSize.test(value.trim()))
-      add('type', `${value} is not a size on the type scale`);
-    if (want('type') && prop === 'font' && !isToken) {
+      add("font", "a font shorthand with no font token");
+    if (want("type") && prop === "font-size" && !SCALES.fontSize.test(value.trim()))
+      add("type", `${value} is not a size on the type scale`);
+    if (want("type") && prop === "font" && !isToken) {
       const size = /(?<![\w.#-])([\d.]+(?:rem|px))(?=\/|\s)/.exec(value);
-      if (size) add('type', `${size[1]} in a font shorthand is not on the type scale`);
+      if (size) add("type", `${size[1]} in a font shorthand is not on the type scale`);
     }
     if (
-      want('space') &&
+      want("space") &&
       /^(padding|margin|gap|row-gap|column-gap)(-[a-z]+)*$/.test(prop) &&
       !isToken
     ) {
       // A `rem` is checked as the pixels it comes to at the browser's own size, so it cannot step round the grid.
       for (const len of value.matchAll(/(?<![\w.#-])(-?\d+(?:\.\d+)?)(px|rem)\b/g)) {
-        const n = Math.round(Math.abs(Number(len[1])) * (len[2] === 'rem' ? 16 : 1) * 1000) / 1000;
+        const n = Math.round(Math.abs(Number(len[1])) * (len[2] === "rem" ? 16 : 1) * 1000) / 1000;
         if (!(Number.isInteger(n) && ((n <= 24 && n % 2 === 0) || SCALES.space.has(n))))
-          add('space', `${len[1]}${len[2]} is off the two-pixel grid`);
+          add("space", `${len[1]}${len[2]} is off the two-pixel grid`);
       }
     }
-    if (want('radius') && /^border(-[a-z]+)*-radius$/.test(prop)) {
+    if (want("radius") && /^border(-[a-z]+)*-radius$/.test(prop)) {
       for (const part of value.split(/[\s/]+/))
         if (part && !SCALES.radius.has(part) && !/^var\(|^inherit$|^calc\(/.test(part))
-          add('radius', `${part} is not a radius on the scale`);
+          add("radius", `${part} is not a radius on the scale`);
     }
-    if (want('motion') && /^(transition|animation)(-duration)?$/.test(prop) && !inReduced) {
-      const durations = value.match(new RegExp(`(?<![-\\w.])${NUMBER}m?s\\b`, 'g')) ?? [];
+    if (want("motion") && /^(transition|animation)(-duration)?$/.test(prop) && !inReduced) {
+      const durations = value.match(new RegExp(`(?<![-\\w.])${NUMBER}m?s\\b`, "g")) ?? [];
       const nonZero = durations.filter((d) => !/^0(\.0+)?m?s$/.test(d));
-      if (nonZero.length) add('motion', `${nonZero.join(', ')}: use a duration token`);
+      if (nonZero.length) add("motion", `${nonZero.join(", ")}: use a duration token`);
       for (const word of value.match(/\b(ease-in-out|ease-in|ease-out|ease|linear)\b/g) ?? [])
-        if (!SCALES.easing.has(word)) add('motion', `${word} is not an easing`);
-      if (/cubic-bezier\(/.test(value)) add('motion', 'an easing curve that is not a token');
+        if (!SCALES.easing.has(word)) add("motion", `${word} is not an easing`);
+      if (/cubic-bezier\(/.test(value)) add("motion", "an easing curve that is not a token");
     }
   }
   if (selectRules.length) {
-    const shared = selectRules.find((r) => r.selector.split(',').length > 1 && r.decls.padding);
-    const bare = selectRules.find((r) => r.selector.trim() === 'select');
+    const shared = selectRules.find((r) => r.selector.split(",").length > 1 && r.decls.padding);
+    const bare = selectRules.find((r) => r.selector.trim() === "select");
     if (!bare)
       problems.push({
         file,
         line: selectRules[0].start,
-        rule: 'control',
-        why: 'selects are styled but there is no `select` rule that draws their arrow',
+        rule: "control",
+        why: "selects are styled but there is no `select` rule that draws their arrow",
         text: selectRules[0].selector.slice(0, 110),
       });
     for (const r of selectRules)
@@ -261,7 +261,7 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
         problems.push({
           file,
           line: r.start,
-          rule: 'control',
+          rule: "control",
           why,
           text: r.selector.slice(0, 110),
         });
@@ -270,7 +270,7 @@ export function checkCssText(text, file = 'a.css', rules = 'all') {
 }
 
 function checkCss({ file, rules }, problems) {
-  problems.push(...checkCssText(readFileSync(join(root, file), 'utf8'), file, rules));
+  problems.push(...checkCssText(readFileSync(join(root, file), "utf8"), file, rules));
 }
 
 /** TSX: no styling inline except to pass a value to the stylesheet. */
@@ -278,33 +278,33 @@ function checkTsx(problems) {
   const walk = (dir) =>
     readdirSync(dir).flatMap((f) => {
       const p = join(dir, f);
-      if (statSync(p).isDirectory()) return f === 'node_modules' ? [] : walk(p);
+      if (statSync(p).isDirectory()) return f === "node_modules" ? [] : walk(p);
       return /\.tsx$/.test(f) && !/\.test\./.test(f) ? [p] : [];
     });
-  for (const path of walk(join(web, 'src')))
-    problems.push(...checkTsxText(readFileSync(path, 'utf8'), relative(root, path)));
+  for (const path of walk(join(web, "src")))
+    problems.push(...checkTsxText(readFileSync(path, "utf8"), relative(root, path)));
 }
 
 /** The inline styles in one component's text. */
-export function checkTsxText(text, file = 'a.tsx') {
+export function checkTsxText(text, file = "a.tsx") {
   const problems = [];
   {
-    const rows = text.split('\n');
+    const rows = text.split("\n");
     rows.forEach((row, i) => {
-      if (/design:/.test(row) || /design:/.test(rows[i - 1] ?? '')) return;
+      if (/design:/.test(row) || /design:/.test(rows[i - 1] ?? "")) return;
       const m = /style=\{\{(.*)$/.exec(row);
       if (!m) return;
       // A single-line style object is fine only when every key hands a value to the stylesheet.
       const keys = [...m[1].matchAll(/(?:\[\s*'(--[a-z0-9-]+)'[^\]]*\]|(\w+))\s*:/g)].map(
         (k) => k[1] ?? k[2],
       );
-      const loose = keys.filter((k) => !k.startsWith('--'));
+      const loose = keys.filter((k) => !k.startsWith("--"));
       if (!keys.length || loose.length)
         problems.push({
           file,
           line: i + 1,
-          rule: 'inline',
-          why: `inline style (${loose.join(', ') || 'multi-line'}): use a class or a token`,
+          rule: "inline",
+          why: `inline style (${loose.join(", ") || "multi-line"}): use a class or a token`,
           text: row.trim().slice(0, 110),
         });
     });
@@ -323,13 +323,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const problems = check();
   const by = new Map();
   for (const p of problems) by.set(p.rule, (by.get(p.rule) ?? 0) + 1);
-  if (process.argv.includes('--list'))
+  if (process.argv.includes("--list"))
     for (const p of problems)
       console.log(`${p.file}:${p.line}  [${p.rule}] ${p.why}\n    ${p.text}`);
   console.log(
     problems.length
-      ? `\n${problems.length} places leave the design system: ${[...by].map(([r, n]) => `${r} ${n}`).join(', ')}`
-      : 'The application keeps to the design system.',
+      ? `\n${problems.length} places leave the design system: ${[...by].map(([r, n]) => `${r} ${n}`).join(", ")}`
+      : "The application keeps to the design system.",
   );
   process.exit(problems.length ? 1 : 0);
 }
