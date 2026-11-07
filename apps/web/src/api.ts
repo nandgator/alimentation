@@ -19,7 +19,9 @@ export interface Reply<T> {
 
 /** Which of their roles the person is acting as, when they hold more than one here. */
 let actingAs: string | null = null;
-export const setActingAs = (role: string | null) => void (actingAs = role);
+export const setActingAs = (role: string | null) => {
+  actingAs = role;
+};
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<Reply<T>> {
   let res: Response;

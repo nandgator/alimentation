@@ -104,7 +104,11 @@ export function Figure({ value }: { value: string }) {
       <span className="roll-digits" aria-hidden="true">
         {[...value].map((ch, k) =>
           /\d/.test(ch) ? (
-            <span className="roll-col" key={k}>
+            <span
+              className="roll-col"
+              // biome-ignore lint/suspicious/noArrayIndexKey: a character is its place in the string
+              key={k}
+            >
               <span
                 className="roll-strip"
                 style={{ ["--d" as string]: ch, ["--i" as string]: n++ }}
@@ -115,6 +119,7 @@ export function Figure({ value }: { value: string }) {
               </span>
             </span>
           ) : (
+            // biome-ignore lint/suspicious/noArrayIndexKey: a character is its place in the string
             <span key={k}>{ch}</span>
           ),
         )}

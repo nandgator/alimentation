@@ -93,6 +93,13 @@ async function richSource(): Promise<{ fx: Fixture; jovial: string; smruti: stri
   return { fx, jovial: jovial.personId, smruti: smruti.personId };
 }
 
+/** A bundle without its manifest, which is what the manifest is made from. */
+// biome-ignore lint/suspicious/noExplicitAny: callers hand it parsed JSON and hand the result on as a bundle
+const withoutManifest = (bundle: any): any => {
+  const { manifest: _manifest, ...rest } = bundle;
+  return rest;
+};
+
 describe("[P3] a workspace can be exported and imported without losing a paisa", () => {
   let src: Fixture;
   let bundle: Bundle;
@@ -173,9 +180,7 @@ describe("[P3] a workspace can be exported and imported without losing a paisa",
         members: bundle.members,
       }),
     );
-    expect(canonicalJson(again)).toBe(
-      canonicalJson((({ manifest, ...b }) => (void manifest, b))(bundle)),
-    );
+    expect(canonicalJson(again)).toBe(canonicalJson(withoutManifest(bundle)));
 
     const stored = await target.ws.owner.query("SELECT id, name_enc FROM person WHERE id = $1", [
       ids.smruti,
@@ -282,7 +287,7 @@ describe("[P3] an import that is not exact is not kept", () => {
   it("lists rules this version does not understand and refuses", async () => {
     const odd = JSON.parse(JSON.stringify(bundle));
     odd.policies[0].doc.quarterlyDiscount = 10;
-    const sealed = await assembleBundle((({ manifest, ...b }) => (void manifest, b))(odd));
+    const sealed = await assembleBundle(withoutManifest(odd));
     const { report, left } = await attempt(sealed);
     expect(report.ok).toBe(false);
     expect(report.problems[0]).toMatch(/does not know/);
@@ -290,7 +295,7 @@ describe("[P3] an import that is not exact is not kept", () => {
   });
 
   it("rolls back everything when a statement does not come out to the paisa", async () => {
-    const body = (({ manifest, ...b }) => (void manifest, b))(JSON.parse(JSON.stringify(bundle)));
+    const body = withoutManifest(JSON.parse(JSON.stringify(bundle)));
     body.expected = body.expected.map((t: { billed: number }, i: number) =>
       i === 0 ? { ...t, billed: t.billed + 100 } : t,
     );
@@ -301,7 +306,7 @@ describe("[P3] an import that is not exact is not kept", () => {
   });
 
   it("rolls back when the copy would differ from the original in any other way", async () => {
-    const body = (({ manifest, ...b }) => (void manifest, b))(JSON.parse(JSON.stringify(bundle)));
+    const body = withoutManifest(JSON.parse(JSON.stringify(bundle)));
     body.rateCards[0].veg += 100; // engine answers now differ from the figures it claims
     const { report, left } = await attempt(await assembleBundle(body));
     expect(report.ok).toBe(false);

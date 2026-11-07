@@ -51,6 +51,7 @@ export function LogPage() {
   };
 
   // Tell the person what is wrong before they press the button, not after.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `body` is built from the listed values
   useEffect(() => {
     if (!day || (!forEveryone && who === EVERYONE)) return setIssues([]);
     const t = setTimeout(() => {
@@ -60,7 +61,6 @@ export function LogPage() {
       );
     }, 300);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day, change, qty, who, forEveryone, ws.api]);
 
   const from = monthStart(addMonths(boot.currentMonth, -1));
@@ -145,6 +145,7 @@ export function LogPage() {
           </Field>
           {issues.map((i, k) => (
             <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: issues are shown in the order checked, and are replaced as a whole
               key={k}
               className={`banner ${i.severity === "error" ? "bad" : "warn"}`}
               role="status"

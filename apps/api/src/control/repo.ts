@@ -5,7 +5,8 @@ import type { PlacementRef } from "../placement/types.ts";
 import type { AgentScope } from "../agent-scopes.ts";
 import { ApiError } from "../workspace/errors.ts";
 
-type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
+type R = Record<string, any>;
 
 export interface AccountRow {
   id: string;

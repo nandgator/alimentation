@@ -610,7 +610,9 @@ describe("moving between the pages", () => {
     const types = new Set<string>();
     let reveal: ((e: unknown) => void) | undefined;
     new Function("addEventListener", "navigation", "location", script)(
-      (name: string, fn: (e: unknown) => void) => name === "pagereveal" && (reveal = fn),
+      (name: string, fn: (e: unknown) => void) => {
+        if (name === "pagereveal") reveal = fn;
+      },
       { activation: { from: from ? { url: `http://x${from}` } : null } },
       { pathname: now },
     );

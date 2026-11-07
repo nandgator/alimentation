@@ -162,7 +162,9 @@
     const items = [...list.children];
     if (!items.length) return;
     active = (i + items.length) % items.length;
-    items.forEach((li, n) => li.setAttribute("aria-selected", String(n === active)));
+    items.forEach((li, n) => {
+      li.setAttribute("aria-selected", String(n === active));
+    });
     input.setAttribute("aria-activedescendant", items[active].id);
     items[active].scrollIntoView({ block: "nearest" });
   };
@@ -171,10 +173,22 @@
     const title = row.t.toLowerCase();
     for (const t of terms) {
       let hit = false;
-      if (title.includes(t)) (s += 10), (hit = true);
-      if (row.h.some((h) => h.toLowerCase().includes(t))) (s += 4), (hit = true);
-      if (row.d.toLowerCase().includes(t)) (s += 2), (hit = true);
-      if (row.lx.includes(t)) (s += 1), (hit = true);
+      if (title.includes(t)) {
+        s += 10;
+        hit = true;
+      }
+      if (row.h.some((h) => h.toLowerCase().includes(t))) {
+        s += 4;
+        hit = true;
+      }
+      if (row.d.toLowerCase().includes(t)) {
+        s += 2;
+        hit = true;
+      }
+      if (row.lx.includes(t)) {
+        s += 1;
+        hit = true;
+      }
       if (!hit) return 0;
     }
     return s;
@@ -231,9 +245,13 @@
   input.addEventListener("input", () => void run());
   input.addEventListener("focus", () => void load());
   input.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowDown") e.preventDefault(), select(active + 1);
-    else if (e.key === "ArrowUp") e.preventDefault(), select(active - 1);
-    else if (e.key === "Enter" && active >= 0) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      select(active + 1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      select(active - 1);
+    } else if (e.key === "Enter" && active >= 0) {
       e.preventDefault();
       $("a", list.children[active])?.click();
     } else if (e.key === "Escape") {

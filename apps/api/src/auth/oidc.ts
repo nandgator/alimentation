@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { type JWTPayload, createRemoteJWKSet, jwtVerify } from "jose";
 import { randomBytes, toBase64Url } from "../crypto/aead.ts";
 
 /**
@@ -142,7 +142,7 @@ export class OidcClient {
     this.jwks ??= createRemoteJWKSet(new URL(d.jwks_uri), {
       [Symbol.for("jose.customFetch") as never]: this.http,
     } as never);
-    let claims;
+    let claims: JWTPayload;
     try {
       ({ payload: claims } = await jwtVerify(tokens.id_token, this.jwks, {
         issuer: d.issuer,

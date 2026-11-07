@@ -59,7 +59,8 @@ import { asActor, type Actor } from "./context.ts";
 import { ApiError, forbidden, invalid, mapDbError, notFound } from "./errors.ts";
 import { applyAutoCloses, loadEngineData, rateCardFromRow, withDueCloses } from "./load.ts";
 
-type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
+type R = Record<string, any>;
 
 export interface WorkspaceInfo {
   id: string;

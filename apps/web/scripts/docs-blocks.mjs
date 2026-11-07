@@ -219,7 +219,7 @@ const barOf = (label, range) =>
  * it nothing. The same excerpt, with the same refusals, as the page itself.
  */
 export function expandExcerpts(markdown, repo, where) {
-  return markdown.replace(/^```([^\n]*)\n([\s\S]*?)^```[ \t]*$/gm, (whole, info, text) => {
+  return markdown.replace(/^```([^\n]*)\n([\s\S]*?)^```[ \t]*$/gm, (whole, info) => {
     const { lang, settings } = parseFence(info);
     if (!settings.file) return whole;
     const found = excerpt(settings.file, where, repo);
@@ -303,9 +303,9 @@ export function createBlocks({ repo }) {
         .slice(i, j)
         .map((r) => r.text)
         .join("\n");
-      highlight(chunk, "bash").forEach((html, k) =>
-        lines.push({ kind: k === 0 ? "cmd" : "cont", html }),
-      );
+      highlight(chunk, "bash").forEach((html, k) => {
+        lines.push({ kind: k === 0 ? "cmd" : "cont", html });
+      });
       i = j;
     }
     const body = lines.map((l) => `<span class="line ${l.kind}">${l.html}</span>`).join("\n");

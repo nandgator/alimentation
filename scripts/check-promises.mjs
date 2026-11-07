@@ -103,6 +103,6 @@ for (const p of promises) {
   );
 }
 if (problems.length) {
-  console.error("\n" + problems.map((x) => "✗ " + x).join("\n"));
+  console.error(`\n${problems.map((x) => `✗ ${x}`).join("\n")}`);
   process.exit(1);
 }

@@ -49,7 +49,9 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
   // Even finding out what there is to do can fail; that must not stop the other kinds of work.
   const each = async <T>(what: string, list: () => Promise<T[]>, fn: (x: T) => Promise<void>) => {
     let items: T[] = [];
-    await guard(`list ${what}`, async () => void (items = await list()));
+    await guard(`list ${what}`, async () => {
+      items = await list();
+    });
     for (const x of items) await guard(what, () => fn(x));
   };
 

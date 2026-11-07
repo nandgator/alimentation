@@ -145,7 +145,7 @@ export async function createWorkspace(
     inserted = true;
 
     const owner = p.openDb(provisioned.ownerUrl, { ephemeral: true });
-    let ids;
+    let ids: Awaited<ReturnType<typeof initializeWorkspace>>;
     try {
       ids = await initializeWorkspace(owner, cipher, {
         name,
