@@ -58,20 +58,21 @@ Without Docker, have Node 24 or later (`.nvmrc` says 24) and a PostgreSQL 15 or 
 role can create roles and databases:
 
 ```console
-$ npm install
+$ bun install
 $ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres
-$ npm run format:check
-$ npm run typecheck
-$ npm run promises
-$ npm run design
-$ npm test                 # unit and database tests
-$ npm run test:e2e         # the app in a real browser, desktop and phone
-$ npm run drift:db         # breaks each database guard on purpose
+$ bun run check:md
+$ bun run check:ts
+$ bun run typecheck
+$ bun run promises
+$ bun run design
+$ bun run test                 # unit and database tests
+$ bun run test:e2e         # the app in a real browser, desktop and phone
+$ bun run drift:db         # breaks each database guard on purpose
 ```
 
 `ALIMENTATION_TEST_PG_LOG=/path/to/postgres.log` makes the Postgres-log check run. CI sets
 `ALIMENTATION_REQUIRE_PG_LOG=1`, so there it cannot be skipped. The browser tests need Chromium:
-`npx playwright install chromium`, or `PLAYWRIGHT_CHROMIUM_PATH` for one you already have.
+`bunx playwright install chromium`, or `PLAYWRIGHT_CHROMIUM_PATH` for one you already have.
 
 ## What each layer proves
 
@@ -87,19 +88,19 @@ $ npm run drift:db         # breaks each database guard on purpose
 ### Tests that make promises
 
 Each promise on the home page has an id in `docs/PROMISES.md`. A test proves a promise by carrying
-its id in its name, for example `it('[P7] …')`. `npm run promises` fails if a promise has no test,
+its id in its name, for example `it('[P7] …')`. `bun run promises` fails if a promise has no test,
 if a test names a promise that does not exist, or if the ledger and the home page disagree.
-`npm run promises -- --write` refreshes the ledger's proof columns.
+`bun run promises --write` refreshes the ledger's proof columns.
 
 ### Testing the tests
 
 A test that would also pass without the thing it checks proves nothing. Two things ask that
 question.
 
-- **Mutation testing** of the engine, rules, validators, money and dates: `npx stryker run`. A small
-  change nothing notices is a rule nobody checks. It takes several minutes, so it is not in CI; run
-  it after changing the engine.
-- **Database drift**: `npm run drift:db` removes each guard in turn (a policy, a privilege, a
+- **Mutation testing** of the engine, rules, validators, money and dates: `bunx stryker run`. A
+  small change nothing notices is a rule nobody checks. It takes several minutes, so it is not in
+  CI; run it after changing the engine.
+- **Database drift**: `bun run drift:db` removes each guard in turn (a policy, a privilege, a
   trigger, a cap) from a freshly made workspace database and requires the named test to fail. It
   reports a guard nothing checks as **MISSED**, one caught by the wrong test, and a control change
   that breaks nothing as a harness fault. To add a guard, add the migration, the test, and a line in
@@ -125,7 +126,7 @@ overflow, the failure names the offending element.
 | `test`   | The compose test run above: format, types, promises, design and every test, Postgres log required. |
 | `image`  | `scripts/smoke-compose.sh`: the shipped image sets itself up against a fresh Postgres and serves.  |
 | `worker` | The Worker bundled as it would be deployed, and run in the Workers runtime against Postgres.       |
-| `e2e`    | `npm run test:e2e` on desktop and phone, with the results uploaded when it fails.                  |
+| `e2e`    | `bun run test:e2e` on desktop and phone, with the results uploaded when it fails.                  |
 
 ## Conventions
 

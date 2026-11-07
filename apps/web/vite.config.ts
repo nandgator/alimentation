@@ -2,7 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-// In development the API runs separately (npm run dev:api) and is reached through this server,
+// In development the API runs separately (bun run dev:api) and is reached through this server,
 // so cookies and the Origin header are those of the page.
 const api = process.env.API_ORIGIN ?? "http://localhost:8787";
 

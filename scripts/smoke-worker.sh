@@ -32,7 +32,7 @@ for _ in $(seq 1 40); do
   sleep 1
 done
 
-npm run build:server -w @alimentation/api >/dev/null
+bun run --filter @alimentation/api build:server >/dev/null
 J="$work/jar"
 signin() { # base origin
   curl -fsS -c "$J" -b "$J" -H "Origin: $2" -H 'content-type: application/json' \
@@ -61,7 +61,7 @@ require("fs").writeFileSync("apps/api/.dev.vars", Object.entries(v).map(([k, x])
 ' "$work"
 mkdir -p apps/web/dist
 [ -f apps/web/dist/index.html ] || { echo '<!doctype html><title>smoke</title>' > apps/web/dist/index.html; touch apps/web/dist/index.html.smoke; }
-setsid bash -c 'cd apps/api && exec npx wrangler dev --local --port 8791 --ip 127.0.0.1' >"$work/wrangler.log" 2>&1 &
+setsid bash -c 'cd apps/api && exec bunx wrangler dev --local --port 8791 --ip 127.0.0.1' >"$work/wrangler.log" 2>&1 &
 worker_pid=$!
 for _ in $(seq 1 60); do curl -fsS localhost:8791/api/health >/dev/null 2>&1 && break; sleep 1; done
 if ! curl -fsS localhost:8791/api/health >/dev/null 2>&1; then tail -30 "$work/wrangler.log" >&2; echo "the Worker did not start" >&2; exit 1; fi

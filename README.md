@@ -49,9 +49,9 @@ database.
 Without Docker:
 
 ```sh
-npm install
+bun install
 export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres   # a role that can create roles and databases
-npm test
+bun run test
 ```
 
 Deployment, operation and key rotation are in [docs/RUNBOOK.md](docs/RUNBOOK.md). A running instance

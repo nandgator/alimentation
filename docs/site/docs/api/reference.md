@@ -21,9 +21,9 @@ the first row below); the link is the same address with `/reference/` after it.
 | Where            | How                                                                                                                                                                                                                                                             |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Behind a proxy   | `docker compose -f compose.yaml -f compose.proxy.yaml up -d --build`: the app and the reference at one address, the reference at `/reference/`. [Behind a proxy](/docs/self-hosting/behind-a-proxy/) says how, and how to do it with Nginx, HAProxy or Traefik. |
-| On a machine     | `npm run dev:reference` builds it and serves it at `http://localhost:8788`.                                                                                                                                                                                     |
+| On a machine     | `bun run dev:reference` builds it and serves it at `http://localhost:8788`.                                                                                                                                                                                     |
 | In a container   | `docker compose --profile reference up -d --build reference`, then `http://localhost:8788`. It is a small image of its own.                                                                                                                                     |
-| On Cloudflare    | The built files are static assets: `npm run build:reference`, then `npx wrangler deploy -c apps/reference/wrangler.jsonc`.                                                                                                                                      |
+| On Cloudflare    | The built files are static assets: `bun run build:reference`, then `bunx wrangler deploy -c apps/reference/wrangler.jsonc`.                                                                                                                                     |
 | For another tool | `openapi.json` beside the page is an OpenAPI 3.1 document. Load it into any viewer, or read it with a program.                                                                                                                                                  |
 
 Nothing is fetched from anywhere when it is read: Scalar's own files are served with it, and the
@@ -35,7 +35,7 @@ Every route the server answers is listed once, in `apps/api/src/openapi.ts`, wit
 the route reads its body or query with (`apps/api/src/schemas.ts`). So a body the reference shows is
 a body the server takes, with the same limits.
 
-`npm run build:reference` writes the document, checks it with the parser Scalar reads it with, and
+`bun run build:reference` writes the document, checks it with the parser Scalar reads it with, and
 copies Scalar's browser files beside it. A test fails if:
 
 - the server answers a route the reference does not list, or the reference lists one the server does

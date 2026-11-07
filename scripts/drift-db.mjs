@@ -448,7 +448,7 @@ for (const [name, as, sql, expect] of picks) {
   const dir = mkdtempSync(join(tmpdir(), "drift-"));
   const file = join(dir, "r.json");
   const r = spawnSync(
-    "npx",
+    "bunx",
     [
       "vitest",
       "run",

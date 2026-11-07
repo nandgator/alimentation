@@ -528,7 +528,7 @@ Considered and set aside:
 | Spec rules and reference numbers                            | Unit and property tests in `packages/core`; mutation score 99.8 percent (`docs/DRIFT.md`)                                                         |
 | Cross-person and cross-workspace isolation                  | Database and HTTP tests on Postgres 18: two workspaces, several consumers, with and without a role set                                            |
 | Append-only decisions, settlements, rate cards, receipts    | Tests that attempt the update and delete as the application role, and (for receipts) as the owner                                                 |
-| Guards are not dead code                                    | Each database guard removed in turn; its test must fail (`npm run drift:db`: 69 defects, 0 missed)                                                |
+| Guards are not dead code                                    | Each database guard removed in turn; its test must fail (`bun run drift:db`: 69 defects, 0 missed)                                                |
 | No personal data in logs                                    | A full flow with `log_statement=all`; the server log is searched for every sentinel. CI requires the log to be readable, so it cannot be skipped  |
 | Wipe leaves nothing                                         | The database server's catalog and the control database are listed before and after; keys, receipt, interrupted and restored cases                 |
 | Move reconciles to the paisa                                | Two real databases and two instances; a failure injected at each stage leaves the source as it was                                                |
@@ -693,7 +693,7 @@ see what. The technical one is `docs/site/docs/concepts/trust-model.md`.
 
 The tokens (colour, type, space, shape, elevation, layers, motion, breakpoints) are in
 `apps/web/src/styles.css` and are documented, with the real stylesheet, at `/docs/design/`.
-`scripts/check-design.mjs` (`npm run design`) fails the build when a stylesheet or component leaves
+`scripts/check-design.mjs` (`bun run design`) fails the build when a stylesheet or component leaves
 them: a raw colour, a shadow, a z-index, a font, a size, a gap off the grid, a radius, a duration or
 curve, a breakpoint, or a `style` attribute that decides how something looks. A waiver is a comment
 that begins `design:` and gives its reason. At the time of writing there are three. The checker is

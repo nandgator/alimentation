@@ -3,8 +3,8 @@ import base from "./playwright.config.ts";
 
 /**
  * The parts of the app that are newest, in Firefox and in WebKit (which is Safari's engine), on a desktop:
- *   npx playwright install firefox webkit
- *   npm run test:browsers -w @alimentation/web
+ *   bunx playwright install firefox webkit
+ *   bun run --filter @alimentation/web test:browsers
  * The rest of the suite is Chromium, desktop and a phone. What a browser cannot do is skipped and says so
  * (a page that glides into the next, and leave to read the clipboard). The app is started as it is for that suite.
  */

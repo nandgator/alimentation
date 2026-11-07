@@ -48,7 +48,7 @@ itself.
   `NODE_EXTRA_CA_CERTS`, and a browser is not, so it warns once. The test ignores that, for this one
   machine.
 
-If you run the app on the host instead of in Compose (`npm run dev:api`), a `*.localhost` name does
+If you run the app on the host instead of in Compose (`bun run dev:api`), a `*.localhost` name does
 not resolve outside a browser on most systems, so add `127.0.0.1 authelia.localhost` to your hosts
 file, and start the app with `NODE_EXTRA_CA_CERTS=dev/idp/.state/ca.pem`.
 

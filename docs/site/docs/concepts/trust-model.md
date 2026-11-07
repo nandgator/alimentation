@@ -36,7 +36,7 @@ A rule that matters is in both the first and the last.
 | Every change is recorded                                   | `audit_row()` triggers on the records people care about, `SECURITY DEFINER`, so no code path can forget.                                                                                 |
 | A kitchen being moved cannot be written to                 | Statement-level triggers refuse application writes while `workspace.read_only`.                                                                                                          |
 
-The tests for these include removing each guard on purpose (`npm run drift:db`) and requiring a
+The tests for these include removing each guard on purpose (`bun run drift:db`) and requiring a
 named test to fail. A guard no test notices is a guard nobody is checking.
 
 ## Transparency: the people a change affects can read it
