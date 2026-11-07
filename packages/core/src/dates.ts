@@ -1,3 +1,4 @@
+import { must } from "./must.ts";
 /**
  * Calendar arithmetic on plain dates. A date is the string `YYYY-MM-DD` and a
  * month is `YYYY-MM`. No `Date` object is used for arithmetic, so nothing here
@@ -40,7 +41,7 @@ export function isValidMonth(s: string): s is Month {
 
 export function parseDate(s: IsoDate): { y: number; m: number; d: number } {
   if (!isValidDate(s)) throw new RangeError(`not a calendar date: ${s}`);
-  const m = DATE_RE.exec(s)!;
+  const m = must(DATE_RE.exec(s));
   return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
 }
 

@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { must } from "@alimentation/core";
 import { loadConfig } from "./config.ts";
 import { ControlRepo } from "./control/repo.ts";
 import { Keyring } from "./crypto/keys.ts";
@@ -84,11 +85,13 @@ switch (command) {
       const dsns = await readDsns(keyring, w.id, w.dsnEnc);
       const db = nodeDb(dsns.owner, { max: 1 });
       try {
-        const role = (
-          await db.tx(async (tx) =>
-            tx.query<{ value: string }>(`SELECT value FROM meta WHERE key = 'app_role'`),
-          )
-        )[0]!.value;
+        const role = must(
+          (
+            await db.tx(async (tx) =>
+              tx.query<{ value: string }>(`SELECT value FROM meta WHERE key = 'app_role'`),
+            )
+          )[0],
+        ).value;
         const r = await db.withClient((c) =>
           migrate(c, WORKSPACE_MIGRATIONS, { settings: { "alimentation.app_role": role } }),
         );

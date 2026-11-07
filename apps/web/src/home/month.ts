@@ -14,6 +14,7 @@ import {
   monthEnd,
   monthOf,
   monthStart,
+  must,
   type Person,
   parseDate,
   prepare,
@@ -81,7 +82,7 @@ export type Marks = Readonly<Record<IsoDate, Mark>>;
 export const CHAPATIS = 2;
 
 export function nextMark(m: Mark | undefined): Mark {
-  return MARKS[(MARKS.indexOf(m ?? "meal") + 1) % MARKS.length]!;
+  return must(MARKS[(MARKS.indexOf(m ?? "meal") + 1) % MARKS.length]);
 }
 
 /** The visitor's own date, as the page sees it. */
@@ -200,5 +201,5 @@ export function board(marks: Marks, today: IsoDate, month: Month): Board {
   const p = prepare(data);
   const days = new Map(ledgerMonth(p, person, month).map((d) => [d.date, d]));
   const [statement] = buildStatements(p, [person.id], [month]);
-  return { days, statement: statement! };
+  return { days, statement: must(statement) };
 }

@@ -37,6 +37,7 @@ import {
   monthOf,
   monthRange,
   monthStart,
+  must,
   type PayMethod,
   type PersonDto,
   type Policy,
@@ -104,7 +105,7 @@ const WEEKDAY_COLUMNS = [
 
 function requireOk(issues: Issue[]): Issue[] {
   if (hasErrors(issues)) {
-    const first = issues.find((i) => i.severity === "error")!;
+    const first = must(issues.find((i) => i.severity === "error"));
     throw invalid(first.message, issues);
   }
   return issues.filter((i) => i.severity === "warning");
@@ -290,9 +291,9 @@ export class WorkspaceService {
     );
     return {
       requestsLast24h: requests,
-      people: row!.people,
-      rows: row!.rows,
-      bytes: Number(row!.bytes),
+      people: must(row).people,
+      rows: must(row).rows,
+      bytes: Number(must(row).bytes),
     };
   }
 
@@ -714,7 +715,10 @@ export class WorkspaceService {
         const text = describeAudit(row, ctx);
         if (text !== null) events.push({ id: row.id, at: row.at, text });
       }
-      return { events, next: rows.length === limit ? Number(rows[rows.length - 1]!.id) : null };
+      return {
+        events,
+        next: rows.length === limit ? Number(must(rows[rows.length - 1]).id) : null,
+      };
     });
   }
 

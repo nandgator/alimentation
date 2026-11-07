@@ -1,4 +1,5 @@
 import type { BootstrapDto, IsoDate, RateCard } from "@alimentation/core";
+import { must } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../api.ts";
 import { Chip, Field, Form, Problem, toast, useAction } from "../components/ui.tsx";
@@ -85,7 +86,7 @@ function Summary({ plan }: { plan: Plan }) {
  * what its own rules refuse and the people in it are told nothing.
  */
 export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
-  const [from, setFrom] = useState(kitchens[0]!.slug);
+  const [from, setFrom] = useState(must(kitchens[0]).slug);
   const [to, setTo] = useState<Set<string>>(new Set());
   const [what, setWhat] = useState<What>({ prices: true, rules: true, holidays: true });
   const [plans, setPlans] = useState<Record<string, Plan> | null>(null);
@@ -194,7 +195,7 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
           {chosen.map((k) => (
             <div key={k.slug} className="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
               <h3>{k.name}</h3>
-              {plans[k.slug] ? <Summary plan={plans[k.slug]!} /> : null}
+              {plans[k.slug] ? <Summary plan={must(plans[k.slug])} /> : null}
             </div>
           ))}
           <Problem error={copy.error} />

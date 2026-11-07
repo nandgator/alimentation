@@ -1,3 +1,4 @@
+import { must as defined } from "@alimentation/core";
 // Proves a real deployment works, end to end, and leaves nothing behind.
 //
 //   APP_URL=https://alimentation.example.workers.dev \
@@ -101,9 +102,9 @@ try {
     "create",
   );
   made = true;
-  placement = (await control.workspaceBySlug(slug))!.placement as typeof placement;
+  placement = defined(await control.workspaceBySlug(slug)).placement as typeof placement;
   step(
-    `created a kitchen on ${placement!.kind}${placement!.data.projectId ? ` (project ${placement!.data.projectId})` : ""}`,
+    `created a kitchen on ${defined(placement).kind}${defined(placement).data.projectId ? ` (project ${defined(placement).data.projectId})` : ""}`,
   );
 
   const w = `/api/w/${slug}`;
@@ -182,7 +183,7 @@ try {
   await db.close().catch(() => undefined);
 }
 
-const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
+const median = (xs: number[]) => defined([...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]);
 console.log(steps.map((s) => `  ✓ ${s}`).join("\n"));
 console.log("\nTimes in milliseconds (this machine to the deployment and back):");
 for (const [name, xs] of Object.entries(timings))

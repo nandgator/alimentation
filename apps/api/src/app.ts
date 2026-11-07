@@ -1,5 +1,6 @@
 import {
   localNow,
+  must,
   type OrganisationDto,
   type OrganisationKitchenDto,
   type Role,
@@ -327,7 +328,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
       redirectUri: `${config.appOrigin}/auth/callback`,
     });
     const account = await deps.control.upsertAccount({
-      issuer: config.oidc!.issuer,
+      issuer: must(config.oidc).issuer,
       sub: who.sub,
       email: who.email,
       name: who.name,
@@ -506,7 +507,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   };
 
   const organisationView = async (id: string): Promise<OrganisationDto> => {
-    const org = (await deps.control.organisation(id))!;
+    const org = must(await deps.control.organisation(id));
     const kitchens = await inBatches(
       await deps.control.organisationKitchens(id),
       4,
@@ -698,7 +699,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
       actorCache.set(cacheKey, hit);
     }
     if (hit.actors.length === 0) throw forbidden("You are not a member of this workspace.");
-    const held = ROLE_ORDER.filter((r) => hit!.actors.some((x) => x.role === r));
+    const held = ROLE_ORDER.filter((r) => must(hit).actors.some((x) => x.role === r));
     let roles = held;
     let actor: Actor;
     if (key) {
@@ -713,7 +714,8 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     } else {
       const wanted = c.req.header("x-acting-as");
       actor =
-        hit.actors.find((x) => x.role === wanted) ?? hit.actors.find((x) => x.role === held[0])!;
+        hit.actors.find((x) => x.role === wanted) ??
+        must(hit.actors.find((x) => x.role === held[0]));
     }
     c.set("handle", handle);
     c.set("actor", actor);
@@ -820,7 +822,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const row = c.get("handle").row;
     if (!b.confirm) return c.json({ organisation: { name: org.name }, shared: false });
     if (row.state !== "ACTIVE") throw invalid("Only a kitchen that is open can share its totals.");
-    const made = await deps.control.attachKitchen(row.id, org.id, c.get("account")!.id);
+    const made = await deps.control.attachKitchen(row.id, org.id, must(c.get("account")).id);
     if (made === "other")
       throw new ApiError(
         409,
@@ -984,7 +986,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const handle = c.get("handle");
     const owner = deps.platform.openDb(handle.dsns.owner, { ephemeral: true });
     try {
-      const bundle = await exportWorkspace(owner, handle.cipher!, {
+      const bundle = await exportWorkspace(owner, must(handle.cipher), {
         exportedAt: deps.now(),
         members: await deps.control.membersOf(handle.row.id),
         today: localNow(deps.now(), handle.info.timeZone).date,
@@ -1124,7 +1126,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         const res = await app.request(`http://localhost${path}${query.size ? `?${query}` : ""}`, {
           method: tool.op.method.toUpperCase(),
           headers: {
-            authorization: c.req.header("authorization")!,
+            authorization: must(c.req.header("authorization")),
             ...(body !== undefined ? { "content-type": "application/json" } : {}),
           },
           body: body !== undefined ? JSON.stringify(body) : undefined,

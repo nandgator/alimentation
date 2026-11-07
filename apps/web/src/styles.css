@@ -809,6 +809,15 @@ td.linked > button[disabled] .nm {
   font-style: italic;
 }
 
+/* The chart's legend swatches. Kept ahead of the meter rules, whose more specific selectors it never shares an element with. */
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-xs);
+  margin-right: 6px;
+}
+
 .meter {
   height: 8px;
   border-radius: var(--radius-pill);
@@ -1073,6 +1082,19 @@ dialog::backdrop {
   padding-left: 10px;
   font-weight: 500;
 }
+.theme-opts span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  font: 600 var(--text-sm) / 1 var(--sans);
+  color: var(--ink-2);
+  transition:
+    background-color var(--dur-1) ease,
+    color var(--dur-1) ease;
+}
 .topbar .acting span {
   position: absolute;
   width: 1px;
@@ -1125,19 +1147,6 @@ dialog::backdrop {
   margin: 0;
   opacity: 0;
   cursor: pointer;
-}
-.theme-opts span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--control-sm);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
-  font: 600 var(--text-sm) / 1 var(--sans);
-  color: var(--ink-2);
-  transition:
-    background-color var(--dur-1) ease,
-    color var(--dur-1) ease;
 }
 .theme-opts input:checked + span {
   background: var(--brand);
@@ -1488,13 +1497,6 @@ dialog::backdrop {
 }
 .legend i.s3 {
   background: var(--hair);
-}
-.legend i {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-xs);
-  margin-right: 6px;
 }
 
 /* ---------- Icon button ---------- */

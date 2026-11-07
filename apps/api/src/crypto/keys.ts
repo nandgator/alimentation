@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import { aesKey, type Bytes, fromBase64, hmacKey, open, randomBytes, seal, toHex } from "./aead.ts";
 
 /**
@@ -46,9 +47,9 @@ export class Keyring {
 
   /** `[1][key id][nonce][ciphertext][tag]`, bound to `aad`. */
   async wrap(raw: Bytes, aad: string): Promise<Bytes> {
-    const sealed = await seal(this.keys.get(this.current)!, raw, aad);
+    const sealed = await seal(must(this.keys.get(this.current)), raw, aad);
     const out = new Uint8Array(new ArrayBuffer(sealed.length + 1));
-    out[0] = sealed[0]!;
+    out[0] = must(sealed[0]);
     out[1] = this.current;
     out.set(sealed.subarray(1), 2);
     return out;
@@ -73,7 +74,7 @@ export class Keyring {
     const key = this.keys.get(blob[1] ?? 0);
     if (!key) throw new Error("the master key that wrapped this is no longer configured");
     const sealed = new Uint8Array(new ArrayBuffer(blob.length - 1));
-    sealed[0] = blob[0]!;
+    sealed[0] = must(blob[0]);
     sealed.set(blob.subarray(2), 1);
     return open(key, sealed, aad);
   }

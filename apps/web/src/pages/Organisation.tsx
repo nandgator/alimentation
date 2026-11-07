@@ -1,4 +1,5 @@
 import type { OrganisationDto, OrganisationKitchenDto } from "@alimentation/core";
+import { must } from "@alimentation/core";
 import { useState } from "react";
 import { Link, useParams } from "wouter";
 import { api, getJson, postJson } from "../api.ts";
@@ -163,7 +164,7 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
           onSubmit={() =>
             act.run(async () => {
               await postJson(`/api/organisations/${data.organisation.id}/kitchens`, {
-                slug: slug || mine[0]!.slug,
+                slug: slug || must(mine[0]).slug,
               });
               setSlug("");
               onChange();
@@ -173,7 +174,7 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
           <Field label="A kitchen you run" id="add-kitchen">
             <select
               id="add-kitchen"
-              value={slug || mine[0]!.slug}
+              value={slug || must(mine[0]).slug}
               onChange={(e) => setSlug(e.target.value)}
             >
               {mine.map((w) => (

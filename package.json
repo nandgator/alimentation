@@ -24,7 +24,7 @@
     "lint": "bun run lint:md && bun run lint:ts",
     "check:md": "prettier --check \"**/*.md\" && markdownlint-cli2",
     "check:ts": "biome check --error-on-warnings .",
-    "check": "bun run check:md && bun run check:ts && tsc -b && vitest run",
+    "check": "bun run check:md && bun run check:ts && bun run typecheck && vitest run",
     "check:fix": "bun run format && bun run lint && bun run typecheck",
     "dev:api": "npm run dev -w @alimentation/api",
     "dev:web": "npm run dev -w @alimentation/web",

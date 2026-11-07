@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import * as z from "zod";
 import type { AgentScope } from "./agent-scopes.ts";
 import {
@@ -1418,7 +1419,7 @@ export function schemaOf(s: z.ZodType): Json {
 }
 
 const openApiPath = (path: string) => path.replace(/:([A-Za-z]+)/g, "{$1}");
-const placeholders = (path: string) => [...path.matchAll(/:([A-Za-z]+)/g)].map((m) => m[1]!);
+const placeholders = (path: string) => [...path.matchAll(/:([A-Za-z]+)/g)].map((m) => must(m[1]));
 
 const STATUS_NAMES: Record<number, string> = {
   202: "Accepted",
@@ -1527,8 +1528,8 @@ function operationObject(op: Operation): Json {
       .filter(Boolean)
       .map((p) =>
         p.startsWith(":")
-          ? `By${p[1]!.toUpperCase()}${p.slice(2)}`
-          : p[0]!.toUpperCase() + p.slice(1),
+          ? `By${must(p[1]).toUpperCase()}${p.slice(2)}`
+          : must(p[0]).toUpperCase() + p.slice(1),
       )
       .join("")}`.replace(/[^A-Za-z0-9]/g, ""),
     tags: [op.tag],

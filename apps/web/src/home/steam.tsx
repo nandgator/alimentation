@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import { type CSSProperties, useId } from "react";
 
 /*
@@ -116,9 +117,10 @@ export function wispPath(w: Pick<Wisp, "h" | "bend" | "lean" | "phase">): string
     const meander = Math.sin(2 * Math.PI * 1.15 * t + w.phase) - Math.sin(w.phase);
     pts.push([w.lean * t + w.bend * meander * (0.3 + 0.7 * t), -w.h * t]);
   }
-  let d = `M${fmt(pts[0]!)}L${fmt(between(pts[0]!, pts[1]!))}`;
-  for (let i = 1; i < N; i++) d += `Q${fmt(pts[i]!)} ${fmt(between(pts[i]!, pts[i + 1]!))}`;
-  return `${d}L${fmt(pts[N]!)}`;
+  let d = `M${fmt(must(pts[0]))}L${fmt(between(must(pts[0]), must(pts[1])))}`;
+  for (let i = 1; i < N; i++)
+    d += `Q${fmt(must(pts[i]))} ${fmt(between(must(pts[i]), must(pts[i + 1])))}`;
+  return `${d}L${fmt(must(pts[N]))}`;
 }
 
 /** The room the air covers: every wisp's meander either side, from above where it is gone to below the lid. */

@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 /**
  * Authenticated encryption for personal data, on WebCrypto so the same code runs
  * on Workers and on Node.
@@ -102,6 +103,6 @@ export async function sameSecret(a: string, b: string): Promise<boolean> {
     new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(x)));
   const [x, y] = await Promise.all([h(a), h(b)]);
   let diff = 0;
-  for (let i = 0; i < x.length; i++) diff |= x[i]! ^ y[i]!;
+  for (let i = 0; i < x.length; i++) diff |= must(x[i]) ^ must(y[i]);
   return diff === 0;
 }

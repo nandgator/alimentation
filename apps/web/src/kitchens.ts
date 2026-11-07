@@ -3,6 +3,7 @@ import {
   type BootstrapDto,
   type Headline,
   headline,
+  must,
   type OrganisationKitchenDto,
   type Role,
 } from "@alimentation/core";
@@ -50,7 +51,7 @@ export function totalsOf(list: readonly KitchenFigures[]): Totals | null {
   const run = list.filter((k) => isRunning(k.role));
   const eat = list.filter((k) => !isRunning(k.role));
   return {
-    currency: [...currencies][0]!,
+    currency: must([...currencies][0]),
     running: { ...addHeadlines(run.map((k) => k.headline)), kitchens: run.length },
     owe: { amount: eat.reduce((a, k) => a + k.headline.owed, 0), kitchens: eat.length },
   };
@@ -82,7 +83,7 @@ export function sumOrganisation(
   if (read.length === 0 || currencies.size !== 1) return null;
   const add = (f: (t: (typeof read)[number]) => number) => read.reduce((a, t) => a + f(t), 0);
   return {
-    currency: [...currencies][0]!,
+    currency: must([...currencies][0]),
     counted: read.length,
     unread: kitchens.length - read.length,
     consumers: add((t) => t.consumers),

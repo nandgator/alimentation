@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import { MARK_BOX } from "../components/Mark.tsx";
 import { CARRIER_BOX, HERO } from "./art.tsx";
 import { smoothDamp } from "./motion.tsx";
@@ -181,7 +182,7 @@ export function journeyAt({ scene, mark, headings, scrollY, vh }: Where): Journe
     }
     if (leg % 2 === 1) {
       // Standing on a heading, and put into the bar.
-      const { stand } = stops[(leg - 1) / 2]!;
+      const { stand } = must(stops[(leg - 1) / 2]);
       return {
         box: carry(stand, nav, smooth(t), vh),
         flyer: 1 - between(t, 0.85, 1),
@@ -191,7 +192,7 @@ export function journeyAt({ scene, mark, headings, scrollY, vh }: Where): Journe
       };
     }
     // In the bar, and taken out and carried down to the next heading.
-    const { stand } = stops[leg / 2]!;
+    const { stand } = must(stops[leg / 2]);
     const out = between(t, 0, 0.15);
     return {
       box: carry(nav, stand, smooth(t), vh),
