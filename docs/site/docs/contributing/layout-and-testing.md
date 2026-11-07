@@ -161,7 +161,7 @@ the file, and the build fails if the file or the lines are no longer there, so t
 something the code stopped saying.
 
 ````md
-```ts file=packages/core/src/engine.ts#L28-L39
+```ts file=packages/core/src/engine.ts#L29-L40
 
 ```
 ````
