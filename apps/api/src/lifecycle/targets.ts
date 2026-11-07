@@ -7,7 +7,7 @@
 
 // Not `node:net`: this file also runs on Workers.
 const ipKind = (h: string): 0 | 4 | 6 =>
-  /^\d{1,3}(\.\d{1,3}){3}$/.test(h) ? 4 : h.includes(':') && /^[0-9a-f:.]+$/.test(h) ? 6 : 0;
+  /^\d{1,3}(\.\d{1,3}){3}$/.test(h) ? 4 : h.includes(":") && /^[0-9a-f:.]+$/.test(h) ? 6 : 0;
 
 const PRIVATE_V4 = [
   /^0\./,
@@ -21,20 +21,20 @@ const PRIVATE_V4 = [
 ];
 
 export function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase().replace(/^\[|\]$/g, '');
+  const h = host.toLowerCase().replace(/^\[|\]$/g, "");
   if (
-    h === 'localhost' ||
-    h.endsWith('.localhost') ||
-    h.endsWith('.local') ||
-    h.endsWith('.internal')
+    h === "localhost" ||
+    h.endsWith(".localhost") ||
+    h.endsWith(".local") ||
+    h.endsWith(".internal")
   )
     return true;
-  if (!h.includes('.') && ipKind(h) === 0) return true; // a bare name only resolves inside a network
+  if (!h.includes(".") && ipKind(h) === 0) return true; // a bare name only resolves inside a network
   const kind = ipKind(h);
   if (kind === 4) return PRIVATE_V4.some((re) => re.test(h));
   if (kind === 6) {
     return (
-      h === '::1' || h === '::' || /^f[cd]/.test(h) || /^fe[89ab]/.test(h) || /^::ffff:/.test(h) // an IPv4 address in disguise
+      h === "::1" || h === "::" || /^f[cd]/.test(h) || /^fe[89ab]/.test(h) || /^::ffff:/.test(h) // an IPv4 address in disguise
     );
   }
   return false;
@@ -43,30 +43,30 @@ export function isPrivateHost(host: string): boolean {
 /** Returns what is wrong with a target address, or null when it can be used. */
 export function targetProblem(
   text: string,
-  kind: 'database' | 'instance',
+  kind: "database" | "instance",
   production: boolean,
 ): string | null {
   let u: URL;
   try {
     u = new URL(text);
   } catch {
-    return kind === 'database'
-      ? 'That is not a Postgres connection string (postgres://user:password@host/database).'
-      : 'That is not a web address (https://…).';
+    return kind === "database"
+      ? "That is not a Postgres connection string (postgres://user:password@host/database)."
+      : "That is not a web address (https://…).";
   }
-  if (kind === 'database') {
+  if (kind === "database") {
     if (!/^postgres(ql)?:$/.test(u.protocol))
-      return 'That is not a Postgres connection string (postgres://user:password@host/database).';
-  } else if (u.protocol !== 'https:' && !(u.protocol === 'http:' && !production)) {
-    return 'The address of your own instance must start with https://.';
+      return "That is not a Postgres connection string (postgres://user:password@host/database).";
+  } else if (u.protocol !== "https:" && !(u.protocol === "http:" && !production)) {
+    return "The address of your own instance must start with https://.";
   }
   if (!production) return null;
   if (isPrivateHost(u.hostname))
-    return 'That address points inside a private network, which this service cannot reach.';
-  if (kind === 'database') {
-    const mode = u.searchParams.get('sslmode');
-    if (!mode || !['require', 'verify-ca', 'verify-full'].includes(mode))
-      return 'Add ?sslmode=require to the connection string, so your data travels encrypted.';
+    return "That address points inside a private network, which this service cannot reach.";
+  if (kind === "database") {
+    const mode = u.searchParams.get("sslmode");
+    if (!mode || !["require", "verify-ca", "verify-full"].includes(mode))
+      return "Add ?sslmode=require to the connection string, so your data travels encrypted.";
   }
   return null;
 }

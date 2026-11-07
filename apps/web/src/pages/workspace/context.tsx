@@ -1,5 +1,5 @@
-import { createContext, useContext } from 'react';
-import type { BootstrapDto, Role } from '@alimentation/core';
+import { createContext, useContext } from "react";
+import type { BootstrapDto, Role } from "@alimentation/core";
 
 export interface Workspace {
   slug: string;
@@ -18,6 +18,6 @@ const Ctx = createContext<Workspace | null>(null);
 export const WorkspaceProvider = Ctx.Provider;
 export function useWorkspace(): Workspace {
   const w = useContext(Ctx);
-  if (!w) throw new Error('outside a workspace');
+  if (!w) throw new Error("outside a workspace");
   return w;
 }

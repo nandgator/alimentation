@@ -1,32 +1,32 @@
-import { migrate } from '../db/migrate.ts';
-import type { Db } from '../db/driver.ts';
-import { WORKSPACE_MIGRATIONS } from '../db/migrations.generated.ts';
+import { migrate } from "../db/migrate.ts";
+import type { Db } from "../db/driver.ts";
+import { WORKSPACE_MIGRATIONS } from "../db/migrations.generated.ts";
 import {
   randomSecret,
   type Credentials,
   type Placement,
   type PlacementRef,
   type Provisioned,
-} from './types.ts';
+} from "./types.ts";
 
 /** Everything a workspace database contains that this program put there, and nothing else. */
 export const OUR_TABLES = [
-  'audit_log',
-  'month_close',
-  'settlement',
-  'claim_reversal',
-  'claim_decision',
-  'claim',
-  'log_entry',
-  'holiday',
-  'rate_card',
-  'policy_version',
-  'person',
-  'workspace',
-  'meta',
-  'schema_migration',
+  "audit_log",
+  "month_close",
+  "settlement",
+  "claim_reversal",
+  "claim_decision",
+  "claim",
+  "log_entry",
+  "holiday",
+  "rate_card",
+  "policy_version",
+  "person",
+  "workspace",
+  "meta",
+  "schema_migration",
 ] as const;
-export const OUR_DOMAINS = ['enc_blob', 'paise'] as const;
+export const OUR_DOMAINS = ["enc_blob", "paise"] as const;
 
 export interface TargetCheck {
   ok: boolean;
@@ -58,10 +58,10 @@ export async function prepareExternalTarget(
   let u: URL;
   try {
     u = new URL(ownerUrl);
-    if (!/^postgres(ql)?:$/.test(u.protocol)) throw new Error('scheme');
+    if (!/^postgres(ql)?:$/.test(u.protocol)) throw new Error("scheme");
   } catch {
     result.problems.push(
-      'That is not a Postgres connection string (postgres://user:password@host/database).',
+      "That is not a Postgres connection string (postgres://user:password@host/database).",
     );
     return result;
   }
@@ -78,7 +78,7 @@ export async function prepareExternalTarget(
       );
       let populated = 0;
       for (const { t } of present) {
-        if (['meta', 'schema_migration'].includes(t)) continue;
+        if (["meta", "schema_migration"].includes(t)) continue;
         populated += Number(
           (await tx.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`))[0]!.n,
         );
@@ -91,11 +91,11 @@ export async function prepareExternalTarget(
       );
     if (info.populated > 0)
       result.problems.push(
-        'This database already holds a workspace or other records of ours. Use an empty database.',
+        "This database already holds a workspace or other records of ours. Use an empty database.",
       );
     if (!info.can)
       result.problems.push(
-        'The user in this connection string cannot create roles. Use the owner role of the project (on Neon, the default role), or create an application role yourself.',
+        "The user in this connection string cannot create roles. Use the owner role of the project (on Neon, the default role), or create an application role yourself.",
       );
     if (result.problems.length) return result;
     if (opts.checkOnly) {
@@ -106,7 +106,7 @@ export async function prepareExternalTarget(
     result.touched = true;
     const role = `alim_app_${randomSecret(5)
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, 'x')}`;
+      .replace(/[^a-z0-9]/g, "x")}`;
     const password = randomSecret();
     const existing = await db.tx(
       async (tx) =>
@@ -136,7 +136,7 @@ export async function prepareExternalTarget(
       }
     });
     await db.withClient((c) =>
-      migrate(c, WORKSPACE_MIGRATIONS, { settings: { 'alimentation.app_role': appRole } }),
+      migrate(c, WORKSPACE_MIGRATIONS, { settings: { "alimentation.app_role": appRole } }),
     );
     result.appUrl = withUser(ownerUrl, appRole, password);
     result.ok = true;
@@ -155,11 +155,11 @@ export async function prepareExternalTarget(
  * `OUR_TABLES` and `OUR_DOMAINS`, and the functions this program defines, go.
  */
 export class ExternalPlacement implements Placement {
-  readonly kind = 'external' as const;
+  readonly kind = "external" as const;
   constructor(private readonly openDb: (dsn: string, o?: { ephemeral?: boolean }) => Db) {}
 
   async provision(): Promise<Provisioned> {
-    throw new Error('an external database is prepared with prepareExternalTarget, not provisioned');
+    throw new Error("an external database is prepared with prepareExternalTarget, not provisioned");
   }
 
   async exists(_ref: PlacementRef, creds?: Credentials): Promise<boolean> {
@@ -183,7 +183,7 @@ export class ExternalPlacement implements Placement {
 
   async destroy(_ref: PlacementRef, creds?: Credentials): Promise<void> {
     if (!creds)
-      throw new Error('removing a workspace from an external database needs its connection');
+      throw new Error("removing a workspace from an external database needs its connection");
     const db = this.openDb(creds.ownerUrl, { ephemeral: true });
     try {
       await db.tx(async (tx) => {
@@ -225,31 +225,31 @@ export class ExternalPlacement implements Placement {
 
 /** The functions this program defines in a workspace database; a test keeps this list honest. */
 export const OUR_FUNCTIONS = [
-  'is_app_session',
-  'app_role',
-  'app_person',
-  'app_via',
-  'workspace_time_zone_known',
-  'workspace_today',
-  'policy_on',
-  'is_working_day',
-  'month_closed',
-  'close_blocks_admin',
-  'forbid_change',
-  'person_billing',
-  'stamp_log_entry',
-  'stamp_decision',
-  'stamp_reversal',
-  'stamp_settlement',
-  'stamp_claim',
-  'guard_holiday',
-  'guard_read_only',
-  'enforce_people_cap',
-  'enforce_row_cap',
-  'audit_row',
-  'resolve_actor',
-  'bind_account',
-  'system_close_month',
-  'schema_version',
-  'grant_to_app',
+  "is_app_session",
+  "app_role",
+  "app_person",
+  "app_via",
+  "workspace_time_zone_known",
+  "workspace_today",
+  "policy_on",
+  "is_working_day",
+  "month_closed",
+  "close_blocks_admin",
+  "forbid_change",
+  "person_billing",
+  "stamp_log_entry",
+  "stamp_decision",
+  "stamp_reversal",
+  "stamp_settlement",
+  "stamp_claim",
+  "guard_holiday",
+  "guard_read_only",
+  "enforce_people_cap",
+  "enforce_row_cap",
+  "audit_row",
+  "resolve_actor",
+  "bind_account",
+  "system_close_month",
+  "schema_version",
+  "grant_to_app",
 ] as const;

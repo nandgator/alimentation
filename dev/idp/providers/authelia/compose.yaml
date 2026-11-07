@@ -18,9 +18,9 @@ services:
       - ${IDP_STATE}/authelia:/secrets:ro
     ports:
       # The page where the people can be seen and changed. This machine only.
-      - '127.0.0.1:17170:17170'
+      - "127.0.0.1:17170:17170"
     healthcheck:
-      test: ['CMD', '/app/lldap', 'healthcheck', '--config-file', '/data/lldap_config.toml']
+      test: ["CMD", "/app/lldap", "healthcheck", "--config-file", "/data/lldap_config.toml"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -44,7 +44,7 @@ services:
       - ${IDP_STATE}/authelia:/secrets:ro
       - authelia-data:/var/lib/authelia
     ports:
-      - '127.0.0.1:9091:9091'
+      - "127.0.0.1:9091:9091"
     networks:
       default:
         aliases:
@@ -53,8 +53,8 @@ services:
       # Asked of itself, over the certificate it was given, so the certificate is not what is being checked.
       test:
         [
-          'CMD-SHELL',
-          'wget --no-check-certificate -qO- https://localhost:9091/api/health >/dev/null || exit 1',
+          "CMD-SHELL",
+          "wget --no-check-certificate -qO- https://localhost:9091/api/health >/dev/null || exit 1",
         ]
       interval: 5s
       timeout: 5s

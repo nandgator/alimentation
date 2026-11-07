@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   PAY_METHODS,
   diffDays,
@@ -6,8 +6,8 @@ import {
   type ClaimDto,
   type ClaimStatus,
   type PayMethod,
-} from '@alimentation/core';
-import { api, getJson, postJson } from '../../api.ts';
+} from "@alimentation/core";
+import { api, getJson, postJson } from "../../api.ts";
 import {
   Chip,
   Dialog,
@@ -19,46 +19,46 @@ import {
   toast,
   useAction,
   useLoad,
-} from '../../components/ui.tsx';
-import { date, money, month as monthLabel, toPaise } from '../../format.ts';
-import { useWorkspace } from './context.tsx';
+} from "../../components/ui.tsx";
+import { date, money, month as monthLabel, toPaise } from "../../format.ts";
+import { useWorkspace } from "./context.tsx";
 
 /** How long a claim has waited for a decision, by the kitchen's own calendar. */
 const waited = (createdAt: string, today: string, timeZone: string): string => {
   const n = diffDays(today, localNow(new Date(createdAt), timeZone).date);
-  if (n <= 0) return 'waiting since today';
-  return n === 1 ? 'waiting since yesterday' : `waiting ${n} days`;
+  if (n <= 0) return "waiting since today";
+  return n === 1 ? "waiting since yesterday" : `waiting ${n} days`;
 };
 
-const TONE: Record<ClaimStatus, 'good' | 'warn' | 'bad' | undefined> = {
-  Pending: 'warn',
-  Confirmed: 'good',
-  Disputed: 'bad',
+const TONE: Record<ClaimStatus, "good" | "warn" | "bad" | undefined> = {
+  Pending: "warn",
+  Confirmed: "good",
+  Disputed: "bad",
   Reversed: undefined,
 };
 
 function NewClaim({ onDone }: { onDone: () => void }) {
   const ws = useWorkspace();
-  const consumers = ws.boot.people.filter((p) => p.role === 'consumer');
+  const consumers = ws.boot.people.filter((p) => p.role === "consumer");
   const [who, setWho] = useState(
-    ws.role === 'consumer' ? ws.boot.me.personId : (consumers[0]?.id ?? ''),
+    ws.role === "consumer" ? ws.boot.me.personId : (consumers[0]?.id ?? ""),
   );
   const [forMonth, setForMonth] = useState(ws.boot.currentMonth);
-  const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<PayMethod>('UPI');
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState<PayMethod>("UPI");
   const [paidAt, setPaidAt] = useState(ws.boot.today);
-  const [ref, setRef] = useState('');
+  const [ref, setRef] = useState("");
   const act = useAction();
   const paise = toPaise(amount);
   return (
-    <section className="card stack" aria-label="Claim a payment">
+    <section class="card stack" aria-label="Claim a payment">
       <h2>I paid</h2>
       <Form
         error={act.error}
         onSubmit={() =>
           act.run(async () => {
             if (paise === null || paise <= 0)
-              throw new Error('Enter the amount in rupees, for example 3200.');
+              throw new Error("Enter the amount in rupees, for example 3200.");
             await postJson(`${ws.api}/claims`, {
               consumerId: who,
               paidAt,
@@ -67,16 +67,16 @@ function NewClaim({ onDone }: { onDone: () => void }) {
               method,
               refNote: ref.trim() || null,
             });
-            setAmount('');
-            setRef('');
-            toast('Claimed. It shows as pending until it is confirmed.');
+            setAmount("");
+            setRef("");
+            toast("Claimed. It shows as pending until it is confirmed.");
             onDone();
             ws.reload();
           })
         }
       >
-        <div className="pair">
-          {ws.role !== 'consumer' ? (
+        <div class="pair">
+          {ws.role !== "consumer" ? (
             <Field label="For" id="cwho">
               <select id="cwho" value={who} onChange={(e) => setWho(e.target.value)}>
                 {consumers.map((c) => (
@@ -138,7 +138,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
           <input id="cref" maxLength={300} value={ref} onChange={(e) => setRef(e.target.value)} />
         </Field>
         <div>
-          <button className="btn" disabled={act.busy || !ws.writable}>
+          <button class="btn" disabled={act.busy || !ws.writable}>
             Claim payment
           </button>
         </div>
@@ -154,21 +154,21 @@ function Decide({
   onDone,
 }: {
   claim: ClaimDto;
-  mode: 'dispute' | 'reverse';
+  mode: "dispute" | "reverse";
   onClose: () => void;
   onDone: () => void;
 }) {
   const ws = useWorkspace();
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState("");
   const act = useAction();
   return (
     <Form
       error={act.error}
       onSubmit={() =>
         act.run(async () => {
-          if (mode === 'dispute')
+          if (mode === "dispute")
             await postJson(`${ws.api}/claims/${claim.id}/decision`, {
-              decision: 'Disputed',
+              decision: "Disputed",
               note: reason,
             });
           else await postJson(`${ws.api}/claims/${claim.id}/reversal`, { reason });
@@ -177,12 +177,12 @@ function Decide({
         })
       }
     >
-      <p className="muted">
-        {ws.nameOf(claim.consumerId)} · {monthLabel(claim.forMonth)} · {money(claim.amount)} ·{' '}
+      <p class="muted">
+        {ws.nameOf(claim.consumerId)} · {monthLabel(claim.forMonth)} · {money(claim.amount)} ·{" "}
         {claim.method}
       </p>
       <Field
-        label={mode === 'dispute' ? 'Why is it disputed?' : 'Why is this decision being reversed?'}
+        label={mode === "dispute" ? "Why is it disputed?" : "Why is this decision being reversed?"}
         id="reason"
         hint="Recorded in the audit trail."
       >
@@ -194,11 +194,11 @@ function Decide({
           onChange={(e) => setReason(e.target.value)}
         />
       </Field>
-      <div className="row">
-        <button className="btn danger" disabled={act.busy || !reason.trim()}>
-          {mode === 'dispute' ? 'Dispute' : 'Reverse'}
+      <div class="row">
+        <button class="btn danger" disabled={act.busy || !reason.trim()}>
+          {mode === "dispute" ? "Dispute" : "Reverse"}
         </button>
-        <button className="btn ghost" type="button" onClick={onClose}>
+        <button class="btn ghost" type="button" onClick={onClose}>
           Cancel
         </button>
       </div>
@@ -210,64 +210,60 @@ export function Payments() {
   const ws = useWorkspace();
   const tz = ws.boot.workspace.timeZone;
   const claims = useLoad(() => getJson<ClaimDto[]>(`${ws.api}/claims`), [ws.api]);
-  const [dialog, setDialog] = useState<{ claim: ClaimDto; mode: 'dispute' | 'reverse' } | null>(
+  const [dialog, setDialog] = useState<{ claim: ClaimDto; mode: "dispute" | "reverse" } | null>(
     null,
   );
-  const decider = ws.role === 'supplier'; // only the supplier decides; the admin can reverse a decision
-  const seesAll = ws.role !== 'consumer';
+  const decider = ws.role === "supplier"; // only the supplier decides; the admin can reverse a decision
+  const seesAll = ws.role !== "consumer";
   const list = claims.data ?? [];
-  const pending = list.filter((c) => c.status === 'Pending');
+  const pending = list.filter((c) => c.status === "Pending");
 
   const confirm = (c: ClaimDto) =>
-    api.post(`${ws.api}/claims/${c.id}/decision`, { decision: 'Confirmed' }).then(
+    api.post(`${ws.api}/claims/${c.id}/decision`, { decision: "Confirmed" }).then(
       () => {
         toast(`Confirmed ${money(c.amount)} from ${ws.nameOf(c.consumerId)}.`);
         claims.reload();
         ws.reload();
       },
-      (e: Error) => toast(e.message, 'bad'),
+      (e: Error) => toast(e.message, "bad"),
     );
 
   return (
-    <div className="stack" style={{ ['--gap' as string]: '20px' }}>
-      <PageHead title={seesAll ? 'Payments' : 'My payments'} />
+    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
+      <PageHead title={seesAll ? "Payments" : "My payments"} />
       <Problem error={claims.error} />
 
       {seesAll ? (
-        <section className="stack" aria-label="To confirm">
-          <h2>To confirm {pending.length ? `(${pending.length})` : ''}</h2>
-          {pending.length === 0 ? <p className="muted">Nothing is waiting for you.</p> : null}
+        <section class="stack" aria-label="To confirm">
+          <h2>To confirm {pending.length ? `(${pending.length})` : ""}</h2>
+          {pending.length === 0 ? <p class="muted">Nothing is waiting for you.</p> : null}
           {!decider && pending.length > 0 ? (
-            <p className="muted small">
+            <p class="muted small">
               Only the supplier confirms a payment.
-              {ws.boot.roles.includes('supplier')
-                ? ' Switch to the supplier role at the top to do it yourself.'
-                : ''}
+              {ws.boot.roles.includes("supplier")
+                ? " Switch to the supplier role at the top to do it yourself."
+                : ""}
             </p>
           ) : null}
           {pending.map((c) => (
-            <div key={c.id} className="card row between">
+            <div key={c.id} class="card row between">
               <div>
-                <b>{ws.nameOf(c.consumerId)}</b> · {monthLabel(c.forMonth)} ·{' '}
-                <b className="num">{money(c.amount)}</b>
-                <div className="muted small">
+                <b>{ws.nameOf(c.consumerId)}</b> · {monthLabel(c.forMonth)} ·{" "}
+                <b class="num">{money(c.amount)}</b>
+                <div class="muted small">
                   {c.method} · paid {date(c.paidAt.slice(0, 10))}
-                  {c.refNote ? ` · ${c.refNote}` : ''} · {waited(c.createdAt, ws.boot.today, tz)}
+                  {c.refNote ? ` · ${c.refNote}` : ""} · {waited(c.createdAt, ws.boot.today, tz)}
                 </div>
               </div>
               {decider ? (
-                <div className="row">
-                  <button
-                    className="btn small"
-                    disabled={!ws.writable}
-                    onClick={() => void confirm(c)}
-                  >
+                <div class="row">
+                  <button class="btn small" disabled={!ws.writable} onClick={() => void confirm(c)}>
                     Confirm
                   </button>
                   <button
-                    className="btn ghost small"
+                    class="btn ghost small"
                     disabled={!ws.writable}
-                    onClick={() => setDialog({ claim: c, mode: 'dispute' })}
+                    onClick={() => setDialog({ claim: c, mode: "dispute" })}
                   >
                     Dispute
                   </button>
@@ -278,15 +274,15 @@ export function Payments() {
         </section>
       ) : null}
 
-      {ws.role === 'consumer' || ws.role === 'admin' ? <NewClaim onDone={claims.reload} /> : null}
+      {ws.role === "consumer" || ws.role === "admin" ? <NewClaim onDone={claims.reload} /> : null}
 
-      <section className="stack" aria-label="All claims">
-        <h2>{seesAll ? 'All claims' : 'My claims'}</h2>
+      <section class="stack" aria-label="All claims">
+        <h2>{seesAll ? "All claims" : "My claims"}</h2>
         {claims.loading && !claims.data ? <Spinner /> : null}
-        {list.length === 0 && !claims.loading ? <p className="muted">No claims yet.</p> : null}
+        {list.length === 0 && !claims.loading ? <p class="muted">No claims yet.</p> : null}
         {list.length > 0 ? (
           <div
-            className="tablewrap"
+            class="tablewrap"
             tabIndex={0}
             role="region"
             aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -296,7 +292,7 @@ export function Payments() {
                 <tr>
                   {seesAll ? <th>Who</th> : null}
                   <th>Month</th>
-                  <th className="r">Amount</th>
+                  <th class="r">Amount</th>
                   <th>Method</th>
                   <th>Paid on</th>
                   <th>Status</th>
@@ -308,48 +304,43 @@ export function Payments() {
                   <tr key={c.id}>
                     {seesAll ? <td>{ws.nameOf(c.consumerId)}</td> : null}
                     <td>{monthLabel(c.forMonth)}</td>
-                    <td className="r">{money(c.amount)}</td>
+                    <td class="r">{money(c.amount)}</td>
                     <td>{c.method}</td>
                     <td>{date(c.paidAt.slice(0, 10))}</td>
                     <td>
                       <Chip tone={TONE[c.status]}>{c.status}</Chip>
-                      {c.status === 'Pending' ? (
-                        <span className="muted small">
-                          {' '}
-                          · {waited(c.createdAt, ws.boot.today, tz)}
-                        </span>
+                      {c.status === "Pending" ? (
+                        <span class="muted small"> · {waited(c.createdAt, ws.boot.today, tz)}</span>
                       ) : null}
-                      {c.decisionNote ? (
-                        <span className="muted small"> · {c.decisionNote}</span>
-                      ) : null}
+                      {c.decisionNote ? <span class="muted small"> · {c.decisionNote}</span> : null}
                       {c.reversalReason ? (
-                        <span className="muted small"> · reversed: {c.reversalReason}</span>
+                        <span class="muted small"> · reversed: {c.reversalReason}</span>
                       ) : null}
                     </td>
                     <td>
-                      {c.status === 'Pending' && ws.role !== 'supplier' && ws.writable ? (
+                      {c.status === "Pending" && ws.role !== "supplier" && ws.writable ? (
                         <button
-                          className="btn ghost small"
+                          class="btn ghost small"
                           onClick={() =>
                             void api.del(`${ws.api}/claims/${c.id}`).then(
                               () => {
-                                toast('Withdrawn.');
+                                toast("Withdrawn.");
                                 claims.reload();
                                 ws.reload();
                               },
-                              (e: Error) => toast(e.message, 'bad'),
+                              (e: Error) => toast(e.message, "bad"),
                             )
                           }
                         >
                           Withdraw
                         </button>
                       ) : null}
-                      {ws.role === 'admin' &&
-                      (c.status === 'Confirmed' || c.status === 'Disputed') &&
+                      {ws.role === "admin" &&
+                      (c.status === "Confirmed" || c.status === "Disputed") &&
                       ws.writable ? (
                         <button
-                          className="btn ghost small"
-                          onClick={() => setDialog({ claim: c, mode: 'reverse' })}
+                          class="btn ghost small"
+                          onClick={() => setDialog({ claim: c, mode: "reverse" })}
                         >
                           Reverse
                         </button>
@@ -366,7 +357,7 @@ export function Payments() {
       <Dialog
         open={!!dialog}
         onClose={() => setDialog(null)}
-        title={dialog?.mode === 'dispute' ? 'Dispute this payment' : 'Reverse this decision'}
+        title={dialog?.mode === "dispute" ? "Dispute this payment" : "Reverse this decision"}
       >
         {dialog ? (
           <Decide

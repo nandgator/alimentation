@@ -1,11 +1,11 @@
-import { canonicalJson, sha256Hex } from '@alimentation/core';
-import type { WorkspaceRow } from '../control/repo.ts';
-import type { Bytes } from '../crypto/aead.ts';
-import { readDsns } from '../directory.ts';
-import { OUR_TABLES } from '../placement/external.ts';
-import type { PlacementRef } from '../placement/types.ts';
-import type { PlatformDeps } from '../platform/workspaces.ts';
-import { notFound } from '../workspace/errors.ts';
+import { canonicalJson, sha256Hex } from "@alimentation/core";
+import type { WorkspaceRow } from "../control/repo.ts";
+import type { Bytes } from "../crypto/aead.ts";
+import { readDsns } from "../directory.ts";
+import { OUR_TABLES } from "../placement/external.ts";
+import type { PlacementRef } from "../placement/types.ts";
+import type { PlatformDeps } from "../platform/workspaces.ts";
+import { notFound } from "../workspace/errors.ts";
 
 /** How long a workspace that has moved away, or a database it left behind, is kept before it goes. */
 export const UNDO_DAYS = 7;
@@ -37,7 +37,7 @@ export async function destroyDatabase(
   const dsns = await readDsns(p.keyring, workspaceId, dsnEnc);
   const creds = { ownerUrl: dsns.owner, appUrl: dsns.app };
   await placement.destroy(ref, creds);
-  if (await placement.exists(ref, creds)) throw new Error('the database is still there');
+  if (await placement.exists(ref, creds)) throw new Error("the database is still there");
 }
 
 /** Row counts per table, never contents: what the receipt can say was removed. */
@@ -52,7 +52,7 @@ async function countRows(
       return await db.tx(async (tx) => {
         const out: Record<string, number> = {};
         for (const t of OUR_TABLES) {
-          if (t === 'meta' || t === 'schema_migration') continue;
+          if (t === "meta" || t === "schema_migration") continue;
           out[t] = Number(
             (await tx.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`))[0]!.n,
           );
@@ -93,11 +93,11 @@ export async function wipeWorkspace(p: PlatformDeps, workspaceId: string): Promi
   const row = await p.control.workspaceById(workspaceId);
   if (!row) {
     const done = await p.control.receipt(workspaceId);
-    if (!done) throw notFound('Workspace');
+    if (!done) throw notFound("Workspace");
     return { done: true, receipt: toReceipt(done) };
   }
   const requestedAt = p.now();
-  const resumed = row.state === 'WIPING';
+  const resumed = row.state === "WIPING";
   // Counted before anything is destroyed, while the database can still be asked.
   const tables = resumed ? null : await countRows(p, row);
   const control = resumed ? null : await p.control.footprint(row.id);
@@ -122,7 +122,7 @@ export async function wipeWorkspace(p: PlatformDeps, workspaceId: string): Promi
       directoryEntryGone: left === undefined && (await p.directory.bySlug(row.slug)) === undefined,
       controlRecordsGone: Object.values(footprint).every((n) => n === 0),
     };
-    if (!Object.values(checks).every(Boolean)) throw new Error('a check after the wipe failed');
+    if (!Object.values(checks).every(Boolean)) throw new Error("a check after the wipe failed");
 
     const manifest: Record<string, unknown> = {
       placement: row.placement.kind,
@@ -133,10 +133,10 @@ export async function wipeWorkspace(p: PlatformDeps, workspaceId: string): Promi
       checks,
       resumedAfterInterruption: resumed,
       remains: [
-        'this receipt',
-        'a count-only platform event (no names)',
+        "this receipt",
+        "a count-only platform event (no names)",
         "the database host's own recovery copy of a deleted project, for up to 7 days, unreadable without the destroyed key",
-        'request logs at the edge, for a few days, carrying only a pseudonym that can no longer be linked to anything',
+        "request logs at the edge, for a few days, carrying only a pseudonym that can no longer be linked to anything",
       ],
     };
     const completedAt = p.now();
@@ -144,7 +144,7 @@ export async function wipeWorkspace(p: PlatformDeps, workspaceId: string): Promi
       canonicalJson({ workspaceId: row.id, requestedAt: requestedAt.toISOString(), manifest }),
     );
     await p.control.insertReceipt({ workspaceId: row.id, requestedAt, manifest, digest });
-    await p.control.event('workspace.wiped', row.id, { placement: row.placement.kind });
+    await p.control.event("workspace.wiped", row.id, { placement: row.placement.kind });
     return {
       done: true,
       receipt: {
@@ -157,9 +157,9 @@ export async function wipeWorkspace(p: PlatformDeps, workspaceId: string): Promi
     };
   } catch (e) {
     await p.control
-      .event('workspace.wipe_retry', row.id, { step: String((e as Error).message).slice(0, 120) })
+      .event("workspace.wipe_retry", row.id, { step: String((e as Error).message).slice(0, 120) })
       .catch(() => undefined);
-    return { done: false, unreadable: true, retry: 'The rest is removed within the hour.' };
+    return { done: false, unreadable: true, retry: "The rest is removed within the hour." };
   }
 }
 

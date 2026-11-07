@@ -1,13 +1,13 @@
-import { serve } from '@hono/node-server';
-import { serveStatic } from '@hono/node-server/serve-static';
-import { Hono } from 'hono';
-import { existsSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
-import { nodeOpenDb } from './db/node.ts';
-import { scheduleHousekeeping } from './lifecycle/housekeeping.ts';
-import { selfHost } from './instance.ts';
-import { PgDatabasePlacement } from './placement/pgdatabase.ts';
-import { createRuntime } from './runtime.ts';
+import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { Hono } from "hono";
+import { existsSync } from "node:fs";
+import { resolve, relative } from "node:path";
+import { nodeOpenDb } from "./db/node.ts";
+import { scheduleHousekeeping } from "./lifecycle/housekeeping.ts";
+import { selfHost } from "./instance.ts";
+import { PgDatabasePlacement } from "./placement/pgdatabase.ts";
+import { createRuntime } from "./runtime.ts";
 
 /**
  * The Node server: the API, and the built web app from WEB_DIR when it exists.
@@ -25,13 +25,13 @@ const { app, deps } = await createRuntime({
 });
 
 const root = new Hono();
-root.route('/', app);
+root.route("/", app);
 
-const webDir = resolve(env.WEB_DIR ?? '../web/dist');
+const webDir = resolve(env.WEB_DIR ?? "../web/dist");
 if (existsSync(webDir)) {
-  const rel = relative(process.cwd(), webDir) || '.';
-  root.use('*', serveStatic({ root: rel }));
-  root.get('*', serveStatic({ root: rel, path: 'index.html' })); // the app routes itself
+  const rel = relative(process.cwd(), webDir) || ".";
+  root.use("*", serveStatic({ root: rel }));
+  root.get("*", serveStatic({ root: rel, path: "index.html" })); // the app routes itself
 }
 
 // Finishes wipes, removes old copies and frees stalled moves: on Workers a cron does this.
@@ -46,13 +46,13 @@ const stopHousekeeping = scheduleHousekeeping(deps.platform, {
       r.needAttention.length ||
       r.errors.length
     )
-      console.log(JSON.stringify({ t: new Date().toISOString(), msg: 'housekeeping', ...r }));
+      console.log(JSON.stringify({ t: new Date().toISOString(), msg: "housekeeping", ...r }));
   },
   onError: (e) =>
     console.error(
       JSON.stringify({
         t: new Date().toISOString(),
-        msg: 'housekeeping failed',
+        msg: "housekeeping failed",
         error: String((e as Error).message).slice(0, 200),
       }),
     ),
@@ -63,14 +63,14 @@ const server = serve({ fetch: root.fetch, port }, (info) => {
   console.log(
     JSON.stringify({
       t: new Date().toISOString(),
-      msg: 'listening',
+      msg: "listening",
       port: info.port,
       web: existsSync(webDir),
     }),
   );
 });
 
-for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     stopHousekeeping();
     void deps.gate.flush().finally(() => server.close(() => process.exit(0)));

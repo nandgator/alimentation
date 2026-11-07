@@ -1,5 +1,5 @@
-import type { Statement } from './engine.ts';
-import type { Paise } from './money.ts';
+import type { Statement } from "./engine.ts";
+import type { Paise } from "./money.ts";
 
 /**
  * A kitchen in four numbers, for a page that lists several of them. It is worked out from statements the
@@ -21,7 +21,7 @@ export interface Headline {
   people: number;
 }
 
-type Figures = Pick<Statement, 'personId' | 'billed' | 'paid' | 'balance' | 'earlierUnpaid'>;
+type Figures = Pick<Statement, "personId" | "billed" | "paid" | "balance" | "earlierUnpaid">;
 
 export function headline(statements: readonly Figures[], toConfirm: number): Headline {
   let billed = 0;

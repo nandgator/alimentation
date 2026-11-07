@@ -1,10 +1,10 @@
-import { rupees } from '@alimentation/core';
-import pg from 'pg';
-import { ADMIN_URL } from './pg.ts';
-import { MENU, type Client, type TestPlatform } from './platform.ts';
+import { rupees } from "@alimentation/core";
+import pg from "pg";
+import { ADMIN_URL } from "./pg.ts";
+import { MENU, type Client, type TestPlatform } from "./platform.ts";
 
 export const RATES = {
-  effectiveFrom: '2026-04-01',
+  effectiveFrom: "2026-04-01",
   veg: rupees(150),
   nonVeg: rupees(170),
   extraChapati: rupees(15),
@@ -33,8 +33,8 @@ export async function seedKitchen(
   slug: string,
   ownerEmail = `owner-${slug}@example.org`,
 ): Promise<Kitchen> {
-  const owner = await p.signIn(ownerEmail, 'Owner');
-  const made = await owner.post('/api/workspaces', {
+  const owner = await p.signIn(ownerEmail, "Owner");
+  const made = await owner.post("/api/workspaces", {
     slug,
     name: `Kitchen ${slug}`,
     alsoSupplier: true,
@@ -43,28 +43,28 @@ export async function seedKitchen(
   const w = `/api/w/${slug}`;
   await owner.post(`${w}/rate-cards`, RATES);
   await owner.post(`${w}/holidays`, {
-    name: 'Gandhi Jayanti',
-    date: '2026-10-02',
+    name: "Gandhi Jayanti",
+    date: "2026-10-02",
     confirmed: true,
   });
 
   const clients: Record<string, Client> = {};
   const ids: Record<string, string> = {};
   for (const [name, key] of [
-    ['Jovial', 'jovial'],
-    ['Smruti', 'smruti'],
+    ["Jovial", "jovial"],
+    ["Smruti", "smruti"],
   ] as const) {
     const made = await owner.post(`${w}/people`, {
       name,
-      role: 'consumer',
+      role: "consumer",
       contact: `${key}@home`,
-      activeFrom: '2026-09-01',
+      activeFrom: "2026-09-01",
     });
     ids[key] = made.json.id;
     const email = `${key}-${slug}@example.org`;
     const inv = await owner.post(`${w}/people/${made.json.id}/invite`, { email });
     clients[key] = await p.signIn(email, name);
-    await clients[key]!.post('/api/invites/accept', { token: inv.json.link.split('#')[1] });
+    await clients[key]!.post("/api/invites/accept", { token: inv.json.link.split("#")[1] });
   }
 
   // Meals are logged the way the owner of the database would on import: straight in.
@@ -84,43 +84,43 @@ export async function seedKitchen(
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [date, person, all, change, qty, person ?? supplier, null],
     );
-  await log('2026-09-08', ids.jovial!, 'Leave', null);
-  await log('2026-09-15', ids.smruti!, 'Extra Chapati', 3);
-  await log('2026-10-01', ids.jovial!, 'Extra Bhakri', 2);
-  await log('2026-10-07', null, 'Supplier Off', null, true);
-  await log('2026-10-16', ids.smruti!, 'Leave', null);
+  await log("2026-09-08", ids.jovial!, "Leave", null);
+  await log("2026-09-15", ids.smruti!, "Extra Chapati", 3);
+  await log("2026-10-01", ids.jovial!, "Extra Bhakri", 2);
+  await log("2026-10-07", null, "Supplier Off", null, true);
+  await log("2026-10-16", ids.smruti!, "Leave", null);
   await db.end();
 
-  const asSupplier = { 'x-acting-as': 'supplier' };
+  const asSupplier = { "x-acting-as": "supplier" };
   const c1 = await clients.jovial!.post(`${w}/claims`, {
     consumerId: ids.jovial,
-    paidAt: '2026-10-20',
-    forMonth: '2026-10',
+    paidAt: "2026-10-20",
+    forMonth: "2026-10",
     amount: rupees(100),
-    method: 'UPI',
-    refNote: 'ref-J',
+    method: "UPI",
+    refNote: "ref-J",
   });
-  await owner.post(`${w}/claims/${c1.json.id}/decision`, { decision: 'Confirmed' }, asSupplier);
+  await owner.post(`${w}/claims/${c1.json.id}/decision`, { decision: "Confirmed" }, asSupplier);
   const c2 = await clients.smruti!.post(`${w}/claims`, {
     consumerId: ids.smruti,
-    paidAt: '2026-10-20',
-    forMonth: '2026-10',
+    paidAt: "2026-10-20",
+    forMonth: "2026-10",
     amount: rupees(300),
-    method: 'Cash',
-    refNote: 'ref-S',
+    method: "Cash",
+    refNote: "ref-S",
   });
   await owner.post(
     `${w}/claims/${c2.json.id}/decision`,
-    { decision: 'Disputed', note: 'nothing arrived' },
+    { decision: "Disputed", note: "nothing arrived" },
     asSupplier,
   );
   await owner.post(`${w}/settlements`, {
     consumerId: ids.smruti,
-    forMonth: '2026-10',
-    type: 'Query Resolved',
-    note: 'sorted',
+    forMonth: "2026-10",
+    type: "Query Resolved",
+    note: "sorted",
   });
-  await owner.post(`${w}/closes`, { month: '2026-09' });
+  await owner.post(`${w}/closes`, { month: "2026-09" });
 
   return {
     slug,
@@ -131,9 +131,9 @@ export async function seedKitchen(
     async snapshot() {
       const get = async (path: string) => (await owner.get(`${w}${path}`)).json;
       return {
-        statements: await get('/statements?months=2026-09,2026-10'),
-        claims: await get('/claims'),
-        settlements: await get('/settlements'),
+        statements: await get("/statements?months=2026-09,2026-10"),
+        claims: await get("/claims"),
+        settlements: await get("/settlements"),
       };
     },
   };

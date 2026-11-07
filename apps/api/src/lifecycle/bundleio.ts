@@ -4,34 +4,34 @@ import {
   expectedTotals,
   type Bundle,
   type BundleBody,
-} from '@alimentation/core';
-import type { FieldCipher } from '../crypto/fields.ts';
-import type { Tx } from '../db/driver.ts';
-import { loadEngineData } from '../workspace/load.ts';
+} from "@alimentation/core";
+import type { FieldCipher } from "../crypto/fields.ts";
+import type { Tx } from "../db/driver.ts";
+import { loadEngineData } from "../workspace/load.ts";
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export interface BundleMember {
   personId: string;
-  role: 'admin' | 'supplier' | 'consumer';
+  role: "admin" | "supplier" | "consumer";
   email: string;
 }
 
 const WEEKDAYS = [
-  'menu_sun',
-  'menu_mon',
-  'menu_tue',
-  'menu_wed',
-  'menu_thu',
-  'menu_fri',
-  'menu_sat',
+  "menu_sun",
+  "menu_mon",
+  "menu_tue",
+  "menu_wed",
+  "menu_thu",
+  "menu_fri",
+  "menu_sat",
 ] as const;
 const byKey = <T>(rows: T[], key: (r: T) => string): T[] =>
   [...rows].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
 
 /** `\x…` text as Postgres prints bytea. */
 const fromHexText = (s: string): Uint8Array<ArrayBuffer> =>
-  Uint8Array.from(Buffer.from(s.slice(2), 'hex'));
+  Uint8Array.from(Buffer.from(s.slice(2), "hex"));
 
 /**
  * Reads the whole workspace as the database owner, so row-level security does not
@@ -43,8 +43,8 @@ export async function readBundleBody(
   cipher: FieldCipher,
   ctx: { exportedAt: string; asOf: string; members: BundleMember[] },
 ): Promise<BundleBody> {
-  const [ws] = await tx.query<R>('SELECT name, time_zone, currency FROM workspace');
-  if (!ws) throw new Error('this database holds no workspace');
+  const [ws] = await tx.query<R>("SELECT name, time_zone, currency FROM workspace");
+  if (!ws) throw new Error("this database holds no workspace");
   const [
     policies,
     cards,
@@ -58,28 +58,28 @@ export async function readBundleBody(
     closes,
     audit,
   ] = await Promise.all([
-    tx.query<R>('SELECT effective_from, doc, created_by FROM policy_version'),
-    tx.query<R>('SELECT * FROM rate_card'),
-    tx.query<R>('SELECT id, name, on_date, location, confirmed, created_by FROM holiday'),
+    tx.query<R>("SELECT effective_from, doc, created_by FROM policy_version"),
+    tx.query<R>("SELECT * FROM rate_card"),
+    tx.query<R>("SELECT id, name, on_date, location, confirmed, created_by FROM holiday"),
     tx.query<R>(
-      'SELECT id, role, name_enc, contact_enc, status, active_from, active_to, created_at FROM person',
+      "SELECT id, role, name_enc, contact_enc, status, active_from, active_to, created_at FROM person",
     ),
     tx.query<R>(
-      'SELECT id, on_date, person_id, all_consumers, change, qty, note_enc, logged_by, logged_at FROM log_entry',
+      "SELECT id, on_date, person_id, all_consumers, change, qty, note_enc, logged_by, logged_at FROM log_entry",
     ),
     tx.query<R>(
-      'SELECT id, consumer_id, paid_at, for_month, amount, method, ref_note_enc, created_at FROM claim',
+      "SELECT id, consumer_id, paid_at, for_month, amount, method, ref_note_enc, created_at FROM claim",
     ),
-    tx.query<R>('SELECT claim_id, decision, note_enc, decided_by, decided_at FROM claim_decision'),
-    tx.query<R>('SELECT claim_id, reason_enc, reversed_by, reversed_at FROM claim_reversal'),
+    tx.query<R>("SELECT claim_id, decision, note_enc, decided_by, decided_at FROM claim_decision"),
+    tx.query<R>("SELECT claim_id, reason_enc, reversed_by, reversed_at FROM claim_reversal"),
     tx.query<R>(
-      'SELECT id, on_date, consumer_id, for_month, type, amount, note_enc, recorded_by, created_at FROM settlement',
-    ),
-    tx.query<R>(
-      'SELECT for_month, consumer_id, meals, billed, closed_on, closed_by FROM month_close',
+      "SELECT id, on_date, consumer_id, for_month, type, amount, note_enc, recorded_by, created_at FROM settlement",
     ),
     tx.query<R>(
-      'SELECT id, table_name, row_id, action, actor, at, via, before, after FROM audit_log',
+      "SELECT for_month, consumer_id, meals, billed, closed_on, closed_by FROM month_close",
+    ),
+    tx.query<R>(
+      "SELECT id, table_name, row_id, action, actor, at, via, before, after FROM audit_log",
     ),
   ]);
 
@@ -92,7 +92,7 @@ export async function readBundleBody(
     const out: R = {};
     for (const [k, v] of Object.entries(j)) {
       out[k] =
-        k.endsWith('_enc') && typeof v === 'string'
+        k.endsWith("_enc") && typeof v === "string"
           ? { $plain: await dec(table, k, rowId, fromHexText(v)) }
           : v;
     }
@@ -103,8 +103,8 @@ export async function readBundleBody(
     people.map(async (p) => ({
       id: p.id as string,
       role: p.role,
-      name: (await dec('person', 'name_enc', p.id, p.name_enc))!,
-      contact: await dec('person', 'contact_enc', p.id, p.contact_enc),
+      name: (await dec("person", "name_enc", p.id, p.name_enc))!,
+      contact: await dec("person", "contact_enc", p.id, p.contact_enc),
       status: p.status,
       activeFrom: p.active_from ?? null,
       activeTo: p.active_to ?? null,
@@ -137,7 +137,7 @@ export async function readBundleBody(
         extraBhakri: c.extra_bhakri,
         extrasPerMonth: c.extras_per_month,
         menu: Object.fromEntries(
-          WEEKDAYS.flatMap((col, i) => (c[col] ? [[String(i), c[col] as 'Veg' | 'Non Veg']] : [])),
+          WEEKDAYS.flatMap((col, i) => (c[col] ? [[String(i), c[col] as "Veg" | "Non Veg"]] : [])),
         ),
         note: c.note ?? null,
         createdBy: c.created_by ?? null,
@@ -165,7 +165,7 @@ export async function readBundleBody(
           allConsumers: e.all_consumers,
           change: e.change,
           qty: e.qty ?? null,
-          note: await dec('log_entry', 'note_enc', e.id, e.note_enc),
+          note: await dec("log_entry", "note_enc", e.id, e.note_enc),
           loggedBy: e.logged_by,
           loggedAt: e.logged_at as string,
         })),
@@ -181,7 +181,7 @@ export async function readBundleBody(
           forMonth: month(c.for_month),
           amount: c.amount,
           method: c.method,
-          refNote: await dec('claim', 'ref_note_enc', c.id, c.ref_note_enc),
+          refNote: await dec("claim", "ref_note_enc", c.id, c.ref_note_enc),
           createdAt: c.created_at as string,
         })),
       ),
@@ -192,7 +192,7 @@ export async function readBundleBody(
         decisions.map(async (d) => ({
           claimId: d.claim_id as string,
           decision: d.decision,
-          note: await dec('claim_decision', 'note_enc', d.claim_id, d.note_enc),
+          note: await dec("claim_decision", "note_enc", d.claim_id, d.note_enc),
           decidedBy: d.decided_by,
           decidedAt: d.decided_at as string,
         })),
@@ -203,7 +203,7 @@ export async function readBundleBody(
       await Promise.all(
         reversals.map(async (r) => ({
           claimId: r.claim_id as string,
-          reason: (await dec('claim_reversal', 'reason_enc', r.claim_id, r.reason_enc))!,
+          reason: (await dec("claim_reversal", "reason_enc", r.claim_id, r.reason_enc))!,
           reversedBy: r.reversed_by,
           reversedAt: r.reversed_at as string,
         })),
@@ -219,7 +219,7 @@ export async function readBundleBody(
           forMonth: month(s.for_month),
           type: s.type,
           amount: s.amount ?? null,
-          note: await dec('settlement', 'note_enc', s.id, s.note_enc),
+          note: await dec("settlement", "note_enc", s.id, s.note_enc),
           recordedBy: s.recorded_by,
           createdAt: s.created_at as string,
         })),
@@ -238,7 +238,7 @@ export async function readBundleBody(
       (c) => c.forMonth + c.consumerId,
     ),
     audit: await Promise.all(
-      byKey(audit, (a) => String(a.id).padStart(12, '0')).map(async (a) => ({
+      byKey(audit, (a) => String(a.id).padStart(12, "0")).map(async (a) => ({
         id: Number(a.id),
         table: a.table_name as string,
         rowId: a.row_id as string,

@@ -1,4 +1,4 @@
-import type { Migration } from '../db/migrate.ts';
+import type { Migration } from "../db/migrate.ts";
 
 /**
  * Where a workspace's database lives. A placement creates it, hands back the two
@@ -6,7 +6,7 @@ import type { Migration } from '../db/migrate.ts';
  * requests use), and destroys it.
  */
 
-export type PlacementKind = 'pg-database' | 'neon-project' | 'external';
+export type PlacementKind = "pg-database" | "neon-project" | "external";
 
 export interface PlacementRef {
   kind: PlacementKind;
@@ -37,7 +37,7 @@ export interface Placement {
 export function randomSecret(bytes = 24): string {
   const raw = crypto.getRandomValues(new Uint8Array(bytes));
   return btoa(String.fromCharCode(...raw))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }

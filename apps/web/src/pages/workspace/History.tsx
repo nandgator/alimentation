@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import type { HistoryEventDto } from '@alimentation/core';
-import { getJson } from '../../api.ts';
-import { PageHead, Problem, Spinner, useLoad } from '../../components/ui.tsx';
-import { useWorkspace } from './context.tsx';
+import { useState } from "react";
+import type { HistoryEventDto } from "@alimentation/core";
+import { getJson } from "../../api.ts";
+import { PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
+import { useWorkspace } from "./context.tsx";
 
 interface Page {
   events: HistoryEventDto[];
@@ -10,19 +10,19 @@ interface Page {
 }
 
 const day = (iso: string, timeZone: string) =>
-  new Intl.DateTimeFormat('en-GB', {
+  new Intl.DateTimeFormat("en-GB", {
     timeZone,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   }).format(new Date(iso));
 const time = (iso: string, timeZone: string) =>
-  new Intl.DateTimeFormat('en-GB', {
+  new Intl.DateTimeFormat("en-GB", {
     timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
   }).format(new Date(iso));
 
 /**
@@ -61,29 +61,27 @@ export function History() {
   }
 
   return (
-    <div className="stack" style={{ ['--gap' as string]: '20px' }}>
+    <div class="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead
         title="History"
         lead={
-          ws.role === 'consumer'
-            ? 'Everything that has been done to your entries, claims and bills, and by whom. Nothing here can be changed or removed.'
-            : 'Everything that has been done to the entries, claims and bills you can see, and by whom. Nothing here can be changed or removed.'
+          ws.role === "consumer"
+            ? "Everything that has been done to your entries, claims and bills, and by whom. Nothing here can be changed or removed."
+            : "Everything that has been done to the entries, claims and bills you can see, and by whom. Nothing here can be changed or removed."
         }
       />
       <Problem error={first.error ?? problem} />
       {first.loading && !first.data ? <Spinner /> : null}
-      {first.data && events.length === 0 ? (
-        <p className="muted">Nothing has happened yet.</p>
-      ) : null}
+      {first.data && events.length === 0 ? <p class="muted">Nothing has happened yet.</p> : null}
       {[...byDay].map(([label, list]) => (
         <section
           key={label}
-          className="stack"
+          class="stack"
           aria-label={label}
-          style={{ ['--gap' as string]: '8px' }}
+          style={{ ["--gap" as string]: "8px" }}
         >
           <h2>{label}</h2>
-          <ol className="history">
+          <ol class="history">
             {list.map((e) => (
               <li key={e.id}>
                 <time dateTime={e.at}>{time(e.at, tz)}</time>
@@ -95,7 +93,7 @@ export function History() {
       ))}
       {cursor !== null ? (
         <div>
-          <button className="btn ghost" disabled={busy} onClick={() => void loadOlder()}>
+          <button class="btn ghost" disabled={busy} onClick={() => void loadOlder()}>
             Older
           </button>
         </div>

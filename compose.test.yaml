@@ -25,7 +25,7 @@ services:
     volumes:
       - pg:/var/lib/postgresql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -40,12 +40,12 @@ services:
     environment:
       ALIMENTATION_TEST_PG: postgres://postgres:test@pg:5432/postgres
       ALIMENTATION_TEST_PG_LOG: /pg/18/docker/log/postgres.log
-      ALIMENTATION_REQUIRE_PG_LOG: '1'
+      ALIMENTATION_REQUIRE_PG_LOG: "1"
     command:
       [
-        'sh',
-        '-c',
-        'npm run format:check && npm run typecheck && npm run promises && npm run design && npm test',
+        "sh",
+        "-c",
+        "npm run format:check && npm run typecheck && npm run promises && npm run design && npm test",
       ]
     volumes:
       - pg:/pg:ro

@@ -1,28 +1,28 @@
-import { describe, expect, it } from 'vitest';
-import { CARRIER_VENT, POT_VENT, wispPath } from './steam.tsx';
+import { describe, expect, it } from "vitest";
+import { CARRIER_VENT, POT_VENT, wispPath } from "./steam.tsx";
 
 const WISPS = [...CARRIER_VENT.wisps, ...POT_VENT.wisps];
 
-describe('the steam over the lids', () => {
-  it('draws each wisp as one smooth line from the vent straight up its length', () => {
+describe("the steam over the lids", () => {
+  it("draws each wisp as one smooth line from the vent straight up its length", () => {
     for (const w of WISPS) {
       const d = wispPath(w);
-      expect(d.startsWith('M0 0L'), d).toBe(true);
+      expect(d.startsWith("M0 0L"), d).toBe(true);
       // Only moves, lines and curves: no corner is ever drawn by hand.
-      expect(d.replace(/[MLQ\d\s.,-]/g, ''), d).toBe('');
+      expect(d.replace(/[MLQ\d\s.,-]/g, ""), d).toBe("");
       expect(d).not.toMatch(/NaN|Infinity/);
       const end = /L(-?[\d.]+) (-?[\d.]+)$/.exec(d)!;
       expect(Number(end[2])).toBeCloseTo(-w.h, 0);
     }
   });
 
-  it('gives every wisp a shape of its own, the same each time', () => {
+  it("gives every wisp a shape of its own, the same each time", () => {
     const shapes = WISPS.map((w) => wispPath(w));
     expect(new Set(shapes).size).toBe(WISPS.length);
     expect(WISPS.map((w) => wispPath(w))).toEqual(shapes);
   });
 
-  it('keeps a lid steaming all the time: one pace for its wisps, started at spread points of it', () => {
+  it("keeps a lid steaming all the time: one pace for its wisps, started at spread points of it", () => {
     for (const v of [CARRIER_VENT, POT_VENT]) {
       // Wisps on different paces drift into step and the lid goes quiet, then puffs; on one they stay where they were put.
       expect(v.life).toBeGreaterThan(0);
@@ -39,7 +39,7 @@ describe('the steam over the lids', () => {
     expect(CARRIER_VENT.life).not.toBe(POT_VENT.life);
   });
 
-  it('gives no wisp the same sway as another, or a multiple of it, so the whole never visibly repeats', () => {
+  it("gives no wisp the same sway as another, or a multiple of it, so the whole never visibly repeats", () => {
     const clash = (xs: number[]) =>
       xs.flatMap((a, i) =>
         xs.slice(i + 1).filter((b) => Number.isInteger(a / b) || Number.isInteger(b / a)),
@@ -47,7 +47,7 @@ describe('the steam over the lids', () => {
     expect(clash(WISPS.map((w) => w.swing))).toEqual([]);
   });
 
-  it('rises from inside the lid and has thinned away before it reaches anything above', () => {
+  it("rises from inside the lid and has thinned away before it reaches anything above", () => {
     for (const v of [CARRIER_VENT, POT_VENT]) {
       expect(v.gone).toBeLessThan(v.lid);
       for (const w of v.wisps) {

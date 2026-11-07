@@ -1,11 +1,16 @@
 ---
+
 title: Components
 description: The pieces every screen is made of, shown live, with the one rule for using each.
 ---
 
+<!-- markdownlint-disable MD013 -->
+
 # Components
 
-A screen is assembled from these pieces and nothing else. If a screen needs something that is not here, add it here first, with an example and a rule, then use it. The examples below are the application's own classes, rendered with its own stylesheet.
+A screen is assembled from these pieces and nothing else. If a screen needs something that is not
+here, add it here first, with an example and a rule, then use it. The examples below are the
+application's own classes, rendered with its own stylesheet.
 
 ## Buttons
 
@@ -28,22 +33,34 @@ One button, four tones. **A screen has at most one primary button;** the others 
 | Danger  | `btn danger` | Only what cannot be undone, and always behind a confirmation that names it. |
 | Small   | `btn small`  | Inside a row of text or a table. Still 36px high.                           |
 
-A button says what it does (_Save the rates_, _Close the month_), never _OK_ or _Submit_. It shrinks slightly on press and answers a pointer only where there is one. A disabled button is for a request in flight, never for a rule the person has not been told about: tell them instead.
+A button says what it does (_Save the rates_, _Close the month_), never _OK_ or _Submit_. It shrinks
+slightly on press and answers a pointer only where there is one. A disabled button is for a request
+in flight, never for a rule the person has not been told about: tell them instead.
 
 ## Fields and forms
 
-A label above, a hint below, one column on a phone. Fields are 44px high. A select draws its own arrow, 16px in from the right edge and in the ink colour, so it follows the theme; a rule that sets a select's padding keeps the 40px at the right that the arrow needs. The open list is drawn from the same tokens too (surface, hairline, radius, menu shadow, the chosen option in the brand colour), in Chrome, Edge and Safari 27 and later, which let a page draw it; the select underneath is still the browser's own, so the keyboard and a phone's behaviour are unchanged. In Firefox, which has this only behind a flag, the list is the browser's own.
+A label above, a hint below, one column on a phone. Fields are 44px high. A select draws its own
+arrow, 16px in from the right edge and in the ink colour, so it follows the theme; a rule that sets
+a select's padding keeps the 40px at the right that the arrow needs. The open list is drawn from the
+same tokens too (surface, hairline, radius, menu shadow, the chosen option in the brand colour), in
+Chrome, Edge and Safari 27 and later, which let a page draw it; the select underneath is still the
+browser's own, so the keyboard and a phone's behaviour are unchanged. In Firefox, which has this
+only behind a flag, the list is the browser's own.
 
 <div class="demo">
 <div class="field"><label for="demo-name">Name</label><input id="demo-name" type="text" autocomplete="off" value="Anita"><span class="hint">As you want it to show on the bill.</span></div>
 <div class="field"><label for="demo-day">Menu for Monday</label><select id="demo-day"><option>Veg</option><option>Non Veg</option></select></div>
 </div>
 
-A hint says what the field is for or what shape it takes; an error says what is wrong and what to do (_Add a date in the last month_), next to the field when it can and in a banner above the form when it cannot. A form disables itself while it sends and shows what the server said when it refuses (`useAction`).
+A hint says what the field is for or what shape it takes; an error says what is wrong and what to do
+(_Add a date in the last month_), next to the field when it can and in a banner above the form when
+it cannot. A form disables itself while it sends and shows what the server said when it refuses
+(`useAction`).
 
 ## Chips
 
-A word with a colour behind it, for a status. The word carries the meaning; the colour agrees with it.
+A word with a colour behind it, for a status. The word carries the meaning; the colour agrees with
+it.
 
 <div class="demo">
 <span class="chip">Open</span>
@@ -54,7 +71,8 @@ A word with a colour behind it, for a status. The word carries the meaning; the 
 
 ## Banners
 
-A sentence the person must not miss, in the flow of the page. A banner that reports an error is announced to a screen reader at once (`role="alert"`).
+A sentence the person must not miss, in the flow of the page. A banner that reports an error is
+announced to a screen reader at once (`role="alert"`).
 
 <div class="demo">
 <div class="banner info">The month closes on 31 October. Until then anyone can still catch up.</div>
@@ -65,7 +83,9 @@ A sentence the person must not miss, in the flow of the page. A banner that repo
 
 ## Tiles
 
-One figure and its name. The few that answer _where do I stand?_ are `lead` and sit larger above the rest; on a phone they stack as three rows with the figure at the right. A figure that is a forecast is `projected`, set lighter and in italics, so it never looks settled.
+One figure and its name. The few that answer _where do I stand?_ are `lead` and sit larger above the
+rest; on a phone they stack as three rows with the figure at the right. A figure that is a forecast
+is `projected`, set lighter and in italics, so it never looks settled.
 
 <div class="demo">
 <div class="tiles lead">
@@ -82,7 +102,10 @@ One figure and its name. The few that answer _where do I stand?_ are `lead` and 
 
 ## Cards and tables
 
-A card lies flat on the page, held by a hairline (never a shadow). A table sits in a `tablewrap`, which scrolls sideways inside itself on a narrow screen rather than pushing the page wider, and which can be focused so the keyboard can scroll it. Figures are right-aligned with tabular numerals (`.num`). A cell that opens something is a real button inside the cell.
+A card lies flat on the page, held by a hairline (never a shadow). A table sits in a `tablewrap`,
+which scrolls sideways inside itself on a narrow screen rather than pushing the page wider, and
+which can be focused so the keyboard can scroll it. Figures are right-aligned with tabular numerals
+(`.num`). A cell that opens something is a real button inside the cell.
 
 <div class="demo">
 <div class="card">A card holds one thing that belongs together: a form, a statement, a list.</div>
@@ -91,19 +114,28 @@ A card lies flat on the page, held by a hairline (never a shadow). A table sits 
 
 ## Page and section heads
 
-Every screen starts with a `PageHead`: its name as the one `h1`, a line saying what it is for, and the things to do here on the right. Inside a screen, a `SectionHead` introduces each part with an `h2`. Headings go in order and never skip a level.
+Every screen starts with a `PageHead`: its name as the one `h1`, a line saying what it is for, and
+the things to do here on the right. Inside a screen, a `SectionHead` introduces each part with an
+`h2`. Headings go in order and never skip a level.
 
 ## Dialog
 
-A modal `<dialog>` with a title, used for a decision that needs the whole screen's attention: confirming something that cannot be undone, or a short form that would crowd the page. It traps focus, closes with Escape, and is the only thing besides the toast that casts the deepest shadow (`--elev-dialog`). A dialog says what will happen and has a button that names it.
+A modal `<dialog>` with a title, used for a decision that needs the whole screen's attention:
+confirming something that cannot be undone, or a short form that would crowd the page. It traps
+focus, closes with Escape, and is the only thing besides the toast that casts the deepest shadow
+(`--elev-dialog`). A dialog says what will happen and has a button that names it.
 
 ## Toast
 
-A short note that something happened, which rises from the bottom and goes after a few seconds. A success is a quiet note (`toast(msg)`); a refusal is `toast(msg, 'bad')`, stays for six seconds and is announced at once. A toast is never the only record of something important: the thing it reports is also visible on the page.
+A short note that something happened, which rises from the bottom and goes after a few seconds. A
+success is a quiet note (`toast(msg)`); a refusal is `toast(msg, 'bad')`, stays for six seconds and
+is announced at once. A toast is never the only record of something important: the thing it reports
+is also visible on the page.
 
 ## Navigation
 
-The kitchen's screens are one list ([Layout and testing](/docs/contributing/layout-and-testing/)); the menu is drawn from it in whichever form the width allows.
+The kitchen's screens are one list ([Layout and testing](/docs/contributing/layout-and-testing/));
+the menu is drawn from it in whichever form the width allows.
 
 | Width           | Form                                                                                                                                                                                                                  |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -111,21 +143,39 @@ The kitchen's screens are one list ([Layout and testing](/docs/contributing/layo
 | 720 to 959px    | A row of the screens under the top bar.                                                                                                                                                                               |
 | 720px and under | A fixed bottom bar with the five most used screens and **More**, which opens a panel with the rest, grouped, and **Help**.                                                                                            |
 
-The kitchen's name and the role being acted as (a switch, for someone who holds more than one role) belong to the menu, because they decide what every screen in it means. So they travel with it: at the head of the sidebar when there is one, and in the top bar when the menu is a row or a bottom bar. The top bar always holds what is about the person and the place: the mark, **Help** (which opens the guides), the account name and **Sign out**. The bar is sticky, so **Sign out** is always at the top right and never scrolls away, and on a phone the account name and Help give way to make room (Help is in the panel behind **More**).
+The kitchen's name and the role being acted as (a switch, for someone who holds more than one role)
+belong to the menu, because they decide what every screen in it means. So they travel with it: at
+the head of the sidebar when there is one, and in the top bar when the menu is a row or a bottom
+bar. The top bar always holds what is about the person and the place: the mark, **Help** (which
+opens the guides), the account name and **Sign out**. The bar is sticky, so **Sign out** is always
+at the top right and never scrolls away, and on a phone the account name and Help give way to make
+room (Help is in the panel behind **More**).
 
-The menu hides and shows by sliding with `transform` and `opacity` only, is `inert` while hidden so the keyboard cannot reach what the eye cannot see, and does not move when motion is reduced.
+The menu hides and shows by sliding with `transform` and `opacity` only, is `inert` while hidden so
+the keyboard cannot reach what the eye cannot see, and does not move when motion is reduced.
 
 ## Theme choice
 
-`ThemeSwitch` is a group of three radio buttons (Auto, Light, Dark) in a pill. It is the one control for the theme, and the choice is kept under the `theme` key in local storage, so the app, the home page, the guides and the docs all answer to it. `public/theme.js` applies it before the first paint. Auto removes the `data-theme` attribute and the stylesheet follows the system again. The control sits at the foot of the sidebar, in the phone's More panel, at the end of the row under the top bar on a tablet, and in the home page's footer; the documentation sites have the same choice as one button in the top bar that steps through the three.
+`ThemeSwitch` is a group of three radio buttons (Auto, Light, Dark) in a pill. It is the one control
+for the theme, and the choice is kept under the `theme` key in local storage, so the app, the home
+page, the guides and the docs all answer to it. `public/theme.js` applies it before the first paint.
+Auto removes the `data-theme` attribute and the stylesheet follows the system again. The control
+sits at the foot of the sidebar, in the phone's More panel, at the end of the row under the top bar
+on a tablet, and in the home page's footer; the documentation sites have the same choice as one
+button in the top bar that steps through the three.
 
 ## Charts
 
-A bar chart has a data table beside it, shown to a screen reader and available to everyone, and takes its colours from the same tokens. It measures its width before it draws, so it never flashes at the wrong size.
+A bar chart has a data table beside it, shown to a screen reader and available to everyone, and
+takes its colours from the same tokens. It measures its width before it draws, so it never flashes
+at the wrong size.
 
 ## Icon buttons
 
-A button that is only a picture, for an action everyone knows (copy, close). It is named for a screen reader (`aria-label`) and, with a pointer, by its `title`. It is as high as a small button, 36px, so it can be hit. A picture alone is for an action that is obvious; anything that is not gets words, and a `btn`.
+A button that is only a picture, for an action everyone knows (copy, close). It is named for a
+screen reader (`aria-label`) and, with a pointer, by its `title`. It is as high as a small button,
+36px, so it can be hit. A picture alone is for an action that is obvious; anything that is not gets
+words, and a `btn`.
 
 <div class="demo">
 <button type="button" class="icon-btn" aria-label="Copy this" title="Copy"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
@@ -134,12 +184,22 @@ A button that is only a picture, for an action everyone knows (copy, close). It 
 
 ## Code
 
-A listing is on the chalkboard, dark in both themes, and it is a component like the rest: `.code`, with an optional bar (`.code-bar`) that says what it is, and the code in a `pre`. In the pages of these sites it is written as a fenced block ([how](/docs/contributing/layout-and-testing/#code-and-diagrams-in-the-pages)), and what is below is those blocks.
+A listing is on the chalkboard, dark in both themes, and it is a component like the rest: `.code`,
+with an optional bar (`.code-bar`) that says what it is, and the code in a `pre`. In the pages of
+these sites it is written as a fenced block
+([how](/docs/contributing/layout-and-testing/#code-and-diagrams-in-the-pages)), and what is below is
+those blocks.
 
-- **The bar** says the language, or the file and which lines of it. The copy button, an icon button, is at its end.
-- **The copy button** comes forward when the block is pointed at or has focus, so it is not always over the code. Where there is no pointer to point with (a phone) it is always there, and a keyboard user finds it by tabbing into the block. When it has copied it turns green and says so, and a screen reader is told.
-- **Line numbers** are in the margin and cannot be selected or copied. A listing is numbered from six lines on, and a block of lines from a real file carries that file's own numbers.
-- **A console** is a session. A `$` before a line marks what is typed, and the rest is what came back, dimmer. Copying takes the commands only.
+- **The bar** says the language, or the file and which lines of it. The copy button, an icon button,
+  is at its end.
+- **The copy button** comes forward when the block is pointed at or has focus, so it is not always
+  over the code. Where there is no pointer to point with (a phone) it is always there, and a
+  keyboard user finds it by tabbing into the block. When it has copied it turns green and says so,
+  and a screen reader is told.
+- **Line numbers** are in the margin and cannot be selected or copied. A listing is numbered from
+  six lines on, and a block of lines from a real file carries that file's own numbers.
+- **A console** is a session. A `$` before a line marks what is typed, and the rest is what came
+  back, dimmer. Copying takes the commands only.
 
 ```ts
 export function owed(balance: number, earlier: number): number {
@@ -160,12 +220,17 @@ set -eu
 npm run build
 ```
 
-The colours are tokens (`--board`, `--board-ink`, `--board-dim` and the `--code-*` set), so a listing follows a change of theme without being drawn again.
+The colours are tokens (`--board`, `--board-ink`, `--board-dim` and the `--code-*` set), so a
+listing follows a change of theme without being drawn again.
 
 ## Rules for using the pieces
 
-1. **Compose; do not restyle.** A screen sets no colour, size or shadow of its own. If a piece does not fit, the piece is wrong: change it here.
-2. **Layout is classes, not styles.** Gaps and flow come from `stack`, `row`, `between`, `grow` and `--gap`. A `style` attribute may only hand a value to the stylesheet (`style={{ '--gap': '8px' }}`).
-3. **Words first.** A label, a button and a message are written for the person (see [Principles](/docs/design/principles/)).
+1. **Compose; do not restyle.** A screen sets no colour, size or shadow of its own. If a piece does
+   not fit, the piece is wrong: change it here.
+2. **Layout is classes, not styles.** Gaps and flow come from `stack`, `row`, `between`, `grow` and
+   `--gap`. A `style` attribute may only hand a value to the stylesheet
+   (`style={{ '--gap': '8px' }}`).
+3. **Words first.** A label, a button and a message are written for the person (see
+   [Principles](/docs/design/principles/)).
 4. **Attribution stays visible.** A list of entries shows who added each and when it was late.
 5. **Both themes, every time.** Look at a new piece in light and dark before it is used.

@@ -1,16 +1,16 @@
-import { useState } from 'react';
-import { dayName, weekdayOf, type IsoDate, type LedgerDto } from '@alimentation/core';
-import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from '../../components/ui.tsx';
-import { getJson } from '../../api.ts';
-import { date, money } from '../../format.ts';
-import { useWorkspace } from './context.tsx';
+import { useState } from "react";
+import { dayName, weekdayOf, type IsoDate, type LedgerDto } from "@alimentation/core";
+import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
+import { getJson } from "../../api.ts";
+import { date, money } from "../../format.ts";
+import { useWorkspace } from "./context.tsx";
 
 export function Daily() {
   const ws = useWorkspace();
   const { boot } = ws;
-  const consumers = boot.people.filter((p) => p.role === 'consumer');
+  const consumers = boot.people.filter((p) => p.role === "consumer");
   const [person, setPerson] = useState(
-    ws.role === 'consumer' ? boot.me.personId : (consumers[0]?.id ?? ''),
+    ws.role === "consumer" ? boot.me.personId : (consumers[0]?.id ?? ""),
   );
   const [selected, setSelected] = useState(boot.currentMonth);
   const res = useLoad(
@@ -22,20 +22,20 @@ export function Daily() {
   );
   const days = res.data?.days ?? [];
   return (
-    <div className="stack">
+    <div class="stack">
       <PageHead
         title="Daily"
         lead={
-          ws.role === 'consumer' ? 'Your month, day by day.' : 'One person’s month, day by day.'
+          ws.role === "consumer" ? "Your month, day by day." : "One person’s month, day by day."
         }
         actions={
           <>
-            {ws.role !== 'consumer' ? (
+            {ws.role !== "consumer" ? (
               <select
                 aria-label="Person"
                 value={person}
                 onChange={(e) => setPerson(e.target.value)}
-                className="fit"
+                class="fit"
               >
                 {consumers.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -57,7 +57,7 @@ export function Daily() {
       {res.loading && !res.data ? <Spinner /> : null}
       {days.length > 0 ? (
         <div
-          className="tablewrap"
+          class="tablewrap"
           tabIndex={0}
           role="region"
           aria-label="Table; scrolls sideways when it is wider than the screen"
@@ -68,39 +68,39 @@ export function Daily() {
                 <th>Date</th>
                 <th>Status</th>
                 <th>Meal</th>
-                <th className="r">Extras</th>
-                <th className="r">Amount</th>
+                <th class="r">Extras</th>
+                <th class="r">Amount</th>
               </tr>
             </thead>
             <tbody>
               {days
-                .filter((d) => d.status !== 'Inactive')
+                .filter((d) => d.status !== "Inactive")
                 .map((d) => {
                   const extras = [
-                    d.extraChapati ? `${d.extraChapati} chapati` : '',
-                    d.extraBhakri ? `${d.extraBhakri} bhakri` : '',
+                    d.extraChapati ? `${d.extraChapati} chapati` : "",
+                    d.extraBhakri ? `${d.extraBhakri} bhakri` : "",
                   ]
                     .filter(Boolean)
-                    .join(', ');
+                    .join(", ");
                   return (
-                    <tr key={d.date} className={d.basis === 'Projected' ? 'projected' : ''}>
+                    <tr key={d.date} class={d.basis === "Projected" ? "projected" : ""}>
                       <td>
-                        {date(d.date)}{' '}
-                        <span className="muted">{dayName(weekdayOf(d.date as IsoDate))}</span>
+                        {date(d.date)}{" "}
+                        <span class="muted">{dayName(weekdayOf(d.date as IsoDate))}</span>
                       </td>
                       <td>
                         <Chip
                           tone={
-                            d.status === 'Meal' ? undefined : d.status === 'Leave' ? 'warn' : 'good'
+                            d.status === "Meal" ? undefined : d.status === "Leave" ? "warn" : "good"
                           }
                         >
                           {d.status}
-                          {d.holidayName ? ` · ${d.holidayName}` : ''}
+                          {d.holidayName ? ` · ${d.holidayName}` : ""}
                         </Chip>
                       </td>
-                      <td>{d.meal ?? '-'}</td>
-                      <td className="r">{extras || '-'}</td>
-                      <td className="r">{money(d.dayTotal)}</td>
+                      <td>{d.meal ?? "-"}</td>
+                      <td class="r">{extras || "-"}</td>
+                      <td class="r">{money(d.dayTotal)}</td>
                     </tr>
                   );
                 })}
@@ -108,11 +108,9 @@ export function Daily() {
           </table>
         </div>
       ) : !res.loading ? (
-        <p className="muted">No days to show.</p>
+        <p class="muted">No days to show.</p>
       ) : null}
-      <p className="muted small">
-        Greyed days have not happened yet, so their amounts are projected.
-      </p>
+      <p class="muted small">Greyed days have not happened yet, so their amounts are projected.</p>
     </div>
   );
 }

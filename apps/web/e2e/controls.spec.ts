@@ -1,5 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { firstOfMonth, signIn } from './support.ts';
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { firstOfMonth, signIn } from "./support.ts";
 
 /**
  * What a page looks like once it is drawn is not something a stylesheet check can see: that is measured here, on the
@@ -7,17 +7,17 @@ import { firstOfMonth, signIn } from './support.ts';
  * must sit clear of the edge and level with the text.
  */
 async function arrowOf(page: Page, select: Locator, savedAs: string) {
-  await select.evaluate((e) => e.scrollIntoView({ block: 'center' }));
-  const png = (await select.screenshot({ path: savedAs })).toString('base64');
+  await select.evaluate((e) => e.scrollIntoView({ block: "center" }));
+  const png = (await select.screenshot({ path: savedAs })).toString("base64");
   const box = (await select.boundingBox())!;
   return page.evaluate(
     async ({ png, cssWidth }) => {
       const bytes = Uint8Array.from(atob(png), (c) => c.charCodeAt(0));
-      const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
-      const canvas = document.createElement('canvas');
+      const bmp = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+      const canvas = document.createElement("canvas");
       canvas.width = bmp.width;
       canvas.height = bmp.height;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext("2d")!;
       ctx.drawImage(bmp, 0, 0);
       const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const scale = width / cssWidth;
@@ -63,28 +63,28 @@ async function arrowOf(page: Page, select: Locator, savedAs: string) {
 }
 
 const PATHS = [
-  '',
-  '/daily',
-  '/log',
-  '/payments',
-  '/people',
-  '/rates',
-  '/holidays',
-  '/settlements',
-  '/close',
+  "",
+  "/daily",
+  "/log",
+  "/payments",
+  "/people",
+  "/rates",
+  "/holidays",
+  "/settlements",
+  "/close",
 ];
 
-test.describe('the controls as drawn', () => {
-  for (const scheme of ['light', 'dark'] as const) {
+test.describe("the controls as drawn", () => {
+  for (const scheme of ["light", "dark"] as const) {
     test(`every select shows an arrow, clear of the right edge and level with the text (${scheme})`, async ({
       page,
     }, info) => {
       test.setTimeout(180_000);
       await page.emulateMedia({ colorScheme: scheme });
       const slug = `ctl-${scheme}-${Date.now().toString(36)}`;
-      await signIn(page, `owner-${slug}@example.org`, 'Owner');
+      await signIn(page, `owner-${slug}@example.org`, "Owner");
       const api = page.request;
-      await api.post('/api/workspaces', {
+      await api.post("/api/workspaces", {
         data: { slug, name: `Controls ${scheme}`, alsoSupplier: true },
       });
       await api.post(`/api/w/${slug}/rate-cards`, {
@@ -95,28 +95,28 @@ test.describe('the controls as drawn', () => {
           extraChapati: 1500,
           extraBhakri: 3000,
           extrasPerMonth: 4000,
-          menu: { 1: 'Veg', 2: 'Veg', 3: 'Non Veg', 4: 'Veg', 5: 'Non Veg' },
+          menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
         },
       });
       await api.post(`/api/w/${slug}/people`, {
-        data: { name: 'Jovial', role: 'consumer', activeFrom: firstOfMonth() },
+        data: { name: "Jovial", role: "consumer", activeFrom: firstOfMonth() },
       });
 
       const seen: string[] = [];
       for (const path of PATHS) {
         await page.goto(`/w/${slug}${path}`);
-        await page.locator('main.page').waitFor();
+        await page.locator("main.page").waitFor();
         const selects = page.locator(
-          'main select:visible, .side select:visible, .topbar select:visible',
+          "main select:visible, .side select:visible, .topbar select:visible",
         );
         const n = await selects.count();
         for (let i = 0; i < n; i++) {
           const select = selects.nth(i);
-          const where = `${path || '/'} select ${i + 1} (${scheme})`;
+          const where = `${path || "/"} select ${i + 1} (${scheme})`;
           const arrow = await arrowOf(
             page,
             select,
-            info.outputPath(`${scheme}${path.replace('/', '-') || '-home'}-${i + 1}.png`),
+            info.outputPath(`${scheme}${path.replace("/", "-") || "-home"}-${i + 1}.png`),
           );
           expect(arrow, `${where}: no arrow is drawn`).not.toBeNull();
           expect(
@@ -135,55 +135,55 @@ test.describe('the controls as drawn', () => {
         }
       }
       // The check looked at something: the kitchen's own selects, and not nothing.
-      expect(seen.length, 'selects measured').toBeGreaterThanOrEqual(5);
+      expect(seen.length, "selects measured").toBeGreaterThanOrEqual(5);
     });
   }
 
-  for (const scheme of ['light', 'dark'] as const) {
+  for (const scheme of ["light", "dark"] as const) {
     test(`the open list of a select is drawn from the design tokens, not the browser's own menu (${scheme})`, async ({
       page,
     }) => {
       await page.emulateMedia({ colorScheme: scheme });
-      await page.goto('/docs/design/components/');
-      const drawable = await page.evaluate(() => CSS.supports('appearance', 'base-select'));
+      await page.goto("/docs/design/components/");
+      const drawable = await page.evaluate(() => CSS.supports("appearance", "base-select"));
       test.skip(
         !drawable,
-        'this browser has no way to restyle the open list, so it shows its own (Firefox, for now)',
+        "this browser has no way to restyle the open list, so it shows its own (Firefox, for now)",
       );
-      const select = page.locator('#demo-day');
+      const select = page.locator("#demo-day");
       await select.scrollIntoViewIfNeeded();
       await select.click();
       const painted = await page.evaluate(() => {
-        const s = document.querySelector<HTMLSelectElement>('#demo-day')!;
-        const picker = getComputedStyle(s, '::picker(select)');
-        const chosen = getComputedStyle(s.querySelector('option:checked')!);
+        const s = document.querySelector<HTMLSelectElement>("#demo-day")!;
+        const picker = getComputedStyle(s, "::picker(select)");
+        const chosen = getComputedStyle(s.querySelector("option:checked")!);
         // What a token resolves to, by asking the browser to paint with it.
-        const token = (name: string, prop: 'backgroundColor' | 'color' = 'backgroundColor') => {
-          const probe = document.createElement('i');
-          probe.style.setProperty(prop === 'color' ? 'color' : 'background-color', `var(${name})`);
+        const token = (name: string, prop: "backgroundColor" | "color" = "backgroundColor") => {
+          const probe = document.createElement("i");
+          probe.style.setProperty(prop === "color" ? "color" : "background-color", `var(${name})`);
           document.body.append(probe);
           const v = getComputedStyle(probe)[prop];
           probe.remove();
           return v;
         };
         return {
-          open: s.matches(':open'),
+          open: s.matches(":open"),
           background: picker.backgroundColor,
-          card: token('--card'),
+          card: token("--card"),
           radius: picker.borderTopLeftRadius,
           shadow: picker.boxShadow,
           chosenBackground: chosen.backgroundColor,
-          brand: token('--brand'),
+          brand: token("--brand"),
         };
       });
-      expect(painted.open, 'the list is open').toBe(true);
-      expect(painted.background, 'the list is on the card colour').toBe(painted.card);
-      expect(painted.radius, 'the list has the medium radius').toBe('12px');
-      expect(painted.shadow, 'the list floats, so it has a shadow').not.toBe('none');
-      expect(painted.chosenBackground, 'the chosen option is in the brand colour').toBe(
+      expect(painted.open, "the list is open").toBe(true);
+      expect(painted.background, "the list is on the card colour").toBe(painted.card);
+      expect(painted.radius, "the list has the medium radius").toBe("12px");
+      expect(painted.shadow, "the list floats, so it has a shadow").not.toBe("none");
+      expect(painted.chosenBackground, "the chosen option is in the brand colour").toBe(
         painted.brand,
       );
-      await select.press('Escape');
+      await select.press("Escape");
     });
   }
 });

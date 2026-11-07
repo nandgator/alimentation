@@ -1,14 +1,14 @@
-import { loadConfig } from './config.ts';
-import { ControlRepo } from './control/repo.ts';
-import { nodeDb } from './db/node.ts';
-import { migrate } from './db/migrate.ts';
-import { CONTROL_MIGRATIONS, WORKSPACE_MIGRATIONS } from './db/migrations.generated.ts';
-import { readDsns } from './directory.ts';
-import { Keyring } from './crypto/keys.ts';
-import { rewrapAll } from './lifecycle/rewrap.ts';
-import { selfHost } from './instance.ts';
-import { PgDatabasePlacement } from './placement/pgdatabase.ts';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { loadConfig } from "./config.ts";
+import { ControlRepo } from "./control/repo.ts";
+import { nodeDb } from "./db/node.ts";
+import { migrate } from "./db/migrate.ts";
+import { CONTROL_MIGRATIONS, WORKSPACE_MIGRATIONS } from "./db/migrations.generated.ts";
+import { readDsns } from "./directory.ts";
+import { Keyring } from "./crypto/keys.ts";
+import { rewrapAll } from "./lifecycle/rewrap.ts";
+import { selfHost } from "./instance.ts";
+import { PgDatabasePlacement } from "./placement/pgdatabase.ts";
+import { randomBytes, randomUUID } from "node:crypto";
 
 /**
  *   keys:generate     print a new MASTER_KEYS and SESSION_SECRETS
@@ -20,7 +20,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
  */
 const [command] = process.argv.slice(2);
 // On a dedicated instance the secrets live in its volume; everywhere else they are in the environment.
-const env = ['keys:generate', 'control:init'].includes(command ?? '')
+const env = ["keys:generate", "control:init"].includes(command ?? "")
   ? process.env
   : await selfHost(process.env);
 const need = (k: string) => {
@@ -30,10 +30,10 @@ const need = (k: string) => {
 };
 
 switch (command) {
-  case 'control:init': {
+  case "control:init": {
     const placement = new PgDatabasePlacement({
-      adminUrl: need('PLACEMENT_ADMIN_URL'),
-      prefix: 'control',
+      adminUrl: need("PLACEMENT_ADMIN_URL"),
+      prefix: "control",
     });
     const p = await placement.provision(randomUUID(), CONTROL_MIGRATIONS);
     console.log(`CONTROL_DATABASE_URL=${p.appUrl}`);
@@ -42,12 +42,12 @@ switch (command) {
     );
     break;
   }
-  case 'keys:generate': {
+  case "keys:generate": {
     console.log(`MASTER_KEYS=${(await Keyring.generate()).spec}`);
-    console.log(`SESSION_SECRETS=${randomBytes(32).toString('base64')}`);
+    console.log(`SESSION_SECRETS=${randomBytes(32).toString("base64")}`);
     break;
   }
-  case 'keys:rewrap': {
+  case "keys:rewrap": {
     // After adding a new master key to MASTER_KEYS (for example 1:old,2:new): wrap everything under it.
     const config = loadConfig(env);
     const keyring = await Keyring.fromSpec(config.masterKeys);
@@ -61,12 +61,12 @@ switch (command) {
     }
     break;
   }
-  case 'migrate:control': {
-    const db = nodeDb(need('CONTROL_OWNER_URL'), { max: 1 });
+  case "migrate:control": {
+    const db = nodeDb(need("CONTROL_OWNER_URL"), { max: 1 });
     try {
-      const role = new URL(need('CONTROL_DATABASE_URL')).username;
+      const role = new URL(need("CONTROL_DATABASE_URL")).username;
       const r = await db.withClient((c) =>
-        migrate(c, CONTROL_MIGRATIONS, { settings: { 'alimentation.app_role': role } }),
+        migrate(c, CONTROL_MIGRATIONS, { settings: { "alimentation.app_role": role } }),
       );
       console.log(JSON.stringify(r));
     } finally {
@@ -74,13 +74,13 @@ switch (command) {
     }
     break;
   }
-  case 'migrate:all': {
+  case "migrate:all": {
     const config = loadConfig(env);
     const keyring = await Keyring.fromSpec(config.masterKeys);
     const control = new ControlRepo(nodeDb(config.controlDatabaseUrl, { max: 2 }));
     let failed = 0;
     for (const w of await control.allWorkspaces()) {
-      if (w.state === 'WIPING') continue;
+      if (w.state === "WIPING") continue;
       const dsns = await readDsns(keyring, w.id, w.dsnEnc);
       const db = nodeDb(dsns.owner, { max: 1 });
       try {
@@ -90,7 +90,7 @@ switch (command) {
           )
         )[0]!.value;
         const r = await db.withClient((c) =>
-          migrate(c, WORKSPACE_MIGRATIONS, { settings: { 'alimentation.app_role': role } }),
+          migrate(c, WORKSPACE_MIGRATIONS, { settings: { "alimentation.app_role": role } }),
         );
         console.log(JSON.stringify({ workspace: w.id, ...r }));
       } catch (e) {
@@ -103,8 +103,8 @@ switch (command) {
     process.exitCode = failed ? 1 : 0;
     break;
   }
-  case 'lockdown': {
-    const placement = new PgDatabasePlacement({ adminUrl: need('PLACEMENT_ADMIN_URL') });
+  case "lockdown": {
+    const placement = new PgDatabasePlacement({ adminUrl: need("PLACEMENT_ADMIN_URL") });
     console.log(
       JSON.stringify({ lockedDown: await placement.lockDownOthers(process.argv.slice(3)) }),
     );
@@ -112,7 +112,7 @@ switch (command) {
   }
   default:
     console.error(
-      'usage: cli.ts keys:generate | keys:rewrap | control:init | migrate:control | migrate:all | lockdown [database ...]',
+      "usage: cli.ts keys:generate | keys:rewrap | control:init | migrate:control | migrate:all | lockdown [database ...]",
     );
     process.exitCode = 2;
 }

@@ -1,10 +1,10 @@
-import * as z from 'zod';
+import * as z from "zod";
 import {
   FREE_LIMITS,
   REFERENCE_CAPACITY,
   type CapacityInputs,
   type Limits,
-} from '@alimentation/core';
+} from "@alimentation/core";
 
 /**
  * Everything a deployment can be told, in one place. Secrets arrive as environment
@@ -30,19 +30,19 @@ const Env = z.object({
    * domain has been verified there. Entra sends no other, so a deployment must choose it on purpose.
    */
   OIDC_EMAIL_VERIFIED_CLAIM: z.preprocess(
-    (v) => (v === '' ? undefined : v),
-    z.enum(['email_verified', 'xms_edov']).default('email_verified'),
+    (v) => (v === "" ? undefined : v),
+    z.enum(["email_verified", "xms_edov"]).default("email_verified"),
   ),
   /** Verified emails that run the platform. Comma separated. */
-  OPERATOR_EMAILS: z.string().default(''),
+  OPERATOR_EMAILS: z.string().default(""),
   /** Development sign-in without an identity provider. Refused in production. */
-  AUTH_DEV: z.enum(['0', '1']).default('0'),
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  AUTH_DEV: z.enum(["0", "1"]).default("0"),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   /** Free-tier numbers, as JSON, to override the defaults when a host changes its terms. */
   FREE_LIMITS_JSON: z.string().optional(),
   CAPACITY_JSON: z.string().optional(),
   /** A dedicated instance has no free-tier caps. */
-  DEDICATED: z.enum(['0', '1']).default('0'),
+  DEDICATED: z.enum(["0", "1"]).default("0"),
   /** Lets another instance push a workspace here. Unset, the endpoint does not exist. */
   MIGRATION_TOKEN: z.string().min(24).optional(),
   /** Requests a day beyond the budget before a workspace is refused, as a multiple. */
@@ -60,7 +60,7 @@ export interface Config {
     issuer: string;
     clientId: string;
     clientSecret: string;
-    emailVerifiedClaim: 'email_verified' | 'xms_edov';
+    emailVerifiedClaim: "email_verified" | "xms_edov";
   } | null;
   operators: Set<string>;
   authDev: boolean;
@@ -74,10 +74,10 @@ export interface Config {
 
 export function loadConfig(env: Record<string, string | undefined>): Config {
   const e = Env.parse(env);
-  const production = e.NODE_ENV === 'production';
-  if (production && e.AUTH_DEV === '1') {
+  const production = e.NODE_ENV === "production";
+  if (production && e.AUTH_DEV === "1") {
     throw new Error(
-      'AUTH_DEV=1 is refused in production: it signs anyone in without an identity provider',
+      "AUTH_DEV=1 is refused in production: it signs anyone in without an identity provider",
     );
   }
   const oidc =
@@ -93,24 +93,24 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   // let a person from any organisation in. An email vouched for by "some" tenant is not one this app can
   // trust, so the claim is only accepted from the address of one tenant.
   if (
-    oidc?.emailVerifiedClaim === 'xms_edov' &&
+    oidc?.emailVerifiedClaim === "xms_edov" &&
     /^\/(common|organizations|consumers)(\/|$)/.test(new URL(oidc.issuer).pathname)
   )
     throw new Error(
-      'OIDC_EMAIL_VERIFIED_CLAIM=xms_edov needs the address of one tenant (https://login.microsoftonline.com/<tenant id>/v2.0), not /common, /organizations or /consumers',
+      "OIDC_EMAIL_VERIFIED_CLAIM=xms_edov needs the address of one tenant (https://login.microsoftonline.com/<tenant id>/v2.0), not /common, /organizations or /consumers",
     );
-  if (!oidc && e.AUTH_DEV !== '1') {
+  if (!oidc && e.AUTH_DEV !== "1") {
     throw new Error(
-      'Configure OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET (or AUTH_DEV=1 for development)',
+      "Configure OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET (or AUTH_DEV=1 for development)",
     );
   }
-  const origin = e.APP_ORIGIN.replace(/\/+$/, '');
-  if (production && !origin.startsWith('https://'))
-    throw new Error('APP_ORIGIN must be https in production');
+  const origin = e.APP_ORIGIN.replace(/\/+$/, "");
+  if (production && !origin.startsWith("https://"))
+    throw new Error("APP_ORIGIN must be https in production");
   return {
     appOrigin: origin,
-    secure: origin.startsWith('https://'),
-    sessionSecrets: e.SESSION_SECRETS.split(',')
+    secure: origin.startsWith("https://"),
+    sessionSecrets: e.SESSION_SECRETS.split(",")
       .map((s) => s.trim())
       .filter(Boolean),
     masterKeys: e.MASTER_KEYS,
@@ -118,11 +118,11 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     placementAdminUrl: e.PLACEMENT_ADMIN_URL ?? null,
     oidc,
     operators: new Set(
-      e.OPERATOR_EMAILS.split(',')
+      e.OPERATOR_EMAILS.split(",")
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean),
     ),
-    authDev: e.AUTH_DEV === '1',
+    authDev: e.AUTH_DEV === "1",
     production,
     freeLimits: e.FREE_LIMITS_JSON
       ? { ...FREE_LIMITS, ...JSON.parse(e.FREE_LIMITS_JSON) }
@@ -131,7 +131,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       ? { ...REFERENCE_CAPACITY, ...JSON.parse(e.CAPACITY_JSON) }
       : REFERENCE_CAPACITY,
     hardCapFactor: e.HARD_CAP_FACTOR,
-    dedicated: e.DEDICATED === '1',
+    dedicated: e.DEDICATED === "1",
     migrationToken: e.MIGRATION_TOKEN ?? null,
   };
 }

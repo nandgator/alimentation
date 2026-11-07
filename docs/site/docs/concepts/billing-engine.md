@@ -1,24 +1,36 @@
 ---
+
 title: The billing engine
-description: The pure function from a kitchen's records to day ledgers and monthly statements, its inputs, its rules of combination and the statuses it produces.
+description:
+The pure function from a kitchen's records to day ledgers and monthly statements, its inputs, its
+rules of combination and the statuses it produces.
 ---
 
 # The billing engine
 
-`packages/core/src/engine.ts` turns a kitchen's records into **day ledgers** and **monthly statements**. It has no input or output of its own: the server, the browser and the move verifier all call it with the same data and get the same answer. Money is an integer number of paise throughout.
+`packages/core/src/engine.ts` turns a kitchen's records into **day ledgers** and **monthly
+statements**. It has no input or output of its own: the server, the browser and the move verifier
+all call it with the same data and get the same answer. Money is an integer number of paise
+throughout.
 
 ## Input
 
 ```ts file=packages/core/src/engine.ts#L28-L39
-
 ```
 
-The kitchen's own date (`today`, in its own time zone, so the engine reads no clock), the rules in force (`policies`, effective-dated), the prices and weekday menu (`rateCards`), the holidays (confirmed or tentative), the people (a role, and for members their billed dates), and what has happened: the exceptions in the `log` (leave, switches, extras, kitchen off), the payment `claims` with one `decision` each (voided by a reversal), the `settlements` (payments, queries, resolutions), and the `closes` that freeze what a person was billed.
-`prepare(data)` indexes it once (holidays by date, log by person and date, the supplier's off days, decisions by claim, closes by person and month) and returns a `Prepared`, which every other call takes.
+The kitchen's own date (`today`, in its own time zone, so the engine reads no clock), the rules in
+force (`policies`, effective-dated), the prices and weekday menu (`rateCards`), the holidays
+(confirmed or tentative), the people (a role, and for members their billed dates), and what has
+happened: the exceptions in the `log` (leave, switches, extras, kitchen off), the payment `claims`
+with one `decision` each (voided by a reversal), the `settlements` (payments, queries, resolutions),
+and the `closes` that freeze what a person was billed. `prepare(data)` indexes it once (holidays by
+date, log by person and date, the supplier's off days, decisions by claim, closes by person and
+month) and returns a `Prepared`, which every other call takes.
 
 ## One day
 
-`ledgerDay(prepared, person, date)` returns a row, or `null` when the date is not a working day under the rules in force that month. Otherwise `status` is the first of:
+`ledgerDay(prepared, person, date)` returns a row, or `null` when the date is not a working day
+under the rules in force that month. Otherwise `status` is the first of:
 
 | Status         | When                                                                                                   |
 | -------------- | ------------------------------------------------------------------------------------------------------ |
@@ -28,11 +40,15 @@ The kitchen's own date (`today`, in its own time zone, so the engine reads no cl
 | `Leave`        | The person has a leave entry. Leave beats everything after it.                                         |
 | `Meal`         | Otherwise.                                                                                             |
 
-On a meal day the meal starts as the rate card's menu entry for that weekday. Several entries on one day combine as: **the latest switch wins; extras add up.** The day's total is the price of the meal plus `quantity × price` for each extra. On a leave day the total is `leave.chargeBps` of the day's meal price (nothing by default); the meal considered is the menu's, after any switch.
+On a meal day the meal starts as the rate card's menu entry for that weekday. Several entries on one
+day combine as: **the latest switch wins; extras add up.** The day's total is the price of the meal
+plus `quantity × price` for each extra. On a leave day the total is `leave.chargeBps` of the day's
+meal price (nothing by default); the meal considered is the menu's, after any switch.
 
 `basis` is `Actual` for a date up to and including `today`, and `Projected` after it.
 
-The rate card in force on a date is the latest whose `effectiveFrom` is not after it. A date with no card throws `EngineError('NO_RATE_CARD')`; a weekday with no menu entry throws `NO_MENU`.
+The rate card in force on a date is the latest whose `effectiveFrom` is not after it. A date with no
+card throws `EngineError('NO_RATE_CARD')`; a weekday with no menu entry throws `NO_MENU`.
 
 ## One month
 
@@ -71,8 +87,15 @@ The first that applies:
 
 ## Closing
 
-`closeSnapshot(prepared, personId, month)` returns the meals and the amount a close would freeze. `dueAutoCloses(prepared)` lists the closes an automatic rule has made due (a month whose last day plus `afterDays` has passed), which the server makes at the amounts the month had, before any later edit.
+`closeSnapshot(prepared, personId, month)` returns the meals and the amount a close would freeze.
+`dueAutoCloses(prepared)` lists the closes an automatic rule has made due (a month whose last day
+plus `afterDays` has passed), which the server makes at the amounts the month had, before any later
+edit.
 
 ## Why in TypeScript and not in SQL views
 
-The original specification suggested SQL views. A TypeScript engine was chosen because per-kitchen rules are far easier to express and test there, because the browser needs the same calculation for the projection and the live hint, and because the move verifier must recompute every statement on the target. The engine's tests include the specification's reference cases to the paisa, property tests, and mutation testing (the score was 99.8 percent at the last run).
+The original specification suggested SQL views. A TypeScript engine was chosen because per-kitchen
+rules are far easier to express and test there, because the browser needs the same calculation for
+the projection and the live hint, and because the move verifier must recompute every statement on
+the target. The engine's tests include the specification's reference cases to the paisa, property
+tests, and mutation testing (the score was 99.8 percent at the last run).

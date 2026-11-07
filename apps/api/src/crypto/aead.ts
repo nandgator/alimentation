@@ -24,20 +24,20 @@ export function randomBytes(n: number): Bytes {
 }
 
 export async function aesKey(raw: Bytes): Promise<CryptoKey> {
-  if (raw.length !== 32) throw new Error('an AES-256 key is 32 bytes');
-  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  if (raw.length !== 32) throw new Error("an AES-256 key is 32 bytes");
+  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
 export async function hmacKey(raw: Bytes): Promise<CryptoKey> {
-  if (raw.length !== 32) throw new Error('an HMAC key is 32 bytes here');
-  return crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  if (raw.length !== 32) throw new Error("an HMAC key is 32 bytes here");
+  return crypto.subtle.importKey("raw", raw, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
 }
 
 export async function seal(key: CryptoKey, plaintext: Bytes, aad: string): Promise<Bytes> {
   const iv = randomBytes(NONCE);
   const ct = new Uint8Array(
     await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv, additionalData: te.encode(aad) },
+      { name: "AES-GCM", iv, additionalData: te.encode(aad) },
       key,
       plaintext,
     ),
@@ -51,8 +51,8 @@ export async function seal(key: CryptoKey, plaintext: Bytes, aad: string): Promi
 
 export class OpenError extends Error {
   constructor() {
-    super('could not open: wrong key, wrong place, or altered');
-    this.name = 'OpenError';
+    super("could not open: wrong key, wrong place, or altered");
+    this.name = "OpenError";
   }
 }
 
@@ -61,7 +61,7 @@ export async function open(key: CryptoKey, blob: Bytes, aad: string): Promise<By
   try {
     return new Uint8Array(
       await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: blob.subarray(1, 1 + NONCE), additionalData: te.encode(aad) },
+        { name: "AES-GCM", iv: blob.subarray(1, 1 + NONCE), additionalData: te.encode(aad) },
         key,
         blob.subarray(1 + NONCE),
       ),
@@ -81,25 +81,25 @@ export const fieldAad = (table: string, column: string, rowId: string): string =
   `${table}.${column}:${rowId}`;
 
 export function toHex(b: Bytes): string {
-  return [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  return [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
 export function fromBase64(s: string): Bytes {
-  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
 
 export function toBase64Url(b: Bytes): string {
   return btoa(String.fromCharCode(...b))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 /** Compares two secrets without stopping at the first difference. */
 export async function sameSecret(a: string, b: string): Promise<boolean> {
   const h = async (x: string) =>
-    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(x)));
+    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(x)));
   const [x, y] = await Promise.all([h(a), h(b)]);
   let diff = 0;
   for (let i = 0; i < x.length; i++) diff |= x[i]! ^ y[i]!;

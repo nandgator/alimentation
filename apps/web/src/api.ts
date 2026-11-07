@@ -26,15 +26,15 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Re
   try {
     res = await fetch(path, {
       method,
-      credentials: 'same-origin',
+      credentials: "same-origin",
       headers: {
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-        ...(actingAs ? { 'x-acting-as': actingAs } : {}),
+        ...(body === undefined ? {} : { "content-type": "application/json" }),
+        ...(actingAs ? { "x-acting-as": actingAs } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new ApiFailure(0, 'offline', 'You appear to be offline.');
+    throw new ApiFailure(0, "offline", "You appear to be offline.");
   }
   const text = await res.text();
   let json: unknown = null;
@@ -48,19 +48,19 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Re
       ?.error;
     throw new ApiFailure(
       res.status,
-      e?.code ?? 'error',
-      e?.message ?? 'Something went wrong. Try again.',
+      e?.code ?? "error",
+      e?.message ?? "Something went wrong. Try again.",
       e?.issues ?? [],
     );
   }
-  return { data: json as T, fromDevice: res.headers.get('x-from-device') === '1' };
+  return { data: json as T, fromDevice: res.headers.get("x-from-device") === "1" };
 }
 
 export const api = {
-  get: <T>(path: string) => call<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => call<T>('POST', path, body ?? {}),
-  patch: <T>(path: string, body: unknown) => call<T>('PATCH', path, body),
-  del: <T>(path: string) => call<T>('DELETE', path),
+  get: <T>(path: string) => call<T>("GET", path),
+  post: <T>(path: string, body?: unknown) => call<T>("POST", path, body ?? {}),
+  patch: <T>(path: string, body: unknown) => call<T>("PATCH", path, body),
+  del: <T>(path: string) => call<T>("DELETE", path),
 };
 
 /** The same, when only the data is wanted. */
@@ -76,9 +76,9 @@ export interface Me {
   workspaces?: {
     slug: string;
     name: string;
-    state: 'ACTIVE' | 'MIGRATING' | 'MOVED' | 'WIPING';
+    state: "ACTIVE" | "MIGRATING" | "MOVED" | "WIPING";
     movedTo: string | null;
-    roles: ('admin' | 'supplier' | 'consumer')[];
+    roles: ("admin" | "supplier" | "consumer")[];
   }[];
   authDev: boolean;
   signInWithProvider: boolean;

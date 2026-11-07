@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { api, getJson, postJson } from '../../api.ts';
+import { useState } from "react";
+import { api, getJson, postJson } from "../../api.ts";
 import {
   Chip,
   CopyButton,
@@ -9,9 +9,9 @@ import {
   toast,
   useAction,
   useLoad,
-} from '../../components/ui.tsx';
-import { date } from '../../format.ts';
-import { useWorkspace } from './context.tsx';
+} from "../../components/ui.tsx";
+import { date } from "../../format.ts";
+import { useWorkspace } from "./context.tsx";
 
 interface Key {
   id: string;
@@ -27,8 +27,8 @@ interface Key {
 }
 
 const SCOPES = [
-  ['log', 'May add and withdraw entries (leaves, extras, days off).'],
-  ['claims', 'May say that a payment was made.'],
+  ["log", "May add and withdraw entries (leaves, extras, days off)."],
+  ["claims", "May say that a payment was made."],
 ] as const;
 
 /**
@@ -39,17 +39,17 @@ export function AgentKeys() {
   const ws = useWorkspace();
   const list = useLoad(() => getJson<{ keys: Key[] }>(`${ws.api}/agents`), [ws.api]);
   const act = useAction();
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [scopes, setScopes] = useState<string[]>([]);
   const [days, setDays] = useState(90);
   const [fresh, setFresh] = useState<{ name: string; token: string } | null>(null);
   const keys = list.data?.keys ?? [];
 
   return (
-    <details className="card">
+    <details class="card">
       <summary>AI agents</summary>
-      <div className="stack">
-        <p className="muted">
+      <div class="stack">
+        <p class="muted">
           A key lets software act for a person here: as them, in the role you are using, and no
           further. It can read; if you allow it, it can add entries or say a payment was made.
           Confirming payments, closing months and everything about people, prices and the kitchen
@@ -58,12 +58,12 @@ export function AgentKeys() {
         </p>
         <Problem error={list.error} />
         {fresh ? (
-          <div className="banner info" role="status">
-            <div className="stack">
+          <div class="banner info" role="status">
+            <div class="stack">
               <p>
                 <strong>{fresh.name}</strong>: copy this key now. It will not be shown again.
               </p>
-              <span className="row" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+              <span class="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
                 <input
                   aria-label="The key"
                   readOnly
@@ -72,11 +72,11 @@ export function AgentKeys() {
                 />
                 <CopyButton text={fresh.token} label="Copy the key" />
               </span>
-              <p className="small muted">
+              <p class="small muted">
                 Its address for software that speaks MCP is <code>{location.origin}/mcp</code>, with
                 the key as a bearer token.
               </p>
-              <button className="btn ghost small" onClick={() => setFresh(null)}>
+              <button class="btn ghost small" onClick={() => setFresh(null)}>
                 I have copied it
               </button>
             </div>
@@ -92,7 +92,7 @@ export function AgentKeys() {
                 days,
               });
               setFresh({ name: made.name, token: made.token });
-              setName('');
+              setName("");
               setScopes([]);
               list.reload();
             })
@@ -111,10 +111,10 @@ export function AgentKeys() {
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <fieldset className="stack" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+          <fieldset class="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
             <legend>What it may do besides reading</legend>
             {SCOPES.map(([key, label]) => (
-              <label key={key} className="row" style={{ ['--gap' as string]: 'var(--space-3)' }}>
+              <label key={key} class="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
                 <input
                   type="checkbox"
                   checked={scopes.includes(key)}
@@ -136,13 +136,13 @@ export function AgentKeys() {
               onChange={(e) => setDays(Number(e.target.value))}
             />
           </Field>
-          <button className="btn" disabled={act.busy}>
+          <button class="btn" disabled={act.busy}>
             Make a key
           </button>
         </Form>
         {keys.length > 0 ? (
           <div
-            className="tablewrap"
+            class="tablewrap"
             tabIndex={0}
             role="region"
             aria-label="Keys; scrolls sideways when it is wider than the screen"
@@ -165,21 +165,21 @@ export function AgentKeys() {
                     <tr key={k.id}>
                       <td>{k.name}</td>
                       <td>
-                        {k.mine ? 'You' : (k.ownerEmail ?? 'Someone')}, as {k.role}
+                        {k.mine ? "You" : (k.ownerEmail ?? "Someone")}, as {k.role}
                       </td>
-                      <td>{k.scopes.join(', ')}</td>
-                      <td>{k.lastUsedAt ? date(k.lastUsedAt.slice(0, 10)) : 'Never'}</td>
+                      <td>{k.scopes.join(", ")}</td>
+                      <td>{k.lastUsedAt ? date(k.lastUsedAt.slice(0, 10)) : "Never"}</td>
                       <td>
                         {ended ? (
-                          <Chip tone="warn">{k.revokedAt ? 'Ended' : 'Expired'}</Chip>
+                          <Chip tone="warn">{k.revokedAt ? "Ended" : "Expired"}</Chip>
                         ) : (
                           date(k.expiresAt.slice(0, 10))
                         )}
                       </td>
-                      <td className="r">
+                      <td class="r">
                         {ended ? null : (
                           <button
-                            className="btn ghost small"
+                            class="btn ghost small"
                             disabled={act.busy}
                             onClick={() =>
                               void act.run(async () => {

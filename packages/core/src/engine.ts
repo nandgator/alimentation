@@ -8,9 +8,9 @@ import {
   weekdayOf,
   type IsoDate,
   type Month,
-} from './dates.ts';
-import { fractionOf, type Paise } from './money.ts';
-import { autoCloseDate, policyForMonth, type Policy, type PolicyVersion } from './policy.ts';
+} from "./dates.ts";
+import { fractionOf, type Paise } from "./money.ts";
+import { autoCloseDate, policyForMonth, type Policy, type PolicyVersion } from "./policy.ts";
 import {
   EngineError,
   type Claim,
@@ -22,7 +22,7 @@ import {
   type Person,
   type RateCard,
   type Settlement,
-} from './types.ts';
+} from "./types.ts";
 
 /** Everything the engine needs. It performs no I/O and reads no clock: `today` is an input. */
 export interface EngineData {
@@ -38,8 +38,8 @@ export interface EngineData {
   closes: readonly MonthClose[];
 }
 
-export type DayStatus = 'Meal' | 'Leave' | 'Holiday' | 'Supplier Off' | 'Inactive';
-export type Basis = 'Actual' | 'Projected';
+export type DayStatus = "Meal" | "Leave" | "Holiday" | "Supplier Off" | "Inactive";
+export type Basis = "Actual" | "Projected";
 
 export interface LedgerDay {
   date: IsoDate;
@@ -58,24 +58,24 @@ export interface LedgerDay {
 }
 
 export type StatusCode =
-  | 'NONE'
-  | 'CHANGED_AFTER_CLOSE'
-  | 'QUERY_OPEN'
-  | 'SETTLED'
-  | 'AWAITING_CONFIRMATION'
-  | 'PART_PAID'
-  | 'DUE'
-  | 'PROJECTED';
+  | "NONE"
+  | "CHANGED_AFTER_CLOSE"
+  | "QUERY_OPEN"
+  | "SETTLED"
+  | "AWAITING_CONFIRMATION"
+  | "PART_PAID"
+  | "DUE"
+  | "PROJECTED";
 
 export const STATUS_LABEL: Record<StatusCode, string> = {
-  NONE: '—',
-  CHANGED_AFTER_CLOSE: '⚠ Changed after close',
-  QUERY_OPEN: 'Query open',
-  SETTLED: 'Settled',
-  AWAITING_CONFIRMATION: 'Awaiting confirmation',
-  PART_PAID: 'Part paid',
-  DUE: 'Due',
-  PROJECTED: 'Projected',
+  NONE: "—",
+  CHANGED_AFTER_CLOSE: "⚠ Changed after close",
+  QUERY_OPEN: "Query open",
+  SETTLED: "Settled",
+  AWAITING_CONFIRMATION: "Awaiting confirmation",
+  PART_PAID: "Part paid",
+  DUE: "Due",
+  PROJECTED: "Projected",
 };
 
 export interface Statement {
@@ -140,7 +140,7 @@ export function prepare(data: EngineData): Prepared {
   const supplierOff = new Set<IsoDate>();
   const logByPersonDate = new Map<string, LogEntry[]>();
   for (const e of [...data.log].sort(byLogOrder)) {
-    if (e.change === 'Supplier Off') {
+    if (e.change === "Supplier Off") {
       if (e.allConsumers) supplierOff.add(e.date);
     } else {
       push(logByPersonDate, `${e.personId}|${e.date}`, e);
@@ -176,7 +176,7 @@ export function cardOn(p: Prepared, date: IsoDate): RateCard | null {
 
 function requireCard(p: Prepared, date: IsoDate): RateCard {
   const c = cardOn(p, date);
-  if (!c) throw new EngineError('NO_RATE_CARD', `no rate card is in force on ${date}`, date);
+  if (!c) throw new EngineError("NO_RATE_CARD", `no rate card is in force on ${date}`, date);
   return c;
 }
 
@@ -189,7 +189,7 @@ export function isActiveOn(person: Person, date: IsoDate): boolean {
 function countingHoliday(p: Prepared, policy: Policy, date: IsoDate): Holiday | null {
   const list = p.holidaysByDate.get(date);
   if (!list) return null;
-  for (const h of list) if (policy.holidays.count === 'all' || h.confirmed) return h;
+  for (const h of list) if (policy.holidays.count === "all" || h.confirmed) return h;
   return null;
 }
 
@@ -206,7 +206,7 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
   const row: LedgerDay = {
     date,
     personId: person.id,
-    status: 'Inactive',
+    status: "Inactive",
     meal: null,
     extraChapati: 0,
     extraBhakri: 0,
@@ -214,52 +214,52 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
     breadAmount: 0,
     leaveAmount: 0,
     dayTotal: 0,
-    basis: date <= p.data.today ? 'Actual' : 'Projected',
+    basis: date <= p.data.today ? "Actual" : "Projected",
     holidayName: null,
   };
 
   if (!isActiveOn(person, date)) return row;
 
   const holiday = countingHoliday(p, policy, date);
-  if (holiday) return { ...row, status: 'Holiday', holidayName: holiday.name };
+  if (holiday) return { ...row, status: "Holiday", holidayName: holiday.name };
 
-  if (p.supplierOff.has(date)) return { ...row, status: 'Supplier Off' };
+  if (p.supplierOff.has(date)) return { ...row, status: "Supplier Off" };
 
   // Stryker disable next-line ArrayDeclaration: an empty fallback is never read as data
   const entries = p.logByPersonDate.get(`${person.id}|${date}`) ?? [];
 
   const priceOf = (card: RateCard, meal: MealType): Paise =>
-    meal === 'Veg' ? card.veg : card.nonVeg;
+    meal === "Veg" ? card.veg : card.nonVeg;
 
   const menuMeal = (card: RateCard): MealType => {
     const m = card.menu[wd];
     if (!m)
       throw new EngineError(
-        'NO_MENU',
+        "NO_MENU",
         `the rate card from ${card.effectiveFrom} serves nothing on this weekday`,
         date,
       );
     return m;
   };
 
-  if (entries.some((e) => e.change === 'Leave')) {
+  if (entries.some((e) => e.change === "Leave")) {
     let leaveAmount = 0;
     if (policy.leave.chargeBps > 0) {
       const card = requireCard(p, date);
       let meal = menuMeal(card);
       for (const e of entries) {
         switch (e.change) {
-          case 'Switch to Veg':
-            meal = 'Veg';
+          case "Switch to Veg":
+            meal = "Veg";
             break;
-          case 'Switch to Non Veg':
-            meal = 'Non Veg';
+          case "Switch to Non Veg":
+            meal = "Non Veg";
             break;
         }
       }
       leaveAmount = fractionOf(priceOf(card, meal), policy.leave.chargeBps);
     }
-    return { ...row, status: 'Leave', leaveAmount, dayTotal: leaveAmount };
+    return { ...row, status: "Leave", leaveAmount, dayTotal: leaveAmount };
   }
 
   const card = requireCard(p, date);
@@ -268,16 +268,16 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
   let bhakri = 0;
   for (const e of entries) {
     switch (e.change) {
-      case 'Switch to Veg':
-        meal = 'Veg';
+      case "Switch to Veg":
+        meal = "Veg";
         break;
-      case 'Switch to Non Veg':
-        meal = 'Non Veg';
+      case "Switch to Non Veg":
+        meal = "Non Veg";
         break;
-      case 'Extra Chapati':
+      case "Extra Chapati":
         chapati += e.qty ?? 0;
         break;
-      case 'Extra Bhakri':
+      case "Extra Bhakri":
         bhakri += e.qty ?? 0;
         break;
     }
@@ -286,7 +286,7 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
   const breadAmount = chapati * card.extraChapati + bhakri * card.extraBhakri;
   return {
     ...row,
-    status: 'Meal',
+    status: "Meal",
     meal,
     extraChapati: chapati,
     extraBhakri: bhakri,
@@ -307,7 +307,7 @@ export function ledgerMonth(p: Prepared, person: Person, month: Month): LedgerDa
 }
 
 export function consumers(p: Prepared): Person[] {
-  return p.data.people.filter((x) => x.role === 'consumer');
+  return p.data.people.filter((x) => x.role === "consumer");
 }
 
 /** Months to offer in a picker: from the earliest consumer start to the current month. */
@@ -332,20 +332,20 @@ function statusOf(s: {
 }): StatusCode {
   // A closed month that has since changed is flagged even when it was billed at
   // zero; the spec's literal order would show a dash and hide the difference.
-  if (s.closed && s.changedAfterClose !== 0) return 'CHANGED_AFTER_CLOSE';
-  if (s.billed === 0) return 'NONE';
-  if (s.openQueries > 0) return 'QUERY_OPEN';
-  if (s.paid >= s.billed) return 'SETTLED';
-  if (s.claimedPending > 0) return 'AWAITING_CONFIRMATION';
-  if (s.paid > 0) return 'PART_PAID';
-  return s.basis === 'Actual' ? 'DUE' : 'PROJECTED';
+  if (s.closed && s.changedAfterClose !== 0) return "CHANGED_AFTER_CLOSE";
+  if (s.billed === 0) return "NONE";
+  if (s.openQueries > 0) return "QUERY_OPEN";
+  if (s.paid >= s.billed) return "SETTLED";
+  if (s.claimedPending > 0) return "AWAITING_CONFIRMATION";
+  if (s.paid > 0) return "PART_PAID";
+  return s.basis === "Actual" ? "DUE" : "PROJECTED";
 }
 
 function monthStatement(
   p: Prepared,
   person: Person,
   month: Month,
-): Omit<Statement, 'earlierUnpaid'> {
+): Omit<Statement, "earlierUnpaid"> {
   const policy = policyForMonth(p.data.policies, month);
   const days = ledgerMonth(p, person, month);
 
@@ -357,22 +357,22 @@ function monthStatement(
   let actualDays: Paise = 0;
   let firstMeal: IsoDate | null = null;
   for (const d of days) {
-    if (d.status === 'Leave') {
+    if (d.status === "Leave") {
       counts.leave++;
       leaveAmount += d.leaveAmount;
     }
-    if (d.status === 'Meal') {
+    if (d.status === "Meal") {
       counts.meals++;
-      if (d.meal === 'Veg') counts.veg++;
+      if (d.meal === "Veg") counts.veg++;
       else counts.nonVeg++;
       counts.extraChapati += d.extraChapati;
       counts.extraBhakri += d.extraBhakri;
       mealsAmount += d.mealPrice;
       breadAmount += d.breadAmount;
       firstMeal ??= d.date;
-      if (d.basis === 'Actual') actualMeals++;
+      if (d.basis === "Actual") actualMeals++;
     }
-    if (d.basis === 'Actual') actualDays += d.dayTotal;
+    if (d.basis === "Actual") actualDays += d.dayTotal;
   }
 
   // The flat monthly fee comes from the card in force on the first of the month,
@@ -390,7 +390,7 @@ function monthStatement(
   const actualToDate = actualDays + actualExtras;
 
   const close =
-    policy.monthClose.mode === 'off' ? undefined : p.closeByKey.get(`${person.id}|${month}`);
+    policy.monthClose.mode === "off" ? undefined : p.closeByKey.get(`${person.id}|${month}`);
   const closed = close !== undefined;
   const billed = close ? close.billed : liveTotal;
   const changedAfterClose = close ? liveTotal - close.billed : 0;
@@ -403,20 +403,20 @@ function monthStatement(
     const d = p.decisionByClaim.get(c.id);
     if (!d) claimedPending += c.amount;
     else if (d.voided) continue;
-    else if (d.decision === 'Confirmed') paid += c.amount;
+    else if (d.decision === "Confirmed") paid += c.amount;
     else disputed++;
   }
   let queries = 0;
   let resolved = 0;
   for (const s of p.data.settlements) {
     if (s.consumerId !== person.id || s.forMonth !== month) continue;
-    if (s.type === 'Payment') paid += s.amount ?? 0;
-    else if (s.type === 'Query') queries++;
+    if (s.type === "Payment") paid += s.amount ?? 0;
+    else if (s.type === "Query") queries++;
     else resolved++;
   }
   const openQueries = Math.max(0, queries + disputed - resolved);
 
-  const basis: Basis = p.data.today > monthEnd(month) ? 'Actual' : 'Projected';
+  const basis: Basis = p.data.today > monthEnd(month) ? "Actual" : "Projected";
   const balance = billed - paid;
   const status = statusOf({
     billed,
@@ -468,7 +468,7 @@ export function buildStatements(
   const out: Statement[] = [];
   for (const id of consumerIds) {
     const person = p.data.people.find((x) => x.id === id);
-    if (!person) throw new EngineError('BAD_INPUT', `unknown person ${id}`);
+    if (!person) throw new EngineError("BAD_INPUT", `unknown person ${id}`);
     const firstOwn = person.activeFrom ? monthOf(person.activeFrom) : firstWanted;
     // Stryker disable next-line EqualityOperator: equal months give the same start either way
     const start = firstOwn < firstWanted ? firstOwn : firstWanted;
@@ -526,7 +526,7 @@ export function closeSnapshot(
   month: Month,
 ): { meals: number; billed: Paise } {
   const person = p.data.people.find((x) => x.id === consumerId);
-  if (!person) throw new EngineError('BAD_INPUT', `unknown person ${consumerId}`);
+  if (!person) throw new EngineError("BAD_INPUT", `unknown person ${consumerId}`);
   const s = monthStatement(p, person, month);
   return { meals: s.counts.meals, billed: s.liveTotal };
 }

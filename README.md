@@ -1,9 +1,9 @@
 # Alimentation
 
-Mess and tiffin accounts for small kitchens that feed a few people every weekday.
-Who ate, what each meal cost, who paid, what is still owed. One private workspace
-per kitchen. Small workspaces live free on shared infrastructure; one that grows
-moves to its own with a single action; one that leaves is erased down to its keys.
+Mess and tiffin accounts for small kitchens that feed a few people every weekday. Who ate, what each
+meal cost, who paid, what is still owed. One private workspace per kitchen. Small workspaces live
+free on shared infrastructure; one that grows moves to its own with a single action; one that leaves
+is erased down to its keys.
 
 First workspaces: the Willow mess and Maple's home kitchen.
 
@@ -21,7 +21,7 @@ First workspaces: the Willow mess and Maple's home kitchen.
 
 ## Layout
 
-```
+```text
 packages/core   billing engine, per-workspace rules, bundle format, crypto helpers (pure TypeScript)
 apps/api        Hono API; runs on Cloudflare Workers or Node; Postgres migrations
 apps/web        the installable web app and the home page
@@ -40,9 +40,11 @@ NODE_ENV=development AUTH_DEV=1 DB_PASSWORD=change-me docker compose up -d --bui
 NODE_ENV=development AUTH_DEV=1 DB_PASSWORD=change-me docker compose -f compose.yaml -f compose.proxy.yaml up -d --build   # the same, with the API reference at /reference/
 ```
 
-Compose builds the app image only when there is none, so after pulling new code run it with `--build` again (quick when nothing changed).
-The same files work with Podman (`podman compose`); every image name is fully qualified, so no registry setup is needed.
-Podman builds in its own image format and ignores the image's health check, which is harmless here: Compose runs its own for the database.
+Compose builds the app image only when there is none, so after pulling new code run it with
+`--build` again (quick when nothing changed). The same files work with Podman (`podman compose`);
+every image name is fully qualified, so no registry setup is needed. Podman builds in its own image
+format and ignores the image's health check, which is harmless here: Compose runs its own for the
+database.
 
 Without Docker:
 
@@ -52,5 +54,6 @@ export ALIMENTATION_TEST_PG=postgres://you@127.0.0.1:5432/postgres   # a role th
 npm test
 ```
 
-Deployment, operation and key rotation are in [docs/RUNBOOK.md](docs/RUNBOOK.md). A running instance serves its own
-documentation: `/guides` for the people who use a kitchen and `/docs` for whoever runs one, including the design system.
+Deployment, operation and key rotation are in [docs/RUNBOOK.md](docs/RUNBOOK.md). A running instance
+serves its own documentation: `/guides` for the people who use a kitchen and `/docs` for whoever
+runs one, including the design system.

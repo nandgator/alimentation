@@ -1,4 +1,4 @@
-import { useId, type CSSProperties } from 'react';
+import { useId, type CSSProperties } from "react";
 
 /*
  * Steam over a lid. A wisp is one long S-curve, anchored behind the lid, along which a stretch of line travels up
@@ -108,7 +108,7 @@ const between = (a: Point, b: Point): Point => [(a[0] + b[0]) / 2, (a[1] + b[1])
  * The line of one wisp, from the vent (0, 0) straight up its length: a sine that meanders more the higher it goes.
  * It is smoothed through the middle of each pair of its points, so it has no corners.
  */
-export function wispPath(w: Pick<Wisp, 'h' | 'bend' | 'lean' | 'phase'>): string {
+export function wispPath(w: Pick<Wisp, "h" | "bend" | "lean" | "phase">): string {
   const N = 12;
   const pts: Point[] = [];
   for (let i = 0; i <= N; i++) {
@@ -133,10 +133,10 @@ function room(v: Vent) {
  * itself, so the lid is in front of where each wisp starts.
  */
 export function Steam({ vent }: { vent: Vent }) {
-  const id = `steam-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const id = `steam-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const area = room(vent);
   return (
-    <g className="steam">
+    <g class="steam">
       <defs>
         <linearGradient
           id={`${id}-ramp`}
@@ -151,7 +151,7 @@ export function Steam({ vent }: { vent: Vent }) {
           <stop offset="0.6" stopOpacity="0.95" />
           <stop offset="1" stopOpacity="1" />
         </linearGradient>
-        <mask id={id} className="air" maskUnits="userSpaceOnUse" {...area}>
+        <mask id={id} class="air" maskUnits="userSpaceOnUse" {...area}>
           <rect {...area} fill={`url(#${id}-ramp)`} />
         </mask>
       </defs>
@@ -160,18 +160,18 @@ export function Steam({ vent }: { vent: Vent }) {
           // Four units into the lid, so a wisp's foot is behind it.
           <g key={i} transform={`translate(${w.x} ${vent.lid + 4})`}>
             <g
-              className="wisp"
+              class="wisp"
               style={
                 {
-                  '--sway': w.sway,
-                  '--swing': `${w.swing}s`,
-                  '--life': `${vent.life}s`,
-                  '--at': `${-w.start * vent.life}s`,
-                  '--dash': w.dash,
+                  "--sway": w.sway,
+                  "--swing": `${w.swing}s`,
+                  "--life": `${vent.life}s`,
+                  "--at": `${-w.start * vent.life}s`,
+                  "--dash": w.dash,
                   // Wholly before the line, with a little over for the round end.
-                  '--before': w.dash + 0.1,
-                  '--thick': w.thick,
-                  '--peak': w.peak,
+                  "--before": w.dash + 0.1,
+                  "--thick": w.thick,
+                  "--peak": w.peak,
                 } as CSSProperties
               }
             >

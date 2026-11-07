@@ -16,13 +16,13 @@ export const CSP = [
   "base-uri 'none'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-].join('; ');
+].join("; ");
 
 export const SECURITY_HEADERS: Record<string, string> = {
-  'content-security-policy': CSP,
-  'x-content-type-options': 'nosniff',
-  'x-frame-options': 'DENY',
-  'referrer-policy': 'same-origin',
-  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  'cross-origin-opener-policy': 'same-origin',
+  "content-security-policy": CSP,
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "same-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "cross-origin-opener-policy": "same-origin",
 };

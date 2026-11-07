@@ -1,7 +1,7 @@
-import type { Limits } from '@alimentation/core';
-import type { ControlRepo, WorkspaceRow } from './control/repo.ts';
-import type { Bytes } from './crypto/aead.ts';
-import { FieldCipher } from './crypto/fields.ts';
+import type { Limits } from "@alimentation/core";
+import type { ControlRepo, WorkspaceRow } from "./control/repo.ts";
+import type { Bytes } from "./crypto/aead.ts";
+import { FieldCipher } from "./crypto/fields.ts";
 import {
   dsnAad,
   KeysDestroyedError,
@@ -9,11 +9,11 @@ import {
   pseudonym,
   type Keyring,
   type WorkspaceKeys,
-} from './crypto/keys.ts';
-import type { Db } from './db/driver.ts';
-import { migrate, type Migration } from './db/migrate.ts';
-import { WORKSPACE_MIGRATIONS } from './db/migrations.generated.ts';
-import { WorkspaceService, type WorkspaceInfo } from './workspace/service.ts';
+} from "./crypto/keys.ts";
+import type { Db } from "./db/driver.ts";
+import { migrate, type Migration } from "./db/migrate.ts";
+import { WORKSPACE_MIGRATIONS } from "./db/migrations.generated.ts";
+import { WorkspaceService, type WorkspaceInfo } from "./workspace/service.ts";
 
 export interface Dsns {
   app: string;
@@ -98,7 +98,7 @@ export class Directory {
   private async ensureSchema(dsns: Dsns, appDb: Db): Promise<void> {
     const wanted = (this.d.migrations ?? WORKSPACE_MIGRATIONS).length;
     const have = await appDb.tx(async (tx) =>
-      Number((await tx.query<{ v: number }>('SELECT schema_version() AS v'))[0]!.v),
+      Number((await tx.query<{ v: number }>("SELECT schema_version() AS v"))[0]!.v),
     );
     if (have >= wanted || !this.d.openOwnerDb) return;
     const owner = this.d.openOwnerDb(dsns.owner);
@@ -110,7 +110,7 @@ export class Directory {
       )[0]!.value;
       await owner.withClient((client) =>
         migrate(client, this.d.migrations ?? WORKSPACE_MIGRATIONS, {
-          settings: { 'alimentation.app_role': role },
+          settings: { "alimentation.app_role": role },
         }),
       );
     } finally {
@@ -127,15 +127,15 @@ export class Directory {
       if (!(e instanceof KeysDestroyedError)) throw e;
     }
     const appDb = this.d.openDb(dsns.app);
-    if (row.state === 'ACTIVE') await this.ensureSchema(dsns, appDb);
+    if (row.state === "ACTIVE") await this.ensureSchema(dsns, appDb);
     const cipher = keys ? new FieldCipher(keys) : null;
     const info: WorkspaceInfo = {
       id: row.id,
       slug: row.slug,
       name: row.displayName,
       timeZone: row.timeZone,
-      currency: 'INR',
-      state: row.state === 'WIPING' ? 'MOVED' : row.state,
+      currency: "INR",
+      state: row.state === "WIPING" ? "MOVED" : row.state,
       movedTo: row.movedToUrl,
       limits: row.limits as Limits,
       overSince: row.overSince,
@@ -147,7 +147,7 @@ export class Directory {
       info,
       keys,
       cipher,
-      logName: keys ? await pseudonym(keys, row.id) : 'wiped',
+      logName: keys ? await pseudonym(keys, row.id) : "wiped",
       dsns,
       appDb,
       get service(): WorkspaceService {

@@ -1,5 +1,5 @@
-import * as z from 'zod';
-import { addDays, monthEnd, monthOf, monthStart, type IsoDate, type Month } from './dates.ts';
+import * as z from "zod";
+import { addDays, monthEnd, monthOf, monthStart, type IsoDate, type Month } from "./dates.ts";
 
 /**
  * The rules a workspace has chosen. A policy is a document, versioned and
@@ -9,7 +9,7 @@ import { addDays, monthEnd, monthOf, monthStart, type IsoDate, type Month } from
  * silently dropped.
  */
 
-const AfterClose = z.enum(['flag', 'block']);
+const AfterClose = z.enum(["flag", "block"]);
 
 export const PolicySchema = z
   .object({
@@ -18,8 +18,8 @@ export const PolicySchema = z
     workingDays: z
       .array(z.number().int().min(0).max(6))
       .min(1)
-      .refine((a) => new Set(a).size === a.length, 'workingDays must be distinct'),
-    holidays: z.object({ count: z.enum(['confirmed', 'all']) }).strict(),
+      .refine((a) => new Set(a).size === a.length, "workingDays must be distinct"),
+    holidays: z.object({ count: z.enum(["confirmed", "all"]) }).strict(),
     /** Null means no flat monthly extras. The amount comes from the rate card. */
     extras: z
       .object({ minMeals: z.number().int().min(1).max(31) })
@@ -27,12 +27,12 @@ export const PolicySchema = z
       .nullable(),
     /** Share of the day's meal price charged on a leave day, in basis points. */
     leave: z.object({ chargeBps: z.number().int().min(0).max(10000) }).strict(),
-    monthClose: z.discriminatedUnion('mode', [
-      z.object({ mode: z.literal('off') }).strict(),
-      z.object({ mode: z.literal('manual'), afterClose: AfterClose }).strict(),
+    monthClose: z.discriminatedUnion("mode", [
+      z.object({ mode: z.literal("off") }).strict(),
+      z.object({ mode: z.literal("manual"), afterClose: AfterClose }).strict(),
       z
         .object({
-          mode: z.literal('auto'),
+          mode: z.literal("auto"),
           /** The month closes this many days after its last day. */
           afterDays: z.number().int().min(0).max(60),
           afterClose: AfterClose,
@@ -47,8 +47,8 @@ export const PolicySchema = z
       })
       .strict()
       .nullable(),
-    payments: z.enum(['claim_confirm', 'direct']),
-    rateCards: z.object({ backdating: z.enum(['none', 'current_month', 'unrestricted']) }).strict(),
+    payments: z.enum(["claim_confirm", "direct"]),
+    rateCards: z.object({ backdating: z.enum(["none", "current_month", "unrestricted"]) }).strict(),
   })
   .strict();
 
@@ -57,13 +57,13 @@ export type Policy = z.infer<typeof PolicySchema>;
 export const DEFAULT_POLICY: Policy = {
   version: 1,
   workingDays: [1, 2, 3, 4, 5],
-  holidays: { count: 'confirmed' },
+  holidays: { count: "confirmed" },
   extras: { minMeals: 1 },
   leave: { chargeBps: 0 },
-  monthClose: { mode: 'manual', afterClose: 'flag' },
+  monthClose: { mode: "manual", afterClose: "flag" },
   exceptionCutoff: null,
-  payments: 'claim_confirm',
-  rateCards: { backdating: 'current_month' },
+  payments: "claim_confirm",
+  rateCards: { backdating: "current_month" },
 };
 
 export interface PolicyVersion {
@@ -92,7 +92,7 @@ export function policyForMonth(versions: readonly PolicyVersion[], month: Month)
  * the rule is not automatic.
  */
 export function autoCloseDate(policy: Policy, month: Month): IsoDate | null {
-  if (policy.monthClose.mode !== 'auto') return null;
+  if (policy.monthClose.mode !== "auto") return null;
   return addDays(monthEnd(month), policy.monthClose.afterDays);
 }
 
@@ -109,14 +109,14 @@ export function rateCardStartAllowed(
   lastClosedMonth: Month | null,
 ): boolean {
   switch (policy.rateCards.backdating) {
-    case 'unrestricted':
+    case "unrestricted":
       return true;
-    case 'current_month':
+    case "current_month":
       return (
         monthOf(effectiveFrom) >= monthOf(today) &&
         (!lastClosedMonth || monthOf(effectiveFrom) > lastClosedMonth)
       );
-    case 'none':
+    case "none":
       return effectiveFrom >= today;
   }
 }

@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import type { BootstrapDto, IsoDate, RateCard } from '@alimentation/core';
-import { api, getJson, postJson } from '../api.ts';
-import { Chip, Field, Form, Problem, toast, useAction } from '../components/ui.tsx';
+import { useState } from "react";
+import type { BootstrapDto, IsoDate, RateCard } from "@alimentation/core";
+import { api, getJson, postJson } from "../api.ts";
+import { Chip, Field, Form, Problem, toast, useAction } from "../components/ui.tsx";
 import {
   applyPlan,
   planCopy,
@@ -9,7 +9,7 @@ import {
   type Plan,
   type Snapshot,
   type What,
-} from '../copySetup.ts';
+} from "../copySetup.ts";
 
 interface Kitchen {
   slug: string;
@@ -36,32 +36,32 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
 
 function Summary({ plan }: { plan: Plan }) {
   const kinds = {
-    rules: plan.steps.filter((s) => s.kind === 'rules').length,
-    prices: plan.steps.filter((s) => s.kind === 'prices').length,
-    holiday: plan.steps.filter((s) => s.kind === 'holiday').length,
+    rules: plan.steps.filter((s) => s.kind === "rules").length,
+    prices: plan.steps.filter((s) => s.kind === "prices").length,
+    holiday: plan.steps.filter((s) => s.kind === "holiday").length,
   };
   const parts = [
-    kinds.prices ? count(kinds.prices, 'price list') : '',
-    kinds.rules ? count(kinds.rules, 'set of rules', 'sets of rules') : '',
-    kinds.holiday ? count(kinds.holiday, 'holiday') : '',
+    kinds.prices ? count(kinds.prices, "price list") : "",
+    kinds.rules ? count(kinds.rules, "set of rules", "sets of rules") : "",
+    kinds.holiday ? count(kinds.holiday, "holiday") : "",
   ].filter(Boolean);
   return (
-    <div className="stack" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+    <div class="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
       <p>
-        {plan.steps.length === 0 ? 'Nothing to add.' : `Will add ${parts.join(', ')}.`}{' '}
-        {plan.already > 0 ? <span className="muted">{plan.already} already the same.</span> : null}
+        {plan.steps.length === 0 ? "Nothing to add." : `Will add ${parts.join(", ")}.`}{" "}
+        {plan.already > 0 ? <span class="muted">{plan.already} already the same.</span> : null}
       </p>
       {plan.steps.length > 0 ? (
-        <ul className="plain-list small muted">
+        <ul class="plain-list small muted">
           {plan.steps.map((s) => (
             <li key={`${s.kind}-${s.label}`}>{s.label}</li>
           ))}
         </ul>
       ) : null}
       {plan.left.length > 0 ? (
-        <div className="banner warn">
+        <div class="banner warn">
           <p>Left as they are, because that kitchen has something different there:</p>
-          <ul className="plain-list small">
+          <ul class="plain-list small">
             {plan.left.map((l) => (
               <li key={l.label}>
                 {l.label}: {l.why}
@@ -71,7 +71,7 @@ function Summary({ plan }: { plan: Plan }) {
         </div>
       ) : null}
       {plan.notes.map((n) => (
-        <p key={n} className="muted small">
+        <p key={n} class="muted small">
           {n}
         </p>
       ))}
@@ -104,9 +104,9 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
   };
 
   return (
-    <section className="card stack" aria-labelledby="copy-h">
+    <section class="card stack" aria-labelledby="copy-h">
       <h2 id="copy-h">Copy a setup to other kitchens</h2>
-      <p className="muted">
+      <p class="muted">
         Take prices, rules and holidays from one kitchen you run and add them to others you run. You
         see what would be added first. Nothing already there is changed.
       </p>
@@ -139,10 +139,10 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
             ))}
           </select>
         </Field>
-        <fieldset className="stack" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+        <fieldset class="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
           <legend>Copy to</legend>
           {others.map((k) => (
-            <label key={k.slug} className="row" style={{ ['--gap' as string]: 'var(--space-3)' }}>
+            <label key={k.slug} class="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
               <input
                 type="checkbox"
                 checked={to.has(k.slug)}
@@ -158,16 +158,16 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
             </label>
           ))}
         </fieldset>
-        <fieldset className="stack" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+        <fieldset class="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
           <legend>What to copy</legend>
           {(
             [
-              ['prices', 'Prices (the rate cards)'],
-              ['rules', 'Rules (working days, leave and the rest)'],
-              ['holidays', 'Holidays from this month on'],
+              ["prices", "Prices (the rate cards)"],
+              ["rules", "Rules (working days, leave and the rest)"],
+              ["holidays", "Holidays from this month on"],
             ] as const
           ).map(([key, label]) => (
-            <label key={key} className="row" style={{ ['--gap' as string]: 'var(--space-3)' }}>
+            <label key={key} class="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
               <input
                 type="checkbox"
                 checked={what[key]}
@@ -180,22 +180,22 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
             </label>
           ))}
         </fieldset>
-        <button className="btn" disabled={check.busy || chosen.length === 0 || nothingChosen}>
-          {check.busy ? 'Looking…' : 'See what would be added'}
+        <button class="btn" disabled={check.busy || chosen.length === 0 || nothingChosen}>
+          {check.busy ? "Looking…" : "See what would be added"}
         </button>
       </Form>
 
       {plans ? (
-        <div className="stack" aria-live="polite">
+        <div class="stack" aria-live="polite">
           {chosen.map((k) => (
-            <div key={k.slug} className="stack" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+            <div key={k.slug} class="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
               <h3>{k.name}</h3>
               {plans[k.slug] ? <Summary plan={plans[k.slug]!} /> : null}
             </div>
           ))}
           <Problem error={copy.error} />
           <button
-            className="btn"
+            class="btn"
             disabled={copy.busy || !anyToAdd}
             onClick={() =>
               void copy.run(async () => {
@@ -215,27 +215,27 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
                 const refused = Object.values(results).reduce((a, r) => a + r.refused.length, 0);
                 toast(
                   refused ? `Added ${added}; ${refused} refused.` : `Added ${added}.`,
-                  refused ? 'bad' : 'good',
+                  refused ? "bad" : "good",
                 );
               })
             }
           >
-            {copy.busy ? 'Copying…' : `Copy to ${count(chosen.length, 'kitchen')}`}
+            {copy.busy ? "Copying…" : `Copy to ${count(chosen.length, "kitchen")}`}
           </button>
         </div>
       ) : null}
 
       {done ? (
-        <div className="stack" aria-live="polite">
+        <div class="stack" aria-live="polite">
           {Object.entries(done).map(([slug, r]) => (
-            <div key={slug} className="stack" style={{ ['--gap' as string]: 'var(--space-2)' }}>
+            <div key={slug} class="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
               <h3>{nameOf(slug)}</h3>
               <p>
                 <Chip tone="good">Added {r.added}</Chip>
                 {r.refused.length > 0 ? <Chip tone="bad">{r.refused.length} refused</Chip> : null}
               </p>
               {r.refused.length > 0 ? (
-                <ul className="plain-list small">
+                <ul class="plain-list small">
                   {r.refused.map((x) => (
                     <li key={x.label}>
                       {x.label}: {x.message}

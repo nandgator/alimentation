@@ -1,4 +1,4 @@
-import { aesKey, fromBase64, hmacKey, open, randomBytes, seal, toHex, type Bytes } from './aead.ts';
+import { aesKey, fromBase64, hmacKey, open, randomBytes, seal, toHex, type Bytes } from "./aead.ts";
 
 /**
  * Keys, in three layers.
@@ -24,16 +24,16 @@ export class Keyring {
   static async fromSpec(spec: string): Promise<Keyring> {
     const keys = new Map<number, CryptoKey>();
     for (const part of spec
-      .split(',')
+      .split(",")
       .map((x) => x.trim())
       .filter(Boolean)) {
-      const [id, b64] = part.split(':');
+      const [id, b64] = part.split(":");
       const n = Number(id);
       if (!Number.isInteger(n) || n < 1 || n > 255 || !b64)
-        throw new Error('MASTER_KEYS must look like 1:base64,2:base64');
+        throw new Error("MASTER_KEYS must look like 1:base64,2:base64");
       keys.set(n, await aesKey(fromBase64(b64)));
     }
-    if (keys.size === 0) throw new Error('MASTER_KEYS is empty');
+    if (keys.size === 0) throw new Error("MASTER_KEYS is empty");
     return new Keyring(keys, Math.max(...keys.keys()));
   }
 
@@ -71,7 +71,7 @@ export class Keyring {
 
   async unwrap(blob: Bytes, aad: string): Promise<Bytes> {
     const key = this.keys.get(blob[1] ?? 0);
-    if (!key) throw new Error('the master key that wrapped this is no longer configured');
+    if (!key) throw new Error("the master key that wrapped this is no longer configured");
     const sealed = new Uint8Array(new ArrayBuffer(blob.length - 1));
     sealed[0] = blob[0]!;
     sealed.set(blob.subarray(2), 1);
@@ -118,14 +118,14 @@ export async function loadWorkspaceKeys(
 export class KeysDestroyedError extends Error {
   constructor() {
     super("this workspace's keys have been destroyed");
-    this.name = 'KeysDestroyedError';
+    this.name = "KeysDestroyedError";
   }
 }
 
 /** What logs call a workspace: 16 hex characters that cannot be reversed or recomputed without the log key. */
 export async function pseudonym(keys: WorkspaceKeys, workspaceId: string): Promise<string> {
   const mac = new Uint8Array(
-    await crypto.subtle.sign('HMAC', keys.log, new TextEncoder().encode(workspaceId)),
+    await crypto.subtle.sign("HMAC", keys.log, new TextEncoder().encode(workspaceId)),
   );
   return toHex(mac.subarray(0, 8));
 }

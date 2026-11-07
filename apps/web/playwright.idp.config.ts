@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Signing in through a real identity provider, run on this machine by `dev/idp/idp.sh up <provider>`:
@@ -10,23 +10,23 @@ import { defineConfig, devices } from '@playwright/test';
 const launchOptions = { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined };
 
 export default defineConfig({
-  testDir: './e2e-idp',
+  testDir: "./e2e-idp",
   timeout: 120_000,
   expect: { timeout: 15_000 },
   workers: 1,
-  reporter: [['list']],
-  outputDir: 'test-results',
+  reporter: [["list"]],
+  outputDir: "test-results",
   use: {
-    baseURL: process.env.APP_URL ?? 'http://localhost:8787',
+    baseURL: process.env.APP_URL ?? "http://localhost:8787",
     ignoreHTTPSErrors: true,
-    trace: 'retain-on-failure',
+    trace: "retain-on-failure",
     launchOptions,
-    reducedMotion: 'reduce',
+    reducedMotion: "reduce",
   },
   projects: [
     {
-      name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, launchOptions },
+      name: "desktop",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 }, launchOptions },
     },
   ],
 });

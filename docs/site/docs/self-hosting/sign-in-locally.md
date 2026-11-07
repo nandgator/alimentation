@@ -1,20 +1,27 @@
 ---
+
 title: Try sign-in on your machine
-description: Run the app against a real identity provider on your own computer, which providers can be used, and what the app needs of one.
+description:
+Run the app against a real identity provider on your own computer, which providers can be used,
+and what the app needs of one.
 ---
 
 # Try sign-in on your machine
 
-Production sign-in goes through an OpenID Connect provider. To try that without a domain or an account anywhere, `dev/idp/idp.sh` starts a provider beside the app on your computer, makes two people in it, and prints how to sign in.
+Production sign-in goes through an OpenID Connect provider. To try that without a domain or an
+account anywhere, `dev/idp/idp.sh` starts a provider beside the app on your computer, makes two
+people in it, and prints how to sign in.
 
 ```console
-$ dev/idp/idp.sh up authelia      # the first time builds the app, which takes a few minutes
-$ dev/idp/idp.sh test authelia    # signs in through it in a real browser, as a person would
-$ dev/idp/idp.sh down authelia    # stops it; the people and keys are kept
-$ dev/idp/idp.sh reset authelia   # stops it and forgets everything it made
+dev/idp/idp.sh up authelia      # the first time builds the app, which takes a few minutes
+dev/idp/idp.sh test authelia    # signs in through it in a real browser, as a person would
+dev/idp/idp.sh down authelia    # stops it; the people and keys are kept
+dev/idp/idp.sh reset authelia   # stops it and forgets everything it made
 ```
 
-It needs Docker with Compose, `openssl` and `curl`. Nothing is installed on your computer beyond the containers and a git-ignored folder, `dev/idp/.state`, where it keeps a certificate authority of its own, every secret it made, and the test people's passwords.
+It needs Docker with Compose, `openssl` and `curl`. Nothing is installed on your computer beyond the
+containers and a git-ignored folder, `dev/idp/.state`, where it keeps a certificate authority of its
+own, every secret it made, and the test people's passwords.
 
 ## What it starts
 
@@ -30,16 +37,26 @@ flowchart LR
   Authelia -->|code, then identity| App
 ```
 
-Two things are worth knowing about how they are joined, because both come from how a provider names itself.
+Two things are worth knowing about how they are joined, because both come from how a provider names
+itself.
 
-- **The app and the browser use one address for the provider.** An identity token names the address of the provider that made it, and the app checks that name. So the app reaches Authelia under the same name and port the browser does, `https://authelia.localhost:9091`: a `*.localhost` name is your own machine to a browser, and inside Compose it is a network alias of Authelia's container.
-- **Authelia insists on https.** It refuses to start with an `http` address of its own. So it is served over a certificate from the local authority, which the app is told to trust with `NODE_EXTRA_CA_CERTS`, and a browser is not, so it warns once. The test ignores that, for this one machine.
+- **The app and the browser use one address for the provider.** An identity token names the address
+  of the provider that made it, and the app checks that name. So the app reaches Authelia under the
+  same name and port the browser does, `https://authelia.localhost:9091`: a `*.localhost` name is
+  your own machine to a browser, and inside Compose it is a network alias of Authelia's container.
+- **Authelia insists on https.** It refuses to start with an `http` address of its own. So it is
+  served over a certificate from the local authority, which the app is told to trust with
+  `NODE_EXTRA_CA_CERTS`, and a browser is not, so it warns once. The test ignores that, for this one
+  machine.
 
-If you run the app on the host instead of in Compose (`npm run dev:api`), a `*.localhost` name does not resolve outside a browser on most systems, so add `127.0.0.1 authelia.localhost` to your hosts file, and start the app with `NODE_EXTRA_CA_CERTS=dev/idp/.state/ca.pem`.
+If you run the app on the host instead of in Compose (`npm run dev:api`), a `*.localhost` name does
+not resolve outside a browser on most systems, so add `127.0.0.1 authelia.localhost` to your hosts
+file, and start the app with `NODE_EXTRA_CA_CERTS=dev/idp/.state/ca.pem`.
 
 ## Which providers can be used
 
-Not everything with "auth" in its name is a provider. A provider is something an app can send a person to and get back who they are, over OpenID Connect.
+Not everything with "auth" in its name is a provider. A provider is something an app can send a
+person to and get back who they are, over OpenID Connect.
 
 | Product       | Can it be one?                                                                  | Here                                                                                                              |
 | ------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -53,18 +70,30 @@ Not everything with "auth" in its name is a provider. A provider is something an
 | PocketBase    | **No**: it signs people in with other providers.                                | Nothing to do.                                                                                                    |
 | Convex        | **No**: it checks tokens that others issue.                                     | Nothing to do.                                                                                                    |
 
-"Not run here" means exactly that: the app is written to the standard and the settings below come from each product's own documentation, but nobody has watched a person sign in through them. Treat them as a starting point. The three that need a consent page you host are possible, but they are not a quick local trial.
+"Not run here" means exactly that: the app is written to the standard and the settings below come
+from each product's own documentation, but nobody has watched a person sign in through them. Treat
+them as a starting point. The three that need a consent page you host are possible, but they are not
+a quick local trial.
 
 ## What the app asks of a provider
 
 Any provider that does all of this works, with no code written for it.
 
-1. **Authorisation code with PKCE** (`S256`), and a **client secret**. The secret is sent in the body of the token request, or in a Basic header if the provider says that is the only way it takes it. A provider that lists both is sent it in the body, which is what it always was.
+1. **Authorisation code with PKCE** (`S256`), and a **client secret**. The secret is sent in the
+   body of the token request, or in a Basic header if the provider says that is the only way it
+   takes it. A provider that lists both is sent it in the body, which is what it always was.
 2. The scopes `openid email profile`, and the redirect address `$APP_ORIGIN/auth/callback`, exactly.
-3. An **email address that the provider says is verified** (`email_verified` true), in the identity token or, failing that, from the userinfo endpoint. Some providers keep the email out of the identity token unless told otherwise (Authelia and Zitadel do); the userinfo endpoint answers for them, and must be answering about the same person. An unverified email is always refused: the email is how a person is found by an invitation.
-4. A signed identity token with the provider's issuer address, the app's client id as audience, and the nonce the app sent.
+3. An **email address that the provider says is verified** (`email_verified` true), in the identity
+   token or, failing that, from the userinfo endpoint. Some providers keep the email out of the
+   identity token unless told otherwise (Authelia and Zitadel do); the userinfo endpoint answers for
+   them, and must be answering about the same person. An unverified email is always refused: the
+   email is how a person is found by an invitation.
+4. A signed identity token with the provider's issuer address, the app's client id as audience, and
+   the nonce the app sent.
 
-An account is an email. If the same verified email arrives from another provider (you pointed the instance at a new one), it is the same account, and keeps its kitchens. A person whose email at the provider has become someone else's here is refused with a clear message.
+An account is an email. If the same verified email arrives from another provider (you pointed the
+instance at a new one), it is the same account, and keeps its kitchens. A person whose email at the
+provider has become someone else's here is refused with a clear message.
 
 ## Providers it has met
 
@@ -75,24 +104,49 @@ An account is an email. If the same verified email arrives from another provider
 | Apple     | **Refused.** Apple writes `email_verified` as the string `"true"`, which is not accepted. It would also need the `profile` scope left out, a client secret that is a signed token, and its form-post callback.                                                        |
 | Meta      | **Not possible.** Its OpenID document has no token endpoint: it offers the implicit flow only. The app now says so, plainly, where it used to fail on an address that was not there.                                                                                  |
 
-These were checked against each provider's own published document, with the requests the app sends before and after the changes that made the provider kits possible: Google's were identical in every case.
+These were checked against each provider's own published document, with the requests the app sends
+before and after the changes that made the provider kits possible: Google's were identical in every
+case.
 
 ## If you want to use another provider
 
-Make a confidential client of type "web", with the redirect address above, the three scopes, PKCE `S256`, and token authentication by `client_secret_post` (or `client_secret_basic` if that is all it offers). Then set the three `OIDC_` settings and add your own address to `OPERATOR_EMAILS`.
+Make a confidential client of type "web", with the redirect address above, the three scopes, PKCE
+`S256`, and token authentication by `client_secret_post` (or `client_secret_basic` if that is all it
+offers). Then set the three `OIDC_` settings and add your own address to `OPERATOR_EMAILS`.
 
 - **Microsoft**: see [below](#microsoft).
-- **authentik**: an OAuth2/OpenID provider with a confidential client, a signing key, and the issuer `https://<host>/application/o/<slug>/`.
-- **Zitadel**: a project with a Web application using the code flow and PKCE, and the user's email marked verified. Zitadel has a setting to put user information in the identity token; if it is off the app asks the userinfo endpoint instead, so either should work, but that has not been run.
+- **authentik**: an OAuth2/OpenID provider with a confidential client, a signing key, and the issuer
+  `https://<host>/application/o/<slug>/`.
+- **Zitadel**: a project with a Web application using the code flow and PKCE, and the user's email
+  marked verified. Zitadel has a setting to put user information in the identity token; if it is off
+  the app asks the userinfo endpoint instead, so either should work, but that has not been run.
 
 ## Microsoft
 
-Microsoft Entra signs people in over OpenID Connect, but its identity tokens never carry `email_verified`, so by default the app refuses them. Entra has its own claim for the same question, `xms_edov` ("email domain owner verified"). By Microsoft's reference it is true when the address belongs to the tenant the person's account lives in and that tenant's admin has verified the domain, and it is sent only beside `email`. You can tell the app to trust it, for one tenant.
+Microsoft Entra signs people in over OpenID Connect, but its identity tokens never carry
+`email_verified`, so by default the app refuses them. Entra has its own claim for the same question,
+`xms_edov` ("email domain owner verified"). By Microsoft's reference it is true when the address
+belongs to the tenant the person's account lives in and that tenant's admin has verified the domain,
+and it is sent only beside `email`. You can tell the app to trust it, for one tenant.
 
-1. In the Entra admin center, register an application for **this organisation directory only**, with the web redirect address `$APP_ORIGIN/auth/callback`, and make a client secret.
-2. Under **Token configuration**, add the optional claims `email` and `xms_edov` to the **ID** token.
-3. Set the three `OIDC_` settings, with the issuer `https://login.microsoftonline.com/<tenant id>/v2.0`, and add `OIDC_EMAIL_VERIFIED_CLAIM=xms_edov`.
+1. In the Entra admin center, register an application for **this organisation directory only**, with
+   the web redirect address `$APP_ORIGIN/auth/callback`, and make a client secret.
+2. Under **Token configuration**, add the optional claims `email` and `xms_edov` to the **ID**
+   token.
+3. Set the three `OIDC_` settings, with the issuer
+   `https://login.microsoftonline.com/<tenant id>/v2.0`, and add
+   `OIDC_EMAIL_VERIFIED_CLAIM=xms_edov`.
 
-The app then reads `xms_edov` in place of `email_verified`, and only when it is the JSON value `true`. A token that lacks the email, or says anything else, is refused with the same message as before. The shared addresses (`/common`, `/organizations`, `/consumers`) are refused when the app starts, because each names an issuer that stands for any tenant, and an address vouched for by some tenant is not one this app can rely on.
+The app then reads `xms_edov` in place of `email_verified`, and only when it is the JSON value
+`true`. A token that lacks the email, or says anything else, is refused with the same message as
+before. The shared addresses (`/common`, `/organizations`, `/consumers`) are refused when the app
+starts, because each names an issuer that stands for any tenant, and an address vouched for by some
+tenant is not one this app can rely on.
 
-Two things to know. An account here is an email, and Microsoft warns against using `email` to decide access, because it can change; so this trusts your tenant's administrators to keep addresses in step with people, which is the same trust you already give them. And this has been tried only against Microsoft's published discovery document and a stand-in provider that sends what Microsoft's reference says it sends, not against a real tenant. Registering an application in an Entra tenant is free; Apple's equivalent needs the paid Apple Developer Program, which is why Apple is not supported yet.
+Two things to know. An account here is an email, and Microsoft warns against using `email` to decide
+access, because it can change; so this trusts your tenant's administrators to keep addresses in step
+with people, which is the same trust you already give them. And this has been tried only against
+Microsoft's published discovery document and a stand-in provider that sends what Microsoft's
+reference says it sends, not against a real tenant. Registering an application in an Entra tenant is
+free; Apple's equivalent needs the paid Apple Developer Program, which is why Apple is not supported
+yet.

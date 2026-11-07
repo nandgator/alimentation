@@ -1,5 +1,5 @@
-import fc from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import fc from "fast-check";
+import { describe, expect, it } from "vitest";
 import {
   buildStatements,
   daysBetween,
@@ -13,18 +13,18 @@ import {
   type LogChange,
   type LogEntry,
   type Settlement,
-} from '../src/index.ts';
-import { CARD_APR, CARD_NOV, JOVIAL, close, policyWith, prep } from './fixtures.ts';
+} from "../src/index.ts";
+import { CARD_APR, CARD_NOV, JOVIAL, close, policyWith, prep } from "./fixtures.ts";
 
-const OCT = daysBetween(monthStart('2026-10'), monthEnd('2026-10')).filter(
+const OCT = daysBetween(monthStart("2026-10"), monthEnd("2026-10")).filter(
   (d) => weekdayOf(d) >= 1 && weekdayOf(d) <= 5,
 );
 const CHANGES: LogChange[] = [
-  'Leave',
-  'Switch to Veg',
-  'Switch to Non Veg',
-  'Extra Chapati',
-  'Extra Bhakri',
+  "Leave",
+  "Switch to Veg",
+  "Switch to Non Veg",
+  "Extra Chapati",
+  "Extra Bhakri",
 ];
 
 const logArb = fc
@@ -41,38 +41,38 @@ const logArb = fc
     rows.map((r, i) => ({
       id: `p${i}`,
       date: r.day,
-      personId: 'jovial',
+      personId: "jovial",
       allConsumers: false,
       change: r.change,
-      qty: r.change.startsWith('Extra') ? r.qty : null,
+      qty: r.change.startsWith("Extra") ? r.qty : null,
       note: null,
-      loggedBy: 'jovial',
-      loggedAt: `2026-09-30T10:${String(r.minute).padStart(2, '0')}:00Z`,
+      loggedBy: "jovial",
+      loggedAt: `2026-09-30T10:${String(r.minute).padStart(2, "0")}:00Z`,
     })),
   );
 
 const stmt = (over: Parameters<typeof prep>[0]) =>
-  buildStatements(prep(over), ['jovial'], ['2026-10'])[0]!;
+  buildStatements(prep(over), ["jovial"], ["2026-10"])[0]!;
 const RUNS = { numRuns: 300 };
 
-describe('statement invariants over arbitrary logs', () => {
-  it('the daily ledger adds up to the statement', () => {
+describe("statement invariants over arbitrary logs", () => {
+  it("the daily ledger adds up to the statement", () => {
     fc.assert(
       fc.property(logArb, (log) => {
         const p = prep({ log });
-        const days = ledgerMonth(p, JOVIAL, '2026-10');
-        const s = buildStatements(p, ['jovial'], ['2026-10'])[0]!;
+        const days = ledgerMonth(p, JOVIAL, "2026-10");
+        const s = buildStatements(p, ["jovial"], ["2026-10"])[0]!;
         const daily = days.reduce((a, d) => a + d.dayTotal, 0);
         expect(daily + s.extrasAmount).toBe(s.liveTotal);
         expect(s.mealsAmount + s.breadAmount + s.leaveAmount).toBe(daily);
-        expect(s.counts.meals).toBe(days.filter((d) => d.status === 'Meal').length);
+        expect(s.counts.meals).toBe(days.filter((d) => d.status === "Meal").length);
         expect(s.counts.veg + s.counts.nonVeg).toBe(s.counts.meals);
       }),
       RUNS,
     );
   });
 
-  it('the order the log arrives in never changes the answer', () => {
+  it("the order the log arrives in never changes the answer", () => {
     fc.assert(
       fc.property(logArb, fc.nat(), (log, seed) => {
         const shuffled = [...log]
@@ -84,20 +84,20 @@ describe('statement invariants over arbitrary logs', () => {
     );
   });
 
-  it('adding a leave never raises the bill', () => {
+  it("adding a leave never raises the bill", () => {
     fc.assert(
       fc.property(logArb, fc.constantFrom(...OCT), (log, day) => {
         const before = stmt({ log }).liveTotal;
         const leave: LogEntry = {
-          id: 'extra-leave',
+          id: "extra-leave",
           date: day,
-          personId: 'jovial',
+          personId: "jovial",
           allConsumers: false,
-          change: 'Leave',
+          change: "Leave",
           qty: null,
           note: null,
-          loggedBy: 'jovial',
-          loggedAt: '2026-10-01T00:00:00Z',
+          loggedBy: "jovial",
+          loggedAt: "2026-10-01T00:00:00Z",
         };
         expect(stmt({ log: [...log, leave] }).liveTotal).toBeLessThanOrEqual(before);
       }),
@@ -110,15 +110,15 @@ describe('statement invariants over arbitrary logs', () => {
       fc.property(logArb, fc.constantFrom(...OCT), (log, day) => {
         const before = stmt({ log }).liveTotal;
         const off: LogEntry = {
-          id: 'off',
+          id: "off",
           date: day,
           personId: null,
           allConsumers: true,
-          change: 'Supplier Off',
+          change: "Supplier Off",
           qty: null,
           note: null,
-          loggedBy: 'maple',
-          loggedAt: '2026-10-01T00:00:00Z',
+          loggedBy: "maple",
+          loggedAt: "2026-10-01T00:00:00Z",
         };
         expect(stmt({ log: [...log, off] }).liveTotal).toBeLessThanOrEqual(before);
       }),
@@ -126,40 +126,40 @@ describe('statement invariants over arbitrary logs', () => {
     );
   });
 
-  it('what has happened never exceeds what the month will total, and converges once the month ends', () => {
+  it("what has happened never exceeds what the month will total, and converges once the month ends", () => {
     fc.assert(
       fc.property(logArb, (log) => {
         let last = 0;
         for (const today of [
-          '2026-09-30',
-          '2026-10-01',
-          '2026-10-10',
-          '2026-10-20',
-          '2026-10-31',
-          '2026-11-05',
+          "2026-09-30",
+          "2026-10-01",
+          "2026-10-10",
+          "2026-10-20",
+          "2026-10-31",
+          "2026-11-05",
         ]) {
           const s = stmt({ log, today });
-          expect(s.liveTotal).toBe(stmt({ log, today: '2026-10-01' }).liveTotal); // today never changes the total
+          expect(s.liveTotal).toBe(stmt({ log, today: "2026-10-01" }).liveTotal); // today never changes the total
           expect(s.actualToDate).toBeGreaterThanOrEqual(last);
           expect(s.actualToDate).toBeLessThanOrEqual(s.liveTotal);
           last = s.actualToDate;
         }
-        expect(last).toBe(stmt({ log, today: '2026-11-05' }).liveTotal);
+        expect(last).toBe(stmt({ log, today: "2026-11-05" }).liveTotal);
       }),
       RUNS,
     );
   });
 
-  it('a rate card that starts in a later month never changes an earlier one', () => {
+  it("a rate card that starts in a later month never changes an earlier one", () => {
     fc.assert(
       fc.property(
         logArb,
         fc.integer({ min: 1, max: 100_000 }),
-        fc.constantFrom('2026-11-01', '2026-11-15', '2027-03-01'),
+        fc.constantFrom("2026-11-01", "2026-11-15", "2027-03-01"),
         (log, price, from) => {
           const later = {
             ...CARD_NOV,
-            id: 'later',
+            id: "later",
             effectiveFrom: from,
             veg: price,
             nonVeg: price + 1,
@@ -173,7 +173,7 @@ describe('statement invariants over arbitrary logs', () => {
     );
   });
 
-  it('a closed month keeps its bill whatever happens to the log afterwards', () => {
+  it("a closed month keeps its bill whatever happens to the log afterwards", () => {
     fc.assert(
       fc.property(logArb, logArb, (before, after) => {
         const frozen = stmt({ log: before });
@@ -190,15 +190,15 @@ describe('statement invariants over arbitrary logs', () => {
   });
 });
 
-const decisionArb = fc.constantFrom<'none' | 'Confirmed' | 'Disputed' | 'voided'>(
-  'none',
-  'Confirmed',
-  'Disputed',
-  'voided',
+const decisionArb = fc.constantFrom<"none" | "Confirmed" | "Disputed" | "voided">(
+  "none",
+  "Confirmed",
+  "Disputed",
+  "voided",
 );
 
-describe('money invariants over arbitrary claims and settlements', () => {
-  it('paid is exactly the confirmed claims plus the admin payments; balance is billed minus paid', () => {
+describe("money invariants over arbitrary claims and settlements", () => {
+  it("paid is exactly the confirmed claims plus the admin payments; balance is billed minus paid", () => {
     fc.assert(
       fc.property(
         fc.array(
@@ -209,48 +209,48 @@ describe('money invariants over arbitrary claims and settlements', () => {
         (rows, payments) => {
           const claims: Claim[] = rows.map((r, i) => ({
             id: `c${i}`,
-            consumerId: 'jovial',
-            paidAt: '2026-10-25',
-            forMonth: '2026-10',
+            consumerId: "jovial",
+            paidAt: "2026-10-25",
+            forMonth: "2026-10",
             amount: r.amount,
-            method: 'UPI',
+            method: "UPI",
             refNote: null,
-            createdAt: '2026-10-25T08:00:00Z',
+            createdAt: "2026-10-25T08:00:00Z",
           }));
           const decisions: Decision[] = rows.flatMap((r, i) =>
-            r.verdict === 'none'
+            r.verdict === "none"
               ? []
               : [
                   {
                     claimId: `c${i}`,
                     decision:
-                      r.verdict === 'Disputed' ? ('Disputed' as const) : ('Confirmed' as const),
-                    note: r.verdict === 'Disputed' ? 'why' : null,
-                    decidedBy: 'maple',
-                    decidedAt: '2026-10-26T08:00:00Z',
-                    voided: r.verdict === 'voided',
+                      r.verdict === "Disputed" ? ("Disputed" as const) : ("Confirmed" as const),
+                    note: r.verdict === "Disputed" ? "why" : null,
+                    decidedBy: "maple",
+                    decidedAt: "2026-10-26T08:00:00Z",
+                    voided: r.verdict === "voided",
                   },
                 ],
           );
           const settlements: Settlement[] = payments.map((a, i) => ({
             id: `s${i}`,
-            date: '2026-11-01',
-            consumerId: 'jovial',
-            forMonth: '2026-10',
-            type: 'Payment',
+            date: "2026-11-01",
+            consumerId: "jovial",
+            forMonth: "2026-10",
+            type: "Payment",
             amount: a,
             note: null,
-            recordedBy: 'admin',
-            createdAt: '2026-11-01T08:00:00Z',
+            recordedBy: "admin",
+            createdAt: "2026-11-01T08:00:00Z",
           }));
-          const s = stmt({ claims, decisions, settlements, today: '2026-11-15' });
+          const s = stmt({ claims, decisions, settlements, today: "2026-11-15" });
           const confirmed = rows
-            .filter((r) => r.verdict === 'Confirmed')
+            .filter((r) => r.verdict === "Confirmed")
             .reduce((a, r) => a + r.amount, 0);
           const pending = rows
-            .filter((r) => r.verdict === 'none')
+            .filter((r) => r.verdict === "none")
             .reduce((a, r) => a + r.amount, 0);
-          const disputed = rows.filter((r) => r.verdict === 'Disputed').length;
+          const disputed = rows.filter((r) => r.verdict === "Disputed").length;
           expect(s.paid).toBe(confirmed + payments.reduce((a, b) => a + b, 0));
           expect(s.claimedPending).toBe(pending);
           expect(s.openQueries).toBe(disputed);
@@ -261,33 +261,33 @@ describe('money invariants over arbitrary claims and settlements', () => {
     );
   });
 
-  it('earlier unpaid is the sum of every earlier balance, however many months are asked for', () => {
+  it("earlier unpaid is the sum of every earlier balance, however many months are asked for", () => {
     fc.assert(
       fc.property(
         fc.array(fc.integer({ min: 0, max: 400_000 }), { minLength: 3, maxLength: 3 }),
-        fc.constantFrom(['2026-12'], ['2026-11', '2026-12'], ['2026-10', '2026-12']),
+        fc.constantFrom(["2026-12"], ["2026-11", "2026-12"], ["2026-10", "2026-12"]),
         (pays, asked) => {
-          const months = ['2026-10', '2026-11', '2026-12'];
+          const months = ["2026-10", "2026-11", "2026-12"];
           const settlements: Settlement[] = pays.map((a, i) => ({
             id: `s${i}`,
-            date: '2026-12-31',
-            consumerId: 'jovial',
+            date: "2026-12-31",
+            consumerId: "jovial",
             forMonth: months[i]!,
-            type: 'Payment',
+            type: "Payment",
             amount: a,
             note: null,
-            recordedBy: 'admin',
-            createdAt: '2026-12-31T08:00:00Z',
+            recordedBy: "admin",
+            createdAt: "2026-12-31T08:00:00Z",
           }));
           const p = prep({
             settlements,
             rateCards: [CARD_APR, CARD_NOV],
-            today: '2027-01-05',
+            today: "2027-01-05",
             log: [],
             policies: [policyWith({})],
           });
-          const all = buildStatements(p, ['jovial'], months);
-          const some = buildStatements(p, ['jovial'], asked);
+          const all = buildStatements(p, ["jovial"], months);
+          const some = buildStatements(p, ["jovial"], asked);
           for (const s of some) {
             const idx = months.indexOf(s.month);
             expect(s.earlierUnpaid).toBe(all.slice(0, idx).reduce((a, x) => a + x.balance, 0));
@@ -299,7 +299,7 @@ describe('money invariants over arbitrary claims and settlements', () => {
   });
 });
 
-describe('sanity of the generator itself', () => {
+describe("sanity of the generator itself", () => {
   it("covers October's 22 weekdays", () => {
     expect(OCT).toHaveLength(22);
     expect(rupees(1)).toBe(100);

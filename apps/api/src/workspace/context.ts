@@ -1,5 +1,5 @@
-import type { AgentVia, Role } from '@alimentation/core';
-import type { Db, Tx } from '../db/driver.ts';
+import type { AgentVia, Role } from "@alimentation/core";
+import type { Db, Tx } from "../db/driver.ts";
 
 export interface Actor {
   personId: string;
@@ -21,7 +21,7 @@ export async function asActor<T>(
     if (actor) {
       await tx.query(
         `SELECT set_config('app.role', $1, true), set_config('app.person_id', $2, true), set_config('app.via', $3, true)`,
-        [actor.role, actor.personId, actor.via ? JSON.stringify(actor.via) : ''],
+        [actor.role, actor.personId, actor.via ? JSON.stringify(actor.via) : ""],
       );
     }
     return fn(tx);
@@ -32,7 +32,7 @@ export async function asActor<T>(
 export async function resolveActors(db: Db, accountId: string): Promise<Actor[]> {
   return db.tx(async (tx) => {
     const rows = await tx.query<{ person_id: string; role: Role }>(
-      'SELECT person_id, role FROM resolve_actor($1)',
+      "SELECT person_id, role FROM resolve_actor($1)",
       [accountId],
     );
     return rows.map((r) => ({ personId: r.person_id, role: r.role }));

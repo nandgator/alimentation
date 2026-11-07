@@ -1,6 +1,6 @@
-import { MARK_BOX } from '../components/Mark.tsx';
-import { CARRIER_BOX, HERO } from './art.tsx';
-import { smoothDamp } from './motion.tsx';
+import { MARK_BOX } from "../components/Mark.tsx";
+import { CARRIER_BOX, HERO } from "./art.tsx";
+import { smoothDamp } from "./motion.tsx";
 
 /**
  * One carrier goes through the whole page. It is lifted off the first screen's shelf and carried to the first

@@ -1,5 +1,5 @@
-import { LOG_CHANGES, PAY_METHODS, SETTLEMENT_TYPES, type Role } from '@alimentation/core';
-import * as z from 'zod';
+import { LOG_CHANGES, PAY_METHODS, SETTLEMENT_TYPES, type Role } from "@alimentation/core";
+import * as z from "zod";
 
 /**
  * What the server accepts, in one place. The routes parse with these, and the API reference
@@ -7,7 +7,7 @@ import * as z from 'zod';
  * server takes.
  */
 
-export const ROLE_ORDER: Role[] = ['admin', 'supplier', 'consumer'];
+export const ROLE_ORDER: Role[] = ["admin", "supplier", "consumer"];
 
 /** The most a request body may be before it is refused, in bytes. */
 export const MAX_JSON_BYTES = 256_000;
@@ -29,7 +29,7 @@ export const DevLogin = z.object({
 export const CreateWorkspace = z.object({
   slug: z.string().min(3).max(40),
   name: z.string().min(1).max(120),
-  timeZone: z.string().default('Asia/Kolkata'),
+  timeZone: z.string().default("Asia/Kolkata"),
   alsoSupplier: z.boolean().default(true),
 });
 
@@ -56,7 +56,7 @@ export const UpdatePerson = z.object({
   contact: z.string().max(200).nullish(),
   activeFrom: IsoDate.nullish(),
   activeTo: IsoDate.nullish(),
-  status: z.enum(['ACTIVE', 'DISABLED']).optional(),
+  status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 });
 
 export const InvitePerson = z.object({ email: z.string().email() });
@@ -68,7 +68,7 @@ export const CreateRateCard = z.object({
   extraChapati: Money,
   extraBhakri: Money,
   extrasPerMonth: Money,
-  menu: z.record(z.string().regex(/^[0-6]$/), z.enum(['Veg', 'Non Veg'])),
+  menu: z.record(z.string().regex(/^[0-6]$/), z.enum(["Veg", "Non Veg"])),
   note: z.string().max(500).nullish(),
 });
 
@@ -138,10 +138,10 @@ export const CloseMonth = z.object({ month: Month, consumerId: z.string().uuid()
 
 // --- leaving ---------------------------------------------------------------------------------------
 
-export const MoveTarget = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('database'), url: z.string().min(10).max(2000) }),
+export const MoveTarget = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("database"), url: z.string().min(10).max(2000) }),
   z.object({
-    kind: z.literal('instance'),
+    kind: z.literal("instance"),
     url: z.string().min(10).max(500),
     token: z.string().min(24).max(500),
   }),
@@ -172,7 +172,7 @@ export const JoinOrganisation = z.object({
 export const CreateAgentKey = z.object({
   name: z.string().trim().min(1).max(80),
   scopes: z
-    .array(z.enum(['log', 'claims']))
+    .array(z.enum(["log", "claims"]))
     .max(2)
     .default([]),
   days: z.number().int().min(1).max(365).default(90),

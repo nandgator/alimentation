@@ -6,9 +6,9 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from 'react';
-import { api, getJson, type Me } from './api.ts';
-import { forgetThisDevice } from './pwa.ts';
+} from "react";
+import { api, getJson, type Me } from "./api.ts";
+import { forgetThisDevice } from "./pwa.ts";
 
 interface Session {
   /** `undefined` while the first answer is awaited, `null` when the server cannot be reached. */
@@ -29,7 +29,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const next = await getJson<Me>('/api/me');
+      const next = await getJson<Me>("/api/me");
       setMe((prev) => {
         // A different person on the same device must not meet the last one's saved statements.
         if (prev?.account && next.account && prev.account.id !== next.account.id)
@@ -49,10 +49,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
-      await api.post('/auth/logout');
+      await api.post("/auth/logout");
     } finally {
       await forgetThisDevice();
-      setMe(await getJson<Me>('/api/me').catch(() => null));
+      setMe(await getJson<Me>("/api/me").catch(() => null));
     }
   }, []);
 

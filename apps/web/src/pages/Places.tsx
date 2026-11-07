@@ -1,19 +1,19 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
-import type { BootstrapDto } from '@alimentation/core';
-import { Link, useLocation } from 'wouter';
-import { api, getJson, postJson, type Capacity } from '../api.ts';
-import { AppBar, Page, RequireSignIn } from '../components/Chrome.tsx';
-import { Chip, Field, Form, Tile, useAction } from '../components/ui.tsx';
-import { money } from '../format.ts';
-import { figuresOf, isRunning, totalsOf, type KitchenFigures } from '../kitchens.ts';
-import { useSession } from '../session.tsx';
+import { Suspense, lazy, useEffect, useState } from "react";
+import type { BootstrapDto } from "@alimentation/core";
+import { Link, useLocation } from "wouter";
+import { api, getJson, postJson, type Capacity } from "../api.ts";
+import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
+import { Chip, Field, Form, Tile, useAction } from "../components/ui.tsx";
+import { money } from "../format.ts";
+import { figuresOf, isRunning, totalsOf, type KitchenFigures } from "../kitchens.ts";
+import { useSession } from "../session.tsx";
 
 // Needed only by someone who runs several kitchens, so everyone else does not download it.
 const ManyKitchens = lazy(() =>
-  import('./ManyKitchens.tsx').then((m) => ({ default: m.ManyKitchens })),
+  import("./ManyKitchens.tsx").then((m) => ({ default: m.ManyKitchens })),
 );
 
-type Found = Record<string, KitchenFigures | 'failed'>;
+type Found = Record<string, KitchenFigures | "failed">;
 
 /**
  * Asks each of the person's kitchens, a few at a time, what it would tell them on opening it. Each question
@@ -22,16 +22,16 @@ type Found = Record<string, KitchenFigures | 'failed'>;
  */
 function useFigures(slugs: string[]): Found {
   const [found, setFound] = useState<Found>({});
-  const key = slugs.join(',');
+  const key = slugs.join(",");
   useEffect(() => {
     let live = true;
-    const queue = key ? key.split(',') : [];
+    const queue = key ? key.split(",") : [];
     const worker = async () => {
       for (let slug = queue.shift(); slug !== undefined; slug = queue.shift()) {
         const mine = slug;
         const result = await api.get<BootstrapDto>(`/api/w/${mine}/bootstrap`).then(
           (r) => figuresOf(r.data, r.fromDevice),
-          () => 'failed' as const,
+          () => "failed" as const,
         );
         if (live) setFound((f) => ({ ...f, [mine]: result }));
       }
@@ -44,16 +44,16 @@ function useFigures(slugs: string[]): Found {
   return found;
 }
 
-function Figures({ f }: { f: KitchenFigures | 'failed' | undefined }) {
-  if (f === undefined) return <p className="muted small">Reading the figures…</p>;
-  if (f === 'failed') return <p className="muted small">The figures could not be read just now.</p>;
+function Figures({ f }: { f: KitchenFigures | "failed" | undefined }) {
+  if (f === undefined) return <p class="muted small">Reading the figures…</p>;
+  if (f === "failed") return <p class="muted small">The figures could not be read just now.</p>;
   const h = f.headline;
   return (
-    <p className="row small" style={{ ['--gap' as string]: 'var(--space-3)' }}>
+    <p class="row small" style={{ ["--gap" as string]: "var(--space-3)" }}>
       {isRunning(f.role) ? (
-        <span>{h.owed > 0 ? `${money(h.owed)} owed` : 'Nothing owed'}</span>
+        <span>{h.owed > 0 ? `${money(h.owed)} owed` : "Nothing owed"}</span>
       ) : (
-        <span>{h.owed > 0 ? `You owe ${money(h.owed)}` : 'You owe nothing'}</span>
+        <span>{h.owed > 0 ? `You owe ${money(h.owed)}` : "You owe nothing"}</span>
       )}
       {isRunning(f.role) && h.toConfirm > 0 ? (
         <Chip tone="warn">{h.toConfirm} to confirm</Chip>
@@ -67,23 +67,23 @@ function Figures({ f }: { f: KitchenFigures | 'failed' | undefined }) {
 const slugify = (s: string) =>
   s
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
     .slice(0, 40);
 
 function NewKitchen({ cap }: { cap: Capacity | null }) {
   const [, go] = useLocation();
   const { refresh } = useSession();
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
   const [touched, setTouched] = useState(false);
   const [supplier, setSupplier] = useState(true);
   const act = useAction();
   return (
-    <section className="card stack" aria-labelledby="new-h">
+    <section class="card stack" aria-labelledby="new-h">
       <h2 id="new-h">Start a kitchen</h2>
       {cap && !cap.dedicated && !cap.open ? (
-        <div className="banner warn">
+        <div class="banner warn">
           The free places are full for now. You can try again later, or run your own instance and
           move in.
         </div>
@@ -92,7 +92,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
         error={act.error}
         onSubmit={() =>
           act.run(async () => {
-            const made = await postJson<{ slug: string }>('/api/workspaces', {
+            const made = await postJson<{ slug: string }>("/api/workspaces", {
               slug,
               name,
               alsoSupplier: supplier,
@@ -132,7 +132,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
             }}
           />
         </Field>
-        <label className="row" style={{ ['--gap' as string]: 'var(--space-3)' }}>
+        <label class="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
           <input
             type="checkbox"
             checked={supplier}
@@ -140,7 +140,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
           />
           <span>I also cook for them (add me as the supplier too)</span>
         </label>
-        <button className="btn" disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}>
+        <button class="btn" disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}>
           Create
         </button>
       </Form>
@@ -152,17 +152,17 @@ export function Places() {
   const { me } = useSession();
   const [cap, setCap] = useState<Capacity | null>(null);
   useEffect(() => {
-    getJson<Capacity>('/api/public/capacity').then(setCap, () => setCap(null));
+    getJson<Capacity>("/api/public/capacity").then(setCap, () => setCap(null));
   }, []);
   const list = me?.workspaces ?? [];
-  const active = list.filter((w) => w.state === 'ACTIVE');
-  const adminOf = active.filter((w) => w.roles.includes('admin'));
+  const active = list.filter((w) => w.state === "ACTIVE");
+  const adminOf = active.filter((w) => w.roles.includes("admin"));
   const organisations = me?.organisations ?? [];
   // Figures beside each kitchen are for someone with several of them. With one there is nothing to compare,
   // so nothing is asked of it here, and it is asked once, when it is opened.
   const several = active.length >= 2;
   const figures = useFigures(several ? active.map((w) => w.slug) : []);
-  const counted = Object.values(figures).filter((f): f is KitchenFigures => f !== 'failed');
+  const counted = Object.values(figures).filter((f): f is KitchenFigures => f !== "failed");
   const totals =
     several && counted.length === Object.keys(figures).length && counted.length === active.length
       ? totalsOf(counted)
@@ -172,7 +172,7 @@ export function Places() {
     <>
       <AppBar>
         {me?.operator ? (
-          <Link href="/operator" className="btn ghost small">
+          <Link href="/operator" class="btn ghost small">
             Operator
           </Link>
         ) : null}
@@ -180,22 +180,22 @@ export function Places() {
       <RequireSignIn>
         <Page title="Your kitchens">
           {list.length === 0 && organisations.length === 0 ? (
-            <p className="muted">
+            <p class="muted">
               You are not in any kitchen yet. Start one below, or open the invitation link someone
               sent you.
             </p>
           ) : list.length === 0 ? null : (
-            <div className="stack" style={{ ['--gap' as string]: 'var(--space-4)' }}>
+            <div class="stack" style={{ ["--gap" as string]: "var(--space-4)" }}>
               {totals ? (
-                <section className="stack" aria-labelledby="across-h">
-                  <h2 id="across-h" className="muted small">
+                <section class="stack" aria-labelledby="across-h">
+                  <h2 id="across-h" class="muted small">
                     Across your {counted.length} kitchens
                   </h2>
-                  <div className="tiles">
+                  <div class="tiles">
                     {totals.running.kitchens > 0 ? (
                       <>
                         <Tile label="Owed to your kitchens" value={money(totals.running.owed)} />
-                        <Tile label="To confirm" value={totals.running.toConfirm || '-'} />
+                        <Tile label="To confirm" value={totals.running.toConfirm || "-"} />
                       </>
                     ) : null}
                     {totals.owe.kitchens > 0 ? (
@@ -204,26 +204,26 @@ export function Places() {
                   </div>
                 </section>
               ) : null}
-              <ul className="stack card-list" style={{ ['--gap' as string]: 'var(--space-3)' }}>
+              <ul class="stack card-list" style={{ ["--gap" as string]: "var(--space-3)" }}>
                 {list.map((w) => (
                   <li key={w.slug}>
-                    <div className="card row between">
+                    <div class="card row between">
                       <div>
                         <h3>{w.name}</h3>
-                        <p className="muted small">
-                          /w/{w.slug} · {w.roles.join(', ')}
+                        <p class="muted small">
+                          /w/{w.slug} · {w.roles.join(", ")}
                         </p>
-                        {several && w.state === 'ACTIVE' ? <Figures f={figures[w.slug]} /> : null}
+                        {several && w.state === "ACTIVE" ? <Figures f={figures[w.slug]} /> : null}
                       </div>
-                      <div className="row">
-                        {w.state === 'MOVED' ? <Chip tone="warn">Moved</Chip> : null}
-                        {w.state === 'MIGRATING' ? <Chip tone="warn">Moving</Chip> : null}
-                        {w.state === 'MOVED' && w.movedTo ? (
-                          <a className="btn small" href={w.movedTo}>
+                      <div class="row">
+                        {w.state === "MOVED" ? <Chip tone="warn">Moved</Chip> : null}
+                        {w.state === "MIGRATING" ? <Chip tone="warn">Moving</Chip> : null}
+                        {w.state === "MOVED" && w.movedTo ? (
+                          <a class="btn small" href={w.movedTo}>
                             Open at its new address
                           </a>
                         ) : (
-                          <Link className="btn small" href={`/w/${w.slug}`}>
+                          <Link class="btn small" href={`/w/${w.slug}`}>
                             Open
                           </Link>
                         )}
@@ -235,21 +235,21 @@ export function Places() {
             </div>
           )}
           {organisations.length > 0 ? (
-            <section className="stack" aria-labelledby="head-office-h">
+            <section class="stack" aria-labelledby="head-office-h">
               <h2 id="head-office-h">Head office</h2>
-              <ul className="stack card-list" style={{ ['--gap' as string]: 'var(--space-3)' }}>
+              <ul class="stack card-list" style={{ ["--gap" as string]: "var(--space-3)" }}>
                 {organisations.map((o) => (
                   <li key={o.id}>
-                    <div className="card row between">
+                    <div class="card row between">
                       <div>
                         <h3>{o.name}</h3>
-                        <p className="muted small">
+                        <p class="muted small">
                           {o.kitchens === 0
-                            ? 'No kitchen shares its totals yet'
-                            : `${o.kitchens} kitchen${o.kitchens === 1 ? '' : 's'} share their totals`}
+                            ? "No kitchen shares its totals yet"
+                            : `${o.kitchens} kitchen${o.kitchens === 1 ? "" : "s"} share their totals`}
                         </p>
                       </div>
-                      <Link className="btn small" href={`/org/${o.id}`}>
+                      <Link class="btn small" href={`/org/${o.id}`}>
                         Open
                       </Link>
                     </div>
@@ -264,7 +264,7 @@ export function Places() {
             </Suspense>
           ) : null}
           {cap?.dedicated && !me?.operator ? (
-            <div className="banner info">
+            <div class="banner info">
               This is a private instance. Ask whoever runs it to add a kitchen for you.
             </div>
           ) : (

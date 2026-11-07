@@ -1,4 +1,4 @@
-import { addDays, type IsoDate } from './dates.ts';
+import { addDays, type IsoDate } from "./dates.ts";
 
 /**
  * What a free workspace may use, how close it is, and when we start asking it to
@@ -35,7 +35,7 @@ export const UNLIMITED: Limits = {
   bytes: 1e15,
 };
 
-export type Pressure = 'OK' | 'WATCH' | 'ASK' | 'OVER';
+export type Pressure = "OK" | "WATCH" | "ASK" | "OVER";
 
 export const THRESHOLDS = { watch: 0.7, ask: 0.9, over: 1 } as const;
 export const GRACE_DAYS = 14;
@@ -55,10 +55,10 @@ export interface Meter {
 }
 
 const KEYS = {
-  requestsLast24h: 'requestsPerDay',
-  people: 'people',
-  rows: 'rows',
-  bytes: 'bytes',
+  requestsLast24h: "requestsPerDay",
+  people: "people",
+  rows: "rows",
+  bytes: "bytes",
 } as const satisfies Record<keyof Usage, keyof Limits>;
 
 export function meter(
@@ -69,7 +69,7 @@ export function meter(
 ): Meter {
   const ratios = {} as Record<keyof Usage, number>;
   // Stryker disable next-line StringLiteral: overwritten by the first measure
-  let worst: keyof Usage = 'requestsLast24h';
+  let worst: keyof Usage = "requestsLast24h";
   let ratio = -1;
   for (const k of Object.keys(KEYS) as (keyof Usage)[]) {
     const cap = limits[KEYS[k]];
@@ -82,13 +82,13 @@ export function meter(
   }
   const state: Pressure =
     ratio >= THRESHOLDS.over
-      ? 'OVER'
+      ? "OVER"
       : ratio >= THRESHOLDS.ask
-        ? 'ASK'
+        ? "ASK"
         : ratio >= THRESHOLDS.watch
-          ? 'WATCH'
-          : 'OK';
-  const overSince = state === 'OVER' ? (previousOverSince ?? today) : null;
+          ? "WATCH"
+          : "OK";
+  const overSince = state === "OVER" ? (previousOverSince ?? today) : null;
   const graceEndsOn = overSince === null ? null : addDays(overSince, GRACE_DAYS);
   const writesAllowed = graceEndsOn === null || today <= graceEndsOn;
   return { state, worst, ratio, ratios, overSince, graceEndsOn, writesAllowed };
@@ -111,7 +111,7 @@ export interface CapacityPlan {
   byProjects: number;
   byRequests: number;
   capacity: number;
-  binding: 'projects' | 'requests';
+  binding: "projects" | "requests";
 }
 
 export function capacityPlan(i: CapacityInputs): CapacityPlan {
@@ -124,7 +124,7 @@ export function capacityPlan(i: CapacityInputs): CapacityPlan {
     byProjects,
     byRequests,
     capacity: Math.min(byProjects, byRequests),
-    binding: byProjects <= byRequests ? 'projects' : 'requests',
+    binding: byProjects <= byRequests ? "projects" : "requests",
   };
 }
 

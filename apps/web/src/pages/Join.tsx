@@ -1,32 +1,32 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
-import { AppBar, RequireSignIn } from '../components/Chrome.tsx';
-import { Problem } from '../components/ui.tsx';
-import { postJson } from '../api.ts';
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
+import { AppBar, RequireSignIn } from "../components/Chrome.tsx";
+import { Problem } from "../components/ui.tsx";
+import { postJson } from "../api.ts";
 
-const KEY = 'pending-invite';
+const KEY = "pending-invite";
 
 function Accept() {
   const [, go] = useLocation();
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     // The link's secret is in the part after #, which is never sent to the server until it is used here.
-    const token = window.location.hash.slice(1) || sessionStorage.getItem(KEY) || '';
+    const token = window.location.hash.slice(1) || sessionStorage.getItem(KEY) || "";
     sessionStorage.removeItem(KEY);
     if (!token) {
-      setError('This invitation link is incomplete. Ask for a new one.');
+      setError("This invitation link is incomplete. Ask for a new one.");
       return;
     }
-    postJson<{ slug: string }>('/api/invites/accept', { token }).then(
+    postJson<{ slug: string }>("/api/invites/accept", { token }).then(
       (r) => go(`/w/${r.slug}`, { replace: true }),
       (e: Error) => setError(e.message),
     );
   }, [go]);
   return (
-    <div className="narrow solo">
-      <div className="card stack">
+    <div class="narrow solo">
+      <div class="card stack">
         <h1>Joining your kitchen</h1>
-        {error ? <Problem error={error} /> : <p className="muted">One moment…</p>}
+        {error ? <Problem error={error} /> : <p class="muted">One moment…</p>}
       </div>
     </div>
   );

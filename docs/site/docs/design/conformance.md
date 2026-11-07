@@ -1,15 +1,21 @@
 ---
+
 title: Conformance
-description: What the design check enforces, how to run it, how to waive a rule with a reason, and what only a person or another test can judge.
+description:
+What the design check enforces, how to run it, how to waive a rule with a reason, and what only a
+person or another test can judge.
 ---
 
 # Conformance
 
-A design system nobody checks is a suggestion. `scripts/check-design.mjs` reads every stylesheet and component of the web app and fails when one leaves the system. It runs as `npm run design`, as a test in the suite (`apps/web/src/design.test.ts`), and in the compose test run, so a departure fails the same build a broken test does.
+A design system nobody checks is a suggestion. `scripts/check-design.mjs` reads every stylesheet and
+component of the web app and fails when one leaves the system. It runs as `npm run design`, as a
+test in the suite (`apps/web/src/design.test.ts`), and in the compose test run, so a departure fails
+the same build a broken test does.
 
 ```console
-$ npm run design              # one line: kept, or how many places leave it
-$ node scripts/check-design.mjs --list    # every place, with its file, line, rule and text
+npm run design              # one line: kept, or how many places leave it
+node scripts/check-design.mjs --list    # every place, with its file, line, rule and text
 ```
 
 At the time of writing the app has **no departures** and **three waivers**.
@@ -31,7 +37,9 @@ At the time of writing the app has **no departures** and **three waivers**.
 | `control`    | A select that leaves the browser to draw its arrow (drawing the open list as well, with `appearance: base-select`, is allowed), a select rule with no arrow of its own, padding on a select that leaves under 40px at the right, or a select rule placed before the shared field rule. | The shared `select` rule; `padding-block` and `padding-left`. |
 | `inline`     | A `style={{ … }}` in a component that sets anything but a custom property. Multi-line style objects are refused.                                                                                                                                                                       | A class, or `style={{ '--gap': '8px' }}`.                     |
 
-The last rule is also a requirement of the content-security policy, which forbids inline styles: a `style` attribute that sets how something looks would be blocked in production, so the check keeps the code from ever relying on one.
+The last rule is also a requirement of the content-security policy, which forbids inline styles: a
+`style` attribute that sets how something looks would be blocked in production, so the check keeps
+the code from ever relying on one.
 
 ### Where each rule applies
 
@@ -52,14 +60,18 @@ margin-left: -1px; /* design: it overlaps the rule beside it by that rule's own 
 
 ```tsx
 // design: a place taken from where the page is scrolled, so it cannot be a class
-<div style={{ top: y }} />
+<div style={{ top: y }} />;
 ```
 
-In CSS the comment sits on the same line, or on a line of the same declaration. In a component it sits on that line or the one before. A waiver must begin `design:` and say **why**; one with no reason is a departure with extra steps, and review should treat it so. The list of waivers is short enough to read: `grep -rn "design:" apps/web`.
+In CSS the comment sits on the same line, or on a line of the same declaration. In a component it
+sits on that line or the one before. A waiver must begin `design:` and say **why**; one with no
+reason is a departure with extra steps, and review should treat it so. The list of waivers is short
+enough to read: `grep -rn "design:" apps/web`.
 
 ## What it cannot check
 
-A script can tell that a value is a token. It cannot tell that the token is right. These are judged elsewhere:
+A script can tell that a value is a token. It cannot tell that the token is right. These are judged
+elsewhere:
 
 | Matter                                                                 | Where it is judged                                                                                                                                                                |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -73,12 +85,22 @@ A script can tell that a value is a token. It cannot tell that the token is righ
 ## Changing the system
 
 1. Change the token or the component in `styles.css`, in light and dark.
-2. Update the page here that shows it. The examples use the real stylesheet, so they change with it; the words beside them may not.
-3. If a rule of the check needs to move (a new breakpoint, a new radius), change the scale in `scripts/check-design.mjs`, add a case to `design.test.ts`, and say why in the commit.
+2. Update the page here that shows it. The examples use the real stylesheet, so they change with it;
+   the words beside them may not.
+3. If a rule of the check needs to move (a new breakpoint, a new radius), change the scale in
+   `scripts/check-design.mjs`, add a case to `design.test.ts`, and say why in the commit.
 4. Run `npm run design` and the end-to-end tests.
 
 ## The checker is itself tested
 
-`apps/web/src/design.test.ts` runs the check over the real application and requires an empty list. It also feeds the checker small stylesheets that break each rule, in each notation, and requires it to notice; and feeds it ones written in tokens and requires it to stay quiet. The checker reads statements, not lines, so a `transition` spread over several lines is read as one.
+`apps/web/src/design.test.ts` runs the check over the real application and requires an empty list.
+It also feeds the checker small stylesheets that break each rule, in each notation, and requires it
+to notice; and feeds it ones written in tokens and requires it to stay quiet. The checker reads
+statements, not lines, so a `transition` spread over several lines is read as one.
 
-A rule that reads declarations cannot see a picture. A browser's own arrow on a select sits where the browser puts it, a few pixels from the edge, and nothing in the stylesheet says so; that is why the `control` rule makes the stylesheet draw the arrow itself, and why `controls.spec.ts` measures the pixels. That test was first run against the stylesheet from before the arrow was drawn, and failed in both themes (the arrow was 4px from the edge), which is how to know it would have caught it.
+A rule that reads declarations cannot see a picture. A browser's own arrow on a select sits where
+the browser puts it, a few pixels from the edge, and nothing in the stylesheet says so; that is why
+the `control` rule makes the stylesheet draw the arrow itself, and why `controls.spec.ts` measures
+the pixels. That test was first run against the stylesheet from before the arrow was drawn, and
+failed in both themes (the arrow was 4px from the edge), which is how to know it would have caught
+it.

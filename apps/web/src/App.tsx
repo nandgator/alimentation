@@ -1,18 +1,18 @@
-import { Suspense, lazy } from 'react';
-import { Link, Route, Switch } from 'wouter';
-import { Toaster } from './components/ui.tsx';
-import { Home } from './pages/Home.tsx';
-import { Join } from './pages/Join.tsx';
-import { Operator } from './pages/Operator.tsx';
-import { Places } from './pages/Places.tsx';
-import { ReceiptPage } from './pages/Receipt.tsx';
-import { SignIn } from './pages/SignIn.tsx';
-import { WorkspaceShell } from './pages/workspace/Shell.tsx';
-import { SessionProvider } from './session.tsx';
+import { Suspense, lazy } from "react";
+import { Link, Route, Switch } from "wouter";
+import { Toaster } from "./components/ui.tsx";
+import { Home } from "./pages/Home.tsx";
+import { Join } from "./pages/Join.tsx";
+import { Operator } from "./pages/Operator.tsx";
+import { Places } from "./pages/Places.tsx";
+import { ReceiptPage } from "./pages/Receipt.tsx";
+import { SignIn } from "./pages/SignIn.tsx";
+import { WorkspaceShell } from "./pages/workspace/Shell.tsx";
+import { SessionProvider } from "./session.tsx";
 
 // Only a head office opens this one, so nobody else downloads it.
 const Organisation = lazy(() =>
-  import('./pages/Organisation.tsx').then((m) => ({ default: m.Organisation })),
+  import("./pages/Organisation.tsx").then((m) => ({ default: m.Organisation })),
 );
 
 function OrganisationRoute() {
@@ -25,10 +25,10 @@ function OrganisationRoute() {
 
 function NotFound() {
   return (
-    <div className="narrow solo">
+    <div class="narrow solo">
       <h1>Nothing here</h1>
-      <p className="muted">That address does not lead anywhere.</p>
-      <Link href="/" className="btn">
+      <p class="muted">That address does not lead anywhere.</p>
+      <Link href="/" class="btn">
         Home
       </Link>
     </div>

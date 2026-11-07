@@ -1,11 +1,17 @@
 ---
+
 title: Data model
-description: The tables of a kitchen's database, the rules the database holds, and the row-level security policies by role.
+description:
+The tables of a kitchen's database, the rules the database holds, and the row-level security
+policies by role.
 ---
 
 # Data model
 
-Each kitchen's database is made from forward-only SQL migrations (`apps/api/migrations/workspace`), applied under an advisory lock and remembered with a checksum. The application's database role owns nothing and bypasses nothing: row-level security applies to it, and it has only the privileges granted at the end of the migration.
+Each kitchen's database is made from forward-only SQL migrations (`apps/api/migrations/workspace`),
+applied under an advisory lock and remembered with a checksum. The application's database role owns
+nothing and bypasses nothing: row-level security applies to it, and it has only the privileges
+granted at the end of the migration.
 
 ## Domains
 
@@ -34,16 +40,27 @@ Each kitchen's database is made from forward-only SQL migrations (`apps/api/migr
 
 ## What the database holds, whoever is writing
 
-- **Append-only** tables (`rate_card`, `policy_version`, `claim_decision`, `claim_reversal`, `settlement`, `audit_log`) have a trigger that refuses `UPDATE` and `DELETE` even from the owner, and the application role has no privilege to try.
-- **Who and when are stamped.** Triggers set `logged_by`/`logged_at`, `decided_by`/`decided_at`, `reversed_by`, `recorded_by` and `created_at` from the session, overwriting anything the caller sent.
-- **Log entries** must fall on a working day, for a consumer who is billed that day, in the right shape (`Supplier Off` is for everyone and no one in particular; extras carry a quantity from 1 to 20). One leave, one switch of each kind, and one kitchen-off per day, by unique indexes.
-- **A closed month is closed.** A log entry change in a month closed for that person is refused for everyone but the admin, and for the admin too where the kitchen's rules say `block`. Holidays in a closed month follow the same lock.
-- **Caps.** People and rows (entries, claims, settlements, decisions) are counted by triggers against the workspace's caps; null means no cap.
-- **Read-only while moving.** A statement-level trigger on every table refuses application writes while `workspace.read_only` is set, even when no row would change.
+- **Append-only** tables (`rate_card`, `policy_version`, `claim_decision`, `claim_reversal`,
+  `settlement`, `audit_log`) have a trigger that refuses `UPDATE` and `DELETE` even from the owner,
+  and the application role has no privilege to try.
+- **Who and when are stamped.** Triggers set `logged_by`/`logged_at`, `decided_by`/`decided_at`,
+  `reversed_by`, `recorded_by` and `created_at` from the session, overwriting anything the caller
+  sent.
+- **Log entries** must fall on a working day, for a consumer who is billed that day, in the right
+  shape (`Supplier Off` is for everyone and no one in particular; extras carry a quantity from 1 to
+  20). One leave, one switch of each kind, and one kitchen-off per day, by unique indexes.
+- **A closed month is closed.** A log entry change in a month closed for that person is refused for
+  everyone but the admin, and for the admin too where the kitchen's rules say `block`. Holidays in a
+  closed month follow the same lock.
+- **Caps.** People and rows (entries, claims, settlements, decisions) are counted by triggers
+  against the workspace's caps; null means no cap.
+- **Read-only while moving.** A statement-level trigger on every table refuses application writes
+  while `workspace.read_only` is set, even when no row would change.
 
 ## Row-level security
 
-With no role set, the policies match nothing. The server sets `app.role` and `app.person_id` in each transaction.
+With no role set, the policies match nothing. The server sets `app.role` and `app.person_id` in each
+transaction.
 
 | Table                                    | Member                                                            | Supplier                                       | Admin                              |
 | ---------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------- |
@@ -57,8 +74,13 @@ With no role set, the policies match nothing. The server sets `app.role` and `ap
 | `rate_card`, `policy_version`, `holiday` | Read                                                              | Read                                           | Read; insert (holiday: all writes) |
 | `audit_log`                              | Own records, and the prices, rules and holidays                   | The trail of what they can read, not of people | All                                |
 
-The two audit policies are migration `0002`. They are why a member can see that an entry of theirs was removed, and by whom. They are described in [the trust model](/docs/concepts/trust-model/).
+The two audit policies are migration `0002`. They are why a member can see that an entry of theirs
+was removed, and by whom. They are described in [the trust model](/docs/concepts/trust-model/).
 
 ## Encrypted columns
 
-Names and contacts (`person`), notes and reasons (`log_entry`, `claim`, `claim_decision`, `claim_reversal`, `settlement`) are encrypted by the application before they reach the database, with AES-256-GCM, binding the ciphertext to its table, column and row id. The audit trail copies rows as stored, so it holds ciphertext too; the audit screen shows `(encrypted)` in its place. A test fails the build if a personal column is added without a ciphertext type.
+Names and contacts (`person`), notes and reasons (`log_entry`, `claim`, `claim_decision`,
+`claim_reversal`, `settlement`) are encrypted by the application before they reach the database,
+with AES-256-GCM, binding the ciphertext to its table, column and row id. The audit trail copies
+rows as stored, so it holds ciphertext too; the audit screen shows `(encrypted)` in its place. A
+test fails the build if a personal column is added without a ciphertext type.

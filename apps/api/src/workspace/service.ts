@@ -52,12 +52,12 @@ import {
   type SettlementType,
   type StatementDto,
   type Usage,
-} from '@alimentation/core';
-import type { FieldCipher } from '../crypto/fields.ts';
-import type { Db, Tx } from '../db/driver.ts';
-import { asActor, type Actor } from './context.ts';
-import { ApiError, forbidden, invalid, mapDbError, notFound } from './errors.ts';
-import { applyAutoCloses, loadEngineData, rateCardFromRow, withDueCloses } from './load.ts';
+} from "@alimentation/core";
+import type { FieldCipher } from "../crypto/fields.ts";
+import type { Db, Tx } from "../db/driver.ts";
+import { asActor, type Actor } from "./context.ts";
+import { ApiError, forbidden, invalid, mapDbError, notFound } from "./errors.ts";
+import { applyAutoCloses, loadEngineData, rateCardFromRow, withDueCloses } from "./load.ts";
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -67,7 +67,7 @@ export interface WorkspaceInfo {
   name: string;
   timeZone: string;
   currency: string;
-  state: 'ACTIVE' | 'MIGRATING' | 'MOVED';
+  state: "ACTIVE" | "MIGRATING" | "MOVED";
   movedTo: string | null;
   limits: Limits;
   overSince: string | null;
@@ -89,24 +89,24 @@ export interface ServiceDeps {
  * particular, so that every row can be counted and none of them can be pointed at. It is never given a way to
  * write (see `totals`), and what is made from the rows leaves as numbers.
  */
-const NO_ONE: Actor = { role: 'admin', personId: '00000000-0000-0000-0000-000000000000' };
+const NO_ONE: Actor = { role: "admin", personId: "00000000-0000-0000-0000-000000000000" };
 
 const WEEKDAY_COLUMNS = [
-  'menu_sun',
-  'menu_mon',
-  'menu_tue',
-  'menu_wed',
-  'menu_thu',
-  'menu_fri',
-  'menu_sat',
+  "menu_sun",
+  "menu_mon",
+  "menu_tue",
+  "menu_wed",
+  "menu_thu",
+  "menu_fri",
+  "menu_sat",
 ] as const;
 
 function requireOk(issues: Issue[]): Issue[] {
   if (hasErrors(issues)) {
-    const first = issues.find((i) => i.severity === 'error')!;
+    const first = issues.find((i) => i.severity === "error")!;
     throw invalid(first.message, issues);
   }
-  return issues.filter((i) => i.severity === 'warning');
+  return issues.filter((i) => i.severity === "warning");
 }
 
 /**
@@ -144,22 +144,22 @@ export class WorkspaceService {
   }
 
   private assertWritable(): void {
-    if (this.d.info.state !== 'ACTIVE') {
+    if (this.d.info.state !== "ACTIVE") {
       throw new ApiError(
         409,
-        'read_only',
-        this.d.info.state === 'MOVED'
-          ? 'This workspace has moved.'
-          : 'This workspace is being moved and is read-only.',
+        "read_only",
+        this.d.info.state === "MOVED"
+          ? "This workspace has moved."
+          : "This workspace is being moved and is read-only.",
       );
     }
   }
 
   // --- reading -----------------------------------------------------------
 
-  async bootstrap(actor: Actor, roles: Role[]): Promise<Omit<BootstrapDto, 'organisation'>> {
+  async bootstrap(actor: Actor, roles: Role[]): Promise<Omit<BootstrapDto, "organisation">> {
     const info = this.d.info;
-    const requests = actor.role === 'admin' ? await this.d.requestsLast24h() : 0;
+    const requests = actor.role === "admin" ? await this.d.requestsLast24h() : 0;
     return this.run(actor, async (tx, load) => {
       const data = await load();
       const p = prepare(data);
@@ -167,11 +167,11 @@ export class WorkspaceService {
       const current = monthOf(today);
       const me = data.people.find((x) => x.id === actor.personId);
 
-      const setup: BootstrapDto['setup'] = [];
+      const setup: BootstrapDto["setup"] = [];
       if (data.rateCards.length === 0)
-        setup.push({ code: 'rate_card', message: 'Add a rate card to start billing.' });
-      if (!data.people.some((x) => x.role === 'consumer'))
-        setup.push({ code: 'consumers', message: 'Add the people you feed.' });
+        setup.push({ code: "rate_card", message: "Add a rate card to start billing." });
+      if (!data.people.some((x) => x.role === "consumer"))
+        setup.push({ code: "consumers", message: "Add the people you feed." });
 
       let statements: StatementDto[] = [];
       if (data.rateCards.length > 0) {
@@ -188,8 +188,8 @@ export class WorkspaceService {
         `SELECT count(*)::int AS n FROM claim c WHERE NOT EXISTS (SELECT 1 FROM claim_decision d WHERE d.claim_id = c.id)`,
       );
 
-      let meterOut: BootstrapDto['meter'] = null;
-      if (actor.role === 'admin') {
+      let meterOut: BootstrapDto["meter"] = null;
+      if (actor.role === "admin") {
         const usage = await this.measure(tx, requests);
         const m = computeMeter(usage, info.limits, info.overSince, today);
         if (m.overSince !== info.overSince) await this.d.recordOverSince(m.overSince);
@@ -210,7 +210,7 @@ export class WorkspaceService {
           state: info.state,
           movedTo: info.movedTo,
         },
-        me: { personId: actor.personId, role: actor.role, name: me?.name ?? '' },
+        me: { personId: actor.personId, role: actor.role, name: me?.name ?? "" },
         roles,
         today,
         currentMonth: current,
@@ -238,7 +238,7 @@ export class WorkspaceService {
   async totals(): Promise<KitchenTotals> {
     try {
       return await asActor(this.d.db, NO_ONE, async (tx) => {
-        await tx.query('SET TRANSACTION READ ONLY');
+        await tx.query("SET TRANSACTION READ ONLY");
         const { data } = withDueCloses(await loadEngineData(tx, this.d.cipher, this.local().date));
         const p = prepare(data);
         const current = monthOf(data.today);
@@ -299,14 +299,14 @@ export class WorkspaceService {
     const names = new Map(data.people.map((x) => [x.id, x.name]));
     return statements.map((s) => ({
       ...s,
-      name: names.get(s.personId) ?? '',
+      name: names.get(s.personId) ?? "",
       label: STATUS_LABEL[s.status],
     }));
   }
 
   private async peopleDtos(tx: Tx, actor: Actor, data: EngineData): Promise<PersonDto[]> {
     const rows = await tx.query<R>(
-      'SELECT id, status, contact_enc, (account_id IS NOT NULL) AS linked FROM person',
+      "SELECT id, status, contact_enc, (account_id IS NOT NULL) AS linked FROM person",
     );
     const byId = new Map(rows.map((r) => [r.id, r]));
     const out: PersonDto[] = [];
@@ -321,8 +321,8 @@ export class WorkspaceService {
         activeFrom: person.activeFrom,
         activeTo: person.activeTo,
         contact:
-          actor.role === 'admin'
-            ? await this.d.cipher.dec('person', 'contact_enc', person.id, r.contact_enc)
+          actor.role === "admin"
+            ? await this.d.cipher.dec("person", "contact_enc", person.id, r.contact_enc)
             : null,
         linked: r.linked,
       });
@@ -332,12 +332,12 @@ export class WorkspaceService {
 
   async statements(actor: Actor, months: Month[], personId?: string): Promise<StatementDto[]> {
     for (const m of months) if (!isValidMonth(m)) throw invalid(`"${m}" is not a month`);
-    if (months.length > 36) throw invalid('Ask for at most 36 months at a time.');
+    if (months.length > 36) throw invalid("Ask for at most 36 months at a time.");
     return this.run(actor, async (_tx, load) => {
       const data = await load();
       const p = prepare(data);
       const ids = personId ? [personId] : consumers(p).map((c) => c.id);
-      if (personId && !data.people.some((x) => x.id === personId)) throw notFound('Person');
+      if (personId && !data.people.some((x) => x.id === personId)) throw notFound("Person");
       try {
         return this.dto(buildStatements(p, ids, months), data);
       } catch (e) {
@@ -351,8 +351,8 @@ export class WorkspaceService {
     if (!isValidMonth(month)) throw invalid(`"${month}" is not a month`);
     return this.run(actor, async (_tx, load) => {
       const data = await load();
-      const person = data.people.find((x) => x.id === personId && x.role === 'consumer');
-      if (!person) throw notFound('Person');
+      const person = data.people.find((x) => x.id === personId && x.role === "consumer");
+      if (!person) throw notFound("Person");
       try {
         return { personId, month, days: ledgerMonth(prepare(data), person, month) };
       } catch (e) {
@@ -377,9 +377,9 @@ export class WorkspaceService {
     this.assertWritable();
     this.mustBeAdmin(actor);
     const name = input.name.trim();
-    if (!name || name.length > 120) throw invalid('Give a name of up to 120 characters.');
-    if (input.role !== 'consumer' && (input.activeFrom || input.activeTo))
-      throw invalid('Only consumers are billed between dates.');
+    if (!name || name.length > 120) throw invalid("Give a name of up to 120 characters.");
+    if (input.role !== "consumer" && (input.activeFrom || input.activeTo))
+      throw invalid("Only consumers are billed between dates.");
     for (const d of [input.activeFrom, input.activeTo])
       if (d && !isValidDate(d)) throw invalid(`"${d}" is not a date`);
     const id = crypto.randomUUID();
@@ -389,8 +389,8 @@ export class WorkspaceService {
         [
           id,
           input.role,
-          await this.d.cipher.enc('person', 'name_enc', id, name),
-          await this.d.cipher.enc('person', 'contact_enc', id, input.contact?.trim() || null),
+          await this.d.cipher.enc("person", "name_enc", id, name),
+          await this.d.cipher.enc("person", "contact_enc", id, input.contact?.trim() || null),
           input.activeFrom ?? null,
           input.activeTo ?? null,
         ],
@@ -407,14 +407,14 @@ export class WorkspaceService {
       contact?: string | null;
       activeFrom?: string | null;
       activeTo?: string | null;
-      status?: 'ACTIVE' | 'DISABLED';
+      status?: "ACTIVE" | "DISABLED";
     },
   ): Promise<void> {
     this.assertWritable();
     this.mustBeAdmin(actor);
     await this.run(actor, async (tx) => {
-      const [row] = await tx.query<R>('SELECT role FROM person WHERE id = $1', [id]);
-      if (!row) throw notFound('Person');
+      const [row] = await tx.query<R>("SELECT role FROM person WHERE id = $1", [id]);
+      if (!row) throw notFound("Person");
       const sets: string[] = [];
       const values: unknown[] = [id];
       const set = (col: string, v: unknown) => {
@@ -423,26 +423,26 @@ export class WorkspaceService {
       };
       if (input.name !== undefined) {
         const n = input.name.trim();
-        if (!n || n.length > 120) throw invalid('Give a name of up to 120 characters.');
-        set('name_enc', await this.d.cipher.enc('person', 'name_enc', id, n));
+        if (!n || n.length > 120) throw invalid("Give a name of up to 120 characters.");
+        set("name_enc", await this.d.cipher.enc("person", "name_enc", id, n));
       }
       if (input.contact !== undefined)
         set(
-          'contact_enc',
-          await this.d.cipher.enc('person', 'contact_enc', id, input.contact?.trim() || null),
+          "contact_enc",
+          await this.d.cipher.enc("person", "contact_enc", id, input.contact?.trim() || null),
         );
       for (const [key, col] of [
-        ['activeFrom', 'active_from'],
-        ['activeTo', 'active_to'],
+        ["activeFrom", "active_from"],
+        ["activeTo", "active_to"],
       ] as const) {
         const v = input[key];
         if (v === undefined) continue;
         if (v !== null && !isValidDate(v)) throw invalid(`"${v}" is not a date`);
         set(col, v);
       }
-      if (input.status !== undefined) set('status', input.status);
+      if (input.status !== undefined) set("status", input.status);
       if (sets.length === 0) return;
-      await tx.query(`UPDATE person SET ${sets.join(', ')} WHERE id = $1`, values);
+      await tx.query(`UPDATE person SET ${sets.join(", ")} WHERE id = $1`, values);
     });
   }
 
@@ -450,21 +450,21 @@ export class WorkspaceService {
   async roleOf(actor: Actor, personId: string): Promise<Role> {
     this.mustBeAdmin(actor);
     return this.run(actor, async (tx) => {
-      const [row] = await tx.query<R>('SELECT role FROM person WHERE id = $1', [personId]);
-      if (!row) throw notFound('Person');
+      const [row] = await tx.query<R>("SELECT role FROM person WHERE id = $1", [personId]);
+      if (!row) throw notFound("Person");
       return row.role as Role;
     });
   }
 
   private mustBeAdmin(actor: Actor): void {
-    if (actor.role !== 'admin') throw forbidden('Only the admin can do that.');
+    if (actor.role !== "admin") throw forbidden("Only the admin can do that.");
   }
 
   // --- prices, rules, holidays -------------------------------------------
 
   async listRateCards(actor: Actor): Promise<RateCard[]> {
     return this.run(actor, async (tx) =>
-      (await tx.query<R>('SELECT * FROM rate_card ORDER BY effective_from')).map(rateCardFromRow),
+      (await tx.query<R>("SELECT * FROM rate_card ORDER BY effective_from")).map(rateCardFromRow),
     );
   }
 
@@ -512,7 +512,7 @@ export class WorkspaceService {
   async listPolicies(actor: Actor): Promise<{ effectiveFrom: string; doc: Policy }[]> {
     return this.run(actor, async (tx) =>
       (
-        await tx.query<R>('SELECT effective_from, doc FROM policy_version ORDER BY effective_from')
+        await tx.query<R>("SELECT effective_from, doc FROM policy_version ORDER BY effective_from")
       ).map((r) => ({ effectiveFrom: r.effective_from, doc: r.doc })),
     );
   }
@@ -521,18 +521,18 @@ export class WorkspaceService {
   async addPolicy(actor: Actor, effectiveFrom: string, doc: unknown): Promise<void> {
     this.assertWritable();
     this.mustBeAdmin(actor);
-    if (!isValidDate(effectiveFrom) || !effectiveFrom.endsWith('-01'))
-      throw invalid('Rules take effect from the first of a month.');
+    if (!isValidDate(effectiveFrom) || !effectiveFrom.endsWith("-01"))
+      throw invalid("Rules take effect from the first of a month.");
     if (monthOf(effectiveFrom) < monthOf(this.local().date))
-      throw invalid('Rules cannot take effect in a month that has already begun.');
+      throw invalid("Rules cannot take effect in a month that has already begun.");
     const parsed = PolicySchema.safeParse(doc);
     if (!parsed.success)
       throw invalid(
-        `These rules are not valid: ${parsed.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`,
+        `These rules are not valid: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`,
       );
     await this.run(actor, async (tx) => {
       await tx.query(
-        'INSERT INTO policy_version (effective_from, doc, created_by) VALUES ($1, $2, $3)',
+        "INSERT INTO policy_version (effective_from, doc, created_by) VALUES ($1, $2, $3)",
         [effectiveFrom, JSON.stringify(parsed.data), actor.personId],
       );
     });
@@ -548,7 +548,7 @@ export class WorkspaceService {
     const id = crypto.randomUUID();
     await this.run(actor, async (tx) => {
       await tx.query(
-        'INSERT INTO holiday (id, name, on_date, location, confirmed, created_by) VALUES ($1,$2,$3,$4,$5,$6)',
+        "INSERT INTO holiday (id, name, on_date, location, confirmed, created_by) VALUES ($1,$2,$3,$4,$5,$6)",
         [
           id,
           input.name.trim(),
@@ -573,12 +573,12 @@ export class WorkspaceService {
       throw invalid(`"${input.date}" is not a date`);
     await this.run(actor, async (tx) => {
       const [h] = await tx.query<R>(
-        'SELECT name, on_date, location, confirmed FROM holiday WHERE id = $1',
+        "SELECT name, on_date, location, confirmed FROM holiday WHERE id = $1",
         [id],
       );
-      if (!h) throw notFound('Holiday');
+      if (!h) throw notFound("Holiday");
       await tx.query(
-        'UPDATE holiday SET name = $2, on_date = $3, location = $4, confirmed = $5 WHERE id = $1',
+        "UPDATE holiday SET name = $2, on_date = $3, location = $4, confirmed = $5 WHERE id = $1",
         [
           id,
           input.name?.trim() ?? h.name,
@@ -594,8 +594,8 @@ export class WorkspaceService {
     this.assertWritable();
     this.mustBeAdmin(actor);
     await this.run(actor, async (tx) => {
-      const gone = await tx.query('DELETE FROM holiday WHERE id = $1 RETURNING id', [id]);
-      if (gone.length === 0) throw notFound('Holiday');
+      const gone = await tx.query("DELETE FROM holiday WHERE id = $1 RETURNING id", [id]);
+      if (gone.length === 0) throw notFound("Holiday");
     });
   }
 
@@ -617,19 +617,21 @@ export class WorkspaceService {
         rows.map((r) => r.logged_by),
       );
       return Promise.all(
-        rows.map(async (r): Promise<LogEntryDto> => ({
-          id: r.id,
-          date: r.on_date,
-          personId: r.person_id,
-          allConsumers: r.all_consumers,
-          change: r.change,
-          qty: r.qty,
-          note: await this.d.cipher.dec('log_entry', 'note_enc', r.id, r.note_enc),
-          loggedBy: r.logged_by,
-          loggedAt: r.logged_at,
-          by: whoLabel(r.logged_by, ctx),
-          lateByDays: lateByDays(r.on_date, r.logged_at, this.tz),
-        })),
+        rows.map(
+          async (r): Promise<LogEntryDto> => ({
+            id: r.id,
+            date: r.on_date,
+            personId: r.person_id,
+            allConsumers: r.all_consumers,
+            change: r.change,
+            qty: r.qty,
+            note: await this.d.cipher.dec("log_entry", "note_enc", r.id, r.note_enc),
+            loggedBy: r.logged_by,
+            loggedAt: r.logged_at,
+            by: whoLabel(r.logged_by, ctx),
+            lateByDays: lateByDays(r.on_date, r.logged_at, this.tz),
+          }),
+        ),
       );
     });
   }
@@ -650,7 +652,7 @@ export class WorkspaceService {
     for (const id of new Set(ids)) {
       if (id === null) continue;
       // The role of a person is no secret from the people they act on; their name can be.
-      const [r] = await tx.query<R>('SELECT role FROM person_billing($1)', [id]);
+      const [r] = await tx.query<R>("SELECT role FROM person_billing($1)", [id]);
       if (r) roles.set(id, r.role as Role);
     }
     return {
@@ -677,7 +679,7 @@ export class WorkspaceService {
           WHERE ($1::bigint IS NULL OR id < $1) ORDER BY id DESC LIMIT $2`,
         [opts.before ?? null, limit],
       );
-      const claimRows = await tx.query<R>('SELECT id, consumer_id, amount, for_month FROM claim');
+      const claimRows = await tx.query<R>("SELECT id, consumer_id, amount, for_month FROM claim");
       const claims = new Map(
         claimRows.map((c) => [
           c.id as string,
@@ -756,7 +758,7 @@ export class WorkspaceService {
           input.allConsumers,
           input.change,
           input.qty,
-          await this.d.cipher.enc('log_entry', 'note_enc', id, input.note?.trim() || null),
+          await this.d.cipher.enc("log_entry", "note_enc", id, input.note?.trim() || null),
           actor.personId,
         ],
       );
@@ -769,9 +771,9 @@ export class WorkspaceService {
     await this.run(actor, async (tx, load) => {
       const data = await load();
       const existing = data.log.find((e) => e.id === id);
-      if (!existing) throw notFound('Entry');
+      if (!existing) throw notFound("Entry");
       requireOk(checkLogChange(prepare(data), actor, existing, this.local()));
-      await tx.query('DELETE FROM log_entry WHERE id = $1', [id]);
+      await tx.query("DELETE FROM log_entry WHERE id = $1", [id]);
     });
   }
 
@@ -788,30 +790,32 @@ export class WorkspaceService {
           ORDER BY c.created_at DESC LIMIT 500`,
       );
       return Promise.all(
-        rows.map(async (r): Promise<ClaimDto> => ({
-          id: r.id,
-          consumerId: r.consumer_id,
-          paidAt: r.paid_at,
-          forMonth: monthOf(r.for_month),
-          amount: r.amount,
-          method: r.method as PayMethod,
-          refNote: await this.d.cipher.dec('claim', 'ref_note_enc', r.id, r.ref_note_enc),
-          createdAt: r.created_at,
-          status: r.reversed ? 'Reversed' : (r.decision ?? 'Pending'),
-          decisionNote: await this.d.cipher.dec(
-            'claim_decision',
-            'note_enc',
-            r.id,
-            r.decision_note,
-          ),
-          decidedAt: r.decided_at ?? null,
-          reversalReason: await this.d.cipher.dec(
-            'claim_reversal',
-            'reason_enc',
-            r.id,
-            r.reason_enc,
-          ),
-        })),
+        rows.map(
+          async (r): Promise<ClaimDto> => ({
+            id: r.id,
+            consumerId: r.consumer_id,
+            paidAt: r.paid_at,
+            forMonth: monthOf(r.for_month),
+            amount: r.amount,
+            method: r.method as PayMethod,
+            refNote: await this.d.cipher.dec("claim", "ref_note_enc", r.id, r.ref_note_enc),
+            createdAt: r.created_at,
+            status: r.reversed ? "Reversed" : (r.decision ?? "Pending"),
+            decisionNote: await this.d.cipher.dec(
+              "claim_decision",
+              "note_enc",
+              r.id,
+              r.decision_note,
+            ),
+            decidedAt: r.decided_at ?? null,
+            reversalReason: await this.d.cipher.dec(
+              "claim_reversal",
+              "reason_enc",
+              r.id,
+              r.reason_enc,
+            ),
+          }),
+        ),
       );
     });
   }
@@ -841,7 +845,7 @@ export class WorkspaceService {
           monthStart(input.forMonth),
           input.amount,
           input.method,
-          await this.d.cipher.enc('claim', 'ref_note_enc', id, input.refNote?.trim() || null),
+          await this.d.cipher.enc("claim", "ref_note_enc", id, input.refNote?.trim() || null),
         ],
       );
       return { id };
@@ -852,8 +856,8 @@ export class WorkspaceService {
     this.assertWritable();
     await this.run(actor, async (tx, load) => {
       requireOk(checkClaimWithdrawal(prepare(await load()), actor, id));
-      const gone = await tx.query('DELETE FROM claim WHERE id = $1 RETURNING id', [id]);
-      if (gone.length === 0) throw notFound('Claim');
+      const gone = await tx.query("DELETE FROM claim WHERE id = $1 RETURNING id", [id]);
+      if (gone.length === 0) throw notFound("Claim");
     });
   }
 
@@ -871,7 +875,7 @@ export class WorkspaceService {
         [
           claimId,
           decision,
-          await this.d.cipher.enc('claim_decision', 'note_enc', claimId, note?.trim() || null),
+          await this.d.cipher.enc("claim_decision", "note_enc", claimId, note?.trim() || null),
           actor.personId,
         ],
       );
@@ -886,7 +890,7 @@ export class WorkspaceService {
         `INSERT INTO claim_reversal (claim_id, reason_enc, reversed_by) VALUES ($1,$2,$3)`,
         [
           claimId,
-          await this.d.cipher.enc('claim_reversal', 'reason_enc', claimId, reason.trim()),
+          await this.d.cipher.enc("claim_reversal", "reason_enc", claimId, reason.trim()),
           actor.personId,
         ],
       );
@@ -896,20 +900,22 @@ export class WorkspaceService {
   async listSettlements(actor: Actor): Promise<SettlementDto[]> {
     return this.run(actor, async (tx) => {
       const rows = await tx.query<R>(
-        'SELECT id, on_date, consumer_id, for_month, type, amount, note_enc, recorded_by, created_at FROM settlement ORDER BY on_date DESC, created_at DESC LIMIT 500',
+        "SELECT id, on_date, consumer_id, for_month, type, amount, note_enc, recorded_by, created_at FROM settlement ORDER BY on_date DESC, created_at DESC LIMIT 500",
       );
       return Promise.all(
-        rows.map(async (r): Promise<SettlementDto> => ({
-          id: r.id,
-          date: r.on_date,
-          consumerId: r.consumer_id,
-          forMonth: monthOf(r.for_month),
-          type: r.type as SettlementType,
-          amount: r.amount ?? null,
-          note: await this.d.cipher.dec('settlement', 'note_enc', r.id, r.note_enc),
-          recordedBy: r.recorded_by,
-          createdAt: r.created_at,
-        })),
+        rows.map(
+          async (r): Promise<SettlementDto> => ({
+            id: r.id,
+            date: r.on_date,
+            consumerId: r.consumer_id,
+            forMonth: monthOf(r.for_month),
+            type: r.type as SettlementType,
+            amount: r.amount ?? null,
+            note: await this.d.cipher.dec("settlement", "note_enc", r.id, r.note_enc),
+            recordedBy: r.recorded_by,
+            createdAt: r.created_at,
+          }),
+        ),
       );
     });
   }
@@ -931,15 +937,15 @@ export class WorkspaceService {
     const date = input.date ?? this.local().date;
     if (!isValidDate(date)) throw invalid(`"${date}" is not a date`);
     if (
-      input.type === 'Payment' &&
+      input.type === "Payment" &&
       !(Number.isSafeInteger(input.amount) && (input.amount ?? 0) > 0)
     )
-      throw invalid('A payment needs an amount above zero.');
-    if (input.type !== 'Payment' && input.amount) throw invalid('Only a payment has an amount.');
+      throw invalid("A payment needs an amount above zero.");
+    if (input.type !== "Payment" && input.amount) throw invalid("Only a payment has an amount.");
     return this.run(actor, async (tx, load) => {
       const data = await load();
-      if (!data.people.some((x) => x.id === input.consumerId && x.role === 'consumer'))
-        throw notFound('Consumer');
+      if (!data.people.some((x) => x.id === input.consumerId && x.role === "consumer"))
+        throw notFound("Consumer");
       const id = crypto.randomUUID();
       await tx.query(
         `INSERT INTO settlement (id, on_date, consumer_id, for_month, type, amount, note_enc, recorded_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -949,8 +955,8 @@ export class WorkspaceService {
           input.consumerId,
           monthStart(input.forMonth),
           input.type,
-          input.type === 'Payment' ? input.amount : null,
-          await this.d.cipher.enc('settlement', 'note_enc', id, input.note?.trim() || null),
+          input.type === "Payment" ? input.amount : null,
+          await this.d.cipher.enc("settlement", "note_enc", id, input.note?.trim() || null),
           actor.personId,
         ],
       );
@@ -971,7 +977,7 @@ export class WorkspaceService {
     return this.run(actor, async (tx, load) => {
       const data = await load();
       if (data.today <= monthEnd(month))
-        throw invalid('A month can be closed only after it has ended.');
+        throw invalid("A month can be closed only after it has ended.");
       const p: Prepared = prepare(data);
       const targets = consumers(p).filter((c) =>
         consumerId
@@ -980,12 +986,12 @@ export class WorkspaceService {
             monthOf(c.activeFrom) <= month &&
             (c.activeTo === null || monthOf(c.activeTo) >= month),
       );
-      if (consumerId && targets.length === 0) throw notFound('Consumer');
+      if (consumerId && targets.length === 0) throw notFound("Consumer");
       const closed: { consumerId: string; billed: number; meals: number }[] = [];
       for (const c of targets) {
         if (data.closes.some((x) => x.consumerId === c.id && x.forMonth === month)) {
           if (consumerId)
-            throw new ApiError(409, 'conflict', 'That month is already closed for this person.');
+            throw new ApiError(409, "conflict", "That month is already closed for this person.");
           continue;
         }
         const snap = closeSnapshot(p, c.id, month);
@@ -1004,10 +1010,10 @@ export class WorkspaceService {
     this.mustBeAdmin(actor);
     await this.run(actor, async (tx) => {
       const gone = await tx.query(
-        'DELETE FROM month_close WHERE for_month = $1 AND consumer_id = $2 RETURNING consumer_id',
+        "DELETE FROM month_close WHERE for_month = $1 AND consumer_id = $2 RETURNING consumer_id",
         [monthStart(month), consumerId],
       );
-      if (gone.length === 0) throw notFound('Close');
+      if (gone.length === 0) throw notFound("Close");
     });
   }
 
@@ -1030,7 +1036,7 @@ export class WorkspaceService {
           : Object.fromEntries(
               Object.entries(j).map(([k, v]) => [
                 k,
-                k.endsWith('_enc') && v !== null ? '(encrypted)' : v,
+                k.endsWith("_enc") && v !== null ? "(encrypted)" : v,
               ]),
             );
       return rows.map((r) => ({

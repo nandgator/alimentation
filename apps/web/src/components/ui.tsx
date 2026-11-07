@@ -6,9 +6,9 @@ import {
   useState,
   type FormEvent,
   type ReactNode,
-} from 'react';
-import { ApiFailure } from '../api.ts';
-import { month as monthLabel } from '../format.ts';
+} from "react";
+import { ApiFailure } from "../api.ts";
+import { month as monthLabel } from "../format.ts";
 
 /** Runs a loader and keeps its result. `reload` fetches again without blanking the screen. */
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
@@ -25,7 +25,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
         mine === seq.current &&
         setState((s) => ({
           ...s,
-          error: e instanceof ApiFailure ? e : new ApiFailure(0, 'error', String(e)),
+          error: e instanceof ApiFailure ? e : new ApiFailure(0, "error", String(e)),
           loading: false,
         })),
     );
@@ -46,12 +46,12 @@ export function PageHead({
   actions?: ReactNode;
 }) {
   return (
-    <div className="pagehead">
-      <div className="pagehead-text">
+    <div class="pagehead">
+      <div class="pagehead-text">
         <h1>{title}</h1>
-        {lead ? <p className="lead">{lead}</p> : null}
+        {lead ? <p class="lead">{lead}</p> : null}
       </div>
-      {actions ? <div className="row">{actions}</div> : null}
+      {actions ? <div class="row">{actions}</div> : null}
     </div>
   );
 }
@@ -59,23 +59,23 @@ export function PageHead({
 /** The top of one part of a screen. */
 export function SectionHead({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
-    <div className="sechead">
+    <div class="sechead">
       <h2>{title}</h2>
-      {actions ? <div className="row">{actions}</div> : null}
+      {actions ? <div class="row">{actions}</div> : null}
     </div>
   );
 }
 
-export const Spinner = ({ label = 'Loading' }: { label?: string }) => (
-  <p className="muted small" role="status" aria-live="polite">
+export const Spinner = ({ label = "Loading" }: { label?: string }) => (
+  <p class="muted small" role="status" aria-live="polite">
     {label}…
   </p>
 );
 
 export const Problem = ({ error }: { error: Error | string | null | undefined }) =>
   error ? (
-    <div className="banner bad" role="alert">
-      {typeof error === 'string' ? error : error.message}
+    <div class="banner bad" role="alert">
+      {typeof error === "string" ? error : error.message}
     </div>
   ) : null;
 
@@ -90,7 +90,7 @@ export function useAction() {
       await fn();
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setError(e instanceof Error ? e.message : "Something went wrong.");
       return false;
     } finally {
       setBusy(false);
@@ -111,10 +111,10 @@ export function Field({
   id?: string;
 }) {
   return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
+    <div class="field">
+      <label for={id}>{label}</label>
       {children}
-      {hint ? <span className="hint">{hint}</span> : null}
+      {hint ? <span class="hint">{hint}</span> : null}
     </div>
   );
 }
@@ -130,7 +130,7 @@ export function Form({
 }) {
   return (
     <form
-      className="form"
+      class="form"
       onSubmit={(e: FormEvent) => {
         e.preventDefault();
         void onSubmit();
@@ -164,7 +164,7 @@ export function Dialog({
   }, [open]);
   return (
     <dialog ref={ref} onClose={onClose} aria-labelledby={titleId}>
-      <div className="stack" style={{ ['--gap' as string]: '16px' }}>
+      <div class="stack" style={{ ["--gap" as string]: "16px" }}>
         <h3 id={titleId}>{title}</h3>
         {open ? children : null}
       </div>
@@ -172,14 +172,14 @@ export function Dialog({
   );
 }
 
-type ToastTone = 'good' | 'bad';
+type ToastTone = "good" | "bad";
 interface ToastMessage {
   text: string;
   tone: ToastTone;
 }
 const toastListeners = new Set<(m: ToastMessage) => void>();
 /** A short note that something happened. A refusal says so with `'bad'`, and is announced at once. */
-export const toast = (text: string, tone: ToastTone = 'good') =>
+export const toast = (text: string, tone: ToastTone = "good") =>
   toastListeners.forEach((l) => l({ text, tone }));
 export function Toaster() {
   const [message, setMessage] = useState<ToastMessage | null>(null);
@@ -189,19 +189,19 @@ export function Toaster() {
       setMessage(m);
       clearTimeout(timer);
       // A refusal stays long enough to be read.
-      timer = setTimeout(() => setMessage(null), m.tone === 'bad' ? 6000 : 3500);
+      timer = setTimeout(() => setMessage(null), m.tone === "bad" ? 6000 : 3500);
     };
     toastListeners.add(on);
     return () => void toastListeners.delete(on);
   }, []);
   return message ? (
     <div
-      className={`toast ${message.tone}`}
-      role={message.tone === 'bad' ? 'alert' : 'status'}
-      aria-live={message.tone === 'bad' ? 'assertive' : 'polite'}
+      class={`toast ${message.tone}`}
+      role={message.tone === "bad" ? "alert" : "status"}
+      aria-live={message.tone === "bad" ? "assertive" : "polite"}
     >
       <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
-        {message.tone === 'bad' ? (
+        {message.tone === "bad" ? (
           <path
             d="M8 3v6M8 12v.5"
             fill="none"
@@ -229,9 +229,9 @@ export const Chip = ({
   tone,
   children,
 }: {
-  tone?: 'good' | 'warn' | 'bad';
+  tone?: "good" | "warn" | "bad";
   children: ReactNode;
-}) => <span className={`chip ${tone ?? ''}`}>{children}</span>;
+}) => <span class={`chip ${tone ?? ""}`}>{children}</span>;
 
 /** One figure. The few that answer “where do I stand?” are `lead` and sit larger above the rest. */
 export const Tile = ({
@@ -245,9 +245,9 @@ export const Tile = ({
   projected?: boolean;
   lead?: boolean;
 }) => (
-  <div className={`tile${lead ? ' lead' : ''}${projected ? ' projected' : ''}`}>
-    <div className="k">{label}</div>
-    <div className="v">{value}</div>
+  <div class={`tile${lead ? " lead" : ""}${projected ? " projected" : ""}`}>
+    <div class="k">{label}</div>
+    <div class="v">{value}</div>
   </div>
 );
 
@@ -264,12 +264,7 @@ export function MonthPicker({
   current: string;
 }) {
   return (
-    <select
-      aria-label="Month"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="fit"
-    >
+    <select aria-label="Month" value={value} onChange={(e) => onChange(e.target.value)} class="fit">
       {[...months].reverse().map((m) => (
         <option key={m} value={m}>
           {m === current ? `Current month (${monthLabel(m)})` : monthLabel(m)}
@@ -280,8 +275,8 @@ export function MonthPicker({
 }
 
 /** An icon that copies `text`, in the design system's icon button; it turns to a tick for a moment, and says so aloud. */
-export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
-  const [state, setState] = useState<'copied' | 'failed' | null>(null);
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [state, setState] = useState<"copied" | "failed" | null>(null);
   useEffect(() => {
     if (!state) return;
     const t = setTimeout(() => setState(null), 1800);
@@ -291,32 +286,32 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
     <>
       <button
         type="button"
-        className="icon-btn copy"
+        class="icon-btn copy"
         aria-label={label}
         title="Copy"
-        data-state={state === 'copied' ? 'copied' : undefined}
+        data-state={state === "copied" ? "copied" : undefined}
         onClick={() =>
           void navigator.clipboard.writeText(text).then(
-            () => setState('copied'),
-            () => setState('failed'),
+            () => setState("copied"),
+            () => setState("failed"),
           )
         }
       >
-        <svg className="i-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <rect x="9" y="9" width="11" height="11" rx="2" />
           <path d="M5 15V6a2 2 0 0 1 2-2h9" />
         </svg>
-        <svg className="i-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <svg class="i-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
-        <span className="copy-label">Copied</span>
+        <span class="copy-label">Copied</span>
       </button>
-      <span className="sr" role="status">
-        {state === 'copied'
-          ? 'Copied to the clipboard.'
-          : state === 'failed'
-            ? 'It could not be copied. Select it and press Control and C.'
-            : ''}
+      <span class="sr" role="status">
+        {state === "copied"
+          ? "Copied to the clipboard."
+          : state === "failed"
+            ? "It could not be copied. Select it and press Control and C."
+            : ""}
       </span>
     </>
   );

@@ -1,0 +1,43 @@
+{
+  // Markdown linting only. Formatting is prettier's job; see .prettierrc.
+  "$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2/refs/heads/main/schema/markdownlint-cli2-config-schema.json",
+  "config": {
+    "code-block-style": {
+      "style": "fenced"
+    },
+    "default": true,
+    "first-line-heading": false,
+    "line-length": {
+      "code_blocks": false,
+      "line_length": 100,
+      "tables": false
+    },
+    "no-duplicate-heading": {
+      "siblings_only": true
+    },
+    "no-inline-html": false,
+    // The site pages carry their title in front matter and repeat it as the H1.
+    "single-title": {
+      "front_matter_title": ""
+    },
+    // Replaced by the custom rule below, which checks only a paragraph's first
+    // line: MD018's fix on a wrapped "#5)" turns it into a heading.
+    "no-missing-space-atx": false
+  },
+  "customRules": ["./scripts/markdownlint/no-missing-space-atx.mjs"],
+  "globs": ["**/*.md"],
+  "ignores": [
+    "node_modules/**",
+    "build/**",
+    "dist/**",
+    "target/**",
+    "db/**",
+    "imports/**",
+    "content-local/**",
+    ".claude/worktrees/**",
+    "test-results/**",
+    "playwright-report/**",
+    ".svelte-kit/**",
+    "**/CHANGELOG.md"
+  ]
+}

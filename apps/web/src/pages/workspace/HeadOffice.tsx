@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { api, postJson } from '../../api.ts';
-import { Field, Form, toast, useAction } from '../../components/ui.tsx';
-import { useWorkspace } from './context.tsx';
+import { useState } from "react";
+import { api, postJson } from "../../api.ts";
+import { Field, Form, toast, useAction } from "../../components/ui.tsx";
+import { useWorkspace } from "./context.tsx";
 
 /**
  * Whether this kitchen shares its totals with a head office. Kept small and at the bottom: most kitchens
@@ -11,13 +11,13 @@ export function HeadOffice() {
   const ws = useWorkspace();
   const mine = ws.boot.organisation;
   const act = useAction();
-  const [link, setLink] = useState('');
+  const [link, setLink] = useState("");
   const [asked, setAsked] = useState<string | null>(null);
   const url = `${ws.api}/organisation`;
 
   if (mine)
     return (
-      <section className="card stack" aria-labelledby="ho-h">
+      <section class="card stack" aria-labelledby="ho-h">
         <h2 id="ho-h">Head office</h2>
         <p>
           This kitchen shares its totals with <strong>{mine.name}</strong>: how many people it
@@ -26,12 +26,12 @@ export function HeadOffice() {
         </p>
         <div>
           <button
-            className="btn ghost"
+            class="btn ghost"
             disabled={act.busy || !ws.writable}
             onClick={() =>
               void act.run(async () => {
                 await api.del(url);
-                toast('This kitchen no longer shares its totals.');
+                toast("This kitchen no longer shares its totals.");
                 ws.reload();
               })
             }
@@ -43,10 +43,10 @@ export function HeadOffice() {
     );
 
   return (
-    <details className="card">
+    <details class="card">
       <summary>Share this kitchen's totals with a head office</summary>
-      <div className="stack">
-        <p className="muted">
+      <div class="stack">
+        <p class="muted">
           For a group of kitchens that wants to see how each is doing. It sees counts and money for
           the month, never a name. You will be shown who it is before anything is shared, and you
           can stop whenever you like.
@@ -73,21 +73,21 @@ export function HeadOffice() {
               }}
             />
           </Field>
-          {asked ? null : <button className="btn ghost">See who it is for</button>}
+          {asked ? null : <button class="btn ghost">See who it is for</button>}
         </Form>
         {asked ? (
-          <div className="stack">
+          <div class="stack">
             <p>
               This link is for <strong>{asked}</strong>.
             </p>
             <div>
               <button
-                className="btn"
+                class="btn"
                 disabled={act.busy}
                 onClick={() =>
                   void act.run(async () => {
                     await postJson(url, { token: link.trim(), confirm: true });
-                    setLink('');
+                    setLink("");
                     setAsked(null);
                     toast(`This kitchen now shares its totals with ${asked}.`);
                     ws.reload();

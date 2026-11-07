@@ -1,5 +1,5 @@
-import type { Holiday, IsoDate, RateCard } from '@alimentation/core';
-import { date as showDate } from './format.ts';
+import type { Holiday, IsoDate, RateCard } from "@alimentation/core";
+import { date as showDate } from "./format.ts";
 
 /**
  * Copying a kitchen's prices, rules and holidays to another kitchen. Nothing here changes a kitchen: it
@@ -24,16 +24,16 @@ export interface What {
 
 export type Step =
   | {
-      kind: 'rules';
+      kind: "rules";
       label: string;
-      path: '/policies';
+      path: "/policies";
       body: { effectiveFrom: IsoDate; doc: unknown };
     }
-  | { kind: 'prices'; label: string; path: '/rate-cards'; body: Omit<RateCard, 'id'> }
+  | { kind: "prices"; label: string; path: "/rate-cards"; body: Omit<RateCard, "id"> }
   | {
-      kind: 'holiday';
+      kind: "holiday";
       label: string;
-      path: '/holidays';
+      path: "/holidays";
       body: { name: string; date: IsoDate; location: string | null; confirmed: boolean };
     };
 
@@ -50,13 +50,13 @@ export interface Plan {
 
 /** The same value whatever order its keys were written in. */
 function canonical(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`;
-  if (v && typeof v === 'object')
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  if (v && typeof v === "object")
     return `{${Object.entries(v as Record<string, unknown>)
       .filter(([, x]) => x !== undefined)
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([k, x]) => `${JSON.stringify(k)}:${canonical(x)}`)
-      .join(',')}}`;
+      .join(",")}}`;
   return JSON.stringify(v);
 }
 const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
@@ -74,8 +74,8 @@ function pricesOf(c: RateCard) {
   };
 }
 
-const holidayKey = (h: Pick<Holiday, 'date' | 'name' | 'location'>) =>
-  `${h.date}|${h.name.trim().toLowerCase()}|${(h.location ?? '').trim().toLowerCase()}`;
+const holidayKey = (h: Pick<Holiday, "date" | "name" | "location">) =>
+  `${h.date}|${h.name.trim().toLowerCase()}|${(h.location ?? "").trim().toLowerCase()}`;
 
 export function planCopy(source: Snapshot, target: Snapshot, what: What): Plan {
   const plan: Plan = { steps: [], already: 0, left: [], notes: [] };
@@ -91,7 +91,7 @@ export function planCopy(source: Snapshot, target: Snapshot, what: What): Plan {
     const inForce = (list: typeof sorted) => list.filter((p) => p.effectiveFrom <= start).at(-1);
     const now = inForce(sorted);
     if (sorted.length === 0)
-      plan.notes.push('The first kitchen has not set rules of its own, so there are none to copy.');
+      plan.notes.push("The first kitchen has not set rules of its own, so there are none to copy.");
     if (now) {
       const there = inForce(theirs);
       const label = `Rules, from ${showDate(start)}`;
@@ -99,13 +99,13 @@ export function planCopy(source: Snapshot, target: Snapshot, what: What): Plan {
       else if (theirs.some((p) => p.effectiveFrom === start))
         plan.left.push({
           label,
-          why: 'That kitchen has its own rules from the start of this month, and they differ.',
+          why: "That kitchen has its own rules from the start of this month, and they differ.",
         });
       else
         plan.steps.push({
-          kind: 'rules',
+          kind: "rules",
           label: there ? `${label} (in place of its present rules)` : label,
-          path: '/policies',
+          path: "/policies",
           body: { effectiveFrom: start, doc: now.doc },
         });
     }
@@ -114,13 +114,13 @@ export function planCopy(source: Snapshot, target: Snapshot, what: What): Plan {
       const there = theirs.find((x) => x.effectiveFrom === p.effectiveFrom);
       if (!there)
         plan.steps.push({
-          kind: 'rules',
+          kind: "rules",
           label,
-          path: '/policies',
+          path: "/policies",
           body: { effectiveFrom: p.effectiveFrom, doc: p.doc },
         });
       else if (same(there.doc, p.doc)) plan.already++;
-      else plan.left.push({ label, why: 'That kitchen has different rules from the same day.' });
+      else plan.left.push({ label, why: "That kitchen has different rules from the same day." });
     }
   }
 
@@ -133,13 +133,13 @@ export function planCopy(source: Snapshot, target: Snapshot, what: What): Plan {
       const there = target.rateCards.find((x) => x.effectiveFrom === c.effectiveFrom);
       if (!there)
         plan.steps.push({
-          kind: 'prices',
+          kind: "prices",
           label,
-          path: '/rate-cards',
+          path: "/rate-cards",
           body: { effectiveFrom: c.effectiveFrom, ...pricesOf(c), note: c.note },
         });
       else if (same(pricesOf(there), pricesOf(c))) plan.already++;
-      else plan.left.push({ label, why: 'That kitchen has different prices from the same day.' });
+      else plan.left.push({ label, why: "That kitchen has different prices from the same day." });
     }
   }
 
@@ -156,9 +156,9 @@ export function planCopy(source: Snapshot, target: Snapshot, what: What): Plan {
       if (known.has(holidayKey(h))) plan.already++;
       else
         plan.steps.push({
-          kind: 'holiday',
+          kind: "holiday",
           label: `${h.name}, ${showDate(h.date)}`,
-          path: '/holidays',
+          path: "/holidays",
           body: { name: h.name, date: h.date, location: h.location, confirmed: h.confirmed },
         });
     }
@@ -191,7 +191,7 @@ export async function applyPlan(
     } catch (e) {
       out.refused.push({
         label: s.label,
-        message: e instanceof Error ? e.message : 'The kitchen refused it.',
+        message: e instanceof Error ? e.message : "The kitchen refused it.",
       });
     }
   }

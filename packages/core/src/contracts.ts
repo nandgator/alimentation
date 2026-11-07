@@ -1,10 +1,10 @@
-import type { Meter, Usage } from './limits.ts';
-import type { Policy } from './policy.ts';
-import type { Statement, LedgerDay } from './engine.ts';
-import type { Month, IsoDate } from './dates.ts';
-import type { Paise } from './money.ts';
-import type { Role, RateCard, Holiday, LogChange, PayMethod, SettlementType } from './types.ts';
-import type { Issue } from './validate.ts';
+import type { Meter, Usage } from "./limits.ts";
+import type { Policy } from "./policy.ts";
+import type { Statement, LedgerDay } from "./engine.ts";
+import type { Month, IsoDate } from "./dates.ts";
+import type { Paise } from "./money.ts";
+import type { Role, RateCard, Holiday, LogChange, PayMethod, SettlementType } from "./types.ts";
+import type { Issue } from "./validate.ts";
 
 /** What the API sends and the app reads. Plain data; amounts are paise. */
 
@@ -12,7 +12,7 @@ export interface PersonDto {
   id: string;
   name: string;
   role: Role;
-  status: 'ACTIVE' | 'DISABLED';
+  status: "ACTIVE" | "DISABLED";
   activeFrom: IsoDate | null;
   activeTo: IsoDate | null;
   /** Only the admin is shown a person's contact details. */
@@ -34,7 +34,7 @@ export interface BootstrapDto {
     timeZone: string;
     currency: string;
     /** Anything but ACTIVE is read-only; `movedTo` says where it went once it has. */
-    state: 'ACTIVE' | 'MIGRATING' | 'MOVED';
+    state: "ACTIVE" | "MIGRATING" | "MOVED";
     movedTo: string | null;
   };
   me: { personId: string; role: Role; name: string };
@@ -54,7 +54,7 @@ export interface BootstrapDto {
   pendingClaims: number;
   /** Shown to the admin only. */
   meter: (Meter & { usage: Usage }) | null;
-  workspaceState: 'ACTIVE' | 'MIGRATING' | 'MOVED';
+  workspaceState: "ACTIVE" | "MIGRATING" | "MOVED";
   movedTo: string | null;
   /** Who receives this kitchen's totals (counts and money, no names), when it shares them. */
   organisation: { name: string } | null;
@@ -82,10 +82,10 @@ export interface KitchenTotals {
 export interface OrganisationKitchenDto {
   slug: string;
   name: string;
-  state: 'ACTIVE' | 'MIGRATING' | 'MOVED';
+  state: "ACTIVE" | "MIGRATING" | "MOVED";
   totals: KitchenTotals | null;
   /** Why there are no totals: it has moved, it has used its requests for today, or it could not be read. */
-  unavailable: 'moved' | 'busy' | 'unreadable' | null;
+  unavailable: "moved" | "busy" | "unreadable" | null;
 }
 
 /** An organisation as its head office sees it. */
@@ -118,7 +118,7 @@ export interface HistoryEventDto {
   text: string;
 }
 
-export type ClaimStatus = 'Pending' | 'Confirmed' | 'Disputed' | 'Reversed';
+export type ClaimStatus = "Pending" | "Confirmed" | "Disputed" | "Reversed";
 
 export interface ClaimDto {
   id: string;

@@ -1,14 +1,14 @@
-import { useId } from 'react';
-import { THEMES, THEME_LABEL, useTheme } from '../theme.ts';
+import { useId } from "react";
+import { THEMES, THEME_LABEL, useTheme } from "../theme.ts";
 
 /** Automatic, light or dark: three choices in one group, set on the system's setting until someone picks. */
 export function ThemeSwitch({ className }: { className?: string }) {
   const [theme, set] = useTheme();
   const name = useId();
   return (
-    <fieldset className={className ? `theme-switch ${className}` : 'theme-switch'}>
+    <fieldset class={className ? `theme-switch ${className}` : "theme-switch"}>
       <legend>Theme</legend>
-      <div className="theme-opts">
+      <div class="theme-opts">
         {THEMES.map((t) => (
           <label key={t}>
             <input

@@ -9,7 +9,7 @@ export type Paise = number;
 export const PAISE_PER_RUPEE = 100;
 
 export function rupees(n: number): Paise {
-  if (!Number.isFinite(n)) throw new RangeError('amount must be finite');
+  if (!Number.isFinite(n)) throw new RangeError("amount must be finite");
   return Math.round(n * PAISE_PER_RUPEE);
 }
 
@@ -23,17 +23,17 @@ export function fractionOf(amount: Paise, bps: number): Paise {
 }
 
 function group(digits: string): string {
-  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 /** `₹3,260` with zero shown as `-`, as the spec asks. Paise are shown only when non-zero. */
 export function formatMoney(p: Paise): string {
-  if (p === 0) return '-';
+  if (p === 0) return "-";
   // Stryker disable next-line EqualityOperator: zero returned above
-  const sign = p < 0 ? '-' : '';
+  const sign = p < 0 ? "-" : "";
   const abs = Math.abs(p);
   const whole = Math.floor(abs / PAISE_PER_RUPEE);
   const frac = abs % PAISE_PER_RUPEE;
   const base = `${sign}₹${group(String(whole))}`;
-  return frac === 0 ? base : `${base}.${String(frac).padStart(2, '0')}`;
+  return frac === 0 ? base : `${base}.${String(frac).padStart(2, "0")}`;
 }

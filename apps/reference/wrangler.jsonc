@@ -4,5 +4,5 @@
   //   npm run build -w @alimentation/reference && npx wrangler deploy -c apps/reference/wrangler.jsonc
   "name": "alimentation-reference",
   "compatibility_date": "2026-10-01",
-  "assets": { "directory": "./dist" },
+  "assets": { "directory": "./dist" }
 }
