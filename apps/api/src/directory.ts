@@ -1,4 +1,5 @@
 import type { Limits } from "@alimentation/core";
+import { must } from "@alimentation/core";
 import type { ControlRepo, WorkspaceRow } from "./control/repo.ts";
 import type { Bytes } from "./crypto/aead.ts";
 import { FieldCipher } from "./crypto/fields.ts";
@@ -98,16 +99,18 @@ export class Directory {
   private async ensureSchema(dsns: Dsns, appDb: Db): Promise<void> {
     const wanted = (this.d.migrations ?? WORKSPACE_MIGRATIONS).length;
     const have = await appDb.tx(async (tx) =>
-      Number((await tx.query<{ v: number }>("SELECT schema_version() AS v"))[0]!.v),
+      Number(must((await tx.query<{ v: number }>("SELECT schema_version() AS v"))[0]).v),
     );
     if (have >= wanted || !this.d.openOwnerDb) return;
     const owner = this.d.openOwnerDb(dsns.owner);
     try {
-      const role = (
-        await owner.tx(async (tx) =>
-          tx.query<{ value: string }>(`SELECT value FROM meta WHERE key = 'app_role'`),
-        )
-      )[0]!.value;
+      const role = must(
+        (
+          await owner.tx(async (tx) =>
+            tx.query<{ value: string }>(`SELECT value FROM meta WHERE key = 'app_role'`),
+          )
+        )[0],
+      ).value;
       await owner.withClient((client) =>
         migrate(client, this.d.migrations ?? WORKSPACE_MIGRATIONS, {
           settings: { "alimentation.app_role": role },

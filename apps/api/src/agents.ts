@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import { AGENT_SCOPES, type AgentScope } from "./agent-scopes.ts";
 import { type Bytes, randomBytes, toBase64Url } from "./crypto/aead.ts";
 import { agentScopeOf, OPERATIONS, type Operation } from "./openapi.ts";
@@ -66,7 +67,7 @@ export function toolsFor(
     const properties: Record<string, Record<string, unknown>> = {};
     const required: string[] = [];
     const pathNames = [...m.op.path.matchAll(/:([A-Za-z]+)/g)]
-      .map((x) => x[1]!)
+      .map((x) => must(x[1]))
       .filter((n) => n !== "slug");
     for (const n of pathNames) {
       properties[n] = { type: "string", description: m.op.params?.[n] ?? "The id (a UUID)." };

@@ -2,6 +2,7 @@ import {
   type Bundle,
   type Limits,
   localNow,
+  must,
   UNLIMITED,
   unsupportedRules,
 } from "@alimentation/core";
@@ -67,7 +68,7 @@ export async function unfreezeWorkspace(owner: Db): Promise<void> {
 
 async function bundleOf(p: PlatformDeps, handle: WorkspaceHandle, owner: Db): Promise<Bundle> {
   const members = await p.control.membersOf(handle.row.id);
-  return exportWorkspace(owner, handle.cipher!, {
+  return exportWorkspace(owner, must(handle.cipher), {
     exportedAt: p.now(),
     members,
     today: localNow(p.now(), handle.info.timeZone).date,
@@ -269,14 +270,17 @@ export async function moveToDatabase(
       row.id,
       {
         placement: { kind: "external", data: {} },
-        dsnEnc: await sealDsns(p.keyring, row.id, { app: target.appUrl!, owner: target.ownerUrl }),
+        dsnEnc: await sealDsns(p.keyring, row.id, {
+          app: must(target.appUrl),
+          owner: target.ownerUrl,
+        }),
         ...wrapped,
       },
       {
         placement: row.placement,
         dsnEnc: row.dsnEnc,
-        dataKeyWrapped: row.dataKeyWrapped!,
-        logKeyWrapped: row.logKeyWrapped!,
+        dataKeyWrapped: must(row.dataKeyWrapped),
+        logKeyWrapped: must(row.logKeyWrapped),
       },
       removeBy,
     );

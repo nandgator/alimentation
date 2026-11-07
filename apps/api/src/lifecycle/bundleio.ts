@@ -4,6 +4,7 @@ import {
   type Bundle,
   type BundleBody,
   expectedTotals,
+  must,
 } from "@alimentation/core";
 import type { FieldCipher } from "../crypto/fields.ts";
 import type { Tx } from "../db/driver.ts";
@@ -104,7 +105,7 @@ export async function readBundleBody(
     people.map(async (p) => ({
       id: p.id as string,
       role: p.role,
-      name: (await dec("person", "name_enc", p.id, p.name_enc))!,
+      name: must(await dec("person", "name_enc", p.id, p.name_enc)),
       contact: await dec("person", "contact_enc", p.id, p.contact_enc),
       status: p.status,
       activeFrom: p.active_from ?? null,
@@ -204,7 +205,7 @@ export async function readBundleBody(
       await Promise.all(
         reversals.map(async (r) => ({
           claimId: r.claim_id as string,
-          reason: (await dec("claim_reversal", "reason_enc", r.claim_id, r.reason_enc))!,
+          reason: must(await dec("claim_reversal", "reason_enc", r.claim_id, r.reason_enc)),
           reversedBy: r.reversed_by,
           reversedAt: r.reversed_at as string,
         })),

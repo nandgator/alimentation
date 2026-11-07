@@ -1,4 +1,4 @@
-import { addMonths, formatMoney, monthOf, parseDate, weekdayOf } from "@alimentation/core";
+import { addMonths, formatMoney, monthOf, must, parseDate, weekdayOf } from "@alimentation/core";
 import { useMemo, useState } from "react";
 import {
   board,
@@ -115,7 +115,7 @@ export function Month({ now }: { now?: Date }) {
                     {parseDate(date).d}
                   </span>
                 );
-              const day = days.get(date)!;
+              const day = must(days.get(date));
               const mark = marks[date] ?? "meal";
               const frozen = isFrozen(date, today);
               const isToday = date === today;

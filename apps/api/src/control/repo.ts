@@ -1,4 +1,5 @@
 import type { Limits, Role } from "@alimentation/core";
+import { must } from "@alimentation/core";
 import type { AgentScope } from "../agent-scopes.ts";
 import type { Bytes } from "../crypto/aead.ts";
 import type { Db, Row } from "../db/driver.ts";
@@ -47,7 +48,7 @@ const toWorkspace = (r: R): WorkspaceRow => ({
   displayName: r.display_name,
   state: r.state,
   placement: r.placement,
-  dsnEnc: bytes(r.dsn_enc)!,
+  dsnEnc: must(bytes(r.dsn_enc)),
   dataKeyWrapped: bytes(r.data_key_wrapped),
   logKeyWrapped: bytes(r.log_key_wrapped),
   timeZone: r.time_zone,
@@ -155,7 +156,7 @@ export class ControlRepo {
              VALUES ($1, $2, $3, $4, now()) RETURNING ${columns}`,
             [a.issuer, a.sub, email, a.name],
           );
-          return row(made[0]!);
+          return row(must(made[0]));
         });
       } catch (e) {
         if ((e as { code?: string }).code !== "23505") throw e;
@@ -197,8 +198,8 @@ export class ControlRepo {
         w.displayName,
         JSON.stringify(w.placement),
         Buffer.from(w.dsnEnc),
-        Buffer.from(w.dataKeyWrapped!),
-        Buffer.from(w.logKeyWrapped!),
+        Buffer.from(must(w.dataKeyWrapped)),
+        Buffer.from(must(w.logKeyWrapped)),
         w.timeZone,
         JSON.stringify(w.limits),
         w.createdBy,
@@ -222,7 +223,7 @@ export class ControlRepo {
 
   async countWorkspaces(): Promise<number> {
     return Number(
-      (await this.one<R>(`SELECT count(*)::int AS n FROM workspace WHERE state <> 'WIPING'`))!.n,
+      must(await this.one<R>(`SELECT count(*)::int AS n FROM workspace WHERE state <> 'WIPING'`)).n,
     );
   }
 
@@ -287,9 +288,9 @@ export class ControlRepo {
       );
       await tx.query(
         `INSERT INTO organisation_member (organisation_id, account_id) VALUES ($1, $2)`,
-        [made!.id, accountId],
+        [must(made).id, accountId],
       );
-      return { id: made!.id as string, name: made!.name as string };
+      return { id: must(made).id as string, name: must(made).name as string };
     });
   }
 
@@ -430,7 +431,7 @@ export class ControlRepo {
         k.expiresAt.toISOString(),
       ],
     );
-    return toAgentKey(r!);
+    return toAgentKey(must(r));
   }
 
   /** The key a token is for, and the account it acts for, if the token is one that is still good. */
@@ -474,11 +475,13 @@ export class ControlRepo {
 
   async countActiveAgentKeys(accountId: string, workspaceId: string): Promise<number> {
     return Number(
-      (await this.one<R>(
-        `SELECT count(*)::int AS n FROM agent_key
+      must(
+        await this.one<R>(
+          `SELECT count(*)::int AS n FROM agent_key
             WHERE account_id = $1 AND workspace_id = $2 AND revoked_at IS NULL AND expires_at > $3`,
-        [accountId, workspaceId, this.stamp()],
-      ))!.n,
+          [accountId, workspaceId, this.stamp()],
+        ),
+      ).n,
     );
   }
 
@@ -742,9 +745,9 @@ export class ControlRepo {
     return rows.map((r) => ({
       id: r.id,
       workspaceId: r.workspace_id,
-      dsnEnc: bytes(r.dsn_enc)!,
-      dataKeyWrapped: bytes(r.data_key_wrapped)!,
-      logKeyWrapped: bytes(r.log_key_wrapped)!,
+      dsnEnc: must(bytes(r.dsn_enc)),
+      dataKeyWrapped: must(bytes(r.data_key_wrapped)),
+      logKeyWrapped: must(bytes(r.log_key_wrapped)),
     }));
   }
 

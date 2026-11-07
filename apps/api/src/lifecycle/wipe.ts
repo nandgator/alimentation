@@ -1,4 +1,4 @@
-import { canonicalJson, sha256Hex } from "@alimentation/core";
+import { canonicalJson, must, sha256Hex } from "@alimentation/core";
 import type { WorkspaceRow } from "../control/repo.ts";
 import type { Bytes } from "../crypto/aead.ts";
 import { readDsns } from "../directory.ts";
@@ -54,7 +54,8 @@ async function countRows(
         for (const t of OUR_TABLES) {
           if (t === "meta" || t === "schema_migration") continue;
           out[t] = Number(
-            (await tx.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`))[0]!.n,
+            must((await tx.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`))[0])
+              .n,
           );
         }
         return out;

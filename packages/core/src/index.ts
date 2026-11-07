@@ -6,6 +6,7 @@ export * from "./headline.ts";
 export * from "./history.ts";
 export * from "./limits.ts";
 export * from "./money.ts";
+export { must } from "./must.ts";
 export * from "./policy.ts";
 export * from "./types.ts";
 export * from "./validate.ts";

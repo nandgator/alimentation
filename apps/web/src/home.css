@@ -23,6 +23,9 @@
     --lift-cut: drop-shadow(0 24px 28px rgb(0 0 0 / 0.6));
   }
 }
+.home {
+  --seam: clamp(28px, 4vw, 64px);
+}
 :root[data-theme="dark"] .home {
   --lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 28px 44px -16px rgb(0 0 0 / 0.85);
   --lift-cut: drop-shadow(0 24px 28px rgb(0 0 0 / 0.6));
@@ -274,9 +277,6 @@
    corners rounded, so the colour below shows in them and the two are joined, not cut. (Where the browser can tie
    it to the scroll, the corners ease flat as the sheet comes up, see below.) The overlap is paid for in padding,
    so nothing moves. */
-.home {
-  --seam: clamp(28px, 4vw, 64px);
-}
 main > section:not(.hero),
 .hfoot {
   position: relative;
@@ -500,6 +500,10 @@ main > section.section:not(.hero) {
 .day .tag {
   color: var(--board-ink);
 }
+.day-switch .tag,
+.day-switch .lock {
+  color: var(--accent-ink);
+}
 .day.is-today .tag {
   color: var(--board);
 }
@@ -514,10 +518,6 @@ main > section.section:not(.hero) {
     background: var(--board);
     font-size: 0;
   }
-}
-.day-switch .tag,
-.day-switch .lock {
-  color: var(--accent-ink);
 }
 .day .lock {
   position: absolute;
@@ -618,6 +618,10 @@ main > section.section:not(.hero) {
   display: grid;
   gap: 8px;
 }
+.limits > div {
+  display: flex;
+  flex-direction: column-reverse;
+}
 .board-bill dl > div {
   display: flex;
   justify-content: space-between;
@@ -638,15 +642,23 @@ main > section.section:not(.hero) {
   gap: 8px 16px;
   margin-top: 18px;
 }
+.roll-strip > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
+.mega span {
+  display: block;
+}
 .board-bill .sofar span {
   font-size: 0.95rem;
+}
+.wipe b {
+  font-weight: 700;
 }
 .board-bill .sofar b {
   font: 400 1.5rem / 1 var(--serif);
   font-variant-numeric: lining-nums;
-}
-.board-bill .sofar + .total {
-  margin-top: 10px;
 }
 .board-bill .total {
   display: flex;
@@ -655,6 +667,9 @@ main > section.section:not(.hero) {
   gap: 8px 16px;
   flex-wrap: wrap;
   margin-top: 18px;
+}
+.board-bill .sofar + .total {
+  margin-top: 10px;
 }
 .board-bill .total span {
   font-size: 0.95rem;
@@ -797,10 +812,6 @@ main > section.section:not(.hero) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(24px, 4vw, 56px) clamp(16px, 3vw, 48px);
 }
-.limits > div {
-  display: flex;
-  flex-direction: column-reverse;
-}
 .limits dd {
   margin: 0;
   font: 400 clamp(3.2rem, 7.6vw, 8rem) / 1 var(--serif);
@@ -840,11 +851,6 @@ main > section.section:not(.hero) {
   flex-direction: column;
   transform: translateY(calc(var(--d) * -1em));
 }
-.roll-strip > span {
-  display: block;
-  height: 1em;
-  line-height: 1;
-}
 
 /* Leaving: the receipt prints from the top down. */
 .leaving {
@@ -871,9 +877,6 @@ main > section.section:not(.hero) {
 }
 .wipe li {
   padding-left: 0.4rem;
-}
-.wipe b {
-  font-weight: 700;
 }
 @media (max-width: 900px) {
   .leaving-grid {
@@ -1024,6 +1027,10 @@ main > section.section:not(.hero) {
   margin-bottom: 8px;
   font-size: clamp(1.4rem, 2vw, 1.8rem);
 }
+.hfoot .hwrap {
+  position: relative;
+  container-type: inline-size;
+}
 #runs .hwrap {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
@@ -1048,10 +1055,6 @@ main > section.section:not(.hero) {
   background: var(--field-green);
   color: var(--field-green-ink);
   padding-top: clamp(48px, 6vw, 88px);
-}
-.hfoot .hwrap {
-  position: relative;
-  container-type: inline-size;
 }
 .foot-top {
   display: flex;
@@ -1123,9 +1126,6 @@ main > section.section:not(.hero) {
   -webkit-user-select: none;
   pointer-events: none;
 }
-.mega span {
-  display: block;
-}
 .mega-base {
   color: color-mix(in srgb, var(--field-green-ink) 15%, transparent);
   -webkit-mask-image: linear-gradient(to bottom, black 28%, transparent 92%);
@@ -1187,6 +1187,9 @@ main > section.section:not(.hero) {
   /* On the shelf of the Moving stage the carrier steams when it is set down, and not while it is in the air. */
   .stage .steam {
     transition: opacity 1600ms ease 300ms;
+  }
+  .hero-carrier .steam {
+    transition: opacity var(--dur-3) ease;
   }
   .moving[data-hop="true"] .stage .steam {
     opacity: 0;
@@ -1390,9 +1393,6 @@ main > section.section:not(.hero) {
   /* The tiffin is received into the bar with a small swell, and the steam over the empty shelf fades. */
   .mark.is-docked {
     animation: dock-pop var(--dur-3) var(--ease-out);
-  }
-  .hero-carrier .steam {
-    transition: opacity var(--dur-3) ease;
   }
 }
 @keyframes dock-pop {

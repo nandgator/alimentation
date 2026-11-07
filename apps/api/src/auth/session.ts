@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import { fromBase64, toBase64Url } from "../crypto/aead.ts";
 
 /**
@@ -34,7 +35,9 @@ export class TokenSigner {
   async sign<T extends object>(payload: T, ttlSeconds: number, now: Date): Promise<string> {
     const iat = Math.floor(now.getTime() / 1000);
     const body = toBase64Url(te.encode(JSON.stringify({ ...payload, iat, exp: iat + ttlSeconds })));
-    const mac = new Uint8Array(await crypto.subtle.sign("HMAC", this.keys[0]!, te.encode(body)));
+    const mac = new Uint8Array(
+      await crypto.subtle.sign("HMAC", must(this.keys[0]), te.encode(body)),
+    );
     return `${body}.${toBase64Url(mac)}`;
   }
 

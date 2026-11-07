@@ -3,6 +3,7 @@ import {
   canonicalJson,
   compareTotals,
   digestOf,
+  must,
   parseBundle,
   type TotalMismatch,
   unsupportedRules,
@@ -137,7 +138,7 @@ export async function importBundle(
       const found = await tx.query<{ n: number }>(
         "SELECT (SELECT count(*) FROM workspace) + (SELECT count(*) FROM person) + (SELECT count(*) FROM log_entry) AS n",
       );
-      if (Number(found[0]!.n) !== 0) {
+      if (Number(must(found[0]).n) !== 0) {
         report.problems.push(
           "The target database already holds a workspace. Import needs an empty one.",
         );
@@ -358,7 +359,7 @@ export async function importBundle(
               ? v
               : plain === null
                 ? null
-                : `\\x${(await enc(table, k, rowId, plain))!.toString("hex")}`;
+                : `\\x${must(await enc(table, k, rowId, plain)).toString("hex")}`;
         }
         return JSON.stringify(out);
       };

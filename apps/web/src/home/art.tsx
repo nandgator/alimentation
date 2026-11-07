@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import type { ReactNode } from "react";
 import { CARRIER_VENT, POT_VENT, Steam } from "./steam.tsx";
 
@@ -199,8 +200,8 @@ export const POSES = [
 export const poseAt = (p: number) => {
   const i = Math.min(POSES.length - 2, Math.max(0, Math.floor(p)));
   const f = Math.min(1, Math.max(0, p - i));
-  const a = POSES[i]!;
-  const b = POSES[i + 1]!;
+  const a = must(POSES[i]);
+  const b = must(POSES[i + 1]);
   const mix = (m: number, n: number) => Math.round((m + (n - m) * f) * 100) / 100;
   return `translate(${mix(a.x, b.x)}px, ${mix(a.y, b.y)}px) scale(${mix(a.s, b.s)})`;
 };

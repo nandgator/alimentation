@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import type { Db } from "../db/driver.ts";
 import { migrate } from "../db/migrate.ts";
 import { WORKSPACE_MIGRATIONS } from "../db/migrations.generated.ts";
@@ -80,10 +81,10 @@ export async function prepareExternalTarget(
       for (const { t } of present) {
         if (["meta", "schema_migration"].includes(t)) continue;
         populated += Number(
-          (await tx.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`))[0]!.n,
+          must((await tx.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`))[0]).n,
         );
       }
-      return { ...v!, populated };
+      return { ...must(v), populated };
     });
     if (info.v < 150000)
       result.problems.push(
@@ -121,18 +122,18 @@ export async function prepareExternalTarget(
           `SELECT format('ALTER ROLE %I PASSWORD %L', $1::text, $2::text) AS q`,
           [appRole, password],
         );
-        await tx.query(alter[0]!.q);
+        await tx.query(must(alter[0]).q);
       } else {
         const create = await tx.query<{ q: string }>(
           `SELECT format('CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT 10', $1::text, $2::text) AS q`,
           [appRole, password],
         );
-        await tx.query(create[0]!.q);
+        await tx.query(must(create[0]).q);
         const grant = await tx.query<{ q: string }>(
           `SELECT format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), $1::text) AS q`,
           [appRole],
         );
-        await tx.query(grant[0]!.q);
+        await tx.query(must(grant[0]).q);
       }
     });
     await db.withClient((c) =>
@@ -207,13 +208,13 @@ export class ExternalPlacement implements Placement {
             [role],
           );
           if ((await tx.query(`SELECT 1 FROM pg_roles WHERE rolname = $1`, [role])).length) {
-            await tx.query(drop[0]!.a);
-            await tx.query(drop[0]!.b);
+            await tx.query(must(drop[0]).a);
+            await tx.query(must(drop[0]).b);
             const gone = await tx.query<{ q: string }>(
               `SELECT format('DROP ROLE %I', $1::text) AS q`,
               [role],
             );
-            await tx.query(gone[0]!.q);
+            await tx.query(must(gone[0]).q);
           }
         }
       });

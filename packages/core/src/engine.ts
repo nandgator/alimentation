@@ -10,6 +10,7 @@ import {
   weekdayOf,
 } from "./dates.ts";
 import { fractionOf, type Paise } from "./money.ts";
+import { must } from "./must.ts";
 import { autoCloseDate, type Policy, type PolicyVersion, policyForMonth } from "./policy.ts";
 import {
   type Claim,
@@ -318,7 +319,7 @@ export function monthRange(p: Prepared): Month[] {
     .sort();
   const current = monthOf(p.data.today);
   if (starts.length === 0) return [current];
-  return monthsBetween(monthOf(starts[0]!), current);
+  return monthsBetween(monthOf(must(starts[0])), current);
 }
 
 function statusOf(s: {
@@ -381,7 +382,7 @@ function monthStatement(
   let extrasAmount: Paise = 0;
   let actualExtras: Paise = 0;
   if (minMeals !== null && counts.meals >= minMeals) {
-    const feeCard = cardOn(p, monthStart(month)) ?? requireCard(p, firstMeal!);
+    const feeCard = cardOn(p, monthStart(month)) ?? requireCard(p, must(firstMeal));
     extrasAmount = feeCard.extrasPerMonth;
     if (actualMeals >= minMeals) actualExtras = extrasAmount;
   }
@@ -463,8 +464,8 @@ export function buildStatements(
   // Stryker disable next-line ConditionalExpression: with no months the loops below yield nothing anyway
   if (months.length === 0) return [];
   const wanted = new Set(months);
-  const lastWanted = [...months].sort().at(-1)!;
-  const firstWanted = [...months].sort()[0]!;
+  const lastWanted = must([...months].sort().at(-1));
+  const firstWanted = must([...months].sort()[0]);
   const out: Statement[] = [];
   for (const id of consumerIds) {
     const person = p.data.people.find((x) => x.id === id);

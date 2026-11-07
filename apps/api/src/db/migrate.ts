@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 /**
  * Forward-only SQL migrations, applied one at a time under an advisory lock.
  *
@@ -44,9 +45,9 @@ export async function migrate(
 ): Promise<MigrateResult> {
   const ordered = [...migrations].sort((a, b) => a.version - b.version);
   for (let i = 0; i < ordered.length; i++) {
-    if (ordered[i]!.version !== i + 1)
+    if (must(ordered[i]).version !== i + 1)
       throw new Error(
-        `migrations must be numbered 1..n without gaps (found ${ordered[i]!.version})`,
+        `migrations must be numbered 1..n without gaps (found ${must(ordered[i]).version})`,
       );
   }
 
@@ -76,7 +77,7 @@ export async function migrate(
         m.version,
       ]);
       if (done.rows.length > 0) {
-        if (done.rows[0]!.checksum !== sum) throw new MigrationDriftError(m.version, m.name);
+        if (must(done.rows[0]).checksum !== sum) throw new MigrationDriftError(m.version, m.name);
         await client.query("COMMIT");
         continue;
       }
@@ -96,13 +97,13 @@ export async function migrate(
     }
   }
   const cur = await client.query("SELECT coalesce(max(version), 0) AS v FROM schema_migration");
-  return { applied, current: Number(cur.rows[0]!.v) };
+  return { applied, current: Number(must(cur.rows[0]).v) };
 }
 
 /** The version a database is at, without changing it. Zero when it was never migrated. */
 export async function currentVersion(client: SqlClient): Promise<number> {
   const t = await client.query(`SELECT to_regclass('schema_migration') IS NOT NULL AS present`);
-  if (!t.rows[0]!.present) return 0;
+  if (!must(t.rows[0]).present) return 0;
   const r = await client.query("SELECT coalesce(max(version), 0) AS v FROM schema_migration");
-  return Number(r.rows[0]!.v);
+  return Number(must(r.rows[0]).v);
 }

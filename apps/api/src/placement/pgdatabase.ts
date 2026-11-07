@@ -1,3 +1,4 @@
+import { must } from "@alimentation/core";
 import pg from "pg";
 import { type Migration, migrate } from "../db/migrate.ts";
 import {
@@ -60,7 +61,7 @@ export class PgDatabasePlacement implements Placement {
           template,
           args,
         ]);
-        await admin.query(String(r.rows[0]!.q));
+        await admin.query(String(must(r.rows[0]).q));
       };
       const limit = String(Math.trunc(Number(this.opts.connectionLimit ?? 10)));
       await run(
@@ -125,7 +126,7 @@ export class PgDatabasePlacement implements Placement {
           template,
           [ident],
         ]);
-        await admin.query(String(r.rows[0]!.q));
+        await admin.query(String(must(r.rows[0]).q));
       };
       await drop("DROP DATABASE IF EXISTS %I WITH (FORCE)", database);
       await drop("DROP ROLE IF EXISTS %I", app);
@@ -150,7 +151,7 @@ export class PgDatabasePlacement implements Placement {
         "REVOKE CONNECT ON DATABASE %I FROM PUBLIC",
         [database],
       ]);
-      await admin.query(String(r.rows[0]!.q));
+      await admin.query(String(must(r.rows[0]).q));
     } finally {
       await admin.end();
     }

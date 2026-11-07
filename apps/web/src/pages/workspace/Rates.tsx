@@ -1,6 +1,7 @@
 import {
   DEFAULT_POLICY,
   dayName,
+  must,
   type Policy,
   type RateCard,
   type Weekday,
@@ -346,7 +347,10 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
               type="time"
               value={p.exceptionCutoff.time}
               onChange={(e) =>
-                setP({ ...p, exceptionCutoff: { ...p.exceptionCutoff!, time: e.target.value } })
+                setP({
+                  ...p,
+                  exceptionCutoff: { ...must(p.exceptionCutoff), time: e.target.value },
+                })
               }
             />
           </Field>
@@ -371,7 +375,7 @@ export function Rates() {
   const [dlg, setDlg] = useState<"card" | "policy" | null>(null);
   const list = [...(cards.data ?? [])].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
   const current = pols.data?.length
-    ? pols.data[pols.data.length - 1]!.doc
+    ? must(pols.data[pols.data.length - 1]).doc
     : (ws.boot.policy ?? DEFAULT_POLICY);
   return (
     <div className="stack" style={{ ["--gap" as string]: "24px" }}>
