@@ -114,6 +114,25 @@ async function settle(page: Page, width: number, height: number) {
   }
 }
 
+/**
+ * The bar is there once the screen is the width asked for. At a stale, wider width it is hidden and
+ * would be waited for until the test ran out; so wait a short while, reload once, and then say so.
+ */
+async function barShows(page: Page) {
+  const bar = page.locator(".subnav .nav");
+  for (let tries = 0; tries < 2; tries++) {
+    if (
+      await bar.waitFor({ timeout: 15_000 }).then(
+        () => true,
+        () => false,
+      )
+    )
+      return;
+    await page.reload();
+  }
+  await bar.waitFor({ timeout: 15_000 });
+}
+
 const WIDTHS = [320, 360, 390, 430];
 const HEIGHT = 800;
 
@@ -136,8 +155,8 @@ test.describe("the phone layout", () => {
         for (const path of paths) {
           const where = `${who} ${width}px ${path || "/"}`;
           await p.goto(`/w/${slug}${path}`);
-          await p.locator(".subnav .nav").waitFor();
           await settle(p, width, HEIGHT);
+          await barShows(p);
           await expectFits(p, width, where);
 
           // The bar is flush with the bottom of the screen and tall enough to press.
