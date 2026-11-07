@@ -956,9 +956,10 @@ test.describe("the home page", () => {
           widest = Math.max(widest, Math.hypot(now.x - last.x, now.y - last.y));
         last = now;
       }
-      expect(widest, "the longest step of the carrier, for six pixels of scrolling").toBeLessThan(
-        45,
-      );
+      expect(
+        widest,
+        `the longest step of the carrier, for six pixels of scrolling (two frames took ${Math.round(twoFrames)} ms)`,
+      ).toBeLessThan(45);
     });
 
     test("keeps the light under the pointer while a theme dissolves, and it does not wander off across the name", async ({
