@@ -117,7 +117,10 @@ describe("the home page’s sample calendar", () => {
   it("steps a day through meal, leave, switch, chapati and back", () => {
     let m = nextMark(undefined);
     const seen = [m];
-    for (let i = 0; i < 4; i++) seen.push((m = nextMark(m)));
+    for (let i = 0; i < 4; i++) {
+      m = nextMark(m);
+      seen.push(m);
+    }
     expect(seen).toEqual(["leave", "switch", "chapati", "meal", "leave"]);
   });
 });

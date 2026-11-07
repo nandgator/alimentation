@@ -25,7 +25,8 @@ import type { Tx } from "../db/driver.ts";
  * them for a statement would be wasted work.
  */
 
-type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
+type R = Record<string, any>;
 
 const month = (d: string) => d.slice(0, 7);
 const WEEKDAY_COLUMNS = [

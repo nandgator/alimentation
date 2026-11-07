@@ -9,7 +9,8 @@ import type { FieldCipher } from "../crypto/fields.ts";
 import type { Tx } from "../db/driver.ts";
 import { loadEngineData } from "../workspace/load.ts";
 
-type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
+type R = Record<string, any>;
 
 export interface BundleMember {
   personId: string;

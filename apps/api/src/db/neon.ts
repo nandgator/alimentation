@@ -32,7 +32,10 @@ export function neonOpenDb(): (dsn: string, opts?: { ephemeral?: boolean }) => D
   return (dsn, opts) => {
     if (opts?.ephemeral) return neonDb(dsn);
     let db = dbs.get(dsn);
-    if (!db) dbs.set(dsn, (db = neonDb(dsn)));
+    if (!db) {
+      db = neonDb(dsn);
+      dbs.set(dsn, db);
+    }
     return db;
   };
 }

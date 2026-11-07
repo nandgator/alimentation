@@ -1740,8 +1740,11 @@ dialog::backdrop {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion has to beat every rule */
     animation-duration: 0.001ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion has to beat every rule */
     transition-duration: 0.001ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion has to beat every rule */
     scroll-behavior: auto !important;
   }
 }

@@ -8,8 +8,14 @@ function manualTimers() {
   const repeat: (() => void)[] = [];
   const cancelled: string[] = [];
   const timers: Timers = {
-    after: (_ms, fn) => (once.push(fn), () => void cancelled.push("first")),
-    every: (_ms, fn) => (repeat.push(fn), () => void cancelled.push("every")),
+    after: (_ms, fn) => {
+      once.push(fn);
+      return () => void cancelled.push("first");
+    },
+    every: (_ms, fn) => {
+      repeat.push(fn);
+      return () => void cancelled.push("every");
+    },
   };
   return { timers, once, repeat, cancelled };
 }

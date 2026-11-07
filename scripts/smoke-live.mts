@@ -32,7 +32,9 @@ const timed = async <T,>(name: string, fn: () => Promise<T>): Promise<T> => {
   try {
     return await fn();
   } finally {
-    (timings[name] ??= []).push(Math.round(performance.now() - t));
+    const list = timings[name] ?? [];
+    timings[name] = list;
+    list.push(Math.round(performance.now() - t));
   }
 };
 

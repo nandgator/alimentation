@@ -166,6 +166,7 @@ function Loaded({
   const menuButton = useRef<HTMLButtonElement>(null);
   const side = useRef<HTMLElement>(null);
   // Choosing a section closes the panel of the rest, and the menu that was hiding.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it runs when the location changes
   useEffect(() => {
     setMore(false);
     setDrawer(false);
@@ -292,7 +293,7 @@ function Loaded({
               inert={!pinned && !drawer}
             >
               <div className="kitchen">
-                <p className="kitchen-name" aria-label="Kitchen">
+                <p className="kitchen-name" role="group" aria-label="Kitchen">
                   {boot.workspace.name}
                 </p>
                 {acting}
@@ -320,7 +321,12 @@ function Loaded({
       ) : (
         <>
           <AppBar>
-            <span className="muted small who" aria-label="Kitchen" title={boot.workspace.name}>
+            <span
+              className="muted small who"
+              role="group"
+              aria-label="Kitchen"
+              title={boot.workspace.name}
+            >
               {boot.workspace.name}
             </span>
             {acting}

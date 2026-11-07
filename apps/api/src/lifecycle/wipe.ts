@@ -168,8 +168,8 @@ async function credsOf(p: PlatformDeps, row: WorkspaceRow) {
   return { ownerUrl: d.owner, appUrl: d.app };
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
 export function toReceipt(r: Record<string, any>): WipeReceipt {
-  // eslint-disable-line @typescript-eslint/no-explicit-any
   return {
     workspaceId: r.workspace_id,
     requestedAt: r.requested_at,

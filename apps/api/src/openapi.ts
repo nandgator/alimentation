@@ -1620,8 +1620,12 @@ Every response carries the content-security policy, \`X-Content-Type-Options\`, 
 /** The whole reference, as an OpenAPI 3.1 document. */
 export function buildOpenApi(options: { version: string }): Json {
   const paths: Record<string, Record<string, Json>> = {};
-  for (const op of OPERATIONS)
-    (paths[openApiPath(op.path)] ??= {})[op.method] = operationObject(op);
+  for (const op of OPERATIONS) {
+    const key = openApiPath(op.path);
+    const methods = paths[key] ?? {};
+    paths[key] = methods;
+    methods[op.method] = operationObject(op);
+  }
 
   return {
     openapi: "3.1.0",

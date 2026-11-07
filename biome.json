@@ -41,19 +41,39 @@
       "complexity": {
         "useMathMinMax": "off"
       },
+      "a11y": {
+        "noNoninteractiveTabindex": "off",
+        "useSemanticElements": "off"
+      },
       "style": {
         "useConst": "error",
-        "noNonNullAssertion": "error"
+        "noNonNullAssertion": "warn"
       }
     }
   },
   "overrides": [
+    {
+      "includes": ["scripts/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
     {
       "includes": ["**/test/**", "**/e2e/**", "**/e2e-idp/**", "**/*.test.*", "**/*.spec.*"],
       "linter": {
         "rules": {
           "style": {
             "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          },
+          "performance": {
+            "useDomNodeTextContent": "off"
           }
         }
       }

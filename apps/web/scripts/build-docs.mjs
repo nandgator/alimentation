@@ -131,7 +131,7 @@ function renderer(toc, blocks, file) {
         const safe = esc(text);
         const soft =
           text.length > 22
-            ? safe.replace(/(&(?:amp|lt|gt|quot|#39);)|([/?,=])/g, (m, ent, ch) =>
+            ? safe.replace(/(&(?:amp|lt|gt|quot|#39);)|([/?,=])/g, (_m, ent, ch) =>
                 ent ? (ent === "&amp;" ? `${ent}<wbr>` : ent) : `${ch}<wbr>`,
               )
             : safe;

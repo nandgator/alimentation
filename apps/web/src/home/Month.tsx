@@ -106,7 +106,12 @@ export function Month({ now }: { now?: Date }) {
             row.map((date, c) => {
               if (monthOf(date) !== month)
                 return (
-                  <span key={`${r}-${c}`} className="day-out" aria-hidden="true">
+                  <span
+                    // biome-ignore lint/suspicious/noArrayIndexKey: a calendar cell is its place in the grid
+                    key={`${r}-${c}`}
+                    className="day-out"
+                    aria-hidden="true"
+                  >
                     {parseDate(date).d}
                   </span>
                 );

@@ -158,7 +158,11 @@ export function Steam({ vent }: { vent: Vent }) {
       <g mask={`url(#${id})`}>
         {vent.wisps.map((w, i) => (
           // Four units into the lid, so a wisp's foot is behind it.
-          <g key={i} transform={`translate(${w.x} ${vent.lid + 4})`}>
+          <g
+            // biome-ignore lint/suspicious/noArrayIndexKey: a wisp is its place in the list, which never reorders
+            key={i}
+            transform={`translate(${w.x} ${vent.lid + 4})`}
+          >
             <g
               className="wisp"
               style={

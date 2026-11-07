@@ -131,14 +131,24 @@ export function Stage() {
         </div>
       </div>
       <ol className="steps" aria-labelledby="moving-title">
-        <li ref={(n) => void (itemRefs.current[0] = n)} className={step === 0 ? "on" : ""}>
+        <li
+          ref={(n) => {
+            itemRefs.current[0] = n;
+          }}
+          className={step === 0 ? "on" : ""}
+        >
           <h3>{STATIONS[0].name}</h3>
           <p>
             Free while you are small. Your kitchen gets a book of its own, kept apart from every
             other kitchen’s, so a busy neighbour never slows you down.
           </p>
         </li>
-        <li ref={(n) => void (itemRefs.current[1] = n)} className={step === 1 ? "on" : ""}>
+        <li
+          ref={(n) => {
+            itemRefs.current[1] = n;
+          }}
+          className={step === 1 ? "on" : ""}
+        >
           <h3>{STATIONS[1].name}</h3>
           <p>
             Outgrown free? One tap moves everything to storage you hold, and we keep serving it. You
@@ -153,7 +163,12 @@ export function Stage() {
             your own copy of Alimentation.
           </p>
         </li>
-        <li ref={(n) => void (itemRefs.current[2] = n)} className={step === 2 ? "on" : ""}>
+        <li
+          ref={(n) => {
+            itemRefs.current[2] = n;
+          }}
+          className={step === 2 ? "on" : ""}
+        >
           <h3>{STATIONS[2].name}</h3>
           <p>
             Run all of it on a computer you control. One command starts it, and moving there is the

@@ -29,7 +29,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
           loading: false,
         })),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the caller names what the load depends on
   }, deps);
   useEffect(run, [run]);
   return { ...state, reload: run };
@@ -180,7 +180,9 @@ interface ToastMessage {
 const toastListeners = new Set<(m: ToastMessage) => void>();
 /** A short note that something happened. A refusal says so with `'bad'`, and is announced at once. */
 export const toast = (text: string, tone: ToastTone = "good") =>
-  toastListeners.forEach((l) => l({ text, tone }));
+  toastListeners.forEach((l) => {
+    l({ text, tone });
+  });
 export function Toaster() {
   const [message, setMessage] = useState<ToastMessage | null>(null);
   useEffect(() => {

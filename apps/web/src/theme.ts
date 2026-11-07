@@ -22,7 +22,10 @@ const KEY = "theme";
 const LEGACY_KEY = "docs-theme";
 
 const listeners = new Set<() => void>();
-const notify = () => listeners.forEach((l) => l());
+const notify = () =>
+  listeners.forEach((l) => {
+    l();
+  });
 
 export function readTheme(): Theme {
   try {
