@@ -23,20 +23,35 @@ export const setActingAs = (role: string | null) => {
   actingAs = role;
 };
 
+/**
+ * A kitchen that is asked too quickly says "slow down" and how long to wait. A refused request was
+ * not counted and changed nothing, so a read waits that long (a few seconds at most) and asks again,
+ * and the person sees a pause rather than an error. Only reads: anything that writes is the person's to repeat.
+ */
+const SLOW_DOWN_TRIES = 3;
+const SLOW_DOWN_MOST_MS = 5000;
+
 async function call<T>(method: string, path: string, body?: unknown): Promise<Reply<T>> {
   let res: Response;
-  try {
-    res = await fetch(path, {
-      method,
-      credentials: "same-origin",
-      headers: {
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
-        ...(actingAs ? { "x-acting-as": actingAs } : {}),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    throw new ApiFailure(0, "offline", "You appear to be offline.");
+  for (let tried = 0; ; tried++) {
+    try {
+      res = await fetch(path, {
+        method,
+        credentials: "same-origin",
+        headers: {
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
+          ...(actingAs ? { "x-acting-as": actingAs } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch {
+      throw new ApiFailure(0, "offline", "You appear to be offline.");
+    }
+    if (res.status !== 429 || method !== "GET" || tried >= SLOW_DOWN_TRIES) break;
+    // Only the short, per-second kind of 429 is worth waiting out; the day's budget is not.
+    const wait = Number(res.headers.get("retry-after")) * 1000;
+    if (!(wait > 0 && wait <= SLOW_DOWN_MOST_MS)) break;
+    await new Promise((r) => setTimeout(r, wait));
   }
   const text = await res.text();
   let json: unknown = null;

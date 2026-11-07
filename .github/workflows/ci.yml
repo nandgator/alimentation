@@ -65,9 +65,16 @@ jobs:
 
   # The real app in a real browser, desktop and phone: a kitchen from its first day to its last,
   # with accessibility and layout checks at every stage.
+  # It runs in three pieces at once, each with its own Postgres and its own copy of the app, so a
+  # run takes the time of the longest piece. A piece that fails does not stop the others.
   e2e:
+    name: e2e (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/3", "2/3", "3/3"]
     services:
       postgres:
         image: postgres:18-alpine
@@ -87,10 +94,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
-      - run: bun run test:e2e
+      - run: bun run --filter @alimentation/api build:server && bun run build:web
+      - run: bunx playwright test --shard=${{ matrix.shard }}
+        working-directory: apps/web
       - if: failure()
         uses: actions/upload-artifact@v5
         with:
-          name: e2e-results
+          name: e2e-results-${{ strategy.job-index }}
           path: apps/web/test-results
           retention-days: 7
