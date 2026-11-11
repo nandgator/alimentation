@@ -1,5 +1,6 @@
 import {
   localNow,
+  MAX_PEOPLE_IMPORT_BYTES,
   must,
   type OrganisationDto,
   type OrganisationKitchenDto,
@@ -48,6 +49,9 @@ import {
   CreateWorkspace,
   DecideClaim,
   DevLogin,
+  ImportHolidays,
+  ImportPeople,
+  ImportPeopleQuery,
   InvitePerson,
   JoinOrganisation,
   LedgerQuery,
@@ -213,10 +217,10 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   });
 
   /**
-   * Reads a JSON body, stopping as soon as it is larger than `max` bytes. The size is
+   * Reads a body, stopping as soon as it is larger than `max` bytes. The size is
    * counted as it arrives, not taken from the header, which a sender can leave out.
    */
-  const readBody = async (c: Context, max: number): Promise<unknown> => {
+  const readBytes = async (c: Context, max: number): Promise<Uint8Array> => {
     if (Number(c.req.header("content-length") ?? 0) > max) throw tooLarge();
     const stream = c.req.raw.body;
     if (!stream) throw new ApiError(400, "bad_json", "Send a JSON body.");
@@ -239,9 +243,13 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
       all.set(part, at);
       at += part.byteLength;
     }
+    return all;
+  };
+  const readBody = async (c: Context, max: number): Promise<unknown> => {
     try {
-      return JSON.parse(new TextDecoder().decode(all));
-    } catch {
+      return JSON.parse(new TextDecoder().decode(await readBytes(c, max)));
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
       throw new ApiError(400, "bad_json", "Send a JSON body.");
     }
   };
@@ -864,6 +872,26 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     await svc(c).updatePerson(who(c), c.req.param("id"), b);
     return c.body(null, 204);
   });
+  // Many people at once: JSON rows, or a text/csv body with the mode and dryRun in the query. Both are read up to
+  // a megabyte, and both pass the same gate as any other request of the kitchen.
+  w.post("/people/import", async (c) => {
+    if (who(c).role !== "admin") throw forbidden("Only the admin can do that.");
+    if ((c.req.header("content-type") ?? "").toLowerCase().startsWith("text/csv")) {
+      const q = ImportPeopleQuery.parse(c.req.query());
+      if (!q.mode)
+        throw new ApiError(
+          422,
+          "invalid",
+          "Say how to import: add ?mode=merge or ?mode=overwrite.",
+        );
+      const csv = new TextDecoder().decode(await readBytes(c, MAX_PEOPLE_IMPORT_BYTES));
+      return c.json(
+        await svc(c).importPeople(who(c), { mode: q.mode, dryRun: q.dryRun === "true", csv }),
+      );
+    }
+    const b = await parse(c, ImportPeople, MAX_PEOPLE_IMPORT_BYTES);
+    return c.json(await svc(c).importPeople(who(c), b));
+  });
   w.post("/people/:id/invite", async (c) => {
     const b = await parse(c, InvitePerson);
     const a = needAccount(c);
@@ -896,6 +924,10 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   w.post("/holidays", async (c) => {
     const b = await parse(c, CreateHoliday);
     return c.json(await svc(c).addHoliday(who(c), b), 201);
+  });
+  w.post("/holidays/bulk", async (c) => {
+    const b = await parse(c, ImportHolidays);
+    return c.json(await svc(c).importHolidays(who(c), b));
   });
   w.patch("/holidays/:id", async (c) => {
     const b = await parse(c, UpdateHoliday);

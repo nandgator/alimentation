@@ -24,6 +24,12 @@ alone:
 The database holds only ciphertext for these. They do not appear in the database's own logs. The
 audit trail copies them as they are stored, so it shows "(encrypted)" where a name or note would be.
 
+One thing about a person is **not** encrypted: the optional **key**, your own code for them (a room
+or staff number) that a file import is matched on. It has to be compared, which ciphertext cannot
+be, so it is kept as plain text, limited to letters, digits and a few marks so that a name, an email
+address or a phone number does not fit. Choose codes that mean nothing outside your kitchen. Only
+the admin is shown it.
+
 ## Who can read what
 
 | What                                   | Member                                            | Supplier                    | Admin                   |
@@ -35,6 +41,7 @@ audit trail copies them as they are stored, so it shows "(encrypted)" where a na
 | **History** (plain words)              | Their own records, and what everyone is billed by | What they can read          | Reads the audit instead |
 | **Audit** (the raw record)             | No                                                | No                          | All                     |
 | Contact details                        | Never                                             | Never                       | Yes                     |
+| A person's key (your own code)         | Never                                             | Never                       | Yes                     |
 
 These limits are enforced **in the database**, per row, not only on the screen. A member's request
 for another member's rows returns nothing.

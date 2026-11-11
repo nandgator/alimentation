@@ -164,6 +164,11 @@ export function describeAudit(row: AuditRow, c: HistoryContext): string | null {
       if (row.action === "UPDATE") return `${by} changed the holiday ${name}.`;
       return `${by} added the holiday ${name}${now.confirmed === false ? " (not yet confirmed)" : ""}.`;
     }
+    case "person_import": {
+      if (row.action !== "IMPORT") return null;
+      const counts = ["create", "update", "unchanged"].map((k) => num(now[k]));
+      return `${by} imported people from a file (${now.mode === "overwrite" ? "overwrite" : "merge"}): ${counts[0]} added, ${counts[1]} changed, ${counts[2]} already as in the file.`;
+    }
     default:
       return null;
   }

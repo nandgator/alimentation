@@ -40,7 +40,7 @@ const PROMISES: { title: string; how: string; limit: string }[] = [
     title: "Your people’s details are never readable in logs.",
     how: "Names, contacts and notes are scrambled before they reach the database. What a log carries is a made-up code.",
     limit:
-      "Amounts, dates and ids are not scrambled. Without the key they cannot be tied to a person.",
+      "Amounts, dates and ids are not scrambled. Without the key they cannot be tied to a person. One more thing is left readable: the optional key you may give a person (a room or staff number), so choose a code and not a name or a phone number.",
   },
   {
     title: "Your data is yours to take, at any time.",

@@ -306,6 +306,44 @@ const defects = [
     "every record against the cap",
   ],
 
+  // The kitchen's own code for a person.
+  [
+    "key: two people may share a code",
+    "owner",
+    `DROP INDEX person_external_key`,
+    "allows one person to a key",
+  ],
+  [
+    "key: a name or an email can be a code",
+    "owner",
+    `ALTER TABLE person DROP CONSTRAINT person_external_key_form`,
+    "keeps a key to a code",
+  ],
+  [
+    "key: a code can be changed or cleared once set",
+    "owner",
+    `DROP TRIGGER person_keep_external_key ON person`,
+    "keeps a key once it is set",
+  ],
+  [
+    "key: anyone may record an import in the trail",
+    "owner",
+    `CREATE OR REPLACE FUNCTION record_person_import(p_detail jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN IF is_app_session() AND (SELECT read_only FROM workspace) THEN RAISE EXCEPTION 'ALIMENTATION_RULE: this workspace is read-only while it is moved' USING ERRCODE = 'P0001'; END IF; INSERT INTO audit_log (table_name, row_id, action, actor, via, before, after) VALUES ('person_import', coalesce(p_detail ->> 'fileHash', ''), 'IMPORT', app_person(), app_via(), NULL, p_detail); END $$`,
+    "for the admin alone",
+  ],
+  [
+    "key: an import is recorded while the workspace is moved",
+    "owner",
+    `CREATE OR REPLACE FUNCTION record_person_import(p_detail jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN IF is_app_session() AND app_role() IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'only the admin can import people' USING ERRCODE = '42501'; END IF; INSERT INTO audit_log (table_name, row_id, action, actor, via, before, after) VALUES ('person_import', coalesce(p_detail ->> 'fileHash', ''), 'IMPORT', app_person(), app_via(), NULL, p_detail); END $$`,
+    "nor an import recorded",
+  ],
+  [
+    "key: the trail lets a member read an import",
+    "owner",
+    `CREATE POLICY audit_any_import ON audit_log FOR SELECT USING (table_name = 'person_import')`,
+    "for the admin alone",
+  ],
+
   // Personal data.
   [
     "pii: ciphertext check removed",

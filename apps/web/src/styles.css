@@ -522,10 +522,23 @@ select.fit {
 summary {
   cursor: pointer;
 }
-input[type="checkbox"] {
+input[type="checkbox"],
+input[type="radio"] {
   width: 20px;
   min-height: 20px;
   accent-color: var(--brand);
+}
+/* A set of radio buttons under one question: the fieldset's frame is dropped, the question is kept as a label. */
+.choices {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choices legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-weight: 600;
 }
 /* A page that is one thing in the middle: sign-in, a joining link, a receipt, a miss. */
 .solo {

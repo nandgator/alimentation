@@ -16,6 +16,9 @@ import {
   CreateWorkspace,
   DecideClaim,
   DevLogin,
+  ImportHolidays,
+  ImportPeople,
+  ImportPeopleQuery,
   InvitePerson,
   JoinOrganisation,
   LedgerQuery,
@@ -58,6 +61,8 @@ export interface Operation {
   body?: z.ZodType;
   /** A body that is not JSON, or is only partly checked here. */
   bodyNote?: string;
+  /** The body may also be `text/csv`, with what the JSON body would say in the query. */
+  csvBody?: boolean;
   query?: z.ZodType;
   /** What the parts of the path are, by name. */
   params?: Record<string, string>;
@@ -267,11 +272,13 @@ const AGENT_ACCESS: Record<string, AgentScope> = {
 /** The routes of a kitchen that are a person's alone, so that leaving one out of both lists is caught. */
 export const PERSON_ONLY = new Set([
   "POST /api/w/:slug/people",
+  "POST /api/w/:slug/people/import",
   "PATCH /api/w/:slug/people/:id",
   "POST /api/w/:slug/people/:id/invite",
   "POST /api/w/:slug/rate-cards",
   "POST /api/w/:slug/policies",
   "POST /api/w/:slug/holidays",
+  "POST /api/w/:slug/holidays/bulk",
   "PATCH /api/w/:slug/holidays/:id",
   "DELETE /api/w/:slug/holidays/:id",
   "POST /api/w/:slug/claims/:id/decision",
@@ -884,9 +891,98 @@ export const OPERATIONS: Operation[] = [
     summary: "Add a person",
     who: "Admin",
     kitchen: true,
-    description: "Only members have billed dates.",
+    description:
+      "Only members have billed dates. `externalKey` is the kitchen’s own code for the person (a room or staff number): unique, and fixed once set.",
     body: CreatePerson,
     ok: { status: 201, description: "Added.", schema: IdBody },
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/people/import",
+    tag: "People, prices and rules",
+    summary: "Import people",
+    who: "Admin",
+    kitchen: true,
+    csvBody: true,
+    query: ImportPeopleQuery,
+    description:
+      "Many people at once, as JSON `rows` or as a `text/csv` body whose first line names the columns `externalKey`, `name`, `role`, `contact`, `activeFrom`, `activeTo` (`name` and `role` are needed; `role` is `consumer` (or `member`), `supplier` or `admin`). For a `text/csv` body, give `mode` and optionally `dryRun` in the query; the JSON body has them inside. At most 1000 rows and 1 MB.\n\n" +
+      "A row with an `externalKey` (the kitchen’s own code: letters, digits and `. _ : / # -`, at most 64 characters, never a name, email or phone number) is matched to the person who has that key: **added** if nobody does, **changed** if somebody does. A row without one is always added. People who are not in the file are never removed or disabled. A role cannot be changed by an import, so a key that belongs to a person of another role is an error row. A key may be given once in a file.\n\n" +
+      "`merge` sets the columns a row gives and leaves a blank cell alone. `overwrite` sets every column the row gives, so a blank `contact`, `activeFrom` or `activeTo` clears it; a column the file does not have at all is left alone by both. Name and role are always required.\n\n" +
+      "All or nothing, in one transaction: if any row is an error, or the file would add more people than the kitchen’s limit leaves room for (`quota_exceeded`, with nothing written), nothing is written and `committed` is false. With `dryRun` nothing is ever written and each row says what would happen: `create`, `update`, `unchanged` or `error`, with the fields that change. A committed import that changed something adds one line to the audit trail (`person_import`) with the mode, the counts and a hash of the file, never the file.\n\n" +
+      "The file the app’s Export CSV writes is read back by this route as it was.",
+    body: ImportPeople,
+    ok: {
+      status: 200,
+      description: "What happened, or with `dryRun` what would.",
+      schema: {
+        type: "object",
+        required: ["mode", "dryRun", "committed", "fileHash", "rows", "summary"],
+        properties: {
+          mode: { type: "string", enum: ["merge", "overwrite"] },
+          dryRun: { type: "boolean" },
+          committed: {
+            type: "boolean",
+            description:
+              "True when the people are now in the kitchen. False for a dry run and when any row is an error.",
+          },
+          fileHash: {
+            type: "string",
+            description: "SHA-256 of the text or rows sent, in hex. The audit trail keeps this.",
+          },
+          rows: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["row", "action", "externalKey", "name", "id", "diff", "message"],
+              properties: {
+                row: {
+                  type: "integer",
+                  description: "The row’s place in the list (from 1), or its line in the csv.",
+                },
+                action: { type: "string", enum: ["create", "update", "unchanged", "error"] },
+                externalKey: { type: ["string", "null"] },
+                name: { type: "string" },
+                id: {
+                  type: ["string", "null"],
+                  format: "uuid",
+                  description:
+                    "The person changed, or added by a committed import. Null for an addition not yet made.",
+                },
+                diff: {
+                  type: "array",
+                  description:
+                    "For an addition, what the new person gets; for a change, each field that differs.",
+                  items: {
+                    type: "object",
+                    required: ["field", "from", "to"],
+                    properties: {
+                      field: {
+                        type: "string",
+                        enum: ["role", "name", "contact", "activeFrom", "activeTo"],
+                      },
+                      from: { type: ["string", "null"] },
+                      to: { type: ["string", "null"] },
+                    },
+                  },
+                },
+                message: { type: "string" },
+              },
+            },
+          },
+          summary: {
+            type: "object",
+            required: ["create", "update", "unchanged", "error"],
+            properties: {
+              create: { type: "integer" },
+              update: { type: "integer" },
+              unchanged: { type: "integer" },
+              error: { type: "integer" },
+            },
+          },
+        },
+      },
+    },
   },
   {
     method: "patch",
@@ -895,6 +991,8 @@ export const OPERATIONS: Operation[] = [
     summary: "Change a person",
     who: "Admin",
     kitchen: true,
+    description:
+      "`externalKey` can be given to a person who has none, or repeated as it is. Changing or clearing a key that is set is refused (`immutable`).",
     params: { id: ID },
     body: UpdatePerson,
     ok: { status: 204, description: "Changed." },
@@ -976,8 +1074,79 @@ export const OPERATIONS: Operation[] = [
     summary: "Add a holiday",
     who: "Admin",
     kitchen: true,
+    description:
+      "Give `date` for one day, or `from` and `to` for a run of days: one holiday is made for each date, weekends included, at most 366 days. The days go in together, so a date in a closed month refuses them all. `id` is the first holiday made and `ids` all of them.",
     body: CreateHoliday,
-    ok: { status: 201, description: "Added.", schema: IdBody },
+    ok: {
+      status: 201,
+      description: "Added.",
+      schema: {
+        type: "object",
+        required: ["id", "ids"],
+        properties: {
+          id: { type: "string", format: "uuid", description: "The first holiday made." },
+          ids: { type: "array", items: { type: "string", format: "uuid" } },
+        },
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/holidays/bulk",
+    tag: "People, prices and rules",
+    summary: "Import holidays",
+    who: "Admin",
+    kitchen: true,
+    description:
+      "Many holidays at once, as `items` (each with `name` and `date`, or `from` and `to`, and optionally `location` and `confirmed`) or as `csv` text whose first line names the columns `name`, `from`, `to`, `location`, `confirmed` (`date` means `from`). At most 1000 days once ranges are counted. `merge` adds the holidays not already there (same day, name and place, whatever the case). `overwrite` replaces everything on the dates the list names and touches no other date. Each date is tried on its own, so a closed month refuses only its dates, and the answer says which row and why. Unless `partial` is true, one refused row means nothing is written (`committed` is false). With `dryRun` nothing is ever written: the answer says what would happen to each row.",
+    body: ImportHolidays,
+    ok: {
+      status: 200,
+      description: "What happened, or with `dryRun` what would.",
+      schema: {
+        type: "object",
+        required: ["mode", "dryRun", "committed", "rows", "summary"],
+        properties: {
+          mode: { type: "string", enum: ["merge", "overwrite"] },
+          dryRun: { type: "boolean" },
+          committed: {
+            type: "boolean",
+            description: "True when the holidays are now in the kitchen.",
+          },
+          rows: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["row", "action", "date", "name", "message"],
+              properties: {
+                row: {
+                  type: "integer",
+                  description: "The item’s place in the list (from 1), or its line in the csv.",
+                },
+                action: { type: "string", enum: ["create", "replace", "skip", "error"] },
+                date: { type: ["string", "null"] },
+                name: { type: "string" },
+                message: { type: "string" },
+              },
+            },
+          },
+          summary: {
+            type: "object",
+            required: ["create", "replace", "skip", "error", "removed"],
+            properties: {
+              create: { type: "integer" },
+              replace: { type: "integer" },
+              skip: { type: "integer" },
+              error: { type: "integer" },
+              removed: {
+                type: "integer",
+                description: "Holidays an overwrite takes away to put the new ones in their place.",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
     method: "patch",
@@ -1546,7 +1715,10 @@ function operationObject(op: Operation): Json {
       ? {
           requestBody: {
             required: true,
-            content: { "application/json": { schema: schemaOf(op.body) } },
+            content: {
+              "application/json": { schema: schemaOf(op.body) },
+              ...(op.csvBody ? { "text/csv": { schema: { type: "string" } } } : {}),
+            },
           },
         }
       : {}),

@@ -31,7 +31,13 @@ export const setActingAs = (role: string | null) => {
 const SLOW_DOWN_TRIES = 3;
 const SLOW_DOWN_MOST_MS = 5000;
 
-async function call<T>(method: string, path: string, body?: unknown): Promise<Reply<T>> {
+async function call<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  /** Sent as it is, with this content type, instead of the body as JSON. */
+  raw?: { type: string; value: string },
+): Promise<Reply<T>> {
   let res: Response;
   for (let tried = 0; ; tried++) {
     try {
@@ -39,10 +45,14 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Re
         method,
         credentials: "same-origin",
         headers: {
-          ...(body === undefined ? {} : { "content-type": "application/json" }),
+          ...(raw
+            ? { "content-type": raw.type }
+            : body === undefined
+              ? {}
+              : { "content-type": "application/json" }),
           ...(actingAs ? { "x-acting-as": actingAs } : {}),
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: raw ? raw.value : body === undefined ? undefined : JSON.stringify(body),
       });
     } catch {
       throw new ApiFailure(0, "offline", "You appear to be offline.");
@@ -79,6 +89,10 @@ export const api = {
   patch: <T>(path: string, body: unknown) => call<T>("PATCH", path, body),
   del: <T>(path: string) => call<T>("DELETE", path),
 };
+
+/** A csv file sent as it is, for the routes that take one. */
+export const postCsv = async <T>(path: string, csv: string): Promise<T> =>
+  (await call<T>("POST", path, undefined, { type: "text/csv", value: csv })).data;
 
 /** The same, when only the data is wanted. */
 export const getJson = async <T>(path: string) => (await api.get<T>(path)).data;

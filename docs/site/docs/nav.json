@@ -11,7 +11,7 @@
     },
     {
       "title": "API reference",
-      "pages": ["api/reference", "api/agents"]
+      "pages": ["api/reference", "api/agents", "api/people-import"]
     },
     {
       "title": "Self-hosting",

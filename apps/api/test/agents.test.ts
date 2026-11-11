@@ -198,6 +198,12 @@ describe("keys for AI agents", () => {
       ["POST", `${W}/rate-cards`, {}],
       ["POST", `${W}/policies`, {}],
       ["POST", `${W}/holidays`, {}],
+      ["POST", `${W}/holidays/bulk`, { mode: "merge", dryRun: true, items: [] }],
+      [
+        "POST",
+        `${W}/people/import`,
+        { mode: "merge", dryRun: false, rows: [{ name: "Intruder", role: "consumer" }] },
+      ],
       ["POST", `${W}/settlements`, {}],
       ["POST", `${W}/closes`, { month: "2026-10" }],
       ["POST", `${W}/claims/${nobody}/decision`, { decision: "Confirmed" }],
@@ -431,6 +437,26 @@ describe("the MCP server", () => {
     const note = await call(readOnly, "notifications/initialized", undefined, true);
     expect(note.status).toBe(202);
     expect((await call(readOnly, "ping")).json.result).toEqual({});
+  });
+
+  it("offers no tool that imports people, whatever the scopes, and refuses one called by name", async () => {
+    const all = (await k.owner.post(`${w}/agents`, { name: "All", scopes: ["log", "claims"] })).json
+      .token as string;
+    const listed = await tools(all);
+    expect(listed.length).toBeGreaterThan(10);
+    expect(listed.filter((t) => /import|bulk/.test(t.name))).toEqual([]);
+    // The only tool about people reads a role.
+    expect(listed.map((t) => t.name).filter((n) => /people/.test(n))).toEqual([
+      "get_people_id_role",
+    ]);
+    const called = await call(all, "tools/call", {
+      name: "post_people_import",
+      arguments: { body: { mode: "merge", dryRun: true, rows: [] } },
+    });
+    expect(called.json.error.code).toBe(-32602);
+    // Nor does the API route open to a key: it stays with a person.
+    expect(agentScopeOf({ method: "post", path: "/api/w/:slug/people/import" })).toBeNull();
+    expect(PERSON_ONLY.has("POST /api/w/:slug/people/import")).toBe(true);
   });
 
   it("is refused without a key, with a wrong one, and for anything but a request", async () => {

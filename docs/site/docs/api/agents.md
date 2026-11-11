@@ -39,10 +39,10 @@ can have five at once in one kitchen.
 ## What stays with a person
 
 An agent cannot confirm, dispute or reverse a payment, record a settlement, close or reopen a month,
-add or change people, invite anyone, change prices, rules or holidays, take a copy of the kitchen,
-move it, delete it, share its totals with a head office, or make or end keys. A request for any of
-these with a key is answered 403 and does nothing. The list is a single table, `AGENT_ACCESS` in
-`apps/api/src/openapi.ts`; the API enforces it, the MCP server is made from it, and each route in
+add, change or import people, invite anyone, change prices, rules or holidays, take a copy of the
+kitchen, move it, delete it, share its totals with a head office, or make or end keys. A request for
+any of these with a key is answered 403 and does nothing. The list is a single table, `AGENT_ACCESS`
+in `apps/api/src/openapi.ts`; the API enforces it, the MCP server is made from it, and each route in
 the [reference](/docs/api/reference/) says which side it is on. A test fails if a route is added
 that is on neither.
 

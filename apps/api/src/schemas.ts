@@ -49,6 +49,8 @@ export const CreatePerson = z.object({
   contact: z.string().max(200).nullish(),
   activeFrom: IsoDate.nullish(),
   activeTo: IsoDate.nullish(),
+  /** The kitchen's own code for the person (a room or staff number). Unique, and fixed once set. */
+  externalKey: z.string().max(64).nullish(),
 });
 
 export const UpdatePerson = z.object({
@@ -57,6 +59,37 @@ export const UpdatePerson = z.object({
   activeFrom: IsoDate.nullish(),
   activeTo: IsoDate.nullish(),
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
+  /** Can be given to a person who has none, or repeated as it is; any other change is refused. */
+  externalKey: z.string().max(64).nullish(),
+});
+
+/**
+ * One person of an import. The limits here are loose on purpose: a row that is too long or not a date is
+ * answered row by row, with the rest, and not by refusing the whole request. A field left out is not given;
+ * one that is null or empty is given blank (see `planPeopleImport`).
+ */
+const PersonRow = z
+  .object({
+    externalKey: z.string().max(500).nullish(),
+    name: z.string().max(2000),
+    role: z.string().max(40),
+    contact: z.string().max(2000).nullish(),
+    activeFrom: z.string().max(40).nullish(),
+    activeTo: z.string().max(40).nullish(),
+  })
+  .strict();
+
+/** Many people at once, as `rows`. A text/csv body is read instead with `mode` and `dryRun` in the query. */
+export const ImportPeople = z.object({
+  mode: z.enum(["merge", "overwrite"]),
+  dryRun: z.boolean().default(false),
+  rows: z.array(PersonRow).min(1).max(1000),
+});
+
+/** For a text/csv body, which has nowhere to say these. */
+export const ImportPeopleQuery = z.object({
+  mode: z.enum(["merge", "overwrite"]).optional(),
+  dryRun: z.enum(["true", "false"]).optional(),
 });
 
 export const InvitePerson = z.object({ email: z.string().email() });
@@ -74,12 +107,38 @@ export const CreateRateCard = z.object({
 
 export const CreatePolicy = z.object({ effectiveFrom: IsoDate, doc: z.unknown() });
 
+/** A holiday on one `date`, or on every date from `from` to `to` (one row each, weekends too, at most 366). */
 export const CreateHoliday = z.object({
   name: z.string().min(1).max(120),
-  date: IsoDate,
+  date: IsoDate.optional(),
+  from: IsoDate.optional(),
+  to: IsoDate.optional(),
   location: z.string().max(120).nullish(),
   confirmed: z.boolean(),
 });
+
+const HolidayItem = z.object({
+  name: z.string().max(120),
+  date: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  location: z.string().max(120).nullish(),
+  confirmed: z.boolean().optional(),
+});
+
+/** Many holidays at once, as `items` or as `csv` text; see `parseHolidayCsv` for the columns. */
+export const ImportHolidays = z
+  .object({
+    mode: z.enum(["merge", "overwrite"]),
+    dryRun: z.boolean().default(false),
+    /** Commit the rows that can be added even when others are refused. Otherwise one refusal stops them all. */
+    partial: z.boolean().default(false),
+    items: z.array(HolidayItem).max(1000).optional(),
+    csv: z.string().max(200_000).optional(),
+  })
+  .refine((b) => (b.items === undefined) !== (b.csv === undefined), {
+    message: "Give either items or csv, not both.",
+  });
 
 export const UpdateHoliday = z.object({
   name: z.string().min(1).max(120).optional(),

@@ -64,7 +64,7 @@ export async function readBundleBody(
     tx.query<R>("SELECT * FROM rate_card"),
     tx.query<R>("SELECT id, name, on_date, location, confirmed, created_by FROM holiday"),
     tx.query<R>(
-      "SELECT id, role, name_enc, contact_enc, status, active_from, active_to, created_at FROM person",
+      "SELECT id, role, name_enc, contact_enc, external_key, status, active_from, active_to, created_at FROM person",
     ),
     tx.query<R>(
       "SELECT id, on_date, person_id, all_consumers, change, qty, note_enc, logged_by, logged_at FROM log_entry",
@@ -107,6 +107,7 @@ export async function readBundleBody(
       role: p.role,
       name: must(await dec("person", "name_enc", p.id, p.name_enc)),
       contact: await dec("person", "contact_enc", p.id, p.contact_enc),
+      externalKey: (p.external_key as string | null) ?? null,
       status: p.status,
       activeFrom: p.active_from ?? null,
       activeTo: p.active_to ?? null,

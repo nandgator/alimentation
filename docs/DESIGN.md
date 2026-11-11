@@ -20,7 +20,7 @@ limit. `docs/PROMISES.md` is the ledger; CI fails if a promise has no test that 
 | P2  | Free until you outgrow it, and we say so in advance. | A usage meter with three thresholds (70, 90, 100 percent) and a 14 day grace period at 100. Reads and export are never blocked.                                    | Thresholds are ours. The host's own limits (Neon, Cloudflare) can change without notice.                                                                                              |
 | P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa, then cutover. The old copy stays read-only for 7 days.                                                                    | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email.                             |
 | P4  | Leave, and everything goes.                          | Rows deleted, workspace key destroyed, database removed, receipt issued. The key is destroyed first, so data is unreadable at once.                                | Neon keeps a deleted project recoverable for 7 days, then removes it. Copies you exported are yours. Law may require some logs to be kept (section 9).                                |
-| P5  | Your people's details are never readable in logs.    | Names, contacts and free-text notes are encrypted in the application before they reach the database. Logs carry only pseudonymous ids.                             | Amounts, dates and ids are not encrypted. Without the key they cannot be tied to a person.                                                                                            |
+| P5  | Your people's details are never readable in logs.    | Names, contacts and free-text notes are encrypted in the application before they reach the database. Logs carry only pseudonymous ids.                             | Amounts, dates and ids are not encrypted. Without the key they cannot be tied to a person. A person's optional key (a code the kitchen chose, section 5.14) is also kept readable.    |
 | P6  | Your data is yours to take, at any time.             | Full export in an open, versioned format. Works when over limit and after cancelling.                                                                              | Plain JSON over TLS. Keep it as carefully as you would a ledger.                                                                                                                      |
 | P7  | One person's rows are invisible to everyone else.    | Row-level security inside each workspace database, forced for the application role. Consumers see only their own rows.                                             | The application role is trusted to set who is asking. Its credentials never leave the server.                                                                                         |
 
@@ -246,6 +246,10 @@ Consequences, each tested:
   data, even with `log_statement = all`.
 - Destroying the wrapped key makes every copy unreadable immediately, including the copies a host
   still holds during its own recovery window.
+- A person's **key** (`person.external_key`) is not encrypted. It is an optional code the kitchen
+  chose, such as a room or staff number, and it has to be unique, which ciphertext (a fresh nonce
+  each time) cannot be compared for. That is a decision made with the owner's delegate, and its
+  reasons and limits are in 5.14.
 - Amounts, dates and ids are not encrypted. They are unlinkable to a person once the key and the
   people rows are gone.
 
@@ -449,6 +453,21 @@ someone with one kitchen:
    own ways, as a copy does), and a head office that reads individual ledgers. That is a different
    promise to the people in the kitchens, and not a technical step from this one.
 
+4. **Holidays by the range and by the list.** A holiday is one row for one date, and stays so (no
+   schema change): a range (`from`, `to`, at most 366 days, weekends kept) is expanded into a row
+   for each date, and `POST /holidays/bulk` (admin only, and not open to an agent key) takes up to
+   1,000 days as items or as CSV text. Both are parsed and expanded by pure functions in
+   `packages/core/src/holidays.ts`, which also holds the key that tells two holidays apart (day,
+   name, place, without case), shared with the copy of a setup. `merge` skips a key already there;
+   `overwrite` replaces what is on the dates the list names and no other date. Each date is written
+   inside its own savepoint, so `guard_holiday` refuses only the dates of a closed month, and the
+   answer names the row and the reason. Unless `partial` is set, any refusal rolls the whole batch
+   back (`committed: false`). A dry run does the very same work, so the database's own guards decide
+   what it reports, and then rolls it back, which also takes back the audit rows. There is no batch
+   row in the audit trail: the application role cannot write that table, and the trigger's one row
+   for each holiday written or removed says who and when. The read-only freeze and the admin check
+   apply to a dry run too.
+
 ### 5.13 AI agents (ADR-14)
 
 Decided with the owner. An agent is a way for a person to have software act for them, not a new kind
@@ -481,6 +500,64 @@ Built: the API (`/api/w/:slug/agents`), the MCP server, `llms.txt`, and a card u
 scopes are the person's choice, inside the list above), and a screen for a member's own keys, which
 a member makes through the API. Neither is a technical step from here; each is a decision about who
 may let software act for them.
+
+### 5.14 People by the file (ADR-15)
+
+A kitchen that keeps its people in another list needs to bring them in, and to bring a corrected
+list again later without everyone being added twice. For that a person has an optional **key**
+(`person.external_key`), the kitchen's own code for them, and `POST /people/import` (admin only,
+JSON rows or `text/csv`, at most 1,000 rows and 1 MB, through the same admission gate as any
+request) matches a row on it. The rules, all tested:
+
+- A row with a key finds that person and changes them, or adds them if nobody has the key. A row
+  without one always adds. People absent from the file are never removed or disabled. A role is
+  never changed by an import (an error row), and a key may be given once in a file.
+- `merge` sets what a row gives and leaves a blank cell alone. `overwrite` sets everything a row
+  gives, and a blank contact or date clears it. A column the file lacks is left alone by both.
+- Every row goes through the checks of adding or changing one person by hand (`checkPersonFields`,
+  `checkExternalKey` in `packages/core/src/people-import.ts`), applied to the result of the change.
+  Parsing, planning and writing the file are pure functions there, on the same reader as the
+  holidays import (`csv.ts`); the service reads the people the file names, decrypts them to compare,
+  and writes.
+- All or nothing, in one transaction. One error row, or a file that would add more people than the
+  workspace's `people_cap` leaves room for (counted first, so the answer is a sentence and not the
+  trigger's refusal, for a dry run too), writes nothing. A dry run writes nothing at all: it plans
+  from the same reads. A run that changes nothing writes nothing, not even the audit line.
+- The audit trail gets the usual `person` row for each person and one `person_import` row, written
+  by `record_person_import` (security definer; the application role still cannot write the table;
+  admin only; refused while the workspace is read-only): mode, counts, source and a SHA-256 of the
+  file, never the file. It is readable by the admin only and worded in the admin's History.
+
+**The key is stored in the clear.** Encrypting it with the workspace's data key (a random nonce each
+time) would make equal keys unequal and the uniqueness, and the lookup, impossible. A blind index
+(an HMAC of the key under the data key, stored beside an encrypted copy) would keep it out of the
+database in the clear, but nothing in the database could then show it, the audit trail would carry
+ciphertext that cannot be read in History or a copy, and a key's whole job is to be read. The
+kitchen's code is not a name or a contact, so it was kept plain and **held to look like a code**: a
+CHECK allows letters, digits and `. _ : / # -` (64 at most, no spaces, no `@`), the form says so,
+and the guide tells people to use a code they already have and not a phone number (digits alone
+would pass; this is the limit of the check). It is shown to the admin only by the API, though the
+database lets a member read their own row and the supplier the members', as it does for the rest of
+`person`. It is in the audit trail and in a copy of the kitchen as it is, and it is the one
+personal-detail column on the reviewed plain-text list in `workspace.guards.test.ts`; P5's stated
+limit (section 1) and the home page say so. Reversing this later is a migration that adds a blind
+index and drops the column.
+
+**Set once.** A trigger (`keep_external_key`) refuses to change or clear a key that is set, whoever
+writes, so a later file cannot quietly point at someone else. A person who has none can be given
+one, once. It is unique in the workspace by a partial unique index; two kitchens are two databases
+and may use the same code for different people. The bundle carries it (optional, so older bundles
+still import), and the read-only trigger of `person` covers the column.
+
+**Not open to agents.** The people routes stay admin-only and are not in the agent allowlist
+(`PERSON_ONLY`), so there is no MCP tool for an import; a test lists the tools of a key with every
+scope and fails if one imports, and calls it by name.
+
+**Exporting.** **Export CSV** on the People screen writes the same columns from the list the admin
+already has. Cells that a spreadsheet would run as formulas (beginning `=`, `+`, `-`, `@`, tab or
+carriage return, after any apostrophes) get an apostrophe in front, and the reader takes one off, so
+a file round-trips exactly. A person without a key is exported with an empty key, and importing the
+row adds them again; the preview says so. There is no export route: the data is in the bootstrap.
 
 ## 6. Technology
 

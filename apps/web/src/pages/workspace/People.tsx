@@ -1,9 +1,10 @@
-import type { PersonDto, Role } from "@alimentation/core";
+import { type PersonDto, peopleToCsv, type Role } from "@alimentation/core";
 import { useState } from "react";
 import { api, postJson } from "../../api.ts";
 import { Chip, Dialog, Field, Form, PageHead, toast, useAction } from "../../components/ui.tsx";
 import { date } from "../../format.ts";
 import { useWorkspace } from "./context.tsx";
+import { downloadCsv, ImportPeopleDialog } from "./PeopleImport.tsx";
 
 const ROLES: Role[] = ["consumer", "supplier", "admin"];
 const LABEL: Record<Role, string> = { consumer: "Member", supplier: "Supplier", admin: "Admin" };
@@ -15,6 +16,9 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
   const [contact, setContact] = useState(person?.contact ?? "");
   const [from, setFrom] = useState(person?.activeFrom ?? "");
   const [to, setTo] = useState(person?.activeTo ?? "");
+  const [key, setKey] = useState(person?.externalKey ?? "");
+  // A key is set once, and then it never changes.
+  const keyFixed = !!person?.externalKey;
   const act = useAction();
   return (
     <Form
@@ -27,8 +31,12 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
             activeFrom: from || null,
             activeTo: to || null,
           };
-          if (person) await api.patch(`${ws.api}/people/${person.id}`, body);
-          else await postJson(`${ws.api}/people`, { ...body, role });
+          if (person)
+            await api.patch(
+              `${ws.api}/people/${person.id}`,
+              key && !keyFixed ? { ...body, externalKey: key } : body,
+            );
+          else await postJson(`${ws.api}/people`, { ...body, role, externalKey: key || null });
           toast("Saved.");
           onDone();
           ws.reload();
@@ -65,6 +73,24 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
           maxLength={200}
           value={contact}
           onChange={(e) => setContact(e.target.value)}
+        />
+      </Field>
+      <Field
+        label="Key (optional)"
+        id="pkey"
+        hint={
+          keyFixed
+            ? "Your own code for this person. It is fixed once set."
+            : "Your own code for this person, such as a room or staff number. A file you import later finds them by it. Once set it cannot be changed. Letters, digits and . _ : / # - only; not a name, email or phone number."
+        }
+      >
+        <input
+          id="pkey"
+          maxLength={64}
+          pattern="[A-Za-z0-9][A-Za-z0-9._:\/#\-]*"
+          readOnly={keyFixed}
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
         />
       </Field>
       {role === "consumer" ? (
@@ -171,20 +197,38 @@ export function People() {
   const ws = useWorkspace();
   const [edit, setEdit] = useState<PersonDto | "new" | null>(null);
   const [invite, setInvite] = useState<PersonDto | null>(null);
+  const [importing, setImporting] = useState(false);
   return (
     <div className="stack">
       <PageHead
         title="People"
         lead="Everyone you feed, and the people who help run the kitchen."
         actions={
-          <button
-            type="button"
-            className="btn"
-            disabled={!ws.writable}
-            onClick={() => setEdit("new")}
-          >
-            Add a person
-          </button>
+          <>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => downloadCsv("people.csv", peopleToCsv(ws.boot.people))}
+            >
+              Export CSV
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={!ws.writable}
+              onClick={() => setImporting(true)}
+            >
+              Import
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!ws.writable}
+              onClick={() => setEdit("new")}
+            >
+              Add a person
+            </button>
+          </>
         }
       />
       <div
@@ -197,6 +241,7 @@ export function People() {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Key</th>
               <th>Role</th>
               <th>Signed in</th>
               <th>Contact</th>
@@ -219,6 +264,7 @@ export function People() {
                     {p.status === "DISABLED" ? <Chip>Disabled</Chip> : null}
                   </button>
                 </td>
+                <td>{p.externalKey ?? "-"}</td>
                 <td>{LABEL[p.role]}</td>
                 <td>{p.linked ? <Chip tone="good">Yes</Chip> : <Chip>Not yet</Chip>}</td>
                 <td>{p.contact ?? "-"}</td>
@@ -256,6 +302,7 @@ export function People() {
           <PersonForm person={edit === "new" ? null : edit} onDone={() => setEdit(null)} />
         ) : null}
       </Dialog>
+      <ImportPeopleDialog open={importing} onClose={() => setImporting(false)} />
       <Dialog open={!!invite} onClose={() => setInvite(null)} title="Invite">
         {invite ? <Invite person={invite} /> : null}
       </Dialog>

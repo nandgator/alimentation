@@ -28,7 +28,7 @@ ignored.
 | `policies`                                                  | Every version of the kitchen's rules, with the date each takes effect.                                                     |
 | `rateCards`                                                 | Every set of prices, including the weekly menu.                                                                            |
 | `holidays`                                                  | Every holiday and whether it is confirmed.                                                                                 |
-| `people`                                                    | Role, name, contact, status and billing dates. Names and contacts are **plain text**.                                      |
+| `people`                                                    | Role, name, contact, key (optional), status and billing dates. Names and contacts are **plain text**.                      |
 | `log`                                                       | Every entry, with who logged it and when the database stamped it.                                                          |
 | `claims`, `decisions`, `reversals`, `settlements`, `closes` | The money, in integer paise, with who and when.                                                                            |
 | `audit`                                                     | The whole audit trail. Personal columns are written as `{ "$plain": "…" }` so the receiving end can encrypt them afresh.   |

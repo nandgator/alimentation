@@ -92,7 +92,13 @@ export async function makePlatform(
           ...(jar.cookie ? { cookie: jar.cookie } : {}),
           ...headers,
         },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        // Text is sent as it is when the caller says it is not JSON (a csv file, say).
+        body:
+          body === undefined
+            ? undefined
+            : typeof body === "string" && headers["content-type"]?.startsWith("text/")
+              ? body
+              : JSON.stringify(body),
       });
       const set = res.headers.get("set-cookie");
       if (set) {

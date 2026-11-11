@@ -109,6 +109,9 @@ describe("[P5] personal data reaches the database only as ciphertext", () => {
       "workspace.currency",
       "person.role",
       "person.status",
+      // The kitchen's own code for a person (a room or staff number). Plain, because it must be unique, and held to
+      // letters, digits and a few marks by a CHECK so that a name, an email or a number to call cannot be one.
+      "person.external_key",
       "policy_version.doc",
       "rate_card.menu_sun",
       "rate_card.menu_mon",
@@ -500,6 +503,180 @@ describe("[P3] a workspace being moved can be read and not written, by the datab
   });
 });
 
+describe("the kitchen's own code for a person", () => {
+  let ws: TestWorkspace;
+  let s: Seeded;
+  const addAs = (a: Seeded["admin"], key: string | null, name = "Member") =>
+    asActor(ws.app, a, (c) =>
+      c.query(
+        `INSERT INTO person (id, role, name_enc, external_key) VALUES ($1, 'consumer', $2, $3) RETURNING id`,
+        [randomUUID(), fakeEnc(name), key],
+      ),
+    );
+  beforeAll(async () => {
+    ws = await newWorkspace();
+    s = await seed(ws.owner);
+  });
+  afterAll(async () => ws.destroy());
+
+  it("allows one person to a key and any number to none", async () => {
+    await addAs(s.admin, "K-1");
+    await addAs(s.admin, null);
+    await addAs(s.admin, null);
+    const again = await dbError(addAs(s.admin, "K-1"));
+    expect(again.code).toBe("23505");
+    // The key is unique in the kitchen whoever writes it.
+    const owner = await dbError(
+      ws.owner.query(
+        `INSERT INTO person (role, name_enc, external_key) VALUES ('consumer', $1, 'K-1')`,
+        [fakeEnc("Other")],
+      ),
+    );
+    expect(owner.code).toBe("23505");
+  });
+
+  it("keeps a key to a code, so that a name, an email or a long text cannot be one", async () => {
+    for (const bad of ["a b", "a@b.org", "-x", "x".repeat(65), "", "x;y"]) {
+      const e = await dbError(addAs(s.admin, bad));
+      expect(e.code, bad).toBe("23514");
+    }
+    await addAs(s.admin, "x".repeat(64));
+    await addAs(s.admin, "Room-12/b#3.a:z_9");
+  });
+
+  it("keeps a key once it is set: it can be set on a person who has none, and then never changes", async () => {
+    const id = randomUUID();
+    await ws.owner.query(`INSERT INTO person (id, role, name_enc) VALUES ($1, 'consumer', $2)`, [
+      id,
+      fakeEnc("Keyed later"),
+    ]);
+    const set = (as: "app" | "owner", value: string | null) =>
+      as === "owner"
+        ? ws.owner.query(`UPDATE person SET external_key = $2 WHERE id = $1`, [id, value])
+        : asActor(ws.app, s.admin, (c) =>
+            c.query(`UPDATE person SET external_key = $2 WHERE id = $1`, [id, value]),
+          );
+    await set("app", "SET-ONCE");
+    // The same value again, with the rest of the row changing, is no change.
+    await asActor(ws.app, s.admin, (c) =>
+      c.query(`UPDATE person SET external_key = 'SET-ONCE', status = 'DISABLED' WHERE id = $1`, [
+        id,
+      ]),
+    );
+    for (const as of ["app", "owner"] as const)
+      for (const value of ["OTHER", null]) {
+        const e = await dbError(set(as, value));
+        expect(e.message, `${as} ${value}`).toContain("ALIMENTATION_IMMUTABLE");
+      }
+    expect(
+      (await ws.owner.query(`SELECT external_key FROM person WHERE id = $1`, [id])).rows[0]!
+        .external_key,
+    ).toBe("SET-ONCE");
+  });
+
+  it("is in the audit trail with the rest of the row", async () => {
+    const id = randomUUID();
+    await asActor(ws.app, s.admin, (c) =>
+      c.query(
+        `INSERT INTO person (id, role, name_enc, external_key) VALUES ($1, 'supplier', $2, 'AUD-1')`,
+        [id, fakeEnc("Audited")],
+      ),
+    );
+    const trail = (
+      await ws.owner.query(
+        `SELECT action, after FROM audit_log WHERE table_name = 'person' AND row_id = $1`,
+        [id],
+      )
+    ).rows;
+    expect(trail).toHaveLength(1);
+    expect(trail[0]!.after.external_key).toBe("AUD-1");
+    // A member does not read the trail of someone else's row, key included.
+    const seen = await asActor(
+      ws.app,
+      s.jovial,
+      async (c) =>
+        (await c.query(`SELECT 1 FROM audit_log WHERE table_name = 'person' AND row_id = $1`, [id]))
+          .rows,
+    );
+    expect(seen).toEqual([]);
+  });
+
+  it("is not set, nor an import recorded, while the workspace is moved, by the database itself", async () => {
+    const id = randomUUID();
+    await ws.owner.query(`INSERT INTO person (id, role, name_enc) VALUES ($1, 'consumer', $2)`, [
+      id,
+      fakeEnc("Frozen"),
+    ]);
+    await ws.owner.query("UPDATE workspace SET read_only = true");
+    try {
+      const set = await dbError(
+        asActor(ws.app, s.admin, (c) =>
+          c.query(`UPDATE person SET external_key = 'FROZEN-1' WHERE id = $1`, [id]),
+        ),
+      );
+      expect(set.message).toContain("read-only");
+      const add = await dbError(addAs(s.admin, "FROZEN-2"));
+      expect(add.message).toContain("read-only");
+      const record = await dbError(
+        asActor(ws.app, s.admin, (c) => c.query(`SELECT record_person_import('{"fileHash":"x"}')`)),
+      );
+      expect(record.message).toContain("read-only");
+    } finally {
+      await ws.owner.query("UPDATE workspace SET read_only = false");
+    }
+  });
+
+  it("records an import in the trail for the admin alone, and for nobody else to read", async () => {
+    const detail = { mode: "merge", fileHash: "abc123", create: 2, update: 1, unchanged: 0 };
+    const other = await dbError(
+      asActor(ws.app, s.jovial, (c) =>
+        c.query(`SELECT record_person_import($1::jsonb)`, [JSON.stringify(detail)]),
+      ),
+    );
+    expect(other.code).toBe("42501");
+    const supplier = await dbError(
+      asActor(ws.app, s.supplier, (c) =>
+        c.query(`SELECT record_person_import($1::jsonb)`, [JSON.stringify(detail)]),
+      ),
+    );
+    expect(supplier.code).toBe("42501");
+    await asActor(ws.app, s.admin, (c) =>
+      c.query(`SELECT record_person_import($1::jsonb)`, [JSON.stringify(detail)]),
+    );
+    const read = (a: Seeded["admin"]) =>
+      asActor(
+        ws.app,
+        a,
+        async (c) =>
+          (
+            await c.query(
+              `SELECT action, actor, row_id, before, after FROM audit_log WHERE table_name = 'person_import'`,
+            )
+          ).rows,
+      );
+    const mine = await read(s.admin);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
+      action: "IMPORT",
+      actor: s.admin.personId,
+      row_id: "abc123",
+      before: null,
+      after: detail,
+    });
+    expect(await read(s.jovial)).toEqual([]);
+    expect(await read(s.supplier)).toEqual([]);
+    // And the application role still has no way to write the trail itself.
+    const direct = await dbError(
+      asActor(ws.app, s.admin, (c) =>
+        c.query(
+          `INSERT INTO audit_log (table_name, row_id, action) VALUES ('person_import', 'x', 'IMPORT')`,
+        ),
+      ),
+    );
+    expect(direct.code).toBe("42501");
+  });
+});
+
 describe("[P1] nothing in the schema is open to everyone by accident", () => {
   it("has no function that PUBLIC may execute, and the application role may execute only the reviewed few", async () => {
     const ws = await newWorkspace();
@@ -526,6 +703,7 @@ describe("[P1] nothing in the schema is open to everyone by accident", () => {
         "month_closed",
         "person_billing",
         "policy_on",
+        "record_person_import",
         "resolve_actor",
         "schema_version",
         "system_close_month",

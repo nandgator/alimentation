@@ -24,7 +24,7 @@ granted at the end of the migration.
 | Table            | Holds                                                                                                     | Changed by the application?                              |
 | ---------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | `workspace`      | One row: name, time zone, currency, caps, and the `read_only` flag set while a kitchen is moved.          | Admin may update                                         |
-| `person`         | A member, supplier or admin: encrypted name and contact, billed dates, status, and the sign-in account.   | Insert and update (admin)                                |
+| `person`         | A member, supplier or admin: encrypted name, contact, billed dates, status, an optional `external_key`.   | Insert and update (admin)                                |
 | `policy_version` | The kitchen's rules as a JSON document, effective from a date.                                            | Insert only                                              |
 | `rate_card`      | Prices and the weekday menu, effective from a date.                                                       | Insert only                                              |
 | `holiday`        | A day the kitchen does not cook, confirmed or tentative.                                                  | Admin: insert, update, delete                            |
@@ -53,6 +53,10 @@ granted at the end of the migration.
   closed month follow the same lock.
 - **Caps.** People and rows (entries, claims, settlements, decisions) are counted by triggers
   against the workspace's caps; null means no cap.
+- **A person's key is fixed.** `person.external_key` is unique where it is set, held to a short code
+  by a `CHECK`, and a trigger refuses to change or clear it once set. `record_person_import` is the
+  one way the application writes a `person_import` line to `audit_log`, for the admin only. See
+  [Importing people](/docs/api/people-import/).
 - **Read-only while moving.** A statement-level trigger on every table refuses application writes
   while `workspace.read_only` is set, even when no row would change.
 

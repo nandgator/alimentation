@@ -19,6 +19,8 @@ export interface PersonDto {
   contact: string | null;
   /** Whether someone has signed in as this person. */
   linked: boolean;
+  /** The kitchen's own code for this person, such as a room or a staff number; once set it never changes. Only the admin is shown it. */
+  externalKey: string | null;
 }
 
 export interface StatementDto extends Statement {

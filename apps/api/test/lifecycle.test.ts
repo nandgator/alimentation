@@ -89,6 +89,7 @@ async function richSource(): Promise<{ fx: Fixture; jovial: string; smruti: stri
   await svc.updatePerson(admin, smruti.personId, {
     name: "Smruti Renamed",
     contact: "smruti@home",
+    externalKey: "K-2",
   });
   return { fx, jovial: jovial.personId, smruti: smruti.personId };
 }
@@ -180,6 +181,12 @@ describe("[P3] a workspace can be exported and imported without losing a paisa",
       }),
     );
     expect(canonicalJson(again)).toBe(canonicalJson(withoutManifest(bundle)));
+    // A person's own code goes with the kitchen, and stays the one thing that cannot change.
+    expect(bundle.people.find((p) => p.id === ids.smruti)?.externalKey).toBe("K-2");
+    const keys = await target.ws.owner.query(
+      "SELECT id, external_key FROM person WHERE external_key IS NOT NULL",
+    );
+    expect(keys.rows).toEqual([{ id: ids.smruti, external_key: "K-2" }]);
 
     const stored = await target.ws.owner.query("SELECT id, name_enc FROM person WHERE id = $1", [
       ids.smruti,

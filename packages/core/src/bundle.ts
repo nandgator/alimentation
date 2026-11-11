@@ -72,6 +72,8 @@ export const BundleSchema = z
           role: z.enum(["admin", "supplier", "consumer"]),
           name: z.string(),
           contact: nullable(z.string()),
+          /** The kitchen's own code for the person. Bundles made before it existed do not have it. */
+          externalKey: z.string().nullable().optional(),
           status: z.enum(["ACTIVE", "DISABLED"]),
           activeFrom: nullable(date),
           activeTo: nullable(date),

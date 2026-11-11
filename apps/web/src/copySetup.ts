@@ -1,4 +1,4 @@
-import type { Holiday, IsoDate, RateCard } from "@alimentation/core";
+import { type Holiday, holidayKey, type IsoDate, type RateCard } from "@alimentation/core";
 import { date as showDate } from "./format.ts";
 
 /**
@@ -73,9 +73,6 @@ function pricesOf(c: RateCard) {
     menu: c.menu,
   };
 }
-
-const holidayKey = (h: Pick<Holiday, "date" | "name" | "location">) =>
-  `${h.date}|${h.name.trim().toLowerCase()}|${(h.location ?? "").trim().toLowerCase()}`;
 
 export function planCopy(source: Snapshot, target: Snapshot, what: What): Plan {
   const plan: Plan = { steps: [], already: 0, left: [], notes: [] };
