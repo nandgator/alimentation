@@ -49,9 +49,18 @@ import {
 } from "./mcp-content.ts";
 import { schemaOf } from "./openapi.ts";
 import { acceptInvite, claimAutoInvites, createInvite } from "./platform/invites.ts";
-import { capacityNow, createWorkspace, type PlatformDeps } from "./platform/workspaces.ts";
+import {
+  capacityDetail,
+  capacityNow,
+  createWorkspace,
+  MAX_WAITING,
+  type PlatformDeps,
+  setWorkspaceLimits,
+  startRefusal,
+} from "./platform/workspaces.ts";
 import {
   AcceptInvite,
+  ApproveSignup,
   CloseMonth,
   ConfirmBody,
   CreateAgentKey,
@@ -84,6 +93,7 @@ import {
   PageQuery,
   ReverseClaim,
   ROLE_ORDER,
+  SetLimits,
   StatementsQuery,
   UpdateHoliday,
   UpdatePerson,
@@ -389,13 +399,20 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const a = c.get("account");
     const base = { authDev: config.authDev, signInWithProvider: !!deps.oidc };
     if (!a) return c.json({ account: null, ...base });
-    const [mine, organisations] = await Promise.all([
+    const [mine, organisations, start] = await Promise.all([
       deps.control.workspacesOf(a.id),
       deps.control.organisationsOf(a.id),
+      startRefusal(deps.platform, asRow(a)),
     ]);
     return c.json({
       account: { id: a.id, email: a.email, name: a.name },
       operator: isOperator(a),
+      signup: {
+        mode: config.signup,
+        refusal: start.refusal,
+        requested: start.waiting,
+        maxWorkspaces: config.maxWorkspacesPerAccount,
+      },
       organisations,
       workspaces: mine.map(({ workspace: w, roles }) => ({
         slug: w.slug,
@@ -416,6 +433,31 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     return c.json(await createWorkspace(deps.platform, asRow(a), b), 201);
   });
 
+  // Asking for a place, on an instance where kitchens are by invitation. The email is the signed-in account's own
+  // (a verified one), never one in the body, so no one can put another person on the list. Asking twice is the
+  // same as asking once, and the list is bounded so that open sign-in cannot fill it without end.
+  app.post("/api/waitlist", async (c) => {
+    const a = needAccount(c);
+    const wait = deps.gate.throttle(`waitlist:${a.id}`);
+    if (wait !== null) {
+      c.header("retry-after", String(wait));
+      throw new ApiError(429, "rate_limited", "Slow down a little.");
+    }
+    if (config.signup === "closed")
+      throw new ApiError(
+        403,
+        "signup_closed",
+        "This service is not taking new kitchens right now.",
+      );
+    if (config.signup === "open") return c.json({ status: "open" });
+    const known = await deps.control.signupRequest(a.email);
+    if (known?.approvedAt) return c.json({ status: "approved" });
+    if (!known && (await deps.control.countWaiting()) >= MAX_WAITING)
+      throw new ApiError(503, "full", "The waiting list is full for now. Try again later.");
+    const made = await deps.control.askForPlace(a.email);
+    return c.json({ status: made.approvedAt ? "approved" : "waiting" });
+  });
+
   app.post("/api/invites/accept", async (c) => {
     const a = needAccount(c);
     const b = await parse(c, AcceptInvite);
@@ -428,7 +470,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const today = (await deps.control.requestsToday(deps.now().toISOString().slice(0, 10)))
       .byWorkspace;
     return c.json({
-      capacity: await capacityNow(deps.platform),
+      capacity: await capacityDetail(deps.platform),
       workspaces: (await deps.control.allWorkspaces()).map((w) => ({
         id: w.id,
         slug: w.slug,
@@ -437,8 +479,24 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         createdAt: w.createdAt,
         requestsToday: today.get(w.id) ?? 0,
         overSince: w.overSince,
+        limits: w.limits,
       })),
     });
+  });
+
+  app.get("/api/platform/signups", async (c) => {
+    const a = needAccount(c);
+    if (!isOperator(a)) throw forbidden();
+    return c.json({ mode: config.signup, requests: await deps.control.signupRequests() });
+  });
+
+  app.post("/api/platform/signups/approve", async (c) => {
+    const a = needAccount(c);
+    if (!isOperator(a)) throw forbidden();
+    const b = await parse(c, ApproveSignup);
+    const made = await deps.control.approveSignup(b.email, a.id);
+    await deps.control.event("signup.approved", null, {});
+    return c.json(made);
   });
 
   app.get("/api/platform/events", async (c) => {
@@ -464,6 +522,11 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     const row = await operatorTarget(c);
     const out = await wipeWorkspace(deps.platform, row.id);
     return c.json(out, out.done ? 200 : 202);
+  });
+  app.post("/api/platform/workspaces/:slug/limits", async (c) => {
+    const row = await operatorTarget(c);
+    const b = await parse(c, SetLimits);
+    return c.json({ limits: await setWorkspaceLimits(deps.platform, row, b) });
   });
   app.post("/api/platform/workspaces/:slug/release", async (c) => {
     const row = await operatorTarget(c);

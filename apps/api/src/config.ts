@@ -1,9 +1,4 @@
-import {
-  type CapacityInputs,
-  FREE_LIMITS,
-  type Limits,
-  REFERENCE_CAPACITY,
-} from "@alimentation/core";
+import { type CapacityInputs, capacityInputs, FREE_LIMITS, type Limits } from "@alimentation/core";
 import * as z from "zod";
 
 /**
@@ -40,14 +35,36 @@ const Env = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   /** Free-tier numbers, as JSON, to override the defaults when a host changes its terms. */
   FREE_LIMITS_JSON: z.string().optional(),
+  /**
+   * The host's side of the capacity sum, as JSON. What each kitchen is promised follows `FREE_LIMITS_JSON`;
+   * `perWorkspaceRequestsPerDay` here, if given, states it on purpose instead.
+   */
   CAPACITY_JSON: z.string().optional(),
   /** A dedicated instance has no free-tier caps. */
   DEDICATED: z.enum(["0", "1"]).default("0"),
   /** Lets another instance push a workspace here. Unset, the endpoint does not exist. */
   MIGRATION_TOKEN: z.string().min(24).optional(),
+  /**
+   * Who may make a kitchen: `open` (anyone signed in), `invite` (only emails an operator has approved; anyone
+   * else may ask for a place) or `closed` (no one). Unset: `invite` on a shared instance, `open` on a dedicated
+   * one, where only operators make kitchens anyway.
+   */
+  SIGNUP: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.enum(["open", "invite", "closed"]).optional(),
+  ),
+  /** Kitchens one account may have made and not yet wiped. Unset: 3 on a shared instance, unlimited on a dedicated one. */
+  MAX_WORKSPACES_PER_ACCOUNT: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.union([z.literal("unlimited"), z.coerce.number().int().min(1).max(1000)]).optional(),
+  ),
   /** Requests a day beyond the budget before a workspace is refused, as a multiple. */
   HARD_CAP_FACTOR: z.coerce.number().min(1).max(20).default(2),
 });
+
+export type SignupMode = "open" | "invite" | "closed";
+
+export const DEFAULT_MAX_WORKSPACES_PER_ACCOUNT = 3;
 
 export interface Config {
   appOrigin: string;
@@ -67,6 +84,11 @@ export interface Config {
   production: boolean;
   freeLimits: Limits;
   capacity: CapacityInputs;
+  /** True when `CAPACITY_JSON` states the per-kitchen request figure itself, so the free limits do not set it. */
+  capacityPerWorkspaceStated: boolean;
+  signup: SignupMode;
+  /** Null: no limit. */
+  maxWorkspacesPerAccount: number | null;
   hardCapFactor: number;
   dedicated: boolean;
   migrationToken: string | null;
@@ -104,6 +126,11 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       "Configure OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET (or AUTH_DEV=1 for development)",
     );
   }
+  const freeLimits: Limits = e.FREE_LIMITS_JSON
+    ? { ...FREE_LIMITS, ...JSON.parse(e.FREE_LIMITS_JSON) }
+    : FREE_LIMITS;
+  const stated: Partial<CapacityInputs> = e.CAPACITY_JSON ? JSON.parse(e.CAPACITY_JSON) : {};
+  const dedicated = e.DEDICATED === "1";
   const origin = e.APP_ORIGIN.replace(/\/+$/, "");
   if (production && !origin.startsWith("https://"))
     throw new Error("APP_ORIGIN must be https in production");
@@ -124,14 +151,16 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     ),
     authDev: e.AUTH_DEV === "1",
     production,
-    freeLimits: e.FREE_LIMITS_JSON
-      ? { ...FREE_LIMITS, ...JSON.parse(e.FREE_LIMITS_JSON) }
-      : FREE_LIMITS,
-    capacity: e.CAPACITY_JSON
-      ? { ...REFERENCE_CAPACITY, ...JSON.parse(e.CAPACITY_JSON) }
-      : REFERENCE_CAPACITY,
+    freeLimits,
+    capacity: capacityInputs(freeLimits, stated),
+    capacityPerWorkspaceStated: stated.perWorkspaceRequestsPerDay !== undefined,
+    signup: e.SIGNUP ?? (dedicated ? "open" : "invite"),
+    maxWorkspacesPerAccount:
+      e.MAX_WORKSPACES_PER_ACCOUNT === "unlimited"
+        ? null
+        : (e.MAX_WORKSPACES_PER_ACCOUNT ?? (dedicated ? null : DEFAULT_MAX_WORKSPACES_PER_ACCOUNT)),
     hardCapFactor: e.HARD_CAP_FACTOR,
-    dedicated: e.DEDICATED === "1",
+    dedicated,
     migrationToken: e.MIGRATION_TOKEN ?? null,
   };
 }

@@ -132,11 +132,42 @@ export function canAdmit(plan: CapacityPlan, existingWorkspaces: number): boolea
   return existingWorkspaces < plan.capacity;
 }
 
-/** The numbers verified on 2026-10-24; see DESIGN.md section 3. */
-export const REFERENCE_CAPACITY: CapacityInputs = {
+/**
+ * The host's side of the capacity sum, as verified on 2026-10-24 (see DESIGN.md section 3): the
+ * projects and daily requests of the free plan. What each kitchen is promised is not part of it,
+ * because it follows the limits in force (see `capacityInputs`).
+ */
+export const HOST_CAPACITY: Omit<CapacityInputs, "perWorkspaceRequestsPerDay"> = {
   hostProjects: 100,
   reservedProjects: 2,
   accountRequestsPerDay: 100_000,
   headroom: 0.2,
-  perWorkspaceRequestsPerDay: FREE_LIMITS.requestsPerDay,
+};
+
+/**
+ * The capacity sum for the limits actually in force. Each kitchen is promised `limits.requestsPerDay`,
+ * so changing the limits changes the capacity; `overrides` (the operator's `CAPACITY_JSON`) win over
+ * both, which is how a host states a per-kitchen figure of its own on purpose.
+ */
+export const capacityInputs = (
+  limits: Pick<Limits, "requestsPerDay">,
+  overrides: Partial<CapacityInputs> = {},
+): CapacityInputs => ({
+  ...HOST_CAPACITY,
+  perWorkspaceRequestsPerDay: limits.requestsPerDay,
+  ...overrides,
+});
+
+/** The capacity of the default free tier. */
+export const REFERENCE_CAPACITY: CapacityInputs = capacityInputs(FREE_LIMITS);
+
+/**
+ * The most an operator may set for one kitchen. Sane rather than tight: far above the free tier,
+ * well below what would let one kitchen use a host's whole allowance.
+ */
+export const LIMIT_MAXIMA: Limits = {
+  requestsPerDay: 50_000,
+  people: 10_000,
+  rows: 5_000_000,
+  bytes: 5 * 1024 ** 3,
 };

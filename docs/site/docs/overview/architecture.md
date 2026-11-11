@@ -80,9 +80,9 @@ One engine in three places means the three cannot disagree. See
 
 ## Profiles
 
-| Profile            | Runs on                          | Notes                                                                                                                            |
-| ------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Shared service     | Cloudflare Workers and Neon      | Free-tier caps on. Static files (this documentation included) cost nothing; only `/api`, `/auth` and `/_migrate` run the Worker. |
-| Dedicated instance | One container image and Postgres | `DEDICATED=1`: no caps, and only operators may make kitchens. See [Install](/docs/self-hosting/install/).                        |
+| Profile            | Runs on                          | Notes                                                                                                                                                                                    |
+| ------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared service     | Cloudflare Workers and Neon      | Free-tier caps on. Static files (this documentation included) cost nothing; only `/api`, `/auth` and `/_migrate` run the Worker.                                                         |
+| Dedicated instance | One container image and Postgres | `DEDICATED=1`: no caps, and only operators may make kitchens (`SIGNUP` and `MAX_WORKSPACES_PER_ACCOUNT` then default to open and unlimited). See [Install](/docs/self-hosting/install/). |
 
 Both serve the same web build. The documentation sites are static files in it.

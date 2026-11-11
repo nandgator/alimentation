@@ -16,3 +16,9 @@ has no tagged test, or a tag names no promise.
 
 The limits stated beside each promise in `DESIGN.md` section 1 are part of the promise. The home
 page repeats them.
+
+None of the seven is a promise against the people who run an instance's servers. They hold the keys
+and the databases' addresses, and can read what a kitchen holds, although the app shows them only
+metadata. P4 (the encrypted fields become unreadable at once; the plain-text ledger goes with the
+database), P5 and P7 say so in their limits. The exact lists are in
+`docs/site/docs/concepts/trust-model.md`.

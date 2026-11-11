@@ -42,7 +42,7 @@ export async function makeFixture(
     timeZone: "Asia/Kolkata",
     adminName: "Owner",
     alsoSupplier: true,
-    limits: opts.limits === undefined ? null : opts.limits,
+    caps: { people: opts.limits?.people ?? null, rows: opts.limits?.rows ?? null },
   });
   // Only in tests: let the database's idea of "today" follow the test's injected clock.
   await ownerDb.tx(async (tx) => {

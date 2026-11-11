@@ -17,6 +17,15 @@ service. Whoever runs an instance can change them, and a dedicated instance has 
 | **Actions a day** | 1,000, all together, across the whole kitchen |
 | **Storage**       | 20 MB                                         |
 
+## Starting a kitchen on the shared service
+
+To keep the free places from running out, the shared service may take new kitchens **by
+invitation**. If it does, the **Start a kitchen** screen says so and offers **Ask for a place**; the
+people who run the service approve it and you can then start your kitchen from the same screen. One
+account can start only a few kitchens (three, unless the service says otherwise) that it has not
+deleted. If the free places are all taken you will be told, and you can bring your own database to
+start now.
+
 ## What an "entry" is
 
 An entry is a **thing someone wrote down**: one logged exception, one payment claim, one supplier

@@ -253,6 +253,7 @@ export const OUR_FUNCTIONS = [
   "system_close_month",
   "schema_version",
   "grant_to_app",
+  "keep_caps",
   "keep_external_key",
   "record_person_import",
 ] as const;

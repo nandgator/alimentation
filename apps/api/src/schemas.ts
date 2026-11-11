@@ -1,4 +1,10 @@
-import { LOG_CHANGES, PAY_METHODS, type Role, SETTLEMENT_TYPES } from "@alimentation/core";
+import {
+  LIMIT_MAXIMA,
+  LOG_CHANGES,
+  PAY_METHODS,
+  type Role,
+  SETTLEMENT_TYPES,
+} from "@alimentation/core";
 import * as z from "zod";
 
 /**
@@ -32,6 +38,23 @@ export const CreateWorkspace = z.object({
   timeZone: z.string().default("Asia/Kolkata"),
   alsoSupplier: z.boolean().default(true),
 });
+
+/** An email as it is kept: trimmed, and in lower case. */
+const Email = z.string().trim().toLowerCase().max(254).pipe(z.email());
+
+export const ApproveSignup = z.object({ email: Email });
+
+/** The limits of one kitchen, each as a whole number from 1 to the most an operator may set. */
+export const SetLimits = z
+  .object({
+    people: z.number().int().min(1).max(LIMIT_MAXIMA.people).optional(),
+    rows: z.number().int().min(1).max(LIMIT_MAXIMA.rows).optional(),
+    requestsPerDay: z.number().int().min(1).max(LIMIT_MAXIMA.requestsPerDay).optional(),
+    bytes: z.number().int().min(1).max(LIMIT_MAXIMA.bytes).optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), {
+    message: "Give at least one of people, rows, requestsPerDay and bytes.",
+  });
 
 export const AcceptInvite = z.object({ token: z.string().min(20).max(200) });
 

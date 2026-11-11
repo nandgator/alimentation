@@ -1,9 +1,9 @@
 # Alimentation
 
 Mess and tiffin accounts for small kitchens that feed a few people every weekday. Who ate, what each
-meal cost, who paid, what is still owed. One private workspace per kitchen. Small workspaces live
-free on shared infrastructure; one that grows moves to its own with a single action; one that leaves
-is erased down to its keys.
+meal cost, who paid, what is still owed. One workspace per kitchen, kept apart from every other.
+Small workspaces live free on shared infrastructure; one that grows moves to its own with a single
+action; one that leaves is erased down to its keys.
 
 First workspaces: the Willow mess and Maple's home kitchen.
 

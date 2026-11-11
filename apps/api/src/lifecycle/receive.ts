@@ -4,12 +4,24 @@ import { loadWorkspaceKeys, newWorkspaceKeys } from "../crypto/keys.ts";
 import { WORKSPACE_MIGRATIONS } from "../db/migrations.generated.ts";
 import { sealDsns } from "../directory.ts";
 import { claimAutoInvites } from "../platform/invites.ts";
-import { capacityNow, checkSlug, limitsFor, type PlatformDeps } from "../platform/workspaces.ts";
+import {
+  admissionFor,
+  capacityNow,
+  capsOf,
+  checkSlug,
+  limitsFor,
+  type PlatformDeps,
+  writeCaps,
+} from "../platform/workspaces.ts";
 import { importBundle } from "./import.ts";
 
 const INVITE_DAYS = 90;
 
-class Refused extends Error {}
+class Refused extends Error {
+  constructor(readonly code: ReceiveReport["code"] = "invalid") {
+    super();
+  }
+}
 
 export interface ReceiveReport {
   ok: boolean;
@@ -69,21 +81,28 @@ export async function receiveWorkspace(
     const wrapped = await newWorkspaceKeys(p.keyring, id);
     const cipher = new FieldCipher(await loadWorkspaceKeys(p.keyring, id, wrapped));
     const limits = limitsFor(p.config);
-    await p.control.insertWorkspace({
-      id,
-      slug: input.slug,
-      displayName: bundle.workspace.name,
-      placement: provisioned.ref,
-      dsnEnc: await sealDsns(p.keyring, id, {
-        app: provisioned.appUrl,
-        owner: provisioned.ownerUrl,
-      }),
-      dataKeyWrapped: wrapped.dataKeyWrapped,
-      logKeyWrapped: wrapped.logKeyWrapped,
-      timeZone: bundle.workspace.timeZone,
-      limits,
-      createdBy: null,
-    });
+    const admitted = await p.control.insertWorkspace(
+      {
+        id,
+        slug: input.slug,
+        displayName: bundle.workspace.name,
+        placement: provisioned.ref,
+        dsnEnc: await sealDsns(p.keyring, id, {
+          app: provisioned.appUrl,
+          owner: provisioned.ownerUrl,
+        }),
+        dataKeyWrapped: wrapped.dataKeyWrapped,
+        logKeyWrapped: wrapped.logKeyWrapped,
+        timeZone: bundle.workspace.timeZone,
+        limits,
+        createdBy: null,
+      },
+      admissionFor(p.config, false),
+    );
+    if (admitted !== "ok") {
+      report.problems = ["This instance has no room for another workspace."];
+      throw new Refused("full");
+    }
     inserted = true;
 
     const owner = p.openDb(provisioned.ownerUrl, { ephemeral: true });
@@ -93,14 +112,7 @@ export async function receiveWorkspace(
         report.problems = imported.problems;
         throw new Refused();
       }
-      if (!p.config.dedicated)
-        await owner.tx(
-          async (tx) =>
-            void (await tx.query("UPDATE workspace SET people_cap = $1, row_cap = $2", [
-              limits.people,
-              limits.rows,
-            ])),
-        );
+      await writeCaps(owner, capsOf(p.config, limits));
     } finally {
       await owner.close();
     }
@@ -125,7 +137,7 @@ export async function receiveWorkspace(
   } catch (e) {
     if (inserted) await p.control.deleteWorkspaceRow(id).catch(() => undefined);
     await p.placement.destroy(provisioned.ref).catch(() => undefined);
-    if (e instanceof Refused) return { ...report, ok: false, code: "invalid", url: null };
+    if (e instanceof Refused) return { ...report, ok: false, code: e.code, url: null };
     throw e;
   }
 }

@@ -77,7 +77,14 @@ Test a restore before you need one.
 
 On a dedicated instance set `DEDICATED=1`. There are no free-tier caps and only operators may make
 kitchens. On a shared service, set `FREE_LIMITS_JSON` and `CAPACITY_JSON` to match what you really
-have, so the meter and the home page tell the truth.
+have, so the meter, the capacity and the home page tell the truth, and decide who may start a
+kitchen: `SIGNUP` is `invite` unless you say otherwise (approve people from the Operator screen),
+and `MAX_WORKSPACES_PER_ACCOUNT` is 3. Open sign-up (`SIGNUP=open`) lets anyone with an account use
+up the free places, so choose it on purpose.
+
+Be plain with the people whose kitchens you host about what you can read: everything, with the keys
+and the servers you hold, though the app shows you only metadata. See
+[the trust model](/docs/concepts/trust-model/).
 
 ## 7. Check it
 
@@ -93,5 +100,6 @@ the test kitchen. If that all works, the instance does.
 - [ ] `MASTER_KEYS` and `SESSION_SECRETS` are backed up away from the machine
 - [ ] The `pgdata` and `instance` volumes are backed up together, and a restore has been tried
 - [ ] `OPERATOR_EMAILS` lists only people who should run the instance
+- [ ] `SIGNUP` and `MAX_WORKSPACES_PER_ACCOUNT` are what you mean them to be
 - [ ] Nothing in front of the app removes its security headers
 - [ ] You can sign in, make a kitchen, take a copy and delete it

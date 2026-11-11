@@ -13,6 +13,30 @@ Every setting is an environment variable, and all of them are listed with what t
 [Configuration](/docs/self-hosting/configuration/). The commands for keys and upgrades are in
 [The command line](/docs/self-hosting/cli/).
 
+## Running a shared service
+
+The Operator screen (`/operator`) is where a shared service is run from, and is for the people in
+`OPERATOR_EMAILS` alone.
+
+- **Capacity.** The places used and left, the sum they come from (the host's projects and daily
+  requests, and the per-kitchen figure, which follows `FREE_LIMITS_JSON` unless `CAPACITY_JSON`
+  states it), the mode, the signup setting and the limit per account.
+- **Places asked for.** With `SIGNUP=invite`, people who are signed in and refused can ask for a
+  place. Approve them here, or approve an email in advance. An approval is not used up: it lets that
+  email start kitchens up to `MAX_WORKSPACES_PER_ACCOUNT`, counting those it made and has not
+  deleted.
+- **Edit limits.** Each active kitchen has its people, records, requests a day and storage changed
+  from here. The same number is written to the control database (what the meter and the request gate
+  read) and to the kitchen's own database (the cap it enforces). If the second write fails the first
+  is put back and you are told to try again; asking again is safe, and repairs the two if a failure
+  left them apart. Lowering a limit below what a kitchen holds deletes nothing: it is shown as over
+  its limit, gets the grace days, and can still read and take a copy. Other instances see a change
+  within a minute. A dedicated instance has no limits to edit, and neither do the storage limits of
+  a kitchen that runs on a database of its own.
+
+What you are shown here is metadata only; see [the trust model](/docs/concepts/trust-model/) for
+what that is and for what your access to the servers still lets you read.
+
 ## Updating
 
 Compose builds the image only when there is none, and nothing watches the files. After `git pull`,

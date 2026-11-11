@@ -50,12 +50,23 @@ See [Architecture](/docs/overview/architecture/) for what a placement is.
 
 ## Limits
 
-| Setting            | What it is                                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `DEDICATED`        | `1` on an instance that belongs to one organisation: no free-tier caps, and only operators may make kitchens.       |
-| `FREE_LIMITS_JSON` | JSON merged over the default free-tier limits when a host changes its terms. The home page and the meter follow it. |
-| `CAPACITY_JSON`    | JSON merged over the reference capacity figures the free-tier meter is computed from.                               |
-| `HARD_CAP_FACTOR`  | A number from 1 to 20, default 2. How many times its daily request budget a kitchen may use before it is refused.   |
+| Setting            | What it is                                                                                                                                                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEDICATED`        | `1` on an instance that belongs to one organisation: no free-tier caps, and only operators may make kitchens.                                                                                                                          |
+| `FREE_LIMITS_JSON` | JSON merged over the default free-tier limits when a host changes its terms. The home page, the meter and the capacity follow it (the capacity divides the host's daily requests by `requestsPerDay`).                                 |
+| `CAPACITY_JSON`    | JSON merged over the host's side of the capacity sum (`hostProjects`, `reservedProjects`, `accountRequestsPerDay`, `headroom`). Add `perWorkspaceRequestsPerDay` only to state that figure on purpose instead of following the limits. |
+| `HARD_CAP_FACTOR`  | A number from 1 to 20, default 2. How many times its daily request budget a kitchen may use before it is refused.                                                                                                                      |
+
+## Who may start a kitchen
+
+| Setting                      | What it is                                                                                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SIGNUP`                     | `open`: anyone signed in may start a kitchen. `invite`: only an email an operator has approved; anyone else signed in can ask for a place. `closed`: no one, operators included. Unset: `invite` on a shared instance, `open` on a dedicated one. |
+| `MAX_WORKSPACES_PER_ACCOUNT` | A whole number from 1 to 1000, or `unlimited`. The most kitchens one account may have started and not wiped. Unset: 3 on a shared instance, unlimited on a dedicated one.                                                                         |
+
+An approval does not run out: it lets that email start kitchens up to `MAX_WORKSPACES_PER_ACCOUNT`.
+Operators approve from the **Operator** screen. On a shared instance, the places left are claimed in
+the same step that makes the kitchen, so a rush of sign-ups cannot take more than there are.
 
 ## Moving kitchens between instances
 

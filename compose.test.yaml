@@ -39,6 +39,7 @@ services:
         condition: service_healthy
     environment:
       ALIMENTATION_TEST_PG: postgres://postgres:test@pg:5432/postgres
+      SIGNUP: open
       ALIMENTATION_TEST_PG_LOG: /pg/18/docker/log/postgres.log
       ALIMENTATION_REQUIRE_PG_LOG: "1"
     command:

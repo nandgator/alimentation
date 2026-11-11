@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { api, type Capacity, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
-import { Chip, Field, Form, Tile, useAction } from "../components/ui.tsx";
+import { Chip, Field, Form, Problem, Tile, toast, useAction } from "../components/ui.tsx";
 import { money } from "../format.ts";
 import { figuresOf, isRunning, type KitchenFigures, totalsOf } from "../kitchens.ts";
 import { useSession } from "../session.tsx";
@@ -71,9 +71,46 @@ const slugify = (s: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
 
+/** Where kitchens are by invitation: what that means, and a way to ask. */
+function AskForAPlace({ requested }: { requested: boolean }) {
+  const { refresh } = useSession();
+  const act = useAction();
+  return (
+    <div className="stack" style={{ ["--gap" as string]: "var(--space-3)" }}>
+      <p>
+        New kitchens here are by invitation, to keep the service from filling up. Ask for a place
+        with the email you signed in with, and whoever runs the service will approve it. Come back
+        here once they have: this page will then let you start your kitchen.
+      </p>
+      {requested ? (
+        <div className="banner info" role="status">
+          You have asked for a place. There is nothing more to do until it is approved.
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="btn"
+          disabled={act.busy}
+          onClick={() =>
+            void act.run(async () => {
+              await postJson("/api/waitlist");
+              await refresh();
+              toast("Asked. You will be able to start a kitchen once it is approved.");
+            })
+          }
+        >
+          Ask for a place
+        </button>
+      )}
+      <Problem error={act.error} />
+    </div>
+  );
+}
+
 function NewKitchen({ cap }: { cap: Capacity | null }) {
   const [, go] = useLocation();
-  const { refresh } = useSession();
+  const { me, refresh } = useSession();
+  const refusal = me?.signup?.refusal ?? null;
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [touched, setTouched] = useState(false);
@@ -82,72 +119,87 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
   return (
     <section className="card stack" aria-labelledby="new-h">
       <h2 id="new-h">Start a kitchen</h2>
-      {cap && !cap.dedicated && !cap.open ? (
+      {refusal === "closed" ? (
+        <div className="banner info">
+          This service is not taking new kitchens right now. You can run your own instance and move
+          in later.
+        </div>
+      ) : refusal === "invite_only" ? (
+        <AskForAPlace requested={me?.signup?.requested ?? false} />
+      ) : refusal === "limit" ? (
+        <div className="banner info">
+          You already have the most kitchens one account can start here ({me?.signup?.maxWorkspaces}
+          ). Delete one you no longer use, or run your own instance and move in.
+        </div>
+      ) : null}
+      {refusal === null && cap && !cap.dedicated && !cap.open ? (
         <div className="banner warn">
           The free places are full for now. You can try again later, or run your own instance and
           move in.
         </div>
       ) : null}
-      <Form
-        error={act.error}
-        onSubmit={() =>
-          act.run(async () => {
-            const made = await postJson<{ slug: string }>("/api/workspaces", {
-              slug,
-              name,
-              alsoSupplier: supplier,
-            });
-            await refresh();
-            go(`/w/${made.slug}`);
-          })
-        }
-      >
-        <Field label="Name" id="kname" hint="What your people call it.">
-          <input
-            id="kname"
-            required
-            maxLength={120}
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (!touched) setSlug(slugify(e.target.value));
-            }}
-          />
-        </Field>
-        <Field
-          label="Address"
-          id="kslug"
-          hint="Letters, numbers and dashes. This is what the link will say: /w/…"
+      {refusal === null ? (
+        <Form
+          error={act.error}
+          onSubmit={() =>
+            act.run(async () => {
+              const made = await postJson<{ slug: string }>("/api/workspaces", {
+                slug,
+                name,
+                alsoSupplier: supplier,
+              });
+              await refresh();
+              go(`/w/${made.slug}`);
+            })
+          }
         >
-          <input
+          <Field label="Name" id="kname" hint="What your people call it.">
+            <input
+              id="kname"
+              required
+              maxLength={120}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (!touched) setSlug(slugify(e.target.value));
+              }}
+            />
+          </Field>
+          <Field
+            label="Address"
             id="kslug"
-            required
-            minLength={3}
-            maxLength={40}
-            pattern="[a-z0-9][a-z0-9\-]*[a-z0-9]"
-            value={slug}
-            onChange={(e) => {
-              setTouched(true);
-              setSlug(slugify(e.target.value));
-            }}
-          />
-        </Field>
-        <label className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
-          <input
-            type="checkbox"
-            checked={supplier}
-            onChange={(e) => setSupplier(e.target.checked)}
-          />
-          <span>I also cook for them (add me as the supplier too)</span>
-        </label>
-        <button
-          type="submit"
-          className="btn"
-          disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}
-        >
-          Create
-        </button>
-      </Form>
+            hint="Letters, numbers and dashes. This is what the link will say: /w/…"
+          >
+            <input
+              id="kslug"
+              required
+              minLength={3}
+              maxLength={40}
+              pattern="[a-z0-9][a-z0-9\-]*[a-z0-9]"
+              value={slug}
+              onChange={(e) => {
+                setTouched(true);
+                setSlug(slugify(e.target.value));
+              }}
+            />
+          </Field>
+          <label className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
+            <input
+              type="checkbox"
+              checked={supplier}
+              onChange={(e) => setSupplier(e.target.checked)}
+            />
+            <span>I also cook for them (add me as the supplier too)</span>
+          </label>
+          <button
+            type="submit"
+            className="btn"
+            disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}
+          >
+            Create
+          </button>
+        </Form>
+      ) : null}
     </section>
   );
 }

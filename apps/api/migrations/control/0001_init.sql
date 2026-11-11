@@ -144,3 +144,36 @@ BEGIN
   EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON account, workspace, membership, invite, usage_daily, retired_database TO %I', app);
   EXECUTE format('GRANT SELECT, INSERT ON platform_event, wipe_receipt TO %I', app);
 END $$;
+
+-- who may make a kitchen on a shared instance.
+--
+-- On an instance whose signup is by invitation (SIGNUP=invite), only an email an operator has approved may make
+-- a kitchen. Anyone else who is signed in may ask for a place, which writes a row here with their own verified
+-- email; an operator approves it, or approves an email in advance, before anyone has asked.
+--
+--   * One row per email, whichever way it came: `requested_at` is when the person asked (null for an email
+--     approved in advance and not yet asked for), `approved_at` when an operator said yes (null while waiting).
+--     A row is always one or the other.
+--   * An approval is not used up. It lets the email make kitchens up to the instance's limit for one account
+--     (MAX_WORKSPACES_PER_ACCOUNT), so there is nothing to mark when a kitchen is made.
+--   * The email is the sign-in email in lower case, like account.email, and is not a foreign key to it: an
+--     approval may be given to someone who has not yet signed in.
+--   * `approved_by` is the operator's account, and goes empty if that account is removed.
+--   * Nothing here names anything but an email, and nothing about a kitchen. It is not in the platform events.
+
+CREATE TABLE signup_request (
+  email        text PRIMARY KEY CHECK (email = lower(email) AND position('@' IN email) > 1 AND length(email) <= 254),
+  requested_at timestamptz,
+  approved_at  timestamptz,
+  approved_by  uuid REFERENCES account (id) ON DELETE SET NULL,
+  CHECK (requested_at IS NOT NULL OR approved_at IS NOT NULL),
+  CHECK (approved_by IS NULL OR approved_at IS NOT NULL)
+);
+CREATE INDEX signup_request_waiting ON signup_request (requested_at) WHERE approved_at IS NULL;
+
+DO $$
+DECLARE
+  app text := current_setting('alimentation.app_role');
+BEGIN
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE ON signup_request TO %I', app);
+END $$;

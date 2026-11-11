@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   canAdmit,
+  capacityInputs,
   capacityPlan,
   FREE_LIMITS,
   GRACE_DAYS,
+  LIMIT_MAXIMA,
   meter,
   REFERENCE_CAPACITY,
   type Usage,
@@ -101,5 +103,21 @@ describe("capacity of the free tiers", () => {
 
   it("never goes negative", () => {
     expect(capacityPlan({ ...REFERENCE_CAPACITY, reservedProjects: 500 }).capacity).toBe(0);
+  });
+
+  it("follows the limits in force, unless a per-kitchen figure is stated on purpose", () => {
+    const doubled = { ...FREE_LIMITS, requestsPerDay: FREE_LIMITS.requestsPerDay * 2 };
+    expect(capacityInputs(doubled).perWorkspaceRequestsPerDay).toBe(2000);
+    expect(capacityPlan(capacityInputs(doubled))).toMatchObject({ byRequests: 40, capacity: 40 });
+    expect(capacityInputs(doubled, { perWorkspaceRequestsPerDay: 500 })).toMatchObject({
+      perWorkspaceRequestsPerDay: 500,
+    });
+    expect(capacityInputs(FREE_LIMITS)).toEqual(REFERENCE_CAPACITY);
+    expect(capacityInputs(FREE_LIMITS, { hostProjects: 10 }).hostProjects).toBe(10);
+  });
+
+  it("keeps every maximum above the free tier", () => {
+    for (const k of Object.keys(FREE_LIMITS) as (keyof typeof FREE_LIMITS)[])
+      expect(LIMIT_MAXIMA[k], k).toBeGreaterThan(FREE_LIMITS[k]);
   });
 });

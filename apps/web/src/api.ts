@@ -111,6 +111,15 @@ export interface Me {
     movedTo: string | null;
     roles: ("admin" | "supplier" | "consumer")[];
   }[];
+  /** Who may start a kitchen here, and whether this account may now. Only when signed in. */
+  signup?: {
+    mode: "open" | "invite" | "closed";
+    /** Why this account cannot start a kitchen now; `null` when it can. */
+    refusal: "closed" | "invite_only" | "limit" | null;
+    /** It has asked for a place and is waiting. */
+    requested: boolean;
+    maxWorkspaces: number | null;
+  };
   authDev: boolean;
   signInWithProvider: boolean;
 }

@@ -66,7 +66,10 @@ Under HTTPS the server also sends `Strict-Transport-Security`.
 - Who made an entry and when is stamped by the database.
 - Every change to the records people care about is written to the audit trail by the database. No
   code path can forget.
-- Personal details are encrypted before they are stored and never reach the logs.
+- Personal details (names, contacts, notes and reasons) are encrypted before they are stored and
+  never reach the logs. The rest of a kitchen's ledger is plain text in its database, and the
+  operator holds the keys, so an operator with access to the servers can read everything. See
+  [the trust model](/docs/concepts/trust-model/).
 
 ## When you leave
 

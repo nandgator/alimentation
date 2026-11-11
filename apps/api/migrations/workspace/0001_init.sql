@@ -667,3 +667,29 @@ SELECT grant_to_app('SELECT, INSERT', 'claim_reversal');
 SELECT grant_to_app('SELECT, INSERT', 'settlement');
 SELECT grant_to_app('SELECT, INSERT, DELETE', 'month_close');
 SELECT grant_to_app('SELECT', 'audit_log');
+
+-- The caps of a workspace are set by the platform, not from inside it.
+--
+-- A free workspace lives under a people cap and a record cap (workspace.people_cap, workspace.row_cap), and an
+-- operator may change them for one kitchen. The admin of a workspace may update the workspace row (its name, its
+-- time zone, its rules), and until now nothing in the database said that two of its columns are not theirs to
+-- change: the application never writes them, but a guard that rests on the application never writing is not a
+-- guard. The owner role (the platform, which makes and moves workspaces and sets their limits) may change them;
+-- a session of the application role may not, whatever role it holds in the workspace.
+--
+-- Every change the owner makes is in the audit trail with the workspace row as it was and as it is.
+
+CREATE FUNCTION keep_caps() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  IF is_app_session()
+     AND (NEW.people_cap IS DISTINCT FROM OLD.people_cap OR NEW.row_cap IS DISTINCT FROM OLD.row_cap) THEN
+    RAISE EXCEPTION 'ALIMENTATION_RULE: the limits of a workspace are set by the platform, not from inside it' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER workspace_keep_caps BEFORE UPDATE ON workspace
+  FOR EACH ROW EXECUTE FUNCTION keep_caps();
+
+-- No function is executable by everyone.
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;

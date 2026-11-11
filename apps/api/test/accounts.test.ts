@@ -303,6 +303,7 @@ describe("an organisation running several kitchens on an instance of its own", (
       expect(Object.keys(w).sort()).toEqual([
         "createdAt",
         "id",
+        "limits",
         "overSince",
         "placement",
         "requestsToday",

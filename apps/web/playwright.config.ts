@@ -44,6 +44,7 @@ export default defineConfig({
       APP_ORIGIN: `http://localhost:${PORT}`,
       NODE_ENV: "development",
       AUTH_DEV: "1",
+      SIGNUP: "open",
       WEB_DIR: "./dist",
       INSTANCE_DIR: mkdtempSync(join(tmpdir(), "alim-e2e-")),
       PLACEMENT_ADMIN_URL: PG,

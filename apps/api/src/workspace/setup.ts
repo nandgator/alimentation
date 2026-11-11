@@ -1,6 +1,11 @@
-import type { Limits } from "@alimentation/core";
 import type { FieldCipher } from "../crypto/fields.ts";
 import type { Db } from "../db/driver.ts";
+
+/** What a workspace's database enforces; null is no cap. */
+export interface Caps {
+  people: number | null;
+  rows: number | null;
+}
 
 export interface NewWorkspace {
   name: string;
@@ -8,8 +13,7 @@ export interface NewWorkspace {
   adminName: string;
   /** A kitchen owner who is also the supplier gets both roles, as two people. */
   alsoSupplier: boolean;
-  /** Null on a dedicated workspace, which has no caps. */
-  limits: Limits | null;
+  caps: Caps;
 }
 
 /**
@@ -26,7 +30,7 @@ export async function initializeWorkspace(
   await ownerDb.tx(async (tx) => {
     await tx.query(
       "INSERT INTO workspace (name, time_zone, people_cap, row_cap) VALUES ($1, $2, $3, $4)",
-      [input.name, input.timeZone, input.limits?.people ?? null, input.limits?.rows ?? null],
+      [input.name, input.timeZone, input.caps.people, input.caps.rows],
     );
     for (const [id, role] of [
       [adminId, "admin"],

@@ -81,6 +81,32 @@ export class Gate {
     return this.cache;
   }
 
+  /** Takes one token from the bucket of `key`; false when there is none. */
+  private take(key: string): boolean {
+    const now = this.o.now().getTime();
+    const b = this.buckets.get(key) ?? { tokens: this.o.burst ?? 40, at: now };
+    b.tokens = Math.min(
+      this.o.burst ?? 40,
+      // A clock that steps back (a time sync, another machine's clock) must not drain the bucket.
+      b.tokens + (Math.max(0, now - b.at) / 1000) * (this.o.refillPerSecond ?? 2),
+    );
+    b.at = now;
+    this.buckets.set(key, b);
+    if (b.tokens < 1) return false;
+    b.tokens -= 1;
+    return true;
+  }
+
+  /**
+   * The rate limit alone, for a request that belongs to no kitchen (asking for a place): the same bucket,
+   * kept under any key, with nothing counted against a kitchen's day. Returns the seconds to wait, or null.
+   */
+  throttle(key: string): number | null {
+    // Buckets for callers who have gone are not kept for ever.
+    if (this.buckets.size > 20_000) this.buckets.clear();
+    return this.take(key) ? null : 1;
+  }
+
   /**
    * `essential` requests (taking a copy of your own data) are still counted and still rate
    * limited, but are never turned away for using up the day's budget: that is a promise.
@@ -89,17 +115,7 @@ export class Gate {
     ws: { id: string; limits: Limits },
     opts: { essential?: boolean } = {},
   ): Promise<GateVerdict> {
-    const now = this.o.now().getTime();
-    const b = this.buckets.get(ws.id) ?? { tokens: this.o.burst ?? 40, at: now };
-    b.tokens = Math.min(
-      this.o.burst ?? 40,
-      // A clock that steps back (a time sync, another machine's clock) must not drain the bucket.
-      b.tokens + (Math.max(0, now - b.at) / 1000) * (this.o.refillPerSecond ?? 2),
-    );
-    b.at = now;
-    this.buckets.set(ws.id, b);
-    if (b.tokens < 1) return this.refuse(ws.id, "rate", 1);
-    b.tokens -= 1;
+    if (!this.take(ws.id)) return this.refuse(ws.id, "rate", 1);
 
     const snap = await this.snapshot();
     const mine = (snap.byWorkspace.get(ws.id) ?? 0) + (this.pending.get(ws.id)?.requests ?? 0);

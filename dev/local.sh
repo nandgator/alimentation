@@ -65,6 +65,7 @@ app_env() {
   export AUTH_DEV="${AUTH_DEV:-1}"
   export OPERATOR_EMAILS="${OPERATOR_EMAILS:-you@example.com}"
   export DEDICATED="${DEDICATED:-1}"
+  export SIGNUP="${SIGNUP:-open}"
   export PORT
   # The keys and the control database's address, made on the first start and kept here.
   export INSTANCE_DIR="${INSTANCE_DIR:-$STATE/instance}"

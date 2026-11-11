@@ -3,6 +3,7 @@ import * as z from "zod";
 import type { AgentScope } from "./agent-scopes.ts";
 import {
   AcceptInvite,
+  ApproveSignup,
   CloseMonth,
   ConfirmBody,
   CreateAgentKey,
@@ -31,6 +32,7 @@ import {
   OrganisationMember,
   PageQuery,
   ReverseClaim,
+  SetLimits,
   StatementsQuery,
   UpdateHoliday,
   UpdatePerson,
@@ -155,6 +157,17 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
       "The role cannot do this, the account is not in this kitchen, or the request came from another site.",
   },
   {
+    status: 403,
+    code: "signup_closed",
+    meaning: "This service is not taking new kitchens: its signup is closed.",
+  },
+  {
+    status: 403,
+    code: "invite_only",
+    meaning:
+      "New kitchens here are by invitation, and this email has not been approved. `POST /api/waitlist` asks for a place.",
+  },
+  {
     status: 404,
     code: "not_found",
     meaning: "No such kitchen, person, claim and so on. Also what another member’s row looks like.",
@@ -170,6 +183,17 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
     meaning: "The kitchen is being moved or has moved, so it can be read but not changed.",
   },
   { status: 409, code: "slug_taken", meaning: "That kitchen address is taken." },
+  {
+    status: 409,
+    code: "workspace_limit",
+    meaning:
+      "The account already has as many kitchens (made by it and not yet wiped) as one account may start here.",
+  },
+  {
+    status: 409,
+    code: "dedicated",
+    meaning: "A dedicated instance has no limits of its own to set.",
+  },
   { status: 409, code: "unavailable", meaning: "The kitchen is not taking new members right now." },
   {
     status: 409,
@@ -269,8 +293,16 @@ const AGENT_ACCESS: Record<string, AgentScope> = {
   "DELETE /api/w/:slug/claims/:id": "claims",
 };
 
-/** The routes of a kitchen that are a person's alone, so that leaving one out of both lists is caught. */
+/**
+ * The routes of a kitchen that are a person's alone, so that leaving one out of both lists is caught. The
+ * routes of the platform that an agent's key could never reach are named here too: asking for a place and what
+ * an operator does.
+ */
 export const PERSON_ONLY = new Set([
+  "POST /api/waitlist",
+  "GET /api/platform/signups",
+  "POST /api/platform/signups/approve",
+  "POST /api/platform/workspaces/:slug/limits",
   "POST /api/w/:slug/people",
   "POST /api/w/:slug/people/import",
   "PATCH /api/w/:slug/people/:id",
@@ -468,6 +500,22 @@ export const OPERATIONS: Operation[] = [
               roles: { type: "array", items: { enum: ["admin", "supplier", "consumer"] } },
             }),
           },
+          signup: object({
+            mode: { enum: ["open", "invite", "closed"] },
+            refusal: {
+              enum: ["closed", "invite_only", "limit", null],
+              description:
+                "Why this account cannot start a kitchen now, or `null` when it can. Only when signed in.",
+            },
+            requested: {
+              type: "boolean",
+              description: "This account has asked for a place and is waiting.",
+            },
+            maxWorkspaces: {
+              type: ["integer", "null"],
+              description: "The most kitchens one account may start here, or `null`.",
+            },
+          }),
           authDev: { type: "boolean", description: "Development sign-in is on." },
           signInWithProvider: { type: "boolean", description: "An identity provider is set up." },
         },
@@ -480,9 +528,9 @@ export const OPERATIONS: Operation[] = [
     path: "/api/workspaces",
     tag: "The platform",
     summary: "Make a kitchen",
-    who: "Signed in. On a dedicated instance, operators only",
+    who: "Signed in. On a dedicated instance, operators only. Where signup is by invitation, only an approved email",
     description:
-      "Makes a kitchen with the caller as admin (and, by default, supplier). The address is 3 to 40 lowercase letters, digits or hyphens, starting and ending with a letter or digit, and not one the service keeps.",
+      "Makes a kitchen with the caller as admin (and, by default, supplier). The address is 3 to 40 lowercase letters, digits or hyphens, starting and ending with a letter or digit, and not one the service keeps.\n\nWho may make one follows the instance’s `SIGNUP` setting: `open` (anyone signed in), `invite` (only an email an operator has approved; `invite_only` otherwise) or `closed` (`signup_closed`). One account may have only so many kitchens that it made and that are not yet wiped (`workspace_limit`), and an approval is not used up by making one. The limit on places is checked in the same transaction as the insert, so kitchens made at the same moment cannot together pass it.",
     body: CreateWorkspace,
     ok: {
       status: 201,
@@ -495,6 +543,27 @@ export const OPERATIONS: Operation[] = [
       }),
     },
     errors: [401, 403, 409, 422, 503],
+  },
+  {
+    method: "post",
+    path: "/api/waitlist",
+    tag: "The platform",
+    summary: "Ask for a place",
+    who: "Signed in",
+    description:
+      "Where kitchens are by invitation, adds the caller’s own verified email to the list an operator approves from. The email is never taken from the body. Asking again changes nothing. Where signup is open there is nothing to ask for, and where it is closed there is no list. It passes the same rate limit as any request.",
+    ok: {
+      status: 200,
+      description: "Where the caller stands.",
+      schema: object({
+        status: {
+          enum: ["open", "waiting", "approved"],
+          description:
+            "`open`: no approval is needed. `waiting`: asked for, not yet approved. `approved`: a kitchen can be started.",
+        },
+      }),
+    },
+    errors: [401, 403, 429, 503],
   },
   {
     method: "post",
@@ -696,7 +765,9 @@ export const OPERATIONS: Operation[] = [
       status: 200,
       description: "The kitchens.",
       schema: object({
-        capacity: free("The same as the public capacity."),
+        capacity: free(
+          "The public capacity, and with it the sum it is made from: `mode` (`shared` or `dedicated`), `signup`, `maxWorkspacesPerAccount`, `waiting`, `byProjects`, `byRequests`, `inputs`, where the per-kitchen figure came from (`perWorkspaceFrom`), `freeLimits` and `maxima`.",
+        ),
         workspaces: {
           type: "array",
           items: object({
@@ -707,11 +778,64 @@ export const OPERATIONS: Operation[] = [
             createdAt: string(undefined, { format: "date-time" }),
             requestsToday: { type: "integer" },
             overSince: { type: ["string", "null"] },
+            limits: object({
+              requestsPerDay: { type: "integer" },
+              people: { type: "integer" },
+              rows: { type: "integer" },
+              bytes: { type: "integer" },
+            }),
           }),
         },
       }),
     },
     errors: [401, 403],
+  },
+  {
+    method: "get",
+    path: "/api/platform/signups",
+    tag: "Operator",
+    summary: "Who has asked for a place, and who is approved",
+    who: "Operator",
+    description:
+      "Every email on the list, those waiting first. An email approved in advance and not yet asked for has no `requestedAt`.",
+    ok: {
+      status: 200,
+      description: "The list.",
+      schema: object({
+        mode: { enum: ["open", "invite", "closed"] },
+        requests: {
+          type: "array",
+          items: object({
+            email: string(),
+            requestedAt: { type: ["string", "null"] },
+            approvedAt: { type: ["string", "null"] },
+            approvedBy: { type: ["string", "null"], description: "The operator’s email." },
+          }),
+        },
+      }),
+    },
+    errors: [401, 403],
+  },
+  {
+    method: "post",
+    path: "/api/platform/signups/approve",
+    tag: "Operator",
+    summary: "Approve an email to start kitchens",
+    who: "Operator",
+    description:
+      "Approves a request, or an email that has not asked (approving in advance). Approving again keeps the first approval. An approval lets the email start kitchens up to the instance’s limit per account; nothing is used up.",
+    body: ApproveSignup,
+    ok: {
+      status: 200,
+      description: "The email, as it is now on the list.",
+      schema: object({
+        email: string(),
+        requestedAt: { type: ["string", "null"] },
+        approvedAt: { type: ["string", "null"] },
+        approvedBy: { type: ["string", "null"] },
+      }),
+    },
+    errors: [401, 403, 422],
   },
   {
     method: "get",
@@ -761,6 +885,30 @@ export const OPERATIONS: Operation[] = [
     params: { slug: SLUG },
     ok: { status: 200, description: "Done.", schema: WipeBody },
     errors: [202, 401, 403, 404],
+  },
+  {
+    method: "post",
+    path: "/api/platform/workspaces/:slug/limits",
+    tag: "Operator",
+    summary: "Set a kitchen’s limits",
+    who: "Operator",
+    description:
+      "Sets any of the kitchen’s limits (`people`, `rows`, `requestsPerDay`, `bytes`), each from 1 to a stated maximum. It writes the caps the kitchen’s own database enforces and the limits the meter and the request gate read, by the one path creation uses, and records the change as a platform event. Not on a dedicated instance (`dedicated`), nor on a kitchen that is not active. Lowering a limit below what the kitchen holds deletes nothing: the kitchen is shown as nearing or over its limit and, after the grace days, can read and take a copy but not add. If the second write fails the first is put back and the answer is `busy`; asking again is safe.",
+    params: { slug: SLUG },
+    body: SetLimits,
+    ok: {
+      status: 200,
+      description: "The limits now.",
+      schema: object({
+        limits: object({
+          requestsPerDay: { type: "integer" },
+          people: { type: "integer" },
+          rows: { type: "integer" },
+          bytes: { type: "integer" },
+        }),
+      }),
+    },
+    errors: [401, 403, 404, 409, 422, 503],
   },
   {
     method: "post",
@@ -1617,16 +1765,27 @@ function codesFor(op: Operation, status: number): string[] {
       return op.path === "/auth/callback" ? only("sign_in_failed") : only("bad_json");
     case 401:
       return migrate ? only("bad_token") : only("signed_out");
+    case 403:
+      return op.path === "/api/workspaces"
+        ? only("forbidden", "signup_closed", "invite_only")
+        : op.path === "/api/waitlist"
+          ? only("signup_closed")
+          : only("forbidden");
     case 409:
-      if (op.path === "/api/workspaces") return only("slug_taken");
+      if (op.path === "/api/workspaces") return only("slug_taken", "workspace_limit");
+      if (op.path.endsWith("/limits")) return only("conflict", "dedicated");
       if (op.path === "/api/invites/accept") return only("unavailable");
-      return all.filter((c) => c !== "slug_taken" && c !== "unavailable");
+      return all.filter(
+        (c) => !["slug_taken", "unavailable", "workspace_limit", "dedicated"].includes(c),
+      );
     case 410:
       return op.path === "/api/invites/accept" ? only("invite_invalid") : only("gone");
     case 501:
       return op.path.startsWith("/auth/") ? only("no_provider") : only("no_placement");
     case 503:
       if (op.path === "/api/workspaces") return only("full", "placement_unavailable");
+      if (op.path === "/api/waitlist") return only("full");
+      if (op.path.endsWith("/limits")) return only("busy");
       return migrate ? only("full") : only("busy");
     default:
       return all;

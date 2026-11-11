@@ -57,8 +57,7 @@ Trust needs some transparency, but not all of it. Everyone sees what affects the
 | **Whether an entry was added late, and by how many days**     | Yes                                                                      | Yes                                                    | Yes                           |
 
 None of this can be switched off, by the admin or anyone else. See
-[the privacy page](/guides/fair/privacy/) for what is kept private even from whoever runs the
-service.
+[the privacy page](/guides/fair/privacy/) for what whoever runs the service can and cannot see.
 
 ## What each role could try
 

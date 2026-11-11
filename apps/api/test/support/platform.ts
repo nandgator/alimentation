@@ -69,6 +69,8 @@ export async function makePlatform(
       AUTH_DEV: opts.devAuth === false ? "0" : "1",
       NODE_ENV: "test",
       OPERATOR_EMAILS: "operator@example.org",
+      // Most tests make kitchens freely; the ones about signup say otherwise.
+      SIGNUP: "open",
       ...(opts.devAuth === false
         ? { OIDC_ISSUER: "http://localhost:1", OIDC_CLIENT_ID: "x", OIDC_CLIENT_SECRET: "y" }
         : {}),

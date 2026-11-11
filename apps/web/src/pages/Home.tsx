@@ -32,7 +32,7 @@ const PROMISES: { title: string; how: string; limit: string }[] = [
   },
   {
     title: "Leave, and everything goes.",
-    how: "We destroy the keys first, so nothing can be read from that moment. Then we delete your book and hand you a receipt that names no one.",
+    how: "We destroy the keys first, so every name, contact and note is unreadable from that moment. Then we delete your book, amounts and dates with it, and hand you a receipt that names no one.",
     limit:
       "Our database host keeps a deleted project for up to seven days, unreadable without the destroyed keys. Copies you exported are yours. Some records the law requires may remain.",
   },
@@ -40,7 +40,7 @@ const PROMISES: { title: string; how: string; limit: string }[] = [
     title: "Your people’s details are never readable in logs.",
     how: "Names, contacts and notes are scrambled before they reach the database. What a log carries is a made-up code.",
     limit:
-      "Amounts, dates and ids are not scrambled. Without the key they cannot be tied to a person. One more thing is left readable: the optional key you may give a person (a room or staff number), so choose a code and not a name or a phone number.",
+      "Amounts, dates and ids are not scrambled. Without the key they cannot be tied to a person. One more thing is left readable: the optional key you may give a person (a room or staff number), so choose a code and not a name or a phone number. Scrambled is not secret from us: whoever runs the service holds the keys, and could read your book from the servers, although the app itself shows them only the size and age of your kitchen.",
   },
   {
     title: "Your data is yours to take, at any time.",
@@ -50,7 +50,8 @@ const PROMISES: { title: string; how: string; limit: string }[] = [
   {
     title: "One person’s records are invisible to everyone else.",
     how: "The database itself enforces it, not only the screen. A member sees their own bill and nobody else’s.",
-    limit: "Our server tells the database who is asking, so its passwords never leave the server.",
+    limit:
+      "Our server tells the database who is asking, so its passwords never leave the server. The rule holds for everyone using the app; it does not bind whoever runs the servers.",
   },
 ];
 

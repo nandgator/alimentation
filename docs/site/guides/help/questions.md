@@ -85,7 +85,8 @@ action, and nothing is lost.
 
 ## Who can see the notes I write?
 
-You, the supplier and the admin. They are encrypted in the database.
+You, the supplier and the admin. They are encrypted in the database, and the service holds the keys
+that unlock them: see [who can read what](/guides/fair/privacy/).
 
 ## Can I get my data out?
 

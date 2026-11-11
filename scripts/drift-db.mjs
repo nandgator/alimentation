@@ -305,6 +305,12 @@ const defects = [
     `ALTER FUNCTION enforce_row_cap() SECURITY INVOKER`,
     "every record against the cap",
   ],
+  [
+    "caps: the admin may change their own caps",
+    "owner",
+    `DROP TRIGGER workspace_keep_caps ON workspace`,
+    "change its own caps",
+  ],
 
   // The kitchen's own code for a person.
   [

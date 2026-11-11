@@ -42,7 +42,7 @@ signin() { # base origin
 
 # 1. The Node server makes a workspace.
 INSTANCE_DIR="$work/inst" PLACEMENT_ADMIN_URL="$pgurl" APP_ORIGIN=http://localhost:8790 \
-  AUTH_DEV=1 NODE_ENV=development PORT=8790 OPERATOR_EMAILS=smoke@example.org \
+  AUTH_DEV=1 SIGNUP=open NODE_ENV=development PORT=8790 OPERATOR_EMAILS=smoke@example.org \
   node apps/api/dist/node.mjs >"$work/node.log" 2>&1 &
 node_pid=$!
 for _ in $(seq 1 30); do curl -fsS localhost:8790/api/health >/dev/null 2>&1 && break; sleep 1; done
@@ -57,7 +57,7 @@ node -e '
 const s = JSON.parse(require("fs").readFileSync(process.argv[1] + "/inst/instance.json", "utf8"));
 const v = { APP_ORIGIN: "http://localhost:8791", SESSION_SECRETS: s.SESSION_SECRETS, MASTER_KEYS: s.MASTER_KEYS,
   CONTROL_DATABASE_URL: s.CONTROL_DATABASE_URL, AUTH_DEV: "1", NODE_ENV: "development",
-  NEON_WS_PROXY: "127.0.0.1:55480/v1", OPERATOR_EMAILS: "smoke@example.org" };
+  NEON_WS_PROXY: "127.0.0.1:55480/v1", OPERATOR_EMAILS: "smoke@example.org", SIGNUP: "open" };
 require("fs").writeFileSync("apps/api/.dev.vars", Object.entries(v).map(([k, x]) => k + "=" + x + "\n").join(""));
 ' "$work"
 mkdir -p apps/web/dist

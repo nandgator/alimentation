@@ -53,6 +53,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8787}
       DEDICATED: "1"
+      SIGNUP: ${SIGNUP:-open}
       PLACEMENT_ADMIN_URL: postgres://postgres:${DB_PASSWORD}@db:5432/postgres
       AUTH_DEV: ${AUTH_DEV:-0}
       OIDC_ISSUER: ${OIDC_ISSUER:-}

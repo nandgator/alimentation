@@ -53,6 +53,28 @@ describe("[P1] a free workspace has caps that cannot be dodged", () => {
     expect(refused.message).toContain("ALIMENTATION_QUOTA");
   });
 
+  it("will not let the admin of a workspace change its own caps, whatever they write", async () => {
+    await ws.owner.query("UPDATE workspace SET people_cap = 7, row_cap = 70");
+    for (const change of [
+      "UPDATE workspace SET people_cap = NULL",
+      "UPDATE workspace SET row_cap = 1000000",
+      "UPDATE workspace SET people_cap = 8, row_cap = 80",
+    ]) {
+      const refused = await dbError(asActor(ws.app, s.admin, (c) => c.query(change)));
+      expect(refused.message, change).toContain("set by the platform");
+    }
+    // The rest of the row is theirs: a rename is not a change of caps.
+    await asActor(ws.app, s.admin, (c) => c.query("UPDATE workspace SET name = 'Renamed'"));
+    const [row] = (await ws.owner.query("SELECT people_cap, row_cap FROM workspace")).rows;
+    expect(row).toEqual({ people_cap: 7, row_cap: 70 });
+    // The platform, as the owner, may change them, and the change is in the trail.
+    await ws.owner.query("UPDATE workspace SET people_cap = 9");
+    const audit = await ws.owner.query(
+      "SELECT after ->> 'people_cap' AS cap FROM audit_log WHERE table_name = 'workspace' ORDER BY id DESC LIMIT 1",
+    );
+    expect(audit.rows[0]!.cap).toBe("9");
+  });
+
   it("lifts the caps for a dedicated workspace, where they are null", async () => {
     await ws.owner.query("UPDATE workspace SET people_cap = NULL, row_cap = NULL");
     await asActor(ws.app, s.jovial, (c) =>

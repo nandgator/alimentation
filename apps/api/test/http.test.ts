@@ -392,7 +392,7 @@ describe("[P1] one workspace cannot use up the others' requests", () => {
   });
 
   it("slows a flood, whatever the daily budget", async () => {
-    const q = await makePlatform({ FREE_LIMITS_JSON: JSON.stringify({ requestsPerDay: 100_000 }) });
+    const q = await makePlatform({ FREE_LIMITS_JSON: JSON.stringify({ requestsPerDay: 10_000 }) });
     try {
       const c = await q.signIn("flood@example.org");
       await c.post("/api/workspaces", { slug: "flood", name: "Flood" });

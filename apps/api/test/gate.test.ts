@@ -38,3 +38,18 @@ describe("[P1] one workspace cannot use up the share of others", () => {
     for (let i = 0; i < 4; i++) expect((await gate.admit(ws)).allowed).toBe(true);
   });
 });
+
+describe("a request that belongs to no kitchen passes the same bucket", () => {
+  it("is slowed by its own key, and refills with time, without touching a kitchen's bucket", async () => {
+    const clock = { now: new Date("2026-10-24T06:00:00Z") };
+    const gate = gateAt(clock);
+    const taken = [];
+    for (let i = 0; i < 7; i++) taken.push(gate.throttle("waitlist:a") === null);
+    expect(taken).toEqual([true, true, true, true, true, false, false]);
+    // Someone else's key, and a kitchen, are not slowed by it.
+    expect(gate.throttle("waitlist:b")).toBeNull();
+    expect((await gate.admit(ws)).allowed).toBe(true);
+    clock.now = new Date(clock.now.getTime() + 3000);
+    expect(gate.throttle("waitlist:a")).toBeNull();
+  });
+});

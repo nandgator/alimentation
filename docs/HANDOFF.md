@@ -90,9 +90,21 @@ These need accounts, keys or real traffic that the build did not have. Each has 
 - **Only the supplier decides a payment; only the admin reverses one.** The screens follow the rules
   in `packages/core`.
 - **Free-tier numbers are configuration** (`FREE_LIMITS_JSON`, `CAPACITY_JSON`; 100 people and
-  20,000 entries a kitchen by default). A kitchen keeps the limits it was created with, and capacity
-  is worked out from the compiled defaults, so set `perWorkspaceRequestsPerDay` in `CAPACITY_JSON`
-  too if requests per day change. When a host changes its terms, change those.
+  20,000 entries a kitchen by default). New kitchens get the limits in force, and capacity follows
+  them (`capacityInputs` in `packages/core`): `FREE_LIMITS_JSON` alone changes both, and a
+  `perWorkspaceRequestsPerDay` in `CAPACITY_JSON` overrides it on purpose. An operator changes one
+  kitchen's limits from the Operator screen (`setWorkspaceLimits`), which writes the control row and
+  the kitchen's own caps through the one `capsOf` mapping. When a host changes its terms, change
+  those.
+- **Who may start a kitchen is configuration too.** `SIGNUP` (`open`, `invite`, `closed`; default
+  `invite` shared, `open` dedicated) and `MAX_WORKSPACES_PER_ACCOUNT` (3 shared, unlimited
+  dedicated). Places and the per-account count are checked again inside the transaction that inserts
+  the workspace, under an advisory lock; do not move that check out of `insertWorkspace`. Approvals
+  live in the control table `signup_request` and are not used up.
+- **The operator can read everything with infrastructure access.** Only `*_enc` fields are encrypted
+  and the operator holds the master keys. The docs, the home page and the promises' limits say so;
+  if you change what is encrypted, or what an operator route returns, change the lists in
+  `docs/site/docs/concepts/trust-model.md` and the key list pinned in `signup.test.ts`.
 - **A strict content-security policy** (nothing from anywhere but the site itself) is sent
   everywhere; `apps/web/public/_headers` repeats it for Cloudflare's static files and a test keeps
   the two equal.

@@ -14,15 +14,15 @@ one leaves without a trace.
 The home page makes these promises. Each one has a mechanism, a test that proves it, and a stated
 limit. `docs/PROMISES.md` is the ledger; CI fails if a promise has no test that names it.
 
-| ID  | Promise                                              | Mechanism                                                                                                                                                          | Honest limit                                                                                                                                                                          |
-| --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | Nobody can crowd you out.                            | One database per workspace. Per-workspace request budget, row caps, statement timeouts. Admission control stops signups before the free tiers are over-subscribed. | The stateless API layer is shared. On the free Cloudflare plan the daily request cap is account-wide (section 3), so fairness is enforced by budgets, not guaranteed by the platform. |
-| P2  | Free until you outgrow it, and we say so in advance. | A usage meter with three thresholds (70, 90, 100 percent) and a 14 day grace period at 100. Reads and export are never blocked.                                    | Thresholds are ours. The host's own limits (Neon, Cloudflare) can change without notice.                                                                                              |
-| P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa, then cutover. The old copy stays read-only for 7 days.                                                                    | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email.                             |
-| P4  | Leave, and everything goes.                          | Rows deleted, workspace key destroyed, database removed, receipt issued. The key is destroyed first, so data is unreadable at once.                                | Neon keeps a deleted project recoverable for 7 days, then removes it. Copies you exported are yours. Law may require some logs to be kept (section 9).                                |
-| P5  | Your people's details are never readable in logs.    | Names, contacts and free-text notes are encrypted in the application before they reach the database. Logs carry only pseudonymous ids.                             | Amounts, dates and ids are not encrypted. Without the key they cannot be tied to a person. A person's optional key (a code the kitchen chose, section 5.14) is also kept readable.    |
-| P6  | Your data is yours to take, at any time.             | Full export in an open, versioned format. Works when over limit and after cancelling.                                                                              | Plain JSON over TLS. Keep it as carefully as you would a ledger.                                                                                                                      |
-| P7  | One person's rows are invisible to everyone else.    | Row-level security inside each workspace database, forced for the application role. Consumers see only their own rows.                                             | The application role is trusted to set who is asking. Its credentials never leave the server.                                                                                         |
+| ID  | Promise                                              | Mechanism                                                                                                                                                          | Honest limit                                                                                                                                                                                                                                                                                 |
+| --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | Nobody can crowd you out.                            | One database per workspace. Per-workspace request budget, row caps, statement timeouts. Admission control stops signups before the free tiers are over-subscribed. | The stateless API layer is shared. On the free Cloudflare plan the daily request cap is account-wide (section 3), so fairness is enforced by budgets, not guaranteed by the platform.                                                                                                        |
+| P2  | Free until you outgrow it, and we say so in advance. | A usage meter with three thresholds (70, 90, 100 percent) and a 14 day grace period at 100. Reads and export are never blocked.                                    | Thresholds are ours. The host's own limits (Neon, Cloudflare) can change without notice.                                                                                                                                                                                                     |
+| P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa, then cutover. The old copy stays read-only for 7 days.                                                                    | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email.                                                                                                                                    |
+| P4  | Leave, and everything goes.                          | Rows deleted, workspace key destroyed, database removed, receipt issued. The key is destroyed first, so the encrypted fields are unreadable at once.               | Neon keeps a deleted project recoverable for 7 days, then removes it; its plain-text ledger is readable there until then, only the encrypted fields are not. Copies you exported are yours. Law may require some logs to be kept (section 9).                                                |
+| P5  | Your people's details are never readable in logs.    | Names, contacts and free-text notes are encrypted in the application before they reach the database. Logs carry only pseudonymous ids.                             | Amounts, dates and ids are not encrypted. Without the key they cannot be tied to a person. A person's optional key (a code the kitchen chose, section 5.14) is also kept readable. The operator holds the keys: this is not a promise against whoever runs the infrastructure (section 5.6). |
+| P6  | Your data is yours to take, at any time.             | Full export in an open, versioned format. Works when over limit and after cancelling.                                                                              | Plain JSON over TLS. Keep it as carefully as you would a ledger.                                                                                                                                                                                                                             |
+| P7  | One person's rows are invisible to everyone else.    | Row-level security inside each workspace database, forced for the application role. Consumers see only their own rows.                                             | The application role is trusted to set who is asking. Its credentials never leave the server. The rows are invisible through the app; the operator's access to the databases is not bound by it (section 5.6).                                                                               |
 
 ## 2. Requirements behind the promises
 
@@ -111,9 +111,13 @@ people, 20 MB of database.
   80,000 divided by 1,000, so at most 80 workspaces.
 
 The smaller number wins. `capacityPlan()` in `packages/core` computes it and workspace creation
-refuses when the allocated budgets would exceed it. Beyond that the choices are a paid Workers plan,
-a paid or partner Neon arrangement, or asking the next workspace to bring its own database (which
-the move flow already supports).
+refuses when the allocated budgets would exceed it. The per-workspace figure in that sum is the
+request limit in force (`FREE_LIMITS_JSON`), so changing the limits changes the capacity with them;
+only a `perWorkspaceRequestsPerDay` stated in `CAPACITY_JSON` overrides it, on purpose, and the
+operator screen says which of the two it is using. The places are claimed in the same transaction
+that inserts the workspace (section 5.15), so creations at the same moment cannot pass them. Beyond
+that the choices are a paid Workers plan, a paid or partner Neon arrangement, or asking the next
+workspace to bring its own database (which the move flow already supports).
 
 Only API calls count against the Cloudflare cap. The app shell, scripts and fonts are static assets
 and are free. One call (`/bootstrap`) returns the user, the rules, and the current statement, and
@@ -252,6 +256,16 @@ Consequences, each tested:
   reasons and limits are in 5.14.
 - Amounts, dates and ids are not encrypted. They are unlinkable to a person once the key and the
   people rows are gone.
+- **The operator can read everything.** Only the `*_enc` fields (names, contacts, notes, references
+  and reasons) are encrypted, and the master keys that wrap every workspace key and every database
+  address are held by the instance's operator, so an operator with infrastructure access can open
+  any workspace and read it, ledger and decrypted fields alike. What the operator is shown through
+  the app is a short list of metadata, enumerated in `docs/site/docs/concepts/trust-model.md` and
+  pinned by a test. What a workspace can do about the rest: a move to a database of its own gives it
+  custody of the data but not secrecy, because the serving instance keeps the address and wraps the
+  keys; a move to an instance of its own re-encrypts under keys made there and destroys the old
+  ones. P4, P5 and P7 are promises about the application and its logs, not against whoever runs the
+  servers, and their stated limits say so.
 
 Application logs record request class, status, timing, and a pseudonym: an HMAC of the workspace id
 under a per-workspace log key, which is destroyed with the data key. After a wipe the retained logs
@@ -566,6 +580,55 @@ already has. Cells that a spreadsheet would run as formulas (beginning `=`, `+`,
 carriage return, after any apostrophes) get an apostrophe in front, and the reader takes one off, so
 a file round-trips exactly. A person without a key is exported with an empty key, and importing the
 row adds them again; the preview says so. There is no export route: the data is in the bootstrap.
+
+### 5.15 Who may start a kitchen, and what an operator may change (ADR-16)
+
+Open sign-in on a shared instance could fill every free place in an afternoon, and an operator could
+only change a kitchen's limits by editing databases by hand. Both are now settings and routes.
+
+**Signup (`SIGNUP`).** `open`: anyone signed in may start a kitchen. `invite`: only an email an
+operator has approved. `closed`: no one, operators included, and `invite_only` and `signup_closed`
+are the refusals. The default is `invite`, except on a dedicated instance, where only operators make
+kitchens anyway and the default is `open`; `dev/local.sh`, the compose files and the tests name
+`open` themselves. A person who is refused may ask for a place with `POST /api/waitlist`: the row is
+the signed-in account's own email (never one from the body), asking twice is asking once, it passes
+the request gate's rate limit (`Gate.throttle`, the same bucket as any request, under a key that is
+not a kitchen) and the list is bounded at 2,000 waiting. The control table is `signup_request`
+(`email`, `requested_at`, `approved_at`, `approved_by`); an email approved in advance has no
+`requested_at`. An operator lists it, approves an asker or an email nobody has asked for yet
+(`/api/platform/signups`, `/api/platform/signups/approve`), from the Operator screen. An approval is
+**not used up**: it lets the email start kitchens up to `MAX_WORKSPACES_PER_ACCOUNT`, and nothing is
+marked when one is made.
+
+**Kitchens per account (`MAX_WORKSPACES_PER_ACCOUNT`).** Three on a shared instance, unlimited on a
+dedicated one, `unlimited` to lift it. It counts the kitchens the account created and that are not
+yet wiped (`workspace.created_by`, `state <> 'WIPING'`), and refuses with `workspace_limit`.
+
+**Race safety.** Both checks are made once early, to refuse before a database is built, and again
+where it counts: `ControlRepo.insertWorkspace` takes a transaction-scoped advisory lock, counts the
+places used and the account's kitchens, and inserts, in one transaction. Any number of creations at
+once therefore pass at most the capacity and at most the limit per account; a loser has built a
+database it then removes. Receiving a workspace from another instance goes through the same insert
+for the capacity check. A test makes kitchens at the same moment and fails if the lock is removed.
+
+**Setting a kitchen's limits.** `POST /api/platform/workspaces/:slug/limits` (operator only; any of
+`people`, `rows`, `requestsPerDay`, `bytes`, each from 1 to a stated maximum, `LIMIT_MAXIMA` in
+`packages/core`) changes the limits in two places that cannot share a transaction: the control row
+(`workspace.limits`, which the meter and the gate read) and the caps the kitchen's own database
+enforces (`workspace.people_cap`, `row_cap`). One function, `capsOf`, maps limits to caps for
+creation, for receiving and for this; the kitchen's database is written first, because that is where
+a limit is enforced, and the control row second. If the second write fails the first is written back
+to what the control row still says and the answer is `busy`; if the write-back fails too the
+database has the new caps and the control row the old, and the same request made again is a whole
+value, not a change, so it repairs it. Each change is a `workspace.limits_set` event holding the
+numbers before and after. It is refused on a dedicated instance (`dedicated`), on a kitchen that is
+not active, and, for the storage limits, on a kitchen that runs on a database of its own, whose
+storage is not ours to cap. Lowering a limit below what the kitchen holds deletes nothing: the meter
+shows `OVER`, the grace days run, and then new writes are refused while reading and export stay open
+(5.8). A kitchen's admin cannot change its caps from inside: a trigger (`workspace_keep_caps`, the
+first migration) refuses a change to them from any application session, and the drift script removes
+it to prove a test notices. Other instances pick up new limits when their cached copy of the kitchen
+expires (60 seconds).
 
 ## 6. Technology
 

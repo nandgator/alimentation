@@ -89,6 +89,20 @@ const WITH_ORGANISATION = `SELECT w.*, o.name AS organisation_name FROM workspac
   LEFT JOIN organisation_kitchen k ON k.workspace_id = w.id
   LEFT JOIN organisation o ON o.id = k.organisation_id`;
 
+/** What a new workspace must still fit under, checked together with the insert. Null: no limit. */
+export interface Admission {
+  capacity: number | null;
+  perAccount: number | null;
+}
+
+export interface SignupRequest {
+  email: string;
+  requestedAt: string | null;
+  approvedAt: string | null;
+  /** The email of the operator who approved it. */
+  approvedBy: string | null;
+}
+
 export interface Wrapped {
   dsnEnc: Bytes;
   dataKeyWrapped: Bytes;
@@ -184,27 +198,53 @@ export class ControlRepo {
 
   // --- workspaces ----------------------------------------------------------
 
+  /**
+   * Adds a workspace. With `admission`, the places left and the account's own count are checked in the same
+   * transaction as the insert, under a lock that every such insert takes, so any number of creations at once
+   * cannot together pass either limit: the checks made before a database is provisioned are only to fail early.
+   * Returns why it was not added, or `ok`.
+   */
   async insertWorkspace(
     w: Omit<WorkspaceRow, "createdAt" | "overSince" | "movedToUrl" | "state"> & {
       createdBy: string | null;
     },
-  ): Promise<void> {
-    await this.many(
-      `INSERT INTO workspace (id, slug, display_name, placement, dsn_enc, data_key_wrapped, log_key_wrapped, time_zone, limits, created_by)
+    admission?: Admission,
+  ): Promise<"ok" | "full" | "account_limit"> {
+    return this.db.tx(async (tx) => {
+      if (admission) {
+        await tx.query("SELECT pg_advisory_xact_lock(hashtext('alimentation:admit-workspace'))");
+        if (admission.capacity !== null) {
+          const [n] = await tx.query<R>(
+            `SELECT count(*)::int AS n FROM workspace WHERE state <> 'WIPING'`,
+          );
+          if (Number(n?.n) >= admission.capacity) return "full";
+        }
+        if (admission.perAccount !== null && w.createdBy) {
+          const [n] = await tx.query<R>(
+            `SELECT count(*)::int AS n FROM workspace WHERE created_by = $1 AND state <> 'WIPING'`,
+            [w.createdBy],
+          );
+          if (Number(n?.n) >= admission.perAccount) return "account_limit";
+        }
+      }
+      await tx.query(
+        `INSERT INTO workspace (id, slug, display_name, placement, dsn_enc, data_key_wrapped, log_key_wrapped, time_zone, limits, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [
-        w.id,
-        w.slug,
-        w.displayName,
-        JSON.stringify(w.placement),
-        Buffer.from(w.dsnEnc),
-        Buffer.from(must(w.dataKeyWrapped)),
-        Buffer.from(must(w.logKeyWrapped)),
-        w.timeZone,
-        JSON.stringify(w.limits),
-        w.createdBy,
-      ],
-    );
+        [
+          w.id,
+          w.slug,
+          w.displayName,
+          JSON.stringify(w.placement),
+          Buffer.from(w.dsnEnc),
+          Buffer.from(must(w.dataKeyWrapped)),
+          Buffer.from(must(w.logKeyWrapped)),
+          w.timeZone,
+          JSON.stringify(w.limits),
+          w.createdBy,
+        ],
+      );
+      return "ok";
+    });
   }
 
   async deleteWorkspaceRow(id: string): Promise<void> {
@@ -219,6 +259,18 @@ export class ControlRepo {
   async workspaceById(id: string): Promise<WorkspaceRow | undefined> {
     const r = await this.one<R>(`${WITH_ORGANISATION} WHERE w.id = $1`, [id]);
     return r && toWorkspace(r);
+  }
+
+  /** Kitchens this account made and that have not been wiped: what the limit per account counts. */
+  async countWorkspacesCreatedBy(accountId: string): Promise<number> {
+    return Number(
+      must(
+        await this.one<R>(
+          `SELECT count(*)::int AS n FROM workspace WHERE created_by = $1 AND state <> 'WIPING'`,
+          [accountId],
+        ),
+      ).n,
+    );
   }
 
   async countWorkspaces(): Promise<number> {
@@ -276,6 +328,78 @@ export class ControlRepo {
 
   async setLimits(id: string, limits: Limits): Promise<void> {
     await this.many("UPDATE workspace SET limits = $2 WHERE id = $1", [id, JSON.stringify(limits)]);
+  }
+
+  // --- who may make a kitchen --------------------------------------------
+
+  private static toSignup = (r: R): SignupRequest => ({
+    email: r.email,
+    requestedAt: r.requested_at ?? null,
+    approvedAt: r.approved_at ?? null,
+    approvedBy: r.approved_by_email ?? null,
+  });
+
+  async signupRequest(email: string): Promise<SignupRequest | undefined> {
+    const r = await this.one<R>(
+      `SELECT s.*, a.email AS approved_by_email FROM signup_request s
+         LEFT JOIN account a ON a.id = s.approved_by WHERE s.email = $1`,
+      [email.trim().toLowerCase()],
+    );
+    return r && ControlRepo.toSignup(r);
+  }
+
+  async isSignupApproved(email: string): Promise<boolean> {
+    return !!(await this.one(
+      "SELECT 1 FROM signup_request WHERE email = $1 AND approved_at IS NOT NULL",
+      [email.trim().toLowerCase()],
+    ));
+  }
+
+  async countWaiting(): Promise<number> {
+    return Number(
+      must(
+        await this.one<R>(
+          "SELECT count(*)::int AS n FROM signup_request WHERE approved_at IS NULL",
+        ),
+      ).n,
+    );
+  }
+
+  /** Asks for a place. Asking again changes nothing; the row (and whether it is approved) is returned as it is. */
+  async askForPlace(email: string): Promise<SignupRequest> {
+    const e = email.trim().toLowerCase();
+    await this.many(
+      `INSERT INTO signup_request (email, requested_at) VALUES ($1, $2)
+       ON CONFLICT (email) DO UPDATE SET requested_at = coalesce(signup_request.requested_at, excluded.requested_at)`,
+      [e, this.stamp()],
+    );
+    return must(await this.signupRequest(e));
+  }
+
+  /** Approves an email, whether or not it has asked. Approving again keeps the first approval. */
+  async approveSignup(email: string, byAccount: string): Promise<SignupRequest> {
+    const e = email.trim().toLowerCase();
+    await this.many(
+      `INSERT INTO signup_request (email, approved_at, approved_by) VALUES ($1, $2, $3)
+       ON CONFLICT (email) DO UPDATE SET
+         approved_at = coalesce(signup_request.approved_at, excluded.approved_at),
+         approved_by = CASE WHEN signup_request.approved_at IS NULL THEN excluded.approved_by ELSE signup_request.approved_by END`,
+      [e, this.stamp(), byAccount],
+    );
+    return must(await this.signupRequest(e));
+  }
+
+  /** Waiting first, oldest first; then the approved, newest first. */
+  async signupRequests(limit = 500): Promise<SignupRequest[]> {
+    return (
+      await this.many<R>(
+        `SELECT s.*, a.email AS approved_by_email FROM signup_request s
+           LEFT JOIN account a ON a.id = s.approved_by
+          ORDER BY (s.approved_at IS NULL) DESC, CASE WHEN s.approved_at IS NULL THEN s.requested_at END ASC, s.approved_at DESC, s.email
+          LIMIT $1`,
+        [limit],
+      )
+    ).map(ControlRepo.toSignup);
   }
 
   // --- organisations ------------------------------------------------------

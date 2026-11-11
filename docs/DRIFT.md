@@ -25,7 +25,7 @@ database tests. For each defect it names the test that must fail. The run fails 
 - the **control** (a change that breaks nothing) makes anything fail, which would mean the harness
   itself is broken.
 
-Last run: 69 defects, 0 missed, 68 caught by their own test, and the control behaved. The same tests
+Last run: 79 defects, 0 missed, 78 caught by their own test, and the control behaved. The same tests
 are what stand behind promise VII (one person's rows are invisible to everyone else) and the
 immutability of claims, decisions and the audit trail.
 
