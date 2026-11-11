@@ -1,3 +1,4 @@
+# Lines with double braces are Go templates, not YAML, until Authelia renders them; formatting breaks them.
 # Authelia, set up to be an OpenID Connect provider for Alimentation on this machine. Nothing secret is
 # in this file: the secrets are files in dev/idp/.state/authelia, made by `idp.sh up authelia`.
 theme: auto
@@ -49,7 +50,7 @@ identity_providers:
       - key_id: "local"
         algorithm: "RS256"
         use: "sig"
-        key: { { secret "/secrets/oidc_jwks.pem" | mindent 10 "|" | msquote } }
+        key: {{ secret "/secrets/oidc_jwks.pem" | mindent 10 "|" | msquote }}
     clients:
       - client_id: "alimentation"
         client_name: "Alimentation (local)"
