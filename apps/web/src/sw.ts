@@ -15,10 +15,16 @@ declare const self: ServiceWorkerGlobalScope;
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Pages open the app shell, which routes itself. The API and sign-in are never answered with it.
+// Pages open the app shell, which routes itself. The API and sign-in are never answered with it, nor
+// the documentation, nor the API reference: a site of its own, put at /reference/ by the proxy in front.
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL("/index.html"), {
-    denylist: [/^\/api\//, /^\/auth\//, /^\/_migrate\//, /^\/(docs|guides|doc-assets)(\/|$)/],
+    denylist: [
+      /^\/api\//,
+      /^\/auth\//,
+      /^\/_migrate\//,
+      /^\/(docs|guides|doc-assets|reference)(\/|$)/,
+    ],
   }),
 );
 
