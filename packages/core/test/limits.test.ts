@@ -33,9 +33,14 @@ describe("the usage meter", () => {
   });
 
   it("reports the measure that is closest to its limit", () => {
-    const m = meter(usage({ people: 23, rows: 100, requestsLast24h: 10 }), L, null, "2026-10-24");
+    const m = meter(
+      usage({ people: Math.ceil(L.people * 0.92), rows: 100, requestsLast24h: 10 }),
+      L,
+      null,
+      "2026-10-24",
+    );
     expect(m.worst).toBe("people");
-    expect(m.ratio).toBeCloseTo(23 / L.people);
+    expect(m.ratio).toBeCloseTo(Math.ceil(L.people * 0.92) / L.people);
     expect(m.state).toBe("ASK");
   });
 

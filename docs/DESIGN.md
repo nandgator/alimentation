@@ -103,7 +103,7 @@ the notes with their sources.
 
 ## 4. Capacity on the free tiers
 
-Per workspace budget (config, default): 1,000 API requests a day, 5,000 rows of ledger data, 25
+Per workspace budget (config, default): 1,000 API requests a day, 20,000 rows of ledger data, 100
 people, 20 MB of database.
 
 - Neon: 100 projects per account. One is the control plane, one is spare, so at most 98 workspaces.

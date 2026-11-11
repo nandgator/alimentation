@@ -25,15 +25,17 @@ up, including its owner in six months.
 | Behind a proxy                   | `compose.proxy.yaml` puts Caddy in front of the app and the API reference at one address. **Caddy and the Compose file were not run here** (Docker Hub rate-limited the pull and a binary download was not allowed); the reference was run behind a stand-in proxy that strips the prefix, with no errors. Nginx, HAProxy and Traefik settings are written from their documentation.                                                                                                                                                                            |
 | AI agents                        | Done, as decided (`docs/DESIGN.md` 5.13): a key a person gives an agent (read, log, claims; five at once; ninety days by default), held to a single table of what a key may call, marked in the kitchen's own record (`audit_log.via`, shown in History, carried by a move), an MCP server at `/mcp` made from the same table, `/llms.txt` and `/llms-full.txt` built with the docs, and a card under **Your data**. Tested through the API, in a browser, and with the official MCP client library against a local instance; not with a hosted assistant.      |
 | Theme                            | Done. One choice (Auto, Light, Dark) for the app, the home page and both sites, applied before the first paint by `public/theme.js`.                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| On a machine                     | `dev/local.sh up\|dev\|down\|reset` runs the app on the machine with only Postgres in a container (Docker or Podman, chosen by `scripts/containers.sh`) and serves the API reference at `/reference/` as the proxy does.                                                                                                                                                                                                                                                                                                                                        |
 | Runtime                          | Node 24 or later (`engines`, `.nvmrc`, the image and CI). Statements on one transaction queue in `db/driver.ts`, so nothing depends on `pg` queueing them behind its back.                                                                                                                                                                                                                                                                                                                                                                                      |
 | Deployment                       | Cloudflare Worker (`apps/api/wrangler.jsonc`), one container image, Compose files for a dedicated instance and for the tests, CI.                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ## How to know it still works
 
 ```sh
-docker compose -f compose.test.yaml run --rm test      # format, types, promises, design, every test on Postgres 18
+bun run check                                          # format, markdown, lint and types, without a database
+docker compose -f compose.test.yaml run --rm test      # the same, plus promises, design, every test on Postgres 18 (Podman works too: CONTAINER_ENGINE)
 bun run test:e2e                                       # the app and both documentation sites, in a real browser, desktop and phone
-bun run drift:db                                       # 69 database guards removed in turn; each must be noticed
+bun run drift:db                                       # database guards removed in turn (69 at the last run, not re-run since); each must be noticed
 bun run smoke:compose && bun run smoke:worker          # the image, and the Worker in the Workers runtime
 ```
 
@@ -86,8 +88,10 @@ These need accounts, keys or real traffic that the build did not have. Each has 
   lost, the kitchen stays read-only and waits for a person.
 - **Only the supplier decides a payment; only the admin reverses one.** The screens follow the rules
   in `packages/core`.
-- **Free-tier numbers are configuration** (`FREE_LIMITS_JSON`, `CAPACITY_JSON`). When a host changes
-  its terms, change those.
+- **Free-tier numbers are configuration** (`FREE_LIMITS_JSON`, `CAPACITY_JSON`; 100 people and
+  20,000 entries a kitchen by default). A kitchen keeps the limits it was created with, and capacity
+  is worked out from the compiled defaults, so set `perWorkspaceRequestsPerDay` in `CAPACITY_JSON`
+  too if requests per day change. When a host changes its terms, change those.
 - **A strict content-security policy** (nothing from anywhere but the site itself) is sent
   everywhere; `apps/web/public/_headers` repeats it for Cloudflare's static files and a test keeps
   the two equal.
@@ -154,9 +158,9 @@ These need accounts, keys or real traffic that the build did not have. Each has 
 1. Decide the questions only the owner can: a licence (none is chosen), whether to publish, the
    domain name.
 2. Do `docs/RUNBOOK.md` section A, ending with `smoke:live`, and read the timings.
-3. Create the first two kitchens (the Willow mess, a home kitchen) from `/app`, add their rate cards
-   and people, and invite everyone. The seed figures and reference cases from `docs/SPEC.md` section
-   10 and 11 are in `packages/core/test`.
+3. Create the first two kitchens from `/app`. Each has its own rate cards, rules and people; nothing
+   is shared between kitchens unless someone copies it. Invite everyone. The seed figures and
+   reference cases from `docs/SPEC.md` section 10 and 11 are in `packages/core/test`.
 4. Run the month-close rules past each kitchen: they are per-kitchen settings under **Rates and
    rules**.
 5. Put the browser tests on a Safari and a Firefox profile if members use them.
@@ -171,5 +175,6 @@ apps/api/src           app.ts (routes), workspace/ (service), lifecycle/ (move, 
 apps/web/src           pages/Home.tsx, pages/workspace/* (sections.ts lists the screens), sw.ts (offline), styles.css (the tokens)
 apps/web/scripts       build-docs.mjs and docs/ (the generator, stylesheet and scripts of the two documentation sites)
 docs/site              guides/ (for people) and docs/ (for technicians), each with a nav.json
-scripts                drift-db.mjs, check-promises.mjs, check-design.mjs, smoke-*.sh, smoke-live.mts
+dev                    local.sh (run on a machine), front.mjs, idp/ (sign-in providers)
+scripts                containers.sh, drift-db.mjs, check-promises.mjs, check-design.mjs, smoke-*.sh, smoke-live.mts
 ```

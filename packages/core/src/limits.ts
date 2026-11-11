@@ -22,8 +22,8 @@ export interface Usage {
 
 export const FREE_LIMITS: Limits = {
   requestsPerDay: 1000,
-  people: 25,
-  rows: 5000,
+  people: 100,
+  rows: 20_000,
   bytes: 20 * 1024 * 1024,
 };
 

@@ -171,9 +171,10 @@ export function Home() {
               <p className="statement-note" data-reveal>
                 What counts as an entry? Each change someone logs (a leave, a switch, extra
                 chapatis), each payment, and the cook’s answer to it. The meals nobody changes cost
-                nothing. Everything is counted for the kitchen as a whole, not per person: 25 people
-                who each log three changes a month and pay monthly use about 1,500 entries a year,
-                so {fmt.format(FREE_LIMITS.rows)} lasts over three years.
+                nothing. Everything is counted for the kitchen as a whole, not per person:{" "}
+                {FREE_LIMITS.people} people who each log three changes a month and pay monthly use
+                about {fmt.format(FREE_LIMITS.people * 60)} entries a year, so{" "}
+                {fmt.format(FREE_LIMITS.rows)} lasts over three years.
               </p>
               <p className="catch" data-reveal>
                 <b>The catch.</b> Our hosts can change their free limits. If they do, you hear from

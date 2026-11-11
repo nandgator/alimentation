@@ -12,8 +12,8 @@ service. Whoever runs an instance can change them, and a dedicated instance has 
 
 | Limit             | Free tier                                     |
 | ----------------- | --------------------------------------------- |
-| **People**        | 25                                            |
-| **Entries**       | 5,000                                         |
+| **People**        | 100                                           |
+| **Entries**       | 20,000                                        |
 | **Actions a day** | 1,000, all together, across the whole kitchen |
 | **Storage**       | 20 MB                                         |
 
@@ -25,10 +25,10 @@ decision, one settlement. That is all.
 The ordinary meals are **not** entries. The default meal is worked out when it is needed, so a
 member who eats every weekday and never says otherwise uses **none**.
 
-The 5,000 is **one pool for the whole kitchen**, not per person, and it is not "5,000 across 365
-days across everyone". A kitchen of 25 people who each log three exceptions, make one claim, and
-have it decided by the supplier, every month, writes 25 × 5 × 12 = **1,500** entries a year. That
-uses a third of the allowance a year, which is three years of headroom.
+The 20,000 is **one pool for the whole kitchen**, not per person, and it is not "20,000 across 365
+days across everyone". A kitchen of 100 people who each log three exceptions, make one claim, and
+have it decided by the supplier, every month, writes 100 × 5 × 12 = **6,000** entries a year. That
+uses under a third of the allowance a year, which is three years of headroom.
 
 ## What an "action" is
 

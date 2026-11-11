@@ -26,7 +26,15 @@ import { useWorkspace } from "./context.tsx";
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0];
 type MenuChoice = "" | "Veg" | "Non Veg";
 
-function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void }) {
+function CardForm({
+  last,
+  days,
+  onDone,
+}: {
+  last: RateCard | null;
+  days: readonly Weekday[];
+  onDone: () => void;
+}) {
   const ws = useWorkspace();
   const [from, setFrom] = useState(ws.boot.today);
   const [v, setV] = useState({
@@ -64,7 +72,9 @@ function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void 
           const body = {
             effectiveFrom: from,
             ...prices,
-            menu: Object.fromEntries(Object.entries(menu).filter(([, m]) => m)),
+            menu: Object.fromEntries(
+              Object.entries(menu).filter(([d, m]) => m && days.includes(Number(d) as Weekday)),
+            ),
             note: note.trim() || null,
           };
           await postJson(`${ws.api}/rate-cards`, body);
@@ -102,7 +112,7 @@ function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void 
       <div className="field">
         <span className="label">Menu</span>
         <div className="pair">
-          {WEEK.map((d) => (
+          {WEEK.filter((d) => days.includes(d)).map((d) => (
             <label key={d} className="row nowrap" style={{ ["--gap" as string]: "var(--space-2)" }}>
               <span className="day-label">{dayName(d)}</span>
               <select
@@ -428,7 +438,9 @@ export function Rates() {
                     <td className="r">{money(c.extraBhakri)}</td>
                     <td className="r">{money(c.extrasPerMonth)}</td>
                     <td>
-                      {WEEK.filter((d) => c.menu[d])
+                      {WEEK.filter(
+                        (d) => c.menu[d] && (current.workingDays as number[]).includes(d),
+                      )
                         .map((d) => `${dayName(d)} ${c.menu[d] === "Veg" ? "V" : "N"}`)
                         .join(" · ") || "-"}
                     </td>
@@ -498,6 +510,7 @@ export function Rates() {
         {dlg === "card" ? (
           <CardForm
             last={list[0] ?? null}
+            days={current.workingDays as Weekday[]}
             onDone={() => {
               setDlg(null);
               cards.reload();
