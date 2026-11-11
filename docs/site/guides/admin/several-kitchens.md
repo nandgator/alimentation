@@ -18,13 +18,15 @@ line across all of them. You do not have to open each kitchen to see where you s
 
 ## Copy a setup
 
-A second kitchen usually has the same prices, the same rules and the same holidays as the first.
-Under your kitchens there is a box for copying them. You choose the kitchen to copy from, the
-kitchens to copy to, and what to copy (prices, rules, holidays from this month on).
+A second kitchen usually has the same menu, prices, rules and holidays as the first. Under your
+kitchens there is a box for copying them. You choose the kitchen to copy from, the kitchens to copy
+to, and what to copy (menu, prices, rules, holidays from this month on). The menu is copied on its
+own. Prices go only between kitchens that both track money; to or from a kitchen without money they
+are left out, and the box says so.
 
 It shows you what would be added **before** anything is, and says what each kitchen already has.
 Nothing a kitchen already has is changed, and a kitchen still says no to anything its own rules
-refuse, such as a price list that would change a month that is closed.
+refuse, such as a menu that would change a month that is closed.
 
 ## A head office
 

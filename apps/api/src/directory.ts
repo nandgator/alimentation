@@ -132,12 +132,21 @@ export class Directory {
     const appDb = this.d.openDb(dsns.app);
     if (row.state === "ACTIVE") await this.ensureSchema(dsns, appDb);
     const cipher = keys ? new FieldCipher(keys) : null;
+    // Whether the kitchen tracks money never changes, so it is asked of the kitchen's own database once, when
+    // the kitchen is first served here. A kitchen that is gone or moved is only read, and is not asked.
+    const moneyEnabled =
+      row.state === "ACTIVE"
+        ? await appDb.tx(async (tx) =>
+            Boolean(must((await tx.query<{ on: boolean }>("SELECT money_enabled() AS on"))[0]).on),
+          )
+        : true;
     const info: WorkspaceInfo = {
       id: row.id,
       slug: row.slug,
       name: row.displayName,
       timeZone: row.timeZone,
       currency: "INR",
+      moneyEnabled,
       state: row.state === "WIPING" ? "MOVED" : row.state,
       movedTo: row.movedToUrl,
       limits: row.limits as Limits,

@@ -48,6 +48,14 @@ function Figures({ f }: { f: KitchenFigures | "failed" | undefined }) {
   if (f === undefined) return <p className="muted small">Reading the figures…</p>;
   if (f === "failed") return <p className="muted small">The figures could not be read just now.</p>;
   const h = f.headline;
+  if (!f.moneyEnabled)
+    return (
+      <p className="row small" style={{ ["--gap" as string]: "var(--space-3)" }}>
+        <span>{f.meals} meals this month</span>
+        {f.setup > 0 ? <Chip tone="warn">Needs setting up</Chip> : null}
+        {f.fromDevice ? <Chip>Saved on this device</Chip> : null}
+      </p>
+    );
   return (
     <p className="row small" style={{ ["--gap" as string]: "var(--space-3)" }}>
       {isRunning(f.role) ? (
@@ -115,6 +123,9 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
   const [slug, setSlug] = useState("");
   const [touched, setTouched] = useState(false);
   const [supplier, setSupplier] = useState(true);
+  // Whether the kitchen puts a price on its meals. Chosen here and never changed, so it is asked here.
+  const moneyAllowed = me?.moneyAllowed !== false;
+  const [track, setTrack] = useState(true);
   const act = useAction();
   return (
     <section className="card stack" aria-labelledby="new-h">
@@ -147,6 +158,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
                 slug,
                 name,
                 alsoSupplier: supplier,
+                moneyEnabled: moneyAllowed ? track : false,
               });
               await refresh();
               go(`/w/${made.slug}`);
@@ -191,6 +203,31 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
             />
             <span>I also cook for them (add me as the supplier too)</span>
           </label>
+          {moneyAllowed ? (
+            <fieldset className="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
+              <legend>Prices and bills</legend>
+              <label className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
+                <input
+                  type="checkbox"
+                  checked={track}
+                  onChange={(e) => setTrack(e.target.checked)}
+                  aria-describedby="track-hint"
+                />
+                <span>Track money in this kitchen</span>
+              </label>
+              <p id="track-hint" className="muted small">
+                {track
+                  ? "You set prices, each person gets a bill each month, and payments are recorded and confirmed. "
+                  : "The kitchen only counts meals: who ate, who was on leave, and the extras as numbers. There are no prices, bills or payments. "}
+                You choose this once, now. It cannot be changed later.
+              </p>
+            </fieldset>
+          ) : (
+            <p className="muted small">
+              This service keeps kitchens to counting meals. There are no prices, bills or payments
+              here.
+            </p>
+          )}
           <button
             type="submit"
             className="btn"

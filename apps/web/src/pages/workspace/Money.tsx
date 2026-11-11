@@ -1,6 +1,8 @@
 import {
   type HolidayImportMode,
   type HolidayImportResult,
+  isMoneyStatement,
+  type MealStatementDto,
   SETTLEMENT_TYPES,
   type SettlementDto,
   type SettlementType,
@@ -514,12 +516,14 @@ export function CloseMonths() {
   // The latest month a close makes sense for is the one that has ended.
   const closable = boot.months.filter((m) => m < boot.currentMonth);
   const [selected, setSelected] = useState(closable.at(-1) ?? boot.currentMonth);
+  // What is ready to close: with prices for a kitchen that tracks money, with a menu for one that does not.
+  const ready = ws.money ? !!boot.rateCard : !!boot.menu;
   const res = useLoad(
     () =>
-      boot.rateCard
-        ? getJson<StatementDto[]>(`${ws.api}/statements?months=${selected}`)
-        : Promise.resolve([] as StatementDto[]),
-    [ws.api, selected, boot.rateCard?.id],
+      ready
+        ? getJson<(StatementDto | MealStatementDto)[]>(`${ws.api}/statements?months=${selected}`)
+        : Promise.resolve([] as (StatementDto | MealStatementDto)[]),
+    [ws.api, selected, ready],
   );
   const act = useAction();
   const [confirm, setConfirm] = useState<"all" | null>(null);
@@ -529,7 +533,11 @@ export function CloseMonths() {
     <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead
         title="Month close"
-        lead="Closing freezes what each person is billed. Entries changed later show up as “changed after close” with the difference, and never alter the bill."
+        lead={
+          ws.money
+            ? "Closing freezes what each person is billed. Entries changed later show up as “changed after close” with the difference, and never alter the bill."
+            : "Closing locks the month for each person, so nobody can change their meals, leave or extras after it."
+        }
         actions={
           <MonthPicker
             months={boot.months.length ? boot.months : [boot.currentMonth]}
@@ -552,10 +560,16 @@ export function CloseMonths() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th className="r">Live total</th>
-                <th className="r">Billed</th>
+                {ws.money ? (
+                  <>
+                    <th className="r">Live total</th>
+                    <th className="r">Billed</th>
+                  </>
+                ) : (
+                  <th className="r">Meals</th>
+                )}
                 <th>State</th>
-                <th>Still waiting</th>
+                {ws.money ? <th>Still waiting</th> : null}
                 <th />
               </tr>
             </thead>
@@ -563,25 +577,37 @@ export function CloseMonths() {
               {rows.map((s) => (
                 <tr key={s.personId}>
                   <td>{s.name}</td>
-                  <td className="r">{money(s.liveTotal)}</td>
-                  <td className="r">{s.closed ? money(s.billed) : "-"}</td>
+                  {isMoneyStatement(s) ? (
+                    <>
+                      <td className="r">{money(s.liveTotal)}</td>
+                      <td className="r">{s.closed ? money(s.billed) : "-"}</td>
+                    </>
+                  ) : (
+                    <td className="r">{s.counts.meals}</td>
+                  )}
                   <td>
-                    {s.closed ? <Chip tone="good">Closed</Chip> : <Chip>Open</Chip>}
-                    {s.changedAfterClose !== 0 ? (
+                    {s.closed ? (
+                      <Chip tone="good">{ws.money ? "Closed" : "Locked"}</Chip>
+                    ) : (
+                      <Chip>Open</Chip>
+                    )}
+                    {isMoneyStatement(s) && s.changedAfterClose !== 0 ? (
                       <Chip tone="bad">Changed after close {money(s.changedAfterClose)}</Chip>
                     ) : null}
                   </td>
-                  <td>
-                    {s.claimedPending > 0 ? (
-                      <Chip tone="warn">{money(s.claimedPending)} claimed, not decided</Chip>
-                    ) : null}
-                    {s.openQueries > 0 ? (
-                      <Chip tone="bad">
-                        {s.openQueries} {s.openQueries === 1 ? "query" : "queries"} open
-                      </Chip>
-                    ) : null}
-                    {s.claimedPending === 0 && s.openQueries === 0 ? "-" : null}
-                  </td>
+                  {isMoneyStatement(s) ? (
+                    <td>
+                      {s.claimedPending > 0 ? (
+                        <Chip tone="warn">{money(s.claimedPending)} claimed, not decided</Chip>
+                      ) : null}
+                      {s.openQueries > 0 ? (
+                        <Chip tone="bad">
+                          {s.openQueries} {s.openQueries === 1 ? "query" : "queries"} open
+                        </Chip>
+                      ) : null}
+                      {s.claimedPending === 0 && s.openQueries === 0 ? "-" : null}
+                    </td>
+                  ) : null}
                   <td>
                     {s.closed ? (
                       <button
@@ -626,8 +652,9 @@ export function CloseMonths() {
       ) : null}
       {rows.length > 0 ? (
         <p className="muted small">
-          Closing freezes meals, leave and extras. Payments are not frozen: a claim can still be
-          made, confirmed or settled after the month is closed, so nobody has to rush the supplier.
+          {ws.money
+            ? "Closing freezes meals, leave and extras. Payments are not frozen: a claim can still be made, confirmed or settled after the month is closed, so nobody has to rush the supplier."
+            : "Closing locks meals, leave and extras. You can reopen a month for a person if something has to change."}
         </p>
       ) : null}
       {open.length > 1 ? (
@@ -648,9 +675,9 @@ export function CloseMonths() {
         title={`Close ${monthLabel(selected)} for everyone?`}
       >
         <p>
-          This freezes {open.length} bills. You can reopen any of them afterwards, and the reopening
-          is recorded.
-          {open.some((s) => s.claimedPending > 0 || s.openQueries > 0)
+          {ws.money ? `This freezes ${open.length} bills.` : `This locks ${open.length} months.`}{" "}
+          You can reopen any of them afterwards, and the reopening is recorded.
+          {open.some((s) => isMoneyStatement(s) && (s.claimedPending > 0 || s.openQueries > 0))
             ? " Some of them still have a claim waiting for the supplier, or a query open. Those carry on after the close."
             : ""}
         </p>

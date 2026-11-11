@@ -10,19 +10,22 @@ import {
   digestOf,
   type EngineData,
   expectedTotals,
+  moneyBundleProblem,
   parseBundle,
   rupees,
   sha256Hex,
   unsupportedRules,
 } from "../src/index.ts";
-import { CARD_APR, HOLIDAYS } from "./fixtures.ts";
+import { CARD_APR, HOLIDAYS, MENU_APR } from "./fixtures.ts";
 
 /** The spec's October, with real UUIDs, as an engine input and as the body of a bundle. */
 function october() {
   const [admin, supplier, jovial, smruti, claim] = [1, 2, 3, 4, 5].map(() => randomUUID());
   const data: EngineData = {
     today: "2026-11-15",
+    moneyEnabled: true,
     policies: [],
+    menus: [{ ...MENU_APR, id: randomUUID() }],
     rateCards: [{ ...CARD_APR, id: randomUUID() }],
     holidays: HOLIDAYS.map((h) => ({ ...h, id: randomUUID() })),
     people: [
@@ -84,8 +87,15 @@ function october() {
     format: BUNDLE_FORMAT,
     exportedAt: "2026-11-15T06:00:00.000Z",
     asOf: data.today,
-    workspace: { name: "Maple", timeZone: "Asia/Kolkata", currency: "INR" },
+    workspace: { name: "Maple", timeZone: "Asia/Kolkata", currency: "INR", moneyEnabled: true },
     policies: [],
+    menus: data.menus.map((m) => ({
+      id: m.id,
+      effectiveFrom: m.effectiveFrom,
+      days: Object.fromEntries(Object.entries(m.days)) as Record<string, "Veg" | "Non Veg">,
+      note: null,
+      createdBy: null,
+    })),
     rateCards: data.rateCards.map((r) => ({
       id: r.id,
       effectiveFrom: r.effectiveFrom,
@@ -94,7 +104,6 @@ function october() {
       extraChapati: r.extraChapati,
       extraBhakri: r.extraBhakri,
       extrasPerMonth: r.extrasPerMonth,
-      menu: Object.fromEntries(Object.entries(r.menu)) as Record<string, "Veg" | "Non Veg">,
       note: null,
       createdBy: null,
     })),
@@ -225,6 +234,7 @@ describe("[P3] a bundle says what it holds, and cannot be altered unnoticed", ()
         "holidays",
         "log",
         "members",
+        "menus",
         "people",
         "policies",
         "rateCards",
@@ -261,26 +271,109 @@ describe("[P3] rules the target does not know are listed, not guessed", () => {
   });
 });
 
+describe("a bundle of a kitchen without money", () => {
+  const meals = () => {
+    const { data, body } = october();
+    const mealsData = {
+      ...data,
+      moneyEnabled: false,
+      rateCards: [],
+      claims: [],
+      decisions: [],
+      settlements: [],
+    };
+    return {
+      data: mealsData,
+      body: {
+        ...body,
+        workspace: { ...body.workspace, moneyEnabled: false },
+        rateCards: [],
+        claims: [],
+        decisions: [],
+        closes: [],
+        expected: expectedTotals(mealsData),
+      } satisfies BundleBody,
+    };
+  };
+
+  it("expects meals only, and never a figure of money", () => {
+    const { data } = meals();
+    const totals = expectedTotals(data);
+    expect(totals.length).toBeGreaterThan(0);
+    expect(totals.every((t) => t.money === null)).toBe(true);
+    expect(totals.find((t) => t.month === "2026-10" && t.meals > 0)?.meals).toBeGreaterThan(0);
+  });
+
+  it("is sealed and parsed like any other", async () => {
+    const bundle = await assembleBundle(meals().body);
+    expect((await parseBundle(JSON.parse(JSON.stringify(bundle)))).ok).toBe(true);
+  });
+
+  it("is refused if it holds a price, a claim or a frozen amount", async () => {
+    const { body } = meals();
+    const full = october().body;
+    const withCard = await assembleBundle({ ...body, rateCards: full.rateCards });
+    const parsed = await parseBundle(JSON.parse(JSON.stringify(withCard)));
+    expect(parsed.ok).toBe(false);
+    const frozen = await assembleBundle({
+      ...body,
+      closes: [
+        {
+          forMonth: "2026-10",
+          consumerId: full.people[2]?.id ?? "",
+          meals: 3,
+          billed: 100,
+          closedOn: "2026-11-01",
+          closedBy: null,
+        },
+      ],
+    });
+    expect((await parseBundle(JSON.parse(JSON.stringify(frozen)))).ok).toBe(false);
+  });
+
+  it("goes into a kitchen that tracks money, and a money bundle never into one that does not", () => {
+    const { body } = meals();
+    expect(moneyBundleProblem(body, true)).toBeNull();
+    expect(moneyBundleProblem(body, false)).toBeNull();
+    expect(moneyBundleProblem(october().body, true)).toBeNull();
+    expect(moneyBundleProblem(october().body, false)).toMatch(/tracks money/);
+  });
+
+  it("is checked by its meals when the copy has money but no prices yet", () => {
+    const { data } = meals();
+    const asMoneyKitchen = { ...data, moneyEnabled: true };
+    expect(compareTotals(expectedTotals(data), expectedTotals(asMoneyKitchen))).toEqual([]);
+  });
+
+  it("finds a difference in meals", () => {
+    const e = expectedTotals(meals().data);
+    const changed = e.map((t, i) => (i === 0 ? { ...t, meals: t.meals + 1 } : t));
+    expect(compareTotals(e, changed).map((d) => d.field)).toEqual(["meals"]);
+  });
+});
+
 describe("[P3] the expected totals are the engine's own answers", () => {
   it("carries October 2026 as 3,260 and 3,030, and every month up to today", () => {
     const { data, ids } = october();
     const totals = expectedTotals(data);
-    expect(totals.find((t) => t.personId === ids.jovial && t.month === "2026-10")).toMatchObject({
+    expect(
+      totals.find((t) => t.personId === ids.jovial && t.month === "2026-10")?.money,
+    ).toMatchObject({
       liveTotal: rupees(3260),
       billed: rupees(3260),
       paid: rupees(100),
       balance: rupees(3160),
     });
-    expect(totals.find((t) => t.personId === ids.smruti && t.month === "2026-10")!.billed).toBe(
-      rupees(3030),
-    );
+    expect(
+      totals.find((t) => t.personId === ids.smruti && t.month === "2026-10")?.money?.billed,
+    ).toBe(rupees(3030));
     expect(totals.map((t) => t.month)).toEqual(expect.arrayContaining(["2026-10", "2026-11"]));
     expect(totals.every((t) => t.month <= "2026-11")).toBe(true);
   });
 
   it("is empty where nothing can be billed yet", () => {
     const { data } = october();
-    expect(expectedTotals({ ...data, rateCards: [] })).toEqual([]);
+    expect(expectedTotals({ ...data, menus: [] })).toEqual([]);
     expect(
       expectedTotals({ ...data, people: data.people.filter((p) => p.role !== "consumer") }),
     ).toEqual([]);
@@ -290,7 +383,11 @@ describe("[P3] the expected totals are the engine's own answers", () => {
     const { data } = october();
     const e = expectedTotals(data);
     expect(compareTotals(e, e)).toEqual([]);
-    const changed = e.map((t, i) => (i === 0 ? { ...t, billed: t.billed + 1, status: "DUE" } : t));
+    const changed = e.map((t, i) =>
+      i === 0 && t.money
+        ? { ...t, money: { ...t.money, billed: t.money.billed + 1, status: "DUE" } }
+        : t,
+    );
     const diffs = compareTotals(e, changed);
     expect(diffs.map((d) => d.field).sort()).toEqual(expect.arrayContaining(["billed"]));
     expect(compareTotals(e, e.slice(1))[0]!.field).toBe("missing");
@@ -298,7 +395,7 @@ describe("[P3] the expected totals are the engine's own answers", () => {
     expect(
       compareTotals(
         e,
-        e.map((t) => ({ ...t, paid: t.paid + 5 })),
+        e.map((t) => ({ ...t, money: t.money && { ...t.money, paid: t.money.paid + 5 } })),
       ).every(
         (d) =>
           d.field === "paid" ||

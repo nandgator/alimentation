@@ -1,4 +1,4 @@
-import { FREE_LIMITS, localNow, type Role } from "@alimentation/core";
+import { FREE_LIMITS, localNow, type Role, type StatementDto } from "@alimentation/core";
 import { FieldCipher } from "../../src/crypto/fields.ts";
 import { Keyring, loadWorkspaceKeys, newWorkspaceKeys } from "../../src/crypto/keys.ts";
 import type { Db } from "../../src/db/driver.ts";
@@ -7,6 +7,12 @@ import type { Actor } from "../../src/workspace/context.ts";
 import { type WorkspaceInfo, WorkspaceService } from "../../src/workspace/service.ts";
 import { initializeWorkspace } from "../../src/workspace/setup.ts";
 import { newWorkspace, type TestWorkspace } from "./pg.ts";
+
+/** The statements of a kitchen that tracks money, as the money kind. */
+export const moneyStatements = async (
+  svc: WorkspaceService,
+  ...args: Parameters<WorkspaceService["statements"]>
+): Promise<StatementDto[]> => (await svc.statements(...args)) as StatementDto[];
 
 export interface Fixture {
   ws: TestWorkspace;
@@ -25,7 +31,13 @@ export interface Fixture {
 
 /** A real workspace database, real keys, and the service on top, with a clock the test controls. */
 export async function makeFixture(
-  opts: { limits?: typeof FREE_LIMITS | null; state?: WorkspaceInfo["state"]; start?: string } = {},
+  opts: {
+    limits?: typeof FREE_LIMITS | null;
+    state?: WorkspaceInfo["state"];
+    start?: string;
+    /** Whether the kitchen tracks money. It does unless a test says it does not. */
+    moneyEnabled?: boolean;
+  } = {},
 ): Promise<Fixture> {
   const ws = await newWorkspace();
   const { keyring } = await Keyring.generate();
@@ -43,6 +55,7 @@ export async function makeFixture(
     adminName: "Owner",
     alsoSupplier: true,
     caps: { people: opts.limits?.people ?? null, rows: opts.limits?.rows ?? null },
+    moneyEnabled: opts.moneyEnabled ?? true,
   });
   // Only in tests: let the database's idea of "today" follow the test's injected clock.
   await ownerDb.tx(async (tx) => {
@@ -61,6 +74,7 @@ export async function makeFixture(
     name: "Test kitchen",
     timeZone: "Asia/Kolkata",
     currency: "INR",
+    moneyEnabled: opts.moneyEnabled ?? true,
     state: opts.state ?? "ACTIVE",
     movedTo: null,
     limits: opts.limits ?? FREE_LIMITS,

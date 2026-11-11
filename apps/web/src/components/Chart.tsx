@@ -17,12 +17,16 @@ export function BarChart({
   projected,
   series,
   label,
+  counts = false,
 }: {
   categories: string[];
   projected: boolean[];
   series: Series[];
   label: string;
+  /** The values are counts of meals, not money. */
+  counts?: boolean;
 }) {
+  const show = (v: number) => (counts ? String(Math.round(v)) : money(v));
   // Drawn at the width it is shown at, so the labels keep their size on a phone.
   const box = useRef<HTMLDivElement>(null);
   const [W, setW] = useState(640);
@@ -64,7 +68,7 @@ export function BarChart({
             <g key={t}>
               <line className="grid" x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} />
               <text x={pad.l - 8} y={y(t) + 4} textAnchor="end">
-                {t === 0 ? "0" : money(Math.round(t))}
+                {t === 0 ? "0" : show(Math.round(t))}
               </text>
             </g>
           ))}
@@ -85,7 +89,7 @@ export function BarChart({
                       height={pad.t + ih - y(v)}
                       rx="3"
                     >
-                      <title>{`${s.name} · ${monthLabel(c)}${projected[i] ? " (projected)" : ""} · ${money(v)}`}</title>
+                      <title>{`${s.name} · ${monthLabel(c)}${projected[i] ? " (projected)" : ""} · ${show(v)}`}</title>
                     </rect>
                   );
                 })}
@@ -136,7 +140,7 @@ export function BarChart({
                   </td>
                   {series.map((s) => (
                     <td key={s.name} className="r">
-                      {money(s.values[i] ?? 0)}
+                      {show(s.values[i] ?? 0)}
                     </td>
                   ))}
                 </tr>

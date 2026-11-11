@@ -29,15 +29,20 @@ Hard privacy rule: a consumer must never be able to read another consumer's rows
 
 ## 3. Billing rules (domain logic)
 
-### 3.1 Rate card (effective-dated, never retroactive)
+### 3.1 Menu and rate card (effective-dated, never retroactive)
 
-Each rate row has:
-`effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month, menu{mon..fri}, note`.
+What is served and what it costs are two records, each dated and each append-only.
 
-- A date uses the **latest row with effective_from ≤ that date**.
-- To change prices, **add a new row**. Never edit old rows. Past months must not change.
-- Initial row (01-Apr-2026): Veg ₹150, Non Veg ₹170, Extra Chapati ₹15, Extra Bhakri ₹30, Extras
-  ₹40/month. Menu: Mon Veg, Tue Veg, Wed Non Veg, Thu Veg, Fri Non Veg.
+A **menu** row has `effective_from, menu{mon..sun}, note`. Every working day needs a meal on the
+menu. A **rate card** row has
+`effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month, note`, and only a
+kitchen that tracks money (§3.8) has rate cards. A kitchen that tracks money needs both before it is
+billed.
+
+- A date uses the **latest row with effective_from ≤ that date**, of each.
+- To change either, **add a new row**. Never edit old rows. Past months must not change.
+- Initial menu (01-Apr-2026): Mon Veg, Tue Veg, Wed Non Veg, Thu Veg, Fri Non Veg. Initial rate row
+  (01-Apr-2026): Veg ₹150, Non Veg ₹170, Extra Chapati ₹15, Extra Bhakri ₹30, Extras ₹40/month.
 - Default portion: 4 chapati / 2 bhakri. "Extra" means pieces beyond that.
 - "Extras ₹40/month" covers papad, carrot, cucumber, onion and similar. It is charged once per month
   **if the consumer had ≥1 meal** that month.
@@ -113,6 +118,18 @@ The admin closes a month for a consumer, which freezes `billed` (stores meals co
 closed_on, closed_by). Later edits to logs or holidays for that month don't change the bill; they
 show up as "Changed after close" with the difference.
 
+### 3.8 A kitchen without money
+
+A kitchen is made either with money or without it, and the choice is **fixed** once it is made. A
+kitchen without money counts meals and does not price them. It keeps people and roles, holidays,
+working days, leave and exception logging with its cut-off, Supplier Off, extras as counts (the
+number of extra chapatis and bhakris, never priced), the Daily and Dashboard screens as meal counts,
+history and audit, export, move, agent keys for reading and logging, and invitations. A month close
+is a plain **lock** of the month: the `month_close` row has no `billed` amount. It does not have a
+rate card, a bill, a claim, a decision, a reversal, a settlement, a balance, or the four rules about
+money (leave charge, monthly extras, payments, rate card back-dating). The database refuses to hold
+any of them (`DESIGN.md` §5.16).
+
 ## 4. Payments: claim → confirm
 
 1. **Consumer claims** a payment with these fields:
@@ -146,15 +163,17 @@ show up as "Changed after close" with the difference.
 
 ```sql
 people(id, name, role enum('admin','supplier','consumer'), active_from date, active_to date null, auth_user_id uuid unique)
+menus(id, effective_from date unique, menu_sun text, menu_mon text, menu_tue text, menu_wed text, menu_thu text,
+      menu_fri text, menu_sat text, note text, created_at, created_by)
 rate_cards(id, effective_from date unique, veg int, non_veg int, extra_chapati int, extra_bhakri int,
-           extras_per_month int, menu_mon text, menu_tue text, menu_wed text, menu_thu text, menu_fri text, note text)
+           extras_per_month int, note text)   -- only in a kitchen that tracks money
 holidays(id, name, date date, location text, classification text, confirmed bool)
 log_entries(id, date date, person_id null, all_consumers bool, change enum(...), qty int null, note,
             logged_by uuid, logged_at timestamptz)
 claims(id uuid, consumer_id, paid_at timestamptz, for_month date, amount int, method, ref_note, created_at)
 claim_decisions(claim_id uuid PRIMARY KEY, decision enum('Confirmed','Disputed'), note, decided_by, decided_at)
 settlements(id, date, consumer_id, for_month, type, amount null, note, recorded_by, created_at)
-month_closes(for_month date, consumer_id, meals int, billed int, closed_on, closed_by, PRIMARY KEY(for_month, consumer_id))
+month_closes(for_month date, consumer_id, meals int, billed int null, closed_on, closed_by, PRIMARY KEY(for_month, consumer_id))  -- billed is null for a lock
 audit_log(id, table_name, row_id, action, actor, at, before jsonb, after jsonb)   -- trigger-filled
 ```
 
@@ -168,7 +187,7 @@ every role use the same logic.
 - supplier: `SELECT` all statements and claims. `INSERT` log_entries with change = 'Supplier Off'.
   `INSERT` claim_decisions; **no UPDATE/DELETE**.
 - admin: full access.
-- Everyone can read rate_cards and holidays. Only the admin can write them.
+- Everyone can read menus, rate_cards and holidays. Only the admin can write them.
 - Log entries and claims: the author may edit or delete only while the month is open **and** (for
   claims) before a decision exists.
 
@@ -194,7 +213,7 @@ every role use the same logic.
 ### Admin
 
 - **Dashboard:** the supplier view plus totals.
-- Settings: rate cards, menu, people.
+- Settings: menu, prices (rate cards), rules, people.
 - Holidays.
 - Settlements.
 - Month close.
@@ -249,7 +268,7 @@ every role use the same logic.
   - Maple (supplier).
   - Jovial (consumer, from 2026-10-01).
   - Smruti (consumer, from 2026-10-01).
-- Rate card: as in §3.1.
+- Menu and rate card: as in §3.1.
 - Holidays: as in §3.2.
 - Log entries:
   - 2026-10-01, Jovial, Extra Bhakri, qty 2.

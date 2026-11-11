@@ -30,6 +30,7 @@ export interface Person {
   activeTo: IsoDate | null;
 }
 
+/** Prices only, dated and append-only. Only a kitchen that tracks money has them. */
 export interface RateCard {
   id: string;
   effectiveFrom: IsoDate;
@@ -38,8 +39,18 @@ export interface RateCard {
   extraChapati: Paise;
   extraBhakri: Paise;
   extrasPerMonth: Paise;
+  note: string | null;
+}
+
+/**
+ * What is served, dated and append-only like a rate card but with no prices in it, so every kitchen has one,
+ * whether or not it tracks money.
+ */
+export interface MenuVersion {
+  id: string;
+  effectiveFrom: IsoDate;
   /** Meal served on each weekday. A weekday that is absent serves nothing. */
-  menu: Partial<Record<Weekday, MealType>>;
+  days: Partial<Record<Weekday, MealType>>;
   note: string | null;
 }
 
@@ -105,7 +116,8 @@ export interface MonthClose {
   forMonth: Month;
   consumerId: string;
   meals: number;
-  billed: Paise;
+  /** Null in a close that only locks the month: a kitchen without money has no amount to freeze. */
+  billed: Paise | null;
   closedOn: IsoDate;
   /** Null when the close was made by the workspace's automatic rule. */
   closedBy: string | null;

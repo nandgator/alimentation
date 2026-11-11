@@ -14,7 +14,7 @@ const AfterClose = z.enum(["flag", "block"]);
 export const PolicySchema = z
   .object({
     version: z.literal(1),
-    /** 0 is Sunday. Each of these needs a menu entry on the rate card. */
+    /** 0 is Sunday. Each of these needs an entry on the menu. */
     workingDays: z
       .array(z.number().int().min(0).max(6))
       .min(1)
@@ -71,6 +71,33 @@ export interface PolicyVersion {
   doc: Policy;
 }
 
+/**
+ * The four rules that are about money. A kitchen that does not track money has none of them: they sit at these
+ * neutral values, do nothing, and are not shown or taken.
+ */
+export const MONEY_RULES = ["extras", "leave", "payments", "rateCards"] as const;
+export type MoneyRule = (typeof MONEY_RULES)[number];
+
+/** The rules as a kitchen without money has them: the money rules at their neutral values. */
+export function withoutMoneyRules(doc: Policy): Policy {
+  return {
+    ...doc,
+    extras: DEFAULT_POLICY.extras,
+    leave: DEFAULT_POLICY.leave,
+    payments: DEFAULT_POLICY.payments,
+    rateCards: DEFAULT_POLICY.rateCards,
+  };
+}
+
+/** Rules as they are shown: all of them, or, for a kitchen without money, all but the money rules. */
+export type PolicyView = Omit<Policy, MoneyRule> & Partial<Pick<Policy, MoneyRule>>;
+
+export function policyView(doc: Policy, moneyEnabled: boolean): PolicyView {
+  if (moneyEnabled) return doc;
+  const { extras: _e, leave: _l, payments: _p, rateCards: _r, ...rest } = doc;
+  return rest;
+}
+
 /** The version in force on `date`: the latest whose `effectiveFrom` is not after it. */
 export function policyOn(versions: readonly PolicyVersion[], date: IsoDate): Policy {
   let best: PolicyVersion | undefined;
@@ -103,7 +130,7 @@ export function autoCloseDate(policy: Policy, month: Month): IsoDate | null {
  * then shows the difference).
  */
 export function rateCardStartAllowed(
-  policy: Policy,
+  policy: Pick<Policy, "rateCards">,
   effectiveFrom: IsoDate,
   today: IsoDate,
   lastClosedMonth: Month | null,

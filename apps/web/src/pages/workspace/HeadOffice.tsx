@@ -21,8 +21,8 @@ export function HeadOffice() {
         <h2 id="ho-h">Head office</h2>
         <p>
           This kitchen shares its totals with <strong>{mine.name}</strong>: how many people it
-          feeds, how many meals, and what is billed, paid and owed this month. No names, contacts or
-          notes. Everyone in the kitchen can see this.
+          feeds, how many meals{ws.money ? ", and what is billed, paid and owed" : ""} this month.
+          No names, contacts or notes. Everyone in the kitchen can see this.
         </p>
         <div>
           <button

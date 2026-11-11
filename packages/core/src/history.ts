@@ -34,6 +34,8 @@ export interface HistoryContext {
   nameOf(personId: string): string | undefined;
   roleOf(personId: string): Role | undefined;
   /** The claim a decision or reversal was about, while it still exists. */
+  /** False for a kitchen that does not track money, whose people are not "billed". Left out, it tracks money. */
+  moneyEnabled?: boolean;
   claimOf(claimId: string): { consumerId: string; amount: number; forMonth: string } | undefined;
 }
 
@@ -118,16 +120,23 @@ export function describeAudit(row: AuditRow, c: HistoryContext): string | null {
       return `${by} raised a query on ${bill}.`;
     }
     case "month_close": {
-      const bill = `${whose(str(rec.consumer_id), c)} ${monthName(str(rec.for_month))} bill`;
+      const who = `${whose(str(rec.consumer_id), c)} ${monthName(str(rec.for_month))}`;
+      // A close with no amount only locks the month, and is not worded as a bill.
+      const noAmount = rec.billed === null || rec.billed === undefined;
+      const bill = noAmount ? `${who} month` : `${who} bill`;
       return row.action === "DELETE"
         ? `${by} reopened ${bill}.`
-        : `${by} closed ${bill} at ${formatMoney(num(rec.billed))}.`;
+        : noAmount
+          ? `${by} closed ${bill}.`
+          : `${by} closed ${bill} at ${formatMoney(num(rec.billed))}.`;
     }
     case "person": {
       const subject = row.rowId;
       if (row.action === "INSERT")
         return `${by} added ${forWhom(subject, c)} to the kitchen${
-          rec.active_from ? `, billed from ${formatDisplayDate(str(rec.active_from))}` : ""
+          rec.active_from
+            ? `, ${c.moneyEnabled === false ? "counted" : "billed"} from ${formatDisplayDate(str(rec.active_from))}`
+            : ""
         }.`;
       if (row.action !== "UPDATE") return null;
       const parts: string[] = [];
@@ -137,7 +146,7 @@ export function describeAudit(row: AuditRow, c: HistoryContext): string | null {
         );
       if (was.active_from !== now.active_from || was.active_to !== now.active_to)
         parts.push(
-          `${by} changed ${whose(subject, c)} billing dates: from ${
+          `${by} changed ${whose(subject, c)} ${c.moneyEnabled === false ? "meal" : "billing"} dates: from ${
             now.active_from ? formatDisplayDate(str(now.active_from)) : "the start"
           } until ${now.active_to ? formatDisplayDate(str(now.active_to)) : "further notice"}.`,
         );
@@ -153,6 +162,10 @@ export function describeAudit(row: AuditRow, c: HistoryContext): string | null {
         `extra chapati ${formatMoney(num(now.extra_chapati))}, extra bhakri ${formatMoney(num(now.extra_bhakri))}, ` +
         `${formatMoney(num(now.extras_per_month))} a month for extras.`
       );
+    }
+    case "menu": {
+      if (row.action !== "INSERT") return null;
+      return `${by} set the menu from ${formatDisplayDate(str(now.effective_from))}.`;
     }
     case "policy_version":
       return row.action === "INSERT"

@@ -24,6 +24,7 @@ const TOOL_TITLES: Record<string, string> = {
   get_bootstrap: "Read the kitchen",
   get_statements: "Monthly statements",
   get_ledger: "Day ledger for a month",
+  get_menus: "Menus",
   get_history: "What has been done, in words",
   get_log: "Entries in a date range",
   post_log_check: "Check an entry without writing it",
@@ -48,12 +49,19 @@ export const toolTitle = (name: string): string => TOOL_TITLES[name] ?? deriveTi
 const RULES_OF_THE_ROAD = [
   "Read before you write: look at the kitchen and at what is already there before you change anything.",
   "Before any write, tell the person in plain words exactly what you are about to do (which day, which change, which amount) and ask them whether to go ahead. Do the write only after they say yes.",
-  "Money in this kitchen is in paise (hundredths of a rupee, so 100 paise is 1 rupee). Tools take and give paise; show the person rupees.",
   "If a tool answers with an error, give the person the kitchen’s own words and do not try another way round it.",
-].join("\n");
+];
 
-const preface = (task: string, steps: string[]): string =>
-  `${task}\n\nHow to do it:\n${steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n\n${RULES_OF_THE_ROAD}`;
+const MONEY_RULE =
+  "Money in this kitchen is in paise (hundredths of a rupee, so 100 paise is 1 rupee). Tools take and give paise; show the person rupees.";
+
+/** The money line sits with the other rules for a prompt that is about money, and is not said to one that is not. */
+const preface = (task: string, steps: string[], money = false): string => {
+  const rules = money
+    ? [...RULES_OF_THE_ROAD.slice(0, 2), MONEY_RULE, ...RULES_OF_THE_ROAD.slice(2)]
+    : RULES_OF_THE_ROAD;
+  return `${task}\n\nHow to do it:\n${steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n\n${rules.join("\n")}`;
+};
 
 // --- prompts --------------------------------------------------------------------------------------------
 
@@ -70,6 +78,8 @@ interface PromptDef {
   arguments: PromptArgument[];
   /** The tools it asks the assistant to call. It is listed only to a key that has every one of them. */
   needs: string[];
+  /** About money: it is listed only for a kitchen that tracks it, whatever tools the key has. */
+  money?: boolean;
   /** The text, from arguments already checked. */
   text: (a: Record<string, string>) => string;
 }
@@ -123,13 +133,18 @@ const PROMPTS: PromptDef[] = [
       },
     ],
     needs: ["get_bootstrap", "get_statements"],
+    money: true,
     text: (a) =>
-      preface(`Tell the person what their balance is for ${monthOrCurrent(a)}.`, [
-        "Call get_bootstrap to learn who they are (`me.personId`) and the current month.",
-        `Call get_statements for ${a.month ?? "the current month"} (months), for that person.`,
-        "Say what they owe or are owed, in rupees, and the parts it is made up of: meals, extras, anything paid, anything carried over.",
-        "You are only reading, so there is nothing to confirm; do not write anything.",
-      ]),
+      preface(
+        `Tell the person what their balance is for ${monthOrCurrent(a)}.`,
+        [
+          "Call get_bootstrap to learn who they are (`me.personId`) and the current month.",
+          `Call get_statements for ${a.month ?? "the current month"} (months), for that person.`,
+          "Say what they owe or are owed, in rupees, and the parts it is made up of: meals, extras, anything paid, anything carried over.",
+          "You are only reading, so there is nothing to confirm; do not write anything.",
+        ],
+        true,
+      ),
   },
   {
     name: "month-end-summary",
@@ -137,15 +152,20 @@ const PROMPTS: PromptDef[] = [
     description: "Summarise a month: what was eaten, what it cost, what was paid and what is left.",
     arguments: [{ name: "month", description: MONTH_HELP, required: true }],
     needs: ["get_bootstrap", "get_statements", "get_ledger", "get_claims"],
+    money: true,
     text: (a) =>
-      preface(`Write a short summary of the month ${a.month} for the person.`, [
-        "Call get_bootstrap to learn who they are (`me.personId`).",
-        `Call get_statements for ${a.month} for the totals.`,
-        `Call get_ledger for ${a.month} and that person to see the days behind the totals: leaves, switches and extras.`,
-        "Call get_claims to see which payments have been claimed or confirmed for the month.",
-        "Write the summary in plain words and in rupees: days eaten, days on leave, extras, the charge, what was paid, what is left. Point out anything that looks odd, and say so rather than guess.",
-        "You are only reading, so there is nothing to confirm; do not write anything.",
-      ]),
+      preface(
+        `Write a short summary of the month ${a.month} for the person.`,
+        [
+          "Call get_bootstrap to learn who they are (`me.personId`).",
+          `Call get_statements for ${a.month} for the totals.`,
+          `Call get_ledger for ${a.month} and that person to see the days behind the totals: leaves, switches and extras.`,
+          "Call get_claims to see which payments have been claimed or confirmed for the month.",
+          "Write the summary in plain words and in rupees: days eaten, days on leave, extras, the charge, what was paid, what is left. Point out anything that looks odd, and say so rather than guess.",
+          "You are only reading, so there is nothing to confirm; do not write anything.",
+        ],
+        true,
+      ),
   },
   {
     name: "am-i-square-for-the-month",
@@ -154,14 +174,19 @@ const PROMPTS: PromptDef[] = [
       "Say yes or no on whether the person has paid what they owe for a month, with the figures.",
     arguments: [{ name: "month", description: MONTH_HELP, required: true }],
     needs: ["get_bootstrap", "get_statements", "get_claims", "get_settlements"],
+    money: true,
     text: (a) =>
-      preface(`Tell the person whether they are square for the month ${a.month}.`, [
-        "Call get_bootstrap to learn who they are (`me.personId`).",
-        `Call get_statements for ${a.month} for what is owed.`,
-        "Call get_claims and get_settlements to see what has been paid, claimed but not yet confirmed, or queried.",
-        "Answer plainly: square, or not, and by how much in rupees. Say separately what is claimed but waiting for someone to confirm, because that is not yet counted as paid.",
-        "You are only reading, so there is nothing to confirm; do not write anything.",
-      ]),
+      preface(
+        `Tell the person whether they are square for the month ${a.month}.`,
+        [
+          "Call get_bootstrap to learn who they are (`me.personId`).",
+          `Call get_statements for ${a.month} for what is owed.`,
+          "Call get_claims and get_settlements to see what has been paid, claimed but not yet confirmed, or queried.",
+          "Answer plainly: square, or not, and by how much in rupees. Say separately what is claimed but waiting for someone to confirm, because that is not yet counted as paid.",
+          "You are only reading, so there is nothing to confirm; do not write anything.",
+        ],
+        true,
+      ),
   },
   {
     name: "mark-payment-made",
@@ -186,6 +211,7 @@ const PROMPTS: PromptDef[] = [
       },
     ],
     needs: ["get_bootstrap", "get_statements", "get_claims", "post_claims"],
+    money: true,
     text: (a) =>
       preface(
         `Help the person tell the kitchen that they paid ${a.amount} paise (${rupees(a.amount ?? "0")} rupees) by ${a.method} for ${monthOrCurrent(a)}.`,
@@ -196,6 +222,7 @@ const PROMPTS: PromptDef[] = [
           "Only if they say yes, call post_claims (consumerId is their `me.personId`, paidAt the date, forMonth the month, amount in paise, method, and refNote if given).",
           "Tell them that this is a claim: a person who takes payment still has to confirm it, and you cannot do that.",
         ],
+        true,
       ),
   },
 ];
@@ -205,10 +232,13 @@ const rupees = (paise: string): string => {
   return Number.isInteger(n) ? (n / 100).toFixed(2) : paise;
 };
 
-/** The prompts a key may be shown: those whose every tool it has. */
-export function promptsFor(toolNames: readonly string[]) {
+const offered = (p: PromptDef, have: Set<string>, moneyEnabled: boolean) =>
+  (moneyEnabled || !p.money) && p.needs.every((n) => have.has(n));
+
+/** The prompts a key may be shown: those whose every tool it has, and, for a kitchen without money, none about money. */
+export function promptsFor(toolNames: readonly string[], moneyEnabled = true) {
   const have = new Set(toolNames);
-  return PROMPTS.filter((p) => p.needs.every((n) => have.has(n))).map((p) => ({
+  return PROMPTS.filter((p) => offered(p, have, moneyEnabled)).map((p) => ({
     name: p.name,
     title: p.title,
     description: p.description,
@@ -223,6 +253,10 @@ export const promptArguments = (name: string): string[] | undefined =>
 /** The names of the tools a prompt asks for, or undefined if there is no such prompt. */
 export const promptNeeds = (name: string): string[] | undefined =>
   PROMPTS.find((p) => p.name === name)?.needs;
+
+/** Whether a prompt is about money. */
+export const promptIsMoney = (name: string): boolean =>
+  PROMPTS.find((p) => p.name === name)?.money === true;
 
 export type PromptResult =
   | {
@@ -239,10 +273,11 @@ export function getPrompt(
   name: string,
   given: Record<string, unknown> | undefined,
   toolNames: readonly string[],
+  moneyEnabled = true,
 ): PromptResult {
   const def = PROMPTS.find((p) => p.name === name);
   const have = new Set(toolNames);
-  if (!def?.needs.every((n) => have.has(n)))
+  if (!def || !offered(def, have, moneyEnabled))
     return bad(`There is no prompt “${name}” for this key.`);
   const a: Record<string, string> = {};
   for (const arg of def.arguments) {
@@ -277,6 +312,7 @@ export const LEDGER_TEMPLATE = `${RESOURCE_PREFIX}ledger/{month}`;
 export type ResourceRef =
   | { kind: "guide" }
   | { kind: "menu" }
+  | { kind: "prices" }
   | { kind: "holidays" }
   | { kind: "ledger"; month: string };
 
@@ -301,11 +337,19 @@ const RESOURCES: ResourceDef[] = [
   {
     uri: `${RESOURCE_PREFIX}menu`,
     name: "menu",
-    title: "Rate cards and menu",
+    title: "Menu",
     description:
-      "Every rate card, oldest first: prices in paise and the menu for each working day.",
+      "Every menu, oldest first: the meal served on each working day, from the date it starts.",
     mimeType: "application/json",
     kind: "menu",
+  },
+  {
+    uri: `${RESOURCE_PREFIX}prices`,
+    name: "prices",
+    title: "Rate cards",
+    description: "Every rate card, oldest first: prices in paise, from the date each starts.",
+    mimeType: "application/json",
+    kind: "prices",
   },
   {
     uri: `${RESOURCE_PREFIX}holidays`,
@@ -323,6 +367,8 @@ export const resourceNeeds = (ref: ResourceRef): string[] => {
     case "guide":
       return [];
     case "menu":
+      return ["get_menus"];
+    case "prices":
       return ["get_rate_cards"];
     case "holidays":
       return ["get_bootstrap"];
@@ -360,7 +406,8 @@ export function resourceTemplatesFor(toolNames: readonly string[]) {
 export function parseResource(uri: string): ResourceRef | null {
   if (!uri.startsWith(RESOURCE_PREFIX)) return null;
   const rest = uri.slice(RESOURCE_PREFIX.length);
-  if (rest === "guide" || rest === "menu" || rest === "holidays") return { kind: rest };
+  if (rest === "guide" || rest === "menu" || rest === "prices" || rest === "holidays")
+    return { kind: rest };
   const m = /^ledger\/([^/?#]+)$/.exec(rest);
   if (m?.[1] && isValidMonth(m[1])) return { kind: "ledger", month: m[1] };
   return null;
@@ -370,31 +417,38 @@ export function parseResource(uri: string): ResourceRef | null {
 export const canRead = (ref: ResourceRef, toolNames: readonly string[]): boolean =>
   allOf(resourceNeeds(ref), new Set(toolNames));
 
-export const KITCHEN_GUIDE = `How this kitchen works
+/** What the guide says about money, for a kitchen that tracks it. */
+const MONEY_GUIDE = `
+Payments
+- A payment is first claimed (by the member, or an agent for them) and then confirmed or queried by the person who takes payment. A claim is not yet money paid. You can make or withdraw a claim; you cannot confirm, reverse or settle one.
+`;
 
-A kitchen cooks lunch for its members on working days. Each member is billed for the meals they take, at the prices on the kitchen's rate card, and settles at the end of each month. You are acting for one person, in one role, with the scopes your key has. You can do what that person could do with the scopes you were given, and nothing else; what the kitchen's rules or database refuse that person they refuse you.
+/** How the kitchen works, in the words an agent is given: with money in it, or, for a kitchen without money, without. */
+export const kitchenGuide = (moneyEnabled: boolean): string => `How this kitchen works
+
+A kitchen cooks lunch for its members on working days. ${
+  moneyEnabled
+    ? "Each member is billed for the meals they take, at the prices on the kitchen's rate card, and settles at the end of each month."
+    : "This kitchen counts the meals each member takes. It keeps no prices, bills or payments: it does not track money."
+} You are acting for one person, in one role, with the scopes your key has. You can do what that person could do with the scopes you were given, and nothing else; what the kitchen's rules or database refuse that person they refuse you.
 
 Units
-- Money is in paise, hundredths of a rupee: 100 paise is 1 rupee. Tools take and give paise as whole numbers. Show people rupees.
-- A date is YYYY-MM-DD, in the kitchen's own time zone. A month is YYYY-MM.
+${moneyEnabled ? "- Money is in paise, hundredths of a rupee: 100 paise is 1 rupee. Tools take and give paise as whole numbers. Show people rupees.\n" : ""}- A date is YYYY-MM-DD, in the kitchen's own time zone. A month is YYYY-MM.
 - A meal is Veg or Non Veg. Extras are Chapati and Bhakri.
 
 Entries (the log)
-- Leave: the person does not eat that day. Whether it is charged depends on the kitchen's rules.
+- Leave: the person does not eat that day.${moneyEnabled ? " Whether it is charged depends on the kitchen's rules." : ""}
 - Switch to Veg, Switch to Non Veg: the person eats the other meal that day.
-- Extra Chapati, Extra Bhakri: more of those, with a quantity.
+- Extra Chapati, Extra Bhakri: more of those, with a quantity${moneyEnabled ? "" : " (counted, not priced)"}.
 - Supplier Off: the kitchen is closed that day for everyone. Only the supplier or an admin can log it.
 - A member can log only for themselves. An entry after the cut-off, on a day that is not a working day, or in a month that is closed is refused or warned about, in words. Holidays the kitchen has confirmed are days it does not cook.
-
-Payments
-- A payment is first claimed (by the member, or an agent for them) and then confirmed or queried by the person who takes payment. A claim is not yet money paid. You can make or withdraw a claim; you cannot confirm, reverse or settle one.
-
+${moneyEnabled ? MONEY_GUIDE : ""}
 How to use the tools
-- Start with get_bootstrap: the kitchen, who you are (me.personId, role), today, the current month, the rules, the rate card and the holidays.
+- Start with get_bootstrap: the kitchen, who you are (me.personId, role), today, the current month, the rules, the menu${moneyEnabled ? ", the rate card" : ""} and the holidays.
 - Read before you write. To log an entry, check it first with post_log_check, which writes nothing, then post_log. delete_log_id withdraws an entry.
 - Before any write, tell the person what you will do and ask. Write only after they agree.
 - Each tool call is an ordinary request to the kitchen, counted against its day and recorded in its history as done through an agent.
-- If a tool is not listed, your key cannot do it. Closing months, changing prices, rules, people or holidays, and making keys stay with a person.
+- If a tool is not listed, your key cannot do it. Closing months, changing${moneyEnabled ? " prices," : ""} the menu, rules, people or holidays, and making keys stay with a person.
 `;
 
 // --- completions ----------------------------------------------------------------------------------------

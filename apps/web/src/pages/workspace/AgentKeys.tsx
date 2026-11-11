@@ -51,10 +51,12 @@ export function AgentKeys() {
       <div className="stack">
         <p className="muted">
           A key lets software act for a person here: as them, in the role you are using, and no
-          further. It can read; if you allow it, it can add entries or say a payment was made.
-          Confirming payments, closing months and everything about people, prices and the kitchen
-          itself stay with a person. What it does is marked in the kitchen&apos;s history as an
-          agent&apos;s, for everyone it affects to read. The key is shown once.
+          further. It can read; if you allow it, it can add entries
+          {ws.money ? " or say a payment was made" : ""}.{" "}
+          {ws.money ? "Confirming payments, closing" : "Closing"} months and everything about
+          people, {ws.money ? "prices and " : ""}the menu and the kitchen itself stay with a person.
+          What it does is marked in the kitchen&apos;s history as an agent&apos;s, for everyone it
+          affects to read. The key is shown once.
         </p>
         <Problem error={list.error} />
         {fresh ? (
@@ -113,7 +115,7 @@ export function AgentKeys() {
           </Field>
           <fieldset className="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
             <legend>What it may do besides reading</legend>
-            {SCOPES.map(([key, label]) => (
+            {SCOPES.filter(([key]) => ws.money || key !== "claims").map(([key, label]) => (
               <label key={key} className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
                 <input
                   type="checkbox"

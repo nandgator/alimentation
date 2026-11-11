@@ -5,6 +5,7 @@ import {
   type Decision,
   type EngineData,
   type LogEntry,
+  type MenuVersion,
   type Person,
   type Policy,
   type PolicyVersion,
@@ -52,7 +53,13 @@ export const CARD_APR: RateCard = {
   extraChapati: rupees(15),
   extraBhakri: rupees(30),
   extrasPerMonth: rupees(40),
-  menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
+  note: null,
+};
+
+export const MENU_APR: MenuVersion = {
+  id: "menu-apr",
+  effectiveFrom: "2026-04-01",
+  days: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
   note: null,
 };
 
@@ -108,7 +115,9 @@ export const SEED_LOG: LogEntry[] = [
 export function data(over: Partial<EngineData> = {}): EngineData {
   return {
     today: "2026-11-15",
+    moneyEnabled: true,
     policies: [],
+    menus: [MENU_APR],
     rateCards: [CARD_APR],
     holidays: HOLIDAYS,
     people: [ADMIN, MAPLE, JOVIAL, SMRUTI],

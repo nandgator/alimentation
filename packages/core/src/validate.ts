@@ -59,6 +59,7 @@ export type IssueCode =
   | "ALREADY_VOID"
   | "ONLY_AUTHOR"
   | "BACKDATED_RATE_CARD"
+  | "BACKDATED_MENU"
   | "NO_MENU_FOR_WORKING_DAY";
 
 export interface Issue {
@@ -334,29 +335,50 @@ export function checkClaimWithdrawal(p: Prepared, actor: Actor, claimId: string)
   return [];
 }
 
-/** Whether a new rate card may start on `effectiveFrom`, and that it serves every working day. */
-export function checkRateCard(
+/** The month of the latest close, or null when nothing has been closed. */
+function lastClosedMonth(p: Prepared): Month | null {
+  let last: Month | null = null;
+  // Stryker disable next-line EqualityOperator: equal months give the same answer
+  for (const c of p.data.closes) if (last === null || c.forMonth > last) last = c.forMonth;
+  return last;
+}
+
+/** Whether a new menu may start on `effectiveFrom`, and that it serves every working day. */
+export function checkMenu(
   p: Prepared,
   effectiveFrom: IsoDate,
-  menu: Partial<Record<number, string>>,
+  days: Partial<Record<number, string>>,
 ): Issue[] {
+  const out: Issue[] = [];
+  if (!isValidDate(effectiveFrom)) return [err("NOT_A_DATE", MSG.notADate4)];
+  const policy = policyForMonth(p.data.policies, monthOf(effectiveFrom));
+  for (const wd of policy.workingDays) {
+    if (!days[wd]) out.push(err("NO_MENU_FOR_WORKING_DAY", MSG.noMenuForWorkingDay));
+  }
+  if (p.menus.some((m) => m.effectiveFrom === effectiveFrom)) {
+    out.push(err("DUPLICATE", MSG.duplicateMenu));
+  }
+  // The first menu serves nothing that was served before, so it may start whenever; a later one may not
+  // reach back into a month that has been closed, which would change what that month's counts say.
+  const closed = lastClosedMonth(p);
+  if (p.menus.length > 0 && closed !== null && monthOf(effectiveFrom) <= closed) {
+    out.push(err("BACKDATED_MENU", MSG.backdatedMenu));
+  }
+  return out;
+}
+
+/** Whether a new rate card may start on `effectiveFrom`. Prices only; what is served is `checkMenu`. */
+export function checkRateCard(p: Prepared, effectiveFrom: IsoDate): Issue[] {
   const out: Issue[] = [];
   if (!isValidDate(effectiveFrom)) return [err("NOT_A_DATE", MSG.notADate3)];
   const policy = policyForMonth(p.data.policies, monthOf(effectiveFrom));
-  for (const wd of policy.workingDays) {
-    if (!menu[wd]) out.push(err("NO_MENU_FOR_WORKING_DAY", MSG.noMenuForWorkingDay));
-  }
   if (p.cards.some((c) => c.effectiveFrom === effectiveFrom)) {
     out.push(err("DUPLICATE", MSG.duplicate2));
   }
-  let lastClosed: Month | null = null;
-  // Stryker disable next-line EqualityOperator: equal months give the same answer
-  for (const c of p.data.closes)
-    if (lastClosed === null || c.forMonth > lastClosed) lastClosed = c.forMonth;
   // The first card prices nothing that was priced before, so it may start whenever.
   if (
     p.cards.length > 0 &&
-    !rateCardStartAllowed(policy, effectiveFrom, p.data.today, lastClosed)
+    !rateCardStartAllowed(policy, effectiveFrom, p.data.today, lastClosedMonth(p))
   ) {
     out.push(err("BACKDATED_RATE_CARD", MSG.backdatedRateCard));
   }

@@ -13,7 +13,7 @@ import { nodeDb } from "../src/db/node.ts";
 import { exportWorkspace, readBundleBody } from "../src/lifecycle/bundleio.ts";
 import { importBundle } from "../src/lifecycle/import.ts";
 import { WorkspaceService } from "../src/workspace/service.ts";
-import { type Fixture, makeFixture } from "./support/fixture.ts";
+import { type Fixture, makeFixture, moneyStatements } from "./support/fixture.ts";
 import { newWorkspace } from "./support/pg.ts";
 import { at, seedSpec } from "./support/spec.ts";
 
@@ -145,7 +145,7 @@ describe("[P3] a workspace can be exported and imported without losing a paisa",
     expect(bundle.log.find((e) => e.note === "WFH")).toBeTruthy();
     expect(
       bundle.expected.find((t) => t.personId === ids.jovial && t.month === "2026-10"),
-    ).toMatchObject({ billed: rupees(3260), paid: rupees(500) });
+    ).toMatchObject({ meals: 20, money: { billed: rupees(3260), paid: rupees(500) } });
     expect((await parseBundle(JSON.parse(JSON.stringify(bundle)))).ok).toBe(true);
   });
 
@@ -206,6 +206,7 @@ describe("[P3] a workspace can be exported and imported without losing a paisa",
         name: "Target",
         timeZone: "Asia/Kolkata",
         currency: "INR",
+        moneyEnabled: true,
         state: "ACTIVE",
         movedTo: null,
         limits: { requestsPerDay: 1000, people: 25, rows: 5000, bytes: 1e9 },
@@ -219,14 +220,16 @@ describe("[P3] a workspace can be exported and imported without losing a paisa",
       personId: bundle.people.find((p) => p.role === "admin")!.id,
       role: "admin" as const,
     };
-    const all = await svc.statements(admin, ["2026-10"]);
+    const all = await moneyStatements(svc, admin, ["2026-10"]);
     const byName = Object.fromEntries(all.map((s) => [s.name, s]));
     expect(byName.Jovial!.billed).toBe(rupees(3260));
     expect(byName["Smruti Renamed"]!.billed).toBe(rupees(3030));
     expect(byName.Jovial!.paid).toBe(rupees(500));
     expect(byName["Smruti Renamed"]!.openQueries).toBe(0);
     const consumer = { personId: ids.jovial, role: "consumer" as const };
-    expect((await svc.statements(consumer, ["2026-10"])).map((s) => s.name)).toEqual(["Jovial"]);
+    expect((await moneyStatements(svc, consumer, ["2026-10"])).map((s) => s.name)).toEqual([
+      "Jovial",
+    ]);
     // The closed month is still closed: a consumer cannot edit it.
     await expect(
       svc.addLog(consumer, {
@@ -302,8 +305,8 @@ describe("[P3] an import that is not exact is not kept", () => {
 
   it("rolls back everything when a statement does not come out to the paisa", async () => {
     const body = withoutManifest(JSON.parse(JSON.stringify(bundle)));
-    body.expected = body.expected.map((t: { billed: number }, i: number) =>
-      i === 0 ? { ...t, billed: t.billed + 100 } : t,
+    body.expected = body.expected.map((t: { money: { billed: number } | null }, i: number) =>
+      i === 0 && t.money ? { ...t, money: { ...t.money, billed: t.money.billed + 100 } } : t,
     );
     const { report, left } = await attempt(await assembleBundle(body));
     expect(report.ok).toBe(false);

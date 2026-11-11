@@ -10,8 +10,8 @@ export const RATES = {
   extraChapati: rupees(15),
   extraBhakri: rupees(30),
   extrasPerMonth: rupees(40),
-  menu: MENU,
 };
+export const MENUS = { effectiveFrom: "2026-04-01", menu: MENU };
 
 export interface Kitchen {
   slug: string;
@@ -41,6 +41,7 @@ export async function seedKitchen(
   });
   if (made.status !== 201) throw new Error(`workspace not made: ${JSON.stringify(made.json)}`);
   const w = `/api/w/${slug}`;
+  await owner.post(`${w}/menus`, MENUS);
   await owner.post(`${w}/rate-cards`, RATES);
   await owner.post(`${w}/holidays`, {
     name: "Gandhi Jayanti",
@@ -134,6 +135,90 @@ export async function seedKitchen(
         statements: await get("/statements?months=2026-09,2026-10"),
         claims: await get("/claims"),
         settlements: await get("/settlements"),
+      };
+    },
+  };
+}
+
+/**
+ * A small kitchen that does not track money, made the way a person would: a menu, a holiday, two members who
+ * accepted invitations, meals logged, and September locked. It has no prices, claims or settlements, and
+ * cannot have them.
+ */
+export async function seedMealsKitchen(
+  p: TestPlatform,
+  slug: string,
+  ownerEmail = `owner-${slug}@example.org`,
+): Promise<Kitchen> {
+  const owner = await p.signIn(ownerEmail, "Owner");
+  const made = await owner.post("/api/workspaces", {
+    slug,
+    name: `Kitchen ${slug}`,
+    alsoSupplier: true,
+    moneyEnabled: false,
+  });
+  if (made.status !== 201) throw new Error(`workspace not made: ${JSON.stringify(made.json)}`);
+  const w = `/api/w/${slug}`;
+  await owner.post(`${w}/menus`, MENUS);
+  await owner.post(`${w}/holidays`, {
+    name: "Gandhi Jayanti",
+    date: "2026-10-02",
+    confirmed: true,
+  });
+  const clients: Record<string, Client> = {};
+  const ids: Record<string, string> = {};
+  for (const [name, key] of [
+    ["Jovial", "jovial"],
+    ["Smruti", "smruti"],
+  ] as const) {
+    const person = await owner.post(`${w}/people`, {
+      name,
+      role: "consumer",
+      contact: `${key}@home`,
+      activeFrom: "2026-09-01",
+    });
+    ids[key] = person.json.id;
+    const email = `${key}-${slug}@example.org`;
+    const inv = await owner.post(`${w}/people/${person.json.id}/invite`, { email });
+    clients[key] = await p.signIn(email, name);
+    await clients[key]!.post("/api/invites/accept", { token: inv.json.link.split("#")[1] });
+  }
+  const handle = (await p.runtime.deps.directory.bySlug(slug))!;
+  const db = new pg.Pool({ connectionString: handle.dsns.owner, max: 1 });
+  const supplier = (await db.query<{ id: string }>(`SELECT id FROM person WHERE role = 'supplier'`))
+    .rows[0]!.id;
+  const log = (
+    date: string,
+    person: string | null,
+    change: string,
+    qty: number | null,
+    all = false,
+  ) =>
+    db.query(
+      `INSERT INTO log_entry (on_date, person_id, all_consumers, change, qty, logged_by, note_enc)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [date, person, all, change, qty, person ?? supplier, null],
+    );
+  await log("2026-09-08", ids.jovial!, "Leave", null);
+  await log("2026-09-15", ids.smruti!, "Extra Chapati", 3);
+  await log("2026-10-01", ids.jovial!, "Extra Bhakri", 2);
+  await log("2026-10-07", null, "Supplier Off", null, true);
+  await log("2026-10-16", ids.smruti!, "Leave", null);
+  await db.end();
+  const closed = await owner.post(`${w}/closes`, { month: "2026-09" });
+  if (closed.status !== 201) throw new Error(`not closed: ${JSON.stringify(closed.json)}`);
+
+  return {
+    slug,
+    owner,
+    jovial: clients.jovial!,
+    smruti: clients.smruti!,
+    ids: { jovial: ids.jovial!, smruti: ids.smruti! },
+    async snapshot() {
+      const get = async (path: string) => (await owner.get(`${w}${path}`)).json;
+      return {
+        statements: await get("/statements?months=2026-09,2026-10"),
+        menus: await get("/menus"),
       };
     },
   };

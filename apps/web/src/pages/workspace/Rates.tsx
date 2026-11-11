@@ -1,8 +1,10 @@
 import {
   DEFAULT_POLICY,
   dayName,
+  type MenuVersion,
   must,
   type Policy,
+  type PolicyView,
   type RateCard,
   type Weekday,
 } from "@alimentation/core";
@@ -26,15 +28,7 @@ import { useWorkspace } from "./context.tsx";
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0];
 type MenuChoice = "" | "Veg" | "Non Veg";
 
-function CardForm({
-  last,
-  days,
-  onDone,
-}: {
-  last: RateCard | null;
-  days: readonly Weekday[];
-  onDone: () => void;
-}) {
+function CardForm({ last, onDone }: { last: RateCard | null; onDone: () => void }) {
   const ws = useWorkspace();
   const [from, setFrom] = useState(ws.boot.today);
   const [v, setV] = useState({
@@ -44,9 +38,6 @@ function CardForm({
     extraBhakri: last ? rupeesText(last.extraBhakri) : "",
     extrasPerMonth: last ? rupeesText(last.extrasPerMonth) : "",
   });
-  const [menu, setMenu] = useState<Record<number, MenuChoice>>(
-    Object.fromEntries(WEEK.map((d) => [d, (last?.menu[d] as MenuChoice | undefined) ?? ""])),
-  );
   const [note, setNote] = useState("");
   const act = useAction();
   const keys = Object.keys(v) as (keyof typeof v)[];
@@ -69,23 +60,19 @@ function CardForm({
               return [k, p];
             }),
           );
-          const body = {
+          await postJson(`${ws.api}/rate-cards`, {
             effectiveFrom: from,
             ...prices,
-            menu: Object.fromEntries(
-              Object.entries(menu).filter(([d, m]) => m && days.includes(Number(d) as Weekday)),
-            ),
             note: note.trim() || null,
-          };
-          await postJson(`${ws.api}/rate-cards`, body);
-          toast("Rate card added.");
+          });
+          toast("Prices added.");
           onDone();
           ws.reload();
         })
       }
     >
       <p className="muted small">
-        Rates are never changed after the fact: a new card applies from its date onwards.
+        Prices are never changed after the fact: new prices apply from their date onwards.
       </p>
       <Field label="Applies from" id="rfrom">
         <input
@@ -109,6 +96,66 @@ function CardForm({
           </Field>
         ))}
       </div>
+      <Field label="Note (optional)" id="rnote">
+        <input id="rnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+      <div>
+        <button type="submit" className="btn" disabled={act.busy}>
+          Add prices
+        </button>
+      </div>
+    </Form>
+  );
+}
+
+/** What is served on each working day, from a date. Only the days the kitchen cooks are asked about. */
+function MenuForm({
+  last,
+  days,
+  onDone,
+}: {
+  last: MenuVersion | null;
+  days: readonly Weekday[];
+  onDone: () => void;
+}) {
+  const ws = useWorkspace();
+  const [from, setFrom] = useState(ws.boot.today);
+  const [menu, setMenu] = useState<Record<number, MenuChoice>>(
+    Object.fromEntries(WEEK.map((d) => [d, (last?.days[d] as MenuChoice | undefined) ?? ""])),
+  );
+  const [note, setNote] = useState("");
+  const act = useAction();
+  return (
+    <Form
+      error={act.error}
+      onSubmit={() =>
+        act.run(async () => {
+          await postJson(`${ws.api}/menus`, {
+            effectiveFrom: from,
+            menu: Object.fromEntries(
+              Object.entries(menu).filter(([d, m]) => m && days.includes(Number(d) as Weekday)),
+            ),
+            note: note.trim() || null,
+          });
+          toast("Menu added.");
+          onDone();
+          ws.reload();
+        })
+      }
+    >
+      <p className="muted small">
+        A menu is never changed after the fact: a new one applies from its date onwards. Each day
+        the kitchen cooks needs a meal.
+      </p>
+      <Field label="Applies from" id="mfrom">
+        <input
+          id="mfrom"
+          type="date"
+          required
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+        />
+      </Field>
       <div className="field">
         <span className="label">Menu</span>
         <div className="pair">
@@ -128,21 +175,23 @@ function CardForm({
           ))}
         </div>
       </div>
-      <Field label="Note (optional)" id="rnote">
-        <input id="rnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+      <Field label="Note (optional)" id="mnote">
+        <input id="mnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
       <div>
         <button type="submit" className="btn" disabled={act.busy}>
-          Add rate card
+          Add menu
         </button>
       </div>
     </Form>
   );
 }
 
-function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }) {
+function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => void }) {
   const ws = useWorkspace();
-  const [p, setP] = useState<Policy>(current);
+  const [p, setP] = useState<PolicyView>(current);
+  // The money rules are in the view only for a kitchen that tracks money.
+  const full = ws.money ? (p as Policy) : null;
   const [from, setFrom] = useState(ws.boot.today);
   const act = useAction();
   const days = new Set(p.workingDays);
@@ -161,7 +210,7 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
     >
       <p className="muted small">
         These rules apply to months starting on or after the date below. Earlier months keep the
-        rules they were billed under.
+        rules they were {ws.money ? "billed" : "counted"} under.
       </p>
       <Field label="Applies from" id="pfrom2">
         <input
@@ -207,48 +256,57 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
             <option value="all">All listed holidays</option>
           </select>
         </Field>
-        <Field label="Charge on a leave day (%)" id="pol-l" hint="Share of the day’s meal price.">
-          <input
-            id="pol-l"
-            type="number"
-            min={0}
-            max={100}
-            step="0.01"
-            value={p.leave.chargeBps / 100}
-            onChange={(e) =>
-              setP({ ...p, leave: { chargeBps: Math.round(Number(e.target.value) * 100) } })
-            }
-          />
-        </Field>
-        <Field
-          label="Monthly extras apply from"
-          id="pol-e"
-          hint="Meals needed in the month; none means no monthly extras."
-        >
-          <input
-            id="pol-e"
-            type="number"
-            min={0}
-            max={31}
-            value={p.extras?.minMeals ?? 0}
-            onChange={(e) =>
-              setP({
-                ...p,
-                extras: Number(e.target.value) > 0 ? { minMeals: Number(e.target.value) } : null,
-              })
-            }
-          />
-        </Field>
-        <Field label="Payments" id="pol-p">
-          <select
-            id="pol-p"
-            value={p.payments}
-            onChange={(e) => setP({ ...p, payments: e.target.value as Policy["payments"] })}
-          >
-            <option value="claim_confirm">Member claims, supplier confirms</option>
-            <option value="direct">Recorded directly</option>
-          </select>
-        </Field>
+        {full ? (
+          <>
+            <Field
+              label="Charge on a leave day (%)"
+              id="pol-l"
+              hint="Share of the day’s meal price."
+            >
+              <input
+                id="pol-l"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={full.leave.chargeBps / 100}
+                onChange={(e) =>
+                  setP({ ...full, leave: { chargeBps: Math.round(Number(e.target.value) * 100) } })
+                }
+              />
+            </Field>
+            <Field
+              label="Monthly extras apply from"
+              id="pol-e"
+              hint="Meals needed in the month; none means no monthly extras."
+            >
+              <input
+                id="pol-e"
+                type="number"
+                min={0}
+                max={31}
+                value={full.extras?.minMeals ?? 0}
+                onChange={(e) =>
+                  setP({
+                    ...full,
+                    extras:
+                      Number(e.target.value) > 0 ? { minMeals: Number(e.target.value) } : null,
+                  })
+                }
+              />
+            </Field>
+            <Field label="Payments" id="pol-p">
+              <select
+                id="pol-p"
+                value={full.payments}
+                onChange={(e) => setP({ ...full, payments: e.target.value as Policy["payments"] })}
+              >
+                <option value="claim_confirm">Member claims, supplier confirms</option>
+                <option value="direct">Recorded directly</option>
+              </select>
+            </Field>
+          </>
+        ) : null}
       </div>
       <div className="pair">
         <Field
@@ -307,22 +365,24 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
             </select>
           </Field>
         ) : null}
-        <Field label="Rate cards may start" id="pol-b">
-          <select
-            id="pol-b"
-            value={p.rateCards.backdating}
-            onChange={(e) =>
-              setP({
-                ...p,
-                rateCards: { backdating: e.target.value as Policy["rateCards"]["backdating"] },
-              })
-            }
-          >
-            <option value="none">Only from today</option>
-            <option value="current_month">From the start of this month</option>
-            <option value="unrestricted">Any date</option>
-          </select>
-        </Field>
+        {full ? (
+          <Field label="Rate cards may start" id="pol-b">
+            <select
+              id="pol-b"
+              value={full.rateCards.backdating}
+              onChange={(e) =>
+                setP({
+                  ...full,
+                  rateCards: { backdating: e.target.value as Policy["rateCards"]["backdating"] },
+                })
+              }
+            >
+              <option value="none">Only from today</option>
+              <option value="current_month">From the start of this month</option>
+              <option value="unrestricted">Any date</option>
+            </select>
+          </Field>
+        ) : null}
       </div>
       <div className="pair">
         <Field
@@ -375,25 +435,102 @@ function PolicyForm({ current, onDone }: { current: Policy; onDone: () => void }
   );
 }
 
-export function Rates() {
+/** The menus of a kitchen, newest first. Every kitchen has them, whether or not it tracks money. */
+export function Menu() {
   const ws = useWorkspace();
-  const cards = useLoad(() => getJson<RateCard[]>(`${ws.api}/rate-cards`), [ws.api]);
+  const menus = useLoad(() => getJson<MenuVersion[]>(`${ws.api}/menus`), [ws.api]);
   const pols = useLoad(
-    () => getJson<{ effectiveFrom: string; doc: Policy }[]>(`${ws.api}/policies`),
+    () => getJson<{ effectiveFrom: string; doc: PolicyView }[]>(`${ws.api}/policies`),
     [ws.api],
   );
-  const [dlg, setDlg] = useState<"card" | "policy" | null>(null);
-  const list = [...(cards.data ?? [])].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
+  const [open, setOpen] = useState(false);
+  const list = [...(menus.data ?? [])].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
   const current = pols.data?.length
     ? must(pols.data[pols.data.length - 1]).doc
     : (ws.boot.policy ?? DEFAULT_POLICY);
+  const working = current.workingDays as Weekday[];
+  return (
+    <div className="stack" style={{ ["--gap" as string]: "24px" }}>
+      <PageHead title="Menu" lead="What is served on each day the kitchen cooks." />
+      <Problem error={menus.error ?? pols.error} />
+      <section className="stack" aria-label="Menus">
+        <SectionHead
+          title="Menus"
+          actions={
+            <button
+              type="button"
+              className="btn small"
+              disabled={!ws.writable}
+              onClick={() => setOpen(true)}
+            >
+              New menu
+            </button>
+          }
+        />
+        {menus.loading && !menus.data ? <Spinner /> : null}
+        {list.length > 0 ? (
+          <div
+            className="tablewrap"
+            tabIndex={0}
+            role="region"
+            aria-label="Table; scrolls sideways when it is wider than the screen"
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>From</th>
+                  {WEEK.filter((d) => working.includes(d)).map((d) => (
+                    <th key={d}>{dayName(d)}</th>
+                  ))}
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((m) => (
+                  <tr key={m.id}>
+                    <td>{date(m.effectiveFrom)}</td>
+                    {WEEK.filter((d) => working.includes(d)).map((d) => (
+                      <td key={d}>{m.days[d] ?? "-"}</td>
+                    ))}
+                    <td>{m.note ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : !menus.loading ? (
+          <p className="muted">No menu yet. Meals are counted from the day a menu starts.</p>
+        ) : null}
+      </section>
+      <Dialog open={open} onClose={() => setOpen(false)} title="New menu">
+        {open ? (
+          <MenuForm
+            last={list[0] ?? null}
+            days={working}
+            onDone={() => {
+              setOpen(false);
+              menus.reload();
+            }}
+          />
+        ) : null}
+      </Dialog>
+    </div>
+  );
+}
+
+/** The prices of a kitchen that tracks money, newest first. */
+export function Prices() {
+  const ws = useWorkspace();
+  const cards = useLoad(() => getJson<RateCard[]>(`${ws.api}/rate-cards`), [ws.api]);
+  const [open, setOpen] = useState(false);
+  const list = [...(cards.data ?? [])].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
   return (
     <div className="stack" style={{ ["--gap" as string]: "24px" }}>
       <PageHead
-        title="Rates and rules"
-        lead="What a meal costs, and the rules each bill follows."
+        title="Prices"
+        lead="What a meal and an extra cost. What is served is on the menu."
       />
-      <Problem error={cards.error ?? pols.error} />
+      <Problem error={cards.error} />
       <section className="stack" aria-label="Rate cards">
         <SectionHead
           title="Rate cards"
@@ -402,9 +539,9 @@ export function Rates() {
               type="button"
               className="btn small"
               disabled={!ws.writable}
-              onClick={() => setDlg("card")}
+              onClick={() => setOpen(true)}
             >
-              New rate card
+              New prices
             </button>
           }
         />
@@ -425,7 +562,6 @@ export function Rates() {
                   <th className="r">Chapati</th>
                   <th className="r">Bhakri</th>
                   <th className="r">Extras / month</th>
-                  <th>Menu</th>
                 </tr>
               </thead>
               <tbody>
@@ -437,21 +573,53 @@ export function Rates() {
                     <td className="r">{money(c.extraChapati)}</td>
                     <td className="r">{money(c.extraBhakri)}</td>
                     <td className="r">{money(c.extrasPerMonth)}</td>
-                    <td>
-                      {WEEK.filter(
-                        (d) => c.menu[d] && (current.workingDays as number[]).includes(d),
-                      )
-                        .map((d) => `${dayName(d)} ${c.menu[d] === "Veg" ? "V" : "N"}`)
-                        .join(" · ") || "-"}
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : !cards.loading ? (
+          <p className="muted">No prices yet. Add prices to start billing.</p>
         ) : null}
       </section>
+      <Dialog open={open} onClose={() => setOpen(false)} title="New prices">
+        {open ? (
+          <CardForm
+            last={list[0] ?? null}
+            onDone={() => {
+              setOpen(false);
+              cards.reload();
+            }}
+          />
+        ) : null}
+      </Dialog>
+    </div>
+  );
+}
 
+/** The rules each month follows. A kitchen that does not track money is not shown the money rules. */
+export function Rates() {
+  const ws = useWorkspace();
+  const pols = useLoad(
+    () => getJson<{ effectiveFrom: string; doc: PolicyView }[]>(`${ws.api}/policies`),
+    [ws.api],
+  );
+  const [open, setOpen] = useState(false);
+  const current = pols.data?.length
+    ? must(pols.data[pols.data.length - 1]).doc
+    : (ws.boot.policy ?? DEFAULT_POLICY);
+  const full = ws.money ? (current as Policy) : null;
+  return (
+    <div className="stack" style={{ ["--gap" as string]: "24px" }}>
+      <PageHead
+        title={ws.money ? "Rates and rules" : "Rules"}
+        lead={
+          ws.money
+            ? "The rules each bill follows. What a meal costs is under Prices."
+            : "The rules each month follows."
+        }
+      />
+      <Problem error={pols.error} />
       <section className="stack" aria-label="Rules">
         <SectionHead
           title="Rules for this kitchen"
@@ -460,7 +628,7 @@ export function Rates() {
               type="button"
               className="btn small"
               disabled={!ws.writable}
-              onClick={() => setDlg("policy")}
+              onClick={() => setOpen(true)}
             >
               Change rules
             </button>
@@ -474,12 +642,16 @@ export function Rates() {
                 ? "Only confirmed holidays cancel a meal."
                 : "Every listed holiday cancels a meal."}
             </li>
-            <li>A leave day is charged {current.leave.chargeBps / 100}% of the meal.</li>
-            <li>
-              {current.extras
-                ? `Monthly extras apply from ${current.extras.minMeals} meal${current.extras.minMeals === 1 ? "" : "s"}.`
-                : "No monthly extras."}
-            </li>
+            {full ? (
+              <li>A leave day is charged {full.leave.chargeBps / 100}% of the meal.</li>
+            ) : null}
+            {full ? (
+              <li>
+                {full.extras
+                  ? `Monthly extras apply from ${full.extras.minMeals} meal${full.extras.minMeals === 1 ? "" : "s"}.`
+                  : "No monthly extras."}
+              </li>
+            ) : null}
             <li>
               {current.monthClose.mode === "off"
                 ? "Months are never closed."
@@ -492,11 +664,13 @@ export function Rates() {
                   : " Later changes are not allowed."
                 : ""}
             </li>
-            <li>
-              {current.payments === "claim_confirm"
-                ? "Members claim a payment and the supplier confirms it."
-                : "Payments are recorded directly."}
-            </li>
+            {full ? (
+              <li>
+                {full.payments === "claim_confirm"
+                  ? "Members claim a payment and the supplier confirms it."
+                  : "Payments are recorded directly."}
+              </li>
+            ) : null}
             <li>
               {current.exceptionCutoff
                 ? `Exceptions are due ${current.exceptionCutoff.daysBefore} day(s) before, by ${current.exceptionCutoff.time}. After that, the admin can still add one for you, marked late.`
@@ -505,25 +679,12 @@ export function Rates() {
           </ul>
         </div>
       </section>
-
-      <Dialog open={dlg === "card"} onClose={() => setDlg(null)} title="New rate card">
-        {dlg === "card" ? (
-          <CardForm
-            last={list[0] ?? null}
-            days={current.workingDays as Weekday[]}
-            onDone={() => {
-              setDlg(null);
-              cards.reload();
-            }}
-          />
-        ) : null}
-      </Dialog>
-      <Dialog open={dlg === "policy"} onClose={() => setDlg(null)} title="Change the rules">
-        {dlg === "policy" ? (
+      <Dialog open={open} onClose={() => setOpen(false)} title="Change the rules">
+        {open ? (
           <PolicyForm
             current={current}
             onDone={() => {
-              setDlg(null);
+              setOpen(false);
               pols.reload();
             }}
           />

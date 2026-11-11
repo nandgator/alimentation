@@ -6,6 +6,7 @@ import {
   checkDecision,
   checkLogChange,
   checkLogEntry,
+  checkMenu,
   checkRateCard,
   checkReversal,
   hasErrors,
@@ -320,40 +321,34 @@ describe("the supplier decides once", () => {
 });
 
 describe("rate cards", () => {
-  const menu = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" };
   const p = prep({ today: "2026-10-20" });
-  it("accepts a card for a future month with a full menu", () => {
-    expect(checkRateCard(p, "2026-11-01", menu)).toEqual([]);
-  });
-  it("needs a meal on every working day", () => {
-    expect(codes(checkRateCard(p, "2026-11-01", { 1: "Veg" }))).toContain(
-      "NO_MENU_FOR_WORKING_DAY",
-    );
+  it("accepts a card for a future month", () => {
+    expect(checkRateCard(p, "2026-11-01")).toEqual([]);
   });
   it("refuses a second card on the same date", () => {
-    expect(codes(checkRateCard(p, "2026-04-01", menu))).toContain("DUPLICATE");
+    expect(codes(checkRateCard(p, "2026-04-01"))).toContain("DUPLICATE");
   });
   it("lets the very first card start whenever, because it reprices nothing", () => {
     const empty = prep({ today: "2026-10-20", rateCards: [] });
-    expect(checkRateCard(empty, "2026-04-01", menu)).toEqual([]);
-    expect(codes(checkRateCard(p, "2026-04-02", menu))).toEqual(["BACKDATED_RATE_CARD"]); // but not once there is one
+    expect(checkRateCard(empty, "2026-04-01")).toEqual([]);
+    expect(codes(checkRateCard(p, "2026-04-02"))).toEqual(["BACKDATED_RATE_CARD"]); // but not once there is one
   });
   it("lets a card start earlier in the current month, but never in a past month, by default", () => {
-    expect(checkRateCard(p, "2026-10-15", menu)).toEqual([]); // the spec: past MONTHS must not change
-    expect(codes(checkRateCard(p, "2026-09-30", menu))).toEqual(["BACKDATED_RATE_CARD"]);
-    expect(checkRateCard(p, "2026-10-21", menu)).toEqual([]);
+    expect(checkRateCard(p, "2026-10-15")).toEqual([]); // the spec: past MONTHS must not change
+    expect(codes(checkRateCard(p, "2026-09-30"))).toEqual(["BACKDATED_RATE_CARD"]);
+    expect(checkRateCard(p, "2026-10-21")).toEqual([]);
   });
   it("can forbid any back-dating at all", () => {
     const strict = prep({
       today: "2026-10-20",
       policies: [policyWith({ rateCards: { backdating: "none" } })],
     });
-    expect(codes(checkRateCard(strict, "2026-10-19", menu))).toEqual(["BACKDATED_RATE_CARD"]);
-    expect(checkRateCard(strict, "2026-10-20", menu)).toEqual([]);
+    expect(codes(checkRateCard(strict, "2026-10-19"))).toEqual(["BACKDATED_RATE_CARD"]);
+    expect(checkRateCard(strict, "2026-10-20")).toEqual([]);
   });
   it("refuses to reprice a closed month even when the month is the current one", () => {
     expect(
-      codes(checkRateCard(prep({ today: "2026-10-20", closes: [close()] }), "2026-10-25", menu)),
+      codes(checkRateCard(prep({ today: "2026-10-20", closes: [close()] }), "2026-10-25")),
     ).toEqual(["BACKDATED_RATE_CARD"]);
   });
   it("lets an unrestricted workspace back-date", () => {
@@ -361,10 +356,43 @@ describe("rate cards", () => {
       today: "2026-10-20",
       policies: [policyWith({ rateCards: { backdating: "unrestricted" } })],
     });
-    expect(checkRateCard(open, "2026-06-01", menu)).toEqual([]);
+    expect(checkRateCard(open, "2026-06-01")).toEqual([]);
   });
   it("rejects a date that is not a date", () => {
-    expect(codes(checkRateCard(p, "next month", menu))).toEqual(["NOT_A_DATE"]);
+    expect(codes(checkRateCard(p, "next month"))).toEqual(["NOT_A_DATE"]);
+  });
+});
+
+describe("menus", () => {
+  const days = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" };
+  const p = prep({ today: "2026-10-20" });
+  it("accepts a menu for a future month with a meal on every working day", () => {
+    expect(checkMenu(p, "2026-11-01", days)).toEqual([]);
+  });
+  it("needs a meal on every working day", () => {
+    expect(codes(checkMenu(p, "2026-11-01", { 1: "Veg" }))).toContain("NO_MENU_FOR_WORKING_DAY");
+  });
+  it("refuses a second menu on the same date", () => {
+    expect(codes(checkMenu(p, "2026-04-01", days))).toContain("DUPLICATE");
+  });
+  it("lets the very first menu start whenever", () => {
+    const empty = prep({ today: "2026-10-20", menus: [] });
+    expect(checkMenu(empty, "2026-04-01", days)).toEqual([]);
+  });
+  it("refuses a menu that reaches back into a closed month, and lets one start after it", () => {
+    const closed = prep({ today: "2026-11-20", closes: [close()] });
+    expect(codes(checkMenu(closed, "2026-10-25", days))).toEqual(["BACKDATED_MENU"]);
+    expect(checkMenu(closed, "2026-11-02", days)).toEqual([]);
+  });
+  it("is the same for a kitchen without money", () => {
+    const meals = prep({ today: "2026-10-20", moneyEnabled: false, rateCards: [] });
+    expect(checkMenu(meals, "2026-11-01", days)).toEqual([]);
+    expect(codes(checkMenu(meals, "2026-11-01", { 2: "Veg" }))).toContain(
+      "NO_MENU_FOR_WORKING_DAY",
+    );
+  });
+  it("rejects a date that is not a date", () => {
+    expect(codes(checkMenu(p, "next month", days))).toEqual(["NOT_A_DATE"]);
   });
 });
 

@@ -33,22 +33,36 @@ function Totals({ kitchens }: { kitchens: OrganisationKitchenDto[] }) {
       <p className="muted">
         {kitchens.length === 0
           ? "No kitchen shares its totals with this organisation yet."
-          : "There are no figures to add up: the kitchens cannot be read, or they keep their books in different currencies."}
+          : "There are no figures to add up: the kitchens cannot be read."}
       </p>
     );
   return (
     <div className="tilegroups">
-      <div className="tiles lead">
-        <Tile lead label="Billed" value={money(sum.billed)} />
-        <Tile lead label="Paid" value={money(sum.paid)} />
-        <Tile lead label="Owed" value={money(sum.owed)} />
-      </div>
-      <div className="tiles">
-        <Tile label="People fed" value={sum.consumers} />
-        <Tile label="Meals" value={sum.meals} />
-        <Tile label="To confirm" value={sum.toConfirm || "-"} />
+      {sum.money ? (
+        <div className="tiles lead">
+          <Tile lead label="Billed" value={money(sum.money.billed)} />
+          <Tile lead label="Paid" value={money(sum.money.paid)} />
+          <Tile lead label="Owed" value={money(sum.money.owed)} />
+        </div>
+      ) : null}
+      <div className={sum.money ? "tiles" : "tiles lead"}>
+        <Tile lead={!sum.money} label="People fed" value={sum.consumers} />
+        <Tile lead={!sum.money} label="Meals" value={sum.meals} />
+        {sum.money ? <Tile label="To confirm" value={sum.money.toConfirm || "-"} /> : null}
         <Tile label="Not set up" value={sum.setup || "-"} />
       </div>
+      {sum.mealsOnly > 0 ? (
+        <p className="muted small">
+          {sum.mealsOnly} kitchen{sum.mealsOnly === 1 ? " does" : "s do"} not track money, so{" "}
+          {sum.mealsOnly === 1 ? "it is" : "they are"} in the counts and not in the money.
+        </p>
+      ) : null}
+      {sum.unread === 0 && !sum.money && sum.counted > sum.mealsOnly ? (
+        <p className="muted small">
+          The money is left out because the kitchens that track it keep their books in different
+          currencies.
+        </p>
+      ) : null}
       {sum.unread > 0 ? (
         <p className="muted small">
           {sum.unread} kitchen{sum.unread === 1 ? "" : "s"} could not be read and{" "}
@@ -61,6 +75,8 @@ function Totals({ kitchens }: { kitchens: OrganisationKitchenDto[] }) {
 
 function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => void }) {
   const { me } = useSession();
+  // Columns of money are there when at least one kitchen can fill them.
+  const anyMoney = data.kitchens.some((k) => k.totals?.moneyEnabled !== false);
   const act = useAction();
   const mine = new Set((me?.workspaces ?? []).map((w) => w.slug));
   return (
@@ -80,10 +96,14 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
                 <th>Kitchen</th>
                 <th className="r">People</th>
                 <th className="r">Meals</th>
-                <th className="r">Billed</th>
-                <th className="r">Paid</th>
-                <th className="r">Owed</th>
-                <th className="r">To confirm</th>
+                {anyMoney ? (
+                  <>
+                    <th className="r">Billed</th>
+                    <th className="r">Paid</th>
+                    <th className="r">Owed</th>
+                    <th className="r">To confirm</th>
+                  </>
+                ) : null}
                 <th />
               </tr>
             </thead>
@@ -108,13 +128,21 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
                     <>
                       <td className="r">{k.totals.consumers}</td>
                       <td className="r">{k.totals.meals}</td>
-                      <td className="r">{money(k.totals.billed)}</td>
-                      <td className="r">{money(k.totals.paid)}</td>
-                      <td className="r">{money(k.totals.owed)}</td>
-                      <td className="r">{k.totals.toConfirm || "-"}</td>
+                      {k.totals.moneyEnabled ? (
+                        <>
+                          <td className="r">{money(k.totals.billed)}</td>
+                          <td className="r">{money(k.totals.paid)}</td>
+                          <td className="r">{money(k.totals.owed)}</td>
+                          <td className="r">{k.totals.toConfirm || "-"}</td>
+                        </>
+                      ) : anyMoney ? (
+                        <td colSpan={4} className="muted">
+                          Does not track money
+                        </td>
+                      ) : null}
                     </>
                   ) : (
-                    <td colSpan={6} className="muted">
+                    <td colSpan={anyMoney ? 6 : 2} className="muted">
                       {k.unavailable ? WHY[k.unavailable] : ""}
                     </td>
                   )}

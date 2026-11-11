@@ -3,6 +3,7 @@ import {
   canonicalJson,
   compareTotals,
   digestOf,
+  moneyBundleProblem,
   must,
   parseBundle,
   type TotalMismatch,
@@ -14,6 +15,8 @@ import { readBundleBody } from "./bundleio.ts";
 
 export interface ImportReport {
   ok: boolean;
+  /** Set when the bundle was refused for a reason the caller can act on. */
+  code?: "money_bundle_into_meals_only";
   dryRun: boolean;
   digest: string | null;
   counts: Record<string, number>;
@@ -27,6 +30,7 @@ export const AUDITED = [
   "workspace",
   "person",
   "policy_version",
+  "menu",
   "rate_card",
   "holiday",
   "log_entry",
@@ -80,6 +84,7 @@ async function insertMany(
 const sectionKeys = [
   "workspace",
   "policies",
+  "menus",
   "rateCards",
   "holidays",
   "people",
@@ -108,7 +113,15 @@ export async function importBundle(
   owner: Db,
   cipher: FieldCipher,
   raw: unknown,
-  opts: { dryRun: boolean },
+  opts: {
+    dryRun: boolean;
+    /**
+     * Whether the kitchen it becomes tracks money. Left out, it is as the bundle's kitchen was. A kitchen
+     * without money can become one that tracks money (it has no prices yet); a kitchen with money can
+     * never become one without, and that is refused.
+     */
+    moneyEnabled?: boolean;
+  },
 ): Promise<ImportReport> {
   const report: ImportReport = {
     ok: false,
@@ -132,6 +145,13 @@ export async function importBundle(
     report.problems = unsupported;
     return report;
   }
+  const targetMoney = opts.moneyEnabled ?? bundle.workspace.moneyEnabled;
+  const moneyProblem = moneyBundleProblem(bundle, targetMoney);
+  if (moneyProblem) {
+    report.problems = [moneyProblem];
+    report.code = "money_bundle_into_meals_only";
+    return report;
+  }
 
   try {
     await owner.tx(async (tx) => {
@@ -152,11 +172,10 @@ export async function importBundle(
 
       const enc = (t: string, c: string, id: string, v: string | null) => cipher.enc(t, c, id, v);
       const w = bundle.workspace;
-      await tx.query("INSERT INTO workspace (name, time_zone, currency) VALUES ($1, $2, $3)", [
-        w.name,
-        w.timeZone,
-        w.currency,
-      ]);
+      await tx.query(
+        "INSERT INTO workspace (name, time_zone, currency, money_enabled) VALUES ($1, $2, $3, $4)",
+        [w.name, w.timeZone, w.currency, targetMoney],
+      );
       await insertMany(
         tx,
         "policy_version",
@@ -193,6 +212,18 @@ export async function importBundle(
       );
       await insertMany(
         tx,
+        "menu",
+        ["id", "effective_from", ...WEEKDAYS, "note", "created_by"],
+        bundle.menus.map((m) => [
+          m.id,
+          m.effectiveFrom,
+          ...WEEKDAYS.map((_, i) => m.days[String(i)] ?? null),
+          m.note,
+          m.createdBy,
+        ]),
+      );
+      await insertMany(
+        tx,
         "rate_card",
         [
           "id",
@@ -202,7 +233,6 @@ export async function importBundle(
           "extra_chapati",
           "extra_bhakri",
           "extras_per_month",
-          ...WEEKDAYS,
           "note",
           "created_by",
         ],
@@ -214,7 +244,6 @@ export async function importBundle(
           r.extraChapati,
           r.extraBhakri,
           r.extrasPerMonth,
-          ...WEEKDAYS.map((_, i) => r.menu[String(i)] ?? null),
           r.note,
           r.createdBy,
         ]),
@@ -415,16 +444,24 @@ export async function importBundle(
       const sameParts = (a: unknown, b: unknown) => canonicalJson(a) === canonicalJson(b);
       const { manifest, ...original } = bundle;
       void manifest;
+      // A kitchen without money that becomes one that tracks money differs from its original in that one
+      // setting and in nothing else, so it is held to every part but that one and the checksum, which that
+      // setting is part of.
+      const becameMoney = targetMoney !== bundle.workspace.moneyEnabled;
       for (const k of sectionKeys) {
-        if (
-          !sameParts(
-            (original as Record<string, unknown>)[k],
-            (again as Record<string, unknown>)[k],
-          )
-        )
-          report.problems.push(`${k} was not copied exactly.`);
+        const was = (original as Record<string, unknown>)[k];
+        const now = (again as Record<string, unknown>)[k];
+        const same =
+          k === "workspace" && becameMoney
+            ? sameParts({ ...bundle.workspace, moneyEnabled: targetMoney }, now)
+            : sameParts(was, now);
+        if (!same) report.problems.push(`${k} was not copied exactly.`);
       }
-      if ((await digestOf(again)) !== bundle.manifest.digest && report.problems.length === 0)
+      if (
+        !becameMoney &&
+        (await digestOf(again)) !== bundle.manifest.digest &&
+        report.problems.length === 0
+      )
         report.problems.push("The copy does not have the same checksum as the original.");
       if (report.problems.length) throw new Rollback();
       report.ok = true;

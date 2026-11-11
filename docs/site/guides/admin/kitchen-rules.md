@@ -1,6 +1,8 @@
 ---
 title: The rules of a kitchen
-description: Every option a kitchen can set under Rates & rules, what it does, and its default.
+description:
+  Every option a kitchen can set under Rates & rules, what it does, and its default. A kitchen
+  without money has the ones that are not about money.
 ---
 
 # The rules of a kitchen
@@ -14,7 +16,7 @@ a sentence each.
 
 | Rule                            | Options                                                                                        | Default                          |
 | ------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------- |
-| **Working days**                | Any days of the week. Each needs a menu entry on the rate card.                                | Monday to Friday                 |
+| **Working days**                | Any days of the week. Each needs a meal on the menu.                                           | Monday to Friday                 |
 | **Holidays that cancel a meal** | Only confirmed ones, or every one listed.                                                      | Only confirmed                   |
 | **Charge on a leave day**       | 0 to 100 percent of the day's meal.                                                            | 0 percent                        |
 | **Monthly extras apply from**   | A number of meals, or no monthly extras.                                                       | The first meal                   |
@@ -26,8 +28,12 @@ a sentence each.
 
 ## Notes on each
 
-**Working days.** The menu on the rate card must serve every working day. The form refuses a rate
-card that leaves one out.
+> [!NOTE] A kitchen without money does not show **Charge on a leave day**, **Monthly extras apply
+> from**, **Payments** or **Rate cards may start**. They are about money, and such a kitchen has
+> none.
+
+**Working days.** The menu must serve every working day. The form refuses a menu that leaves one
+out.
 
 **Charge on a leave day.** Some kitchens charge a share of the meal for a leave day, because the
 food was already bought. At 0 percent, a leave costs nothing.

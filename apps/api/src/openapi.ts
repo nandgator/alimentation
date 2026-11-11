@@ -9,6 +9,7 @@ import {
   CreateAgentKey,
   CreateClaim,
   CreateHoliday,
+  CreateMenu,
   CreateOrganisation,
   CreatePerson,
   CreatePolicy,
@@ -73,6 +74,8 @@ export interface Operation {
   errors?: number[];
   /** Open to anyone: no sign-in needed. */
   open?: boolean;
+  /** About money: prices, claims, settlements. A kitchen that does not track money answers 404 `money_not_tracked`, and an agent is not offered it. */
+  money?: boolean;
   /** A route of one kitchen, which is counted, rate-limited and may be acted in as a role. */
   kitchen?: boolean;
   /** Called only with an agent's key, and never with a session. */
@@ -168,6 +171,18 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
       "New kitchens here are by invitation, and this email has not been approved. `POST /api/waitlist` asks for a place.",
   },
   {
+    status: 403,
+    code: "money_not_allowed",
+    meaning:
+      "This instance does not allow kitchens that track money (`MONEY_ALLOWED=0`), so a kitchen cannot be made or received as one.",
+  },
+  {
+    status: 404,
+    code: "money_not_tracked",
+    meaning:
+      "This kitchen does not track money, so there are no prices, claims, settlements or amounts to ask about. Chosen when the kitchen was made, and fixed after.",
+  },
+  {
     status: 404,
     code: "not_found",
     meaning: "No such kitchen, person, claim and so on. Also what another member’s row looks like.",
@@ -223,6 +238,18 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
     code: "invalid",
     meaning:
       "The request is malformed or a rule refuses it. `issues` lists each rule that failed, with a `code` such as `NOT_WORKING_DAY`, `MONTH_CLOSED` or `CUTOFF_PASSED`, and a `severity`.",
+  },
+  {
+    status: 422,
+    code: "money_not_tracked",
+    meaning:
+      "A key for an agent cannot have the `claims` scope in a kitchen that does not track money.",
+  },
+  {
+    status: 422,
+    code: "money_bundle_into_meals_only",
+    meaning:
+      "A kitchen that tracks money was sent to one that does not. Money is never dropped on the way, so it is refused; the other way round is fine.",
   },
   { status: 422, code: "rule", meaning: "The database refused it under a rule of the kitchen." },
   { status: 422, code: "target_unusable", meaning: "The place named to move to cannot be used." },
@@ -280,6 +307,7 @@ const AGENT_ACCESS: Record<string, AgentScope> = {
   "GET /api/w/:slug/ledger": "read",
   "GET /api/w/:slug/history": "read",
   "GET /api/w/:slug/people/:id/role": "read",
+  "GET /api/w/:slug/menus": "read",
   "GET /api/w/:slug/rate-cards": "read",
   "GET /api/w/:slug/policies": "read",
   "GET /api/w/:slug/log": "read",
@@ -307,6 +335,7 @@ export const PERSON_ONLY = new Set([
   "POST /api/w/:slug/people/import",
   "PATCH /api/w/:slug/people/:id",
   "POST /api/w/:slug/people/:id/invite",
+  "POST /api/w/:slug/menus",
   "POST /api/w/:slug/rate-cards",
   "POST /api/w/:slug/policies",
   "POST /api/w/:slug/holidays",
@@ -530,7 +559,7 @@ export const OPERATIONS: Operation[] = [
     summary: "Make a kitchen",
     who: "Signed in. On a dedicated instance, operators only. Where signup is by invitation, only an approved email",
     description:
-      "Makes a kitchen with the caller as admin (and, by default, supplier). The address is 3 to 40 lowercase letters, digits or hyphens, starting and ending with a letter or digit, and not one the service keeps.\n\nWho may make one follows the instance’s `SIGNUP` setting: `open` (anyone signed in), `invite` (only an email an operator has approved; `invite_only` otherwise) or `closed` (`signup_closed`). One account may have only so many kitchens that it made and that are not yet wiped (`workspace_limit`), and an approval is not used up by making one. The limit on places is checked in the same transaction as the insert, so kitchens made at the same moment cannot together pass it.",
+      "Makes a kitchen with the caller as admin (and, by default, supplier). `moneyEnabled` says whether the kitchen tracks money (prices, bills, payments): it is chosen here and fixed after. Left out, it is whatever the instance allows; `true` where `MONEY_ALLOWED=0` is refused (`money_not_allowed`). A kitchen without money counts meals and keeps the rest (people, holidays, leave, extras as counts, month locks, history, export). The address is 3 to 40 lowercase letters, digits or hyphens, starting and ending with a letter or digit, and not one the service keeps.\n\nWho may make one follows the instance’s `SIGNUP` setting: `open` (anyone signed in), `invite` (only an email an operator has approved; `invite_only` otherwise) or `closed` (`signup_closed`). One account may have only so many kitchens that it made and that are not yet wiped (`workspace_limit`), and an approval is not used up by making one. The limit on places is checked in the same transaction as the insert, so kitchens made at the same moment cannot together pass it.",
     body: CreateWorkspace,
     ok: {
       status: 201,
@@ -540,6 +569,7 @@ export const OPERATIONS: Operation[] = [
         slug: string(),
         name: string(),
         roles: { type: "array", items: { enum: ["admin", "supplier", "consumer"] } },
+        moneyEnabled: { type: "boolean" },
       }),
     },
     errors: [401, 403, 409, 422, 503],
@@ -661,21 +691,29 @@ export const OPERATIONS: Operation[] = [
             totals: {
               oneOf: [
                 { type: "null" },
-                object({
-                  month: string("`YYYY-MM`, in the kitchen’s own time zone."),
-                  currency: string(),
-                  consumers: { type: "integer" },
-                  meals: { type: "integer" },
-                  billed: { type: "integer", description: "In paise." },
-                  paid: { type: "integer", description: "In paise." },
-                  owed: {
-                    type: "integer",
-                    description:
-                      "In paise. What people owe the kitchen; one person’s credit does not cancel another’s debt.",
+                object(
+                  {
+                    month: string("`YYYY-MM`, in the kitchen’s own time zone."),
+                    moneyEnabled: {
+                      type: "boolean",
+                      description:
+                        "False for a kitchen that does not track money: it sends the counts and none of what follows.",
+                    },
+                    consumers: { type: "integer" },
+                    meals: { type: "integer" },
+                    setup: { type: "integer" },
+                    currency: string(),
+                    billed: { type: "integer", description: "In paise." },
+                    paid: { type: "integer", description: "In paise." },
+                    owed: {
+                      type: "integer",
+                      description:
+                        "In paise. What people owe the kitchen; one person’s credit does not cancel another’s debt.",
+                    },
+                    toConfirm: { type: "integer" },
                   },
-                  toConfirm: { type: "integer" },
-                  setup: { type: "integer" },
-                }),
+                  ["month", "moneyEnabled", "consumers", "meals", "setup"],
+                ),
               ],
             },
             unavailable: { enum: ["moved", "busy", "unreadable", null] },
@@ -939,7 +977,16 @@ export const OPERATIONS: Operation[] = [
       schema: object({
         ok: { type: "boolean" },
         dryRun: { type: "boolean" },
-        code: { enum: ["ok", "invalid", "slug_taken", "full"] },
+        code: {
+          enum: [
+            "ok",
+            "invalid",
+            "slug_taken",
+            "full",
+            "money_not_allowed",
+            "money_bundle_into_meals_only",
+          ],
+        },
         problems: { type: "array", items: string() },
         digest: { type: ["string", "null"] },
         counts: { type: "object", additionalProperties: { type: "integer" } },
@@ -958,7 +1005,7 @@ export const OPERATIONS: Operation[] = [
     who: "Any role",
     kitchen: true,
     description:
-      "The kitchen, who you are and your roles, today, the months, the rules in force, the current rate card, holidays, the people you may see, this month’s statements, set-up hints, how many claims await a decision, and (for the admin) the usage meter.",
+      "The kitchen (and whether it tracks money), who you are and your roles, today, the months, the rules in force, the current menu and (where the kitchen tracks money) the current rate card, holidays, the people you may see, this month’s statements, set-up hints, how many claims await a decision, and (for the admin) the usage meter. A kitchen without money sends counts only: no rate card, no pending claims, no money rules and no amounts.",
     ok: {
       status: 200,
       description: "The start of a screen.",
@@ -972,7 +1019,8 @@ export const OPERATIONS: Operation[] = [
     summary: "Monthly statements",
     who: "Any role",
     kitchen: true,
-    description: "For up to 36 months. A member gets only their own; asking for another’s is 404.",
+    description:
+      "For up to 36 months. A member gets only their own; asking for another’s is 404. A kitchen without money answers with counts only (meals, leaves, extras as numbers) and no amounts.",
     query: StatementsQuery,
     ok: {
       status: 200,
@@ -1172,7 +1220,9 @@ export const OPERATIONS: Operation[] = [
     summary: "Every rate card",
     who: "Any role",
     kitchen: true,
-    description: "Oldest first.",
+    money: true,
+    description:
+      "Prices only, oldest first. What is served is on the menu (`/menus`). A kitchen that does not track money has no prices and answers 404 `money_not_tracked`.",
     ok: {
       status: 200,
       description: "The rate cards.",
@@ -1186,9 +1236,37 @@ export const OPERATIONS: Operation[] = [
     summary: "Add a rate card",
     who: "Admin",
     kitchen: true,
+    money: true,
     description:
-      'Money is in paise. `menu` has an entry for each working weekday (`"0"` to `"6"`, from Sunday). Refused if it leaves a working day without a menu entry, repeats a start date, or starts where the rules do not allow.',
+      "Money is in paise. Prices only: what is served is a menu of its own. Refused if it repeats a start date or starts where the rules do not allow. A kitchen needs both a menu and prices before it is billed.",
     body: CreateRateCard,
+    ok: { status: 201, description: "Added.", schema: WarningsBody },
+  },
+  {
+    method: "get",
+    path: "/api/w/:slug/menus",
+    tag: "People, prices and rules",
+    summary: "Every menu",
+    who: "Any role",
+    kitchen: true,
+    description:
+      "What is served on each weekday, by the date it starts, oldest first. Every kitchen has a menu, whether or not it tracks money.",
+    ok: {
+      status: 200,
+      description: "The menus.",
+      schema: { type: "array", items: free("A menu: `effectiveFrom`, `days` and `note`.") },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/menus",
+    tag: "People, prices and rules",
+    summary: "Add a menu",
+    who: "Admin",
+    kitchen: true,
+    description:
+      'A meal (`Veg` or `Non Veg`) for each working weekday, keyed `"0"` to `"6"` from Sunday. Refused if it leaves a working day without a meal, repeats a start date, or starts in a month that has been closed.',
+    body: CreateMenu,
     ok: { status: 201, description: "Added.", schema: WarningsBody },
   },
   {
@@ -1386,6 +1464,7 @@ export const OPERATIONS: Operation[] = [
     summary: "Claims of payment",
     who: "Any role",
     kitchen: true,
+    money: true,
     description:
       "With their status (`Pending`, `Confirmed`, `Disputed`, `Reversed`), decision note and reversal reason.",
     ok: {
@@ -1401,6 +1480,7 @@ export const OPERATIONS: Operation[] = [
     summary: "Claim a payment",
     who: "A member for themselves; the admin for anyone",
     kitchen: true,
+    money: true,
     description:
       "`paidAt` may not be in the future. Refused when the kitchen records payments directly.",
     body: CreateClaim,
@@ -1413,6 +1493,7 @@ export const OPERATIONS: Operation[] = [
     summary: "Withdraw a claim",
     who: "The author, or the admin",
     kitchen: true,
+    money: true,
     description: "Only while no decision exists.",
     params: { id: ID },
     ok: { status: 204, description: "Withdrawn." },
@@ -1424,6 +1505,7 @@ export const OPERATIONS: Operation[] = [
     summary: "Confirm or dispute a claim",
     who: "Supplier",
     kitchen: true,
+    money: true,
     description:
       "`decision` is `Confirmed` or `Disputed`. A dispute needs a note. A second decision is refused.",
     params: { id: ID },
@@ -1437,6 +1519,7 @@ export const OPERATIONS: Operation[] = [
     summary: "Reverse a decided claim",
     who: "Admin",
     kitchen: true,
+    money: true,
     description: "Only for a decided claim that has not been reversed.",
     params: { id: ID },
     body: ReverseClaim,
@@ -1449,6 +1532,7 @@ export const OPERATIONS: Operation[] = [
     summary: "The settlements you may see",
     who: "Any role",
     kitchen: true,
+    money: true,
     ok: {
       status: 200,
       description: "The settlements.",
@@ -1462,6 +1546,7 @@ export const OPERATIONS: Operation[] = [
     summary: "Record a settlement",
     who: "Admin",
     kitchen: true,
+    money: true,
     description:
       "`type` is `Payment` (which needs an `amount` above zero), `Query` or `Query Resolved`.",
     body: CreateSettlement,
@@ -1477,7 +1562,7 @@ export const OPERATIONS: Operation[] = [
     who: "Admin",
     kitchen: true,
     description:
-      "A month can be closed only after it has ended. Without `consumerId`, every person billed that month is closed.",
+      "A month can be closed only after it has ended. Without `consumerId`, every person billed that month is closed. In a kitchen without money a close only locks the month, and `billed` is not in the answer.",
     body: CloseMonth,
     ok: {
       status: 201,
@@ -1485,11 +1570,14 @@ export const OPERATIONS: Operation[] = [
       schema: object({
         closed: {
           type: "array",
-          items: object({
-            consumerId: uuid(),
-            billed: { type: "integer" },
-            meals: { type: "integer" },
-          }),
+          items: object(
+            {
+              consumerId: uuid(),
+              billed: { type: "integer", description: "Left out in a kitchen without money." },
+              meals: { type: "integer" },
+            },
+            ["consumerId", "meals"],
+          ),
         },
       }),
     },
@@ -1767,10 +1855,21 @@ function codesFor(op: Operation, status: number): string[] {
       return migrate ? only("bad_token") : only("signed_out");
     case 403:
       return op.path === "/api/workspaces"
-        ? only("forbidden", "signup_closed", "invite_only")
+        ? only("forbidden", "signup_closed", "invite_only", "money_not_allowed")
         : op.path === "/api/waitlist"
           ? only("signup_closed")
-          : only("forbidden");
+          : op.path.endsWith("/move") || op.path === "/_migrate/receive"
+            ? only("forbidden", "money_not_allowed")
+            : only("forbidden");
+    case 422: {
+      const base = all.filter((c) => !c.startsWith("money_"));
+      if (op.path.endsWith("/agents") && op.method === "post")
+        return [...base, "money_not_tracked"];
+      if (op.path.endsWith("/move") || migrate) return [...base, "money_bundle_into_meals_only"];
+      return base;
+    }
+    case 404:
+      return op.money ? only("money_not_tracked", "not_found") : only("not_found");
     case 409:
       if (op.path === "/api/workspaces") return only("slug_taken", "workspace_limit");
       if (op.path.endsWith("/limits")) return only("conflict", "dedicated");

@@ -25,7 +25,7 @@ import { UNDO_DAYS } from "./wipe.ts";
 
 export type MoveTarget =
   | { kind: "database"; url: string }
-  | { kind: "instance"; url: string; token: string };
+  | { kind: "instance"; url: string; token: string; moneyEnabled?: boolean };
 
 export interface MovePreview {
   ok: boolean;
@@ -81,6 +81,8 @@ export interface PushPayload {
   slug: string;
   bundle: Bundle;
   dryRun: boolean;
+  /** Whether the kitchen that is made at the other end tracks money. Left out, as this one does. */
+  moneyEnabled?: boolean;
 }
 
 export interface PushReply {
@@ -90,7 +92,12 @@ export interface PushReply {
   problems: string[];
   digest: string | null;
   url: string | null;
+  /** The other side's reason, when it is one the caller can act on. */
+  code: string | null;
 }
+
+/** Reasons the other side may give that are about money, passed on as they are. */
+const MONEY_CODES = new Set(["money_not_allowed", "money_bundle_into_meals_only"]);
 
 const clean = (v: unknown): string[] =>
   (Array.isArray(v) ? v : [v])
@@ -119,6 +126,7 @@ export async function push(
       problems: ["Could not reach that address."],
       digest: null,
       url: null,
+      code: null,
     };
   }
   let json: Record<string, unknown> = {};
@@ -144,8 +152,17 @@ export async function push(
             : [`The other side answered ${res.status}.`],
     digest: typeof json.digest === "string" ? json.digest : null,
     url: typeof json.url === "string" ? json.url : null,
+    code: typeof json.code === "string" && MONEY_CODES.has(json.code) ? json.code : null,
   };
 }
+
+/** The other side's refusal, with its reason when that is one about money and the caller can act on it. */
+const targetRefusal = (r: PushReply, message: string): ApiError =>
+  r.code === "money_not_allowed"
+    ? new ApiError(403, "money_not_allowed", message)
+    : r.code === "money_bundle_into_meals_only"
+      ? new ApiError(422, "money_bundle_into_meals_only", message)
+      : new ApiError(422, "target_refused", message);
 
 // --- looking before moving -----------------------------------------------------
 
@@ -197,7 +214,12 @@ export async function previewMove(
     out.digest = bundle.manifest.digest;
     out.problems.push(...unsupportedRules(bundle));
     if (target.kind === "instance") {
-      const reply = await push(p, target, { slug: handle.row.slug, bundle, dryRun: true });
+      const reply = await push(p, target, {
+        slug: handle.row.slug,
+        bundle,
+        dryRun: true,
+        moneyEnabled: target.moneyEnabled,
+      });
       if (!reply.ok) out.problems.push(...reply.problems);
     }
   } finally {
@@ -349,11 +371,11 @@ export async function moveToInstance(
       slug: row.slug,
       bundle: await bundleOf(p, handle, owner),
       dryRun: true,
+      moneyEnabled: target.moneyEnabled,
     });
     if (!trial.ok)
-      throw new ApiError(
-        422,
-        "target_refused",
+      throw targetRefusal(
+        trial,
         trial.problems.join(" ") || "That instance would not take the workspace.",
       );
 
@@ -362,14 +384,15 @@ export async function moveToInstance(
     frozen = true;
     const bundle = await bundleOf(p, handle, owner);
     outcome = "unsure"; // from here until an answer arrives, the other side may or may not have it
-    const reply = await push(p, target, { slug: row.slug, bundle, dryRun: false });
+    const reply = await push(p, target, {
+      slug: row.slug,
+      bundle,
+      dryRun: false,
+      moneyEnabled: target.moneyEnabled,
+    });
     if (reply.definite && !reply.ok) {
       outcome = "none";
-      throw new ApiError(
-        422,
-        "target_refused",
-        `Nothing was changed. ${reply.problems.join(" ")}`.trim(),
-      );
+      throw targetRefusal(reply, `Nothing was changed. ${reply.problems.join(" ")}`.trim());
     }
     if (!reply.ok || reply.digest !== bundle.manifest.digest) {
       await p.control.event("workspace.move_unconfirmed", row.id, {}).catch(() => undefined);

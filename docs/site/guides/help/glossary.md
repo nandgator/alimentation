@@ -50,7 +50,14 @@ Bhakri_. The kitchen being off is the supplier's exception, _Supplier Off_.
 **Query.** An open question about a bill, raised by a dispute or by the admin, and closed by a
 _Query Resolved_ settlement.
 
-**Rate card.** The prices and the weekly menu, from a date. Added, never edited.
+**Menu.** Which meal is served on each working day, from a date. Added, never edited. Every kitchen
+has one.
+
+**Rate card.** The prices, from a date. Added, never edited. Only a kitchen that tracks money has
+them.
+
+**Kitchen without money.** A kitchen made to count meals only, with no prices, bills or payments.
+Chosen when the kitchen is made, and never changed.
 
 **Reversal.** The admin's undoing of a decision, with a reason. The decision stays on record.
 

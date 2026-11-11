@@ -1,15 +1,14 @@
-import type { Holiday, IsoDate, RateCard } from "@alimentation/core";
+import type { Holiday, IsoDate, MenuVersion, RateCard } from "@alimentation/core";
 import { describe, expect, it } from "vitest";
 import { applyPlan, planCopy, type Snapshot, type What } from "./copySetup.ts";
 
 const d = (s: string) => s as IsoDate;
-const ALL: What = { prices: true, rules: true, holidays: true };
+const ALL: What = { menu: true, prices: true, rules: true, holidays: true };
 
-const card = (
-  effectiveFrom: string,
-  veg = 15000,
-  menu: RateCard["menu"] = { 1: "Veg", 2: "Veg" },
-) =>
+const menu = (effectiveFrom: string, days: MenuVersion["days"] = { 1: "Veg", 2: "Veg" }) =>
+  ({ id: `m-${effectiveFrom}`, effectiveFrom: d(effectiveFrom), days, note: null }) as MenuVersion;
+
+const card = (effectiveFrom: string, veg = 15000) =>
   ({
     id: `c-${effectiveFrom}`,
     effectiveFrom: d(effectiveFrom),
@@ -18,7 +17,6 @@ const card = (
     extraChapati: 1500,
     extraBhakri: 3000,
     extrasPerMonth: 4000,
-    menu,
     note: null,
   }) as RateCard;
 
@@ -34,6 +32,8 @@ const rules = (workingDays: number[]) => ({ workingDays });
 
 const kitchen = (over: Partial<Snapshot> = {}): Snapshot => ({
   today: d("2026-11-14"),
+  moneyEnabled: true,
+  menus: [],
   rateCards: [],
   policies: [],
   holidays: [],
@@ -42,6 +42,7 @@ const kitchen = (over: Partial<Snapshot> = {}): Snapshot => ({
 
 describe("copying a kitchen setup to another", () => {
   const source = kitchen({
+    menus: [menu("2026-04-01")],
     rateCards: [card("2026-04-01"), card("2026-10-01", 16000)],
     policies: [
       { effectiveFrom: d("2026-04-01"), doc: rules([1, 2, 3]) },
@@ -54,11 +55,12 @@ describe("copying a kitchen setup to another", () => {
     ],
   });
 
-  it("into an empty kitchen adds everything that applies, rules first, then prices, then holidays", () => {
+  it("into an empty kitchen adds everything that applies, rules first, then the menu, prices and holidays", () => {
     const plan = planCopy(source, kitchen(), ALL);
     expect(plan.steps.map((s) => s.kind)).toEqual([
       "rules",
       "rules",
+      "menu",
       "prices",
       "prices",
       "holiday",
@@ -83,6 +85,7 @@ describe("copying a kitchen setup to another", () => {
   it("leaves out what the other kitchen already has, so copying twice adds nothing the second time", () => {
     const first = planCopy(source, kitchen(), ALL);
     const after = kitchen({
+      menus: source.menus.map((m) => ({ ...m, id: `other-${m.id}` })),
       rateCards: source.rateCards.map((c) => ({ ...c, id: `other-${c.id}` })),
       policies: [
         { effectiveFrom: d("2026-11-01"), doc: rules([1, 2, 3]) },
@@ -104,7 +107,12 @@ describe("copying a kitchen setup to another", () => {
         { effectiveFrom: d("2027-01-01"), doc: rules([1, 2, 3, 4]) },
       ],
     });
-    const plan = planCopy(source, other, { prices: true, rules: true, holidays: false });
+    const plan = planCopy(source, other, {
+      menu: false,
+      prices: true,
+      rules: true,
+      holidays: false,
+    });
     expect(plan.steps).toEqual([]);
     expect(plan.already).toBe(1); // the October prices are the same
     expect(plan.left.map((l) => l.label)).toEqual([
@@ -117,29 +125,114 @@ describe("copying a kitchen setup to another", () => {
 
   it("says when rules are copied over the ones the other kitchen has now", () => {
     const other = kitchen({ policies: [{ effectiveFrom: d("2026-01-01"), doc: rules([1]) }] });
-    const plan = planCopy(source, other, { prices: false, rules: true, holidays: false });
+    const plan = planCopy(source, other, {
+      menu: false,
+      prices: false,
+      rules: true,
+      holidays: false,
+    });
     expect(plan.steps[0]!.label).toMatch(/in place of its present rules/);
     expect(plan.steps[0]).toMatchObject({ body: { effectiveFrom: "2026-11-01" } });
   });
 
-  it("treats the same prices as the same however the menu was written", () => {
-    const a = kitchen({ rateCards: [card("2026-04-01", 15000, { 2: "Veg", 1: "Veg" })] });
-    const b = kitchen({ rateCards: [card("2026-04-01", 15000, { 1: "Veg", 2: "Veg" })] });
+  it("treats the same menu as the same however it was written", () => {
+    const a = kitchen({ menus: [menu("2026-04-01", { 2: "Veg", 1: "Veg" })] });
+    const b = kitchen({ menus: [menu("2026-04-01", { 1: "Veg", 2: "Veg" })] });
     expect(planCopy(a, b, ALL).already).toBe(1);
     expect(planCopy(a, b, ALL).steps).toEqual([]);
+  });
+
+  it("copies the menu on its own, as a menu, and does not replace one set differently", () => {
+    const plan = planCopy(source, kitchen(), {
+      menu: true,
+      prices: false,
+      rules: false,
+      holidays: false,
+    });
+    expect(plan.steps).toEqual([
+      {
+        kind: "menu",
+        label: "Menu, from 01-Apr-2026",
+        path: "/menus",
+        body: { effectiveFrom: "2026-04-01", menu: { 1: "Veg", 2: "Veg" }, note: null },
+      },
+    ]);
+    const other = kitchen({ menus: [menu("2026-04-01", { 1: "Non Veg" })] });
+    const again = planCopy(source, other, {
+      menu: true,
+      prices: false,
+      rules: false,
+      holidays: false,
+    });
+    expect(again.steps).toEqual([]);
+    expect(again.left.map((l) => l.label)).toEqual(["Menu, from 01-Apr-2026"]);
+  });
+
+  it("offers prices only between kitchens that track money, and still copies the menu and the rules", () => {
+    const meals = kitchen({ moneyEnabled: false });
+    const toMeals = planCopy(source, meals, ALL);
+    expect(toMeals.steps.map((s) => s.kind)).toEqual([
+      "rules",
+      "rules",
+      "menu",
+      "holiday",
+      "holiday",
+    ]);
+    expect(toMeals.notes.join(" ")).toMatch(
+      /Prices are not copied: that kitchen does not track money/,
+    );
+    const fromMeals = planCopy(
+      kitchen({
+        moneyEnabled: false,
+        menus: [menu("2026-04-01")],
+        policies: [{ effectiveFrom: d("2026-04-01"), doc: rules([1, 2, 3]) }],
+      }),
+      kitchen(),
+      ALL,
+    );
+    expect(fromMeals.steps.map((s) => s.kind)).toEqual(["rules", "menu"]);
+    expect(fromMeals.notes.join(" ")).toMatch(/first kitchen does not track money/);
+    // The rules that arrive at a kitchen that tracks money bring its money rules with them.
+    const rulesStep = fromMeals.steps[0];
+    expect(rulesStep?.kind === "rules" && rulesStep.body.doc).toMatchObject({
+      workingDays: [1, 2, 3],
+      leave: { chargeBps: 0 },
+      payments: "claim_confirm",
+    });
+  });
+
+  it("calls rules the same when only the money rules differ and one kitchen has none", () => {
+    const a = kitchen({
+      moneyEnabled: false,
+      policies: [{ effectiveFrom: d("2026-04-01"), doc: rules([1, 2]) }],
+    });
+    const b = kitchen({
+      policies: [
+        { effectiveFrom: d("2026-04-01"), doc: { ...rules([1, 2]), leave: { chargeBps: 100 } } },
+      ],
+    });
+    const plan = planCopy(a, b, { menu: false, prices: false, rules: true, holidays: false });
+    expect(plan.steps).toEqual([]);
+    expect(plan.already).toBe(1);
   });
 
   it("knows a holiday by its day, name and place, and not by capital letters", () => {
     const other = kitchen({
       holidays: [holiday("2026-11-20", "founders DAY"), holiday("2026-12-25", "Christmas", "Pune")],
     });
-    const plan = planCopy(source, other, { prices: false, rules: false, holidays: true });
+    const plan = planCopy(source, other, {
+      menu: false,
+      prices: false,
+      rules: false,
+      holidays: true,
+    });
     expect(plan.already).toBe(1);
     expect(plan.steps.map((s) => s.label)).toEqual(["Christmas, 25-Dec-2026"]);
   });
 
   it("copies only what was asked for, and says when the first kitchen has no rules of its own", () => {
     const onlyHolidays = planCopy(source, kitchen(), {
+      menu: false,
       prices: false,
       rules: false,
       holidays: true,
@@ -149,7 +242,8 @@ describe("copying a kitchen setup to another", () => {
     expect(bare.steps).toEqual([]);
     expect(bare.notes.join(" ")).toMatch(/no rules of its own|none to copy/);
     expect(
-      planCopy(source, kitchen(), { prices: false, rules: false, holidays: false }).steps,
+      planCopy(source, kitchen(), { menu: false, prices: false, rules: false, holidays: false })
+        .steps,
     ).toEqual([]);
   });
 

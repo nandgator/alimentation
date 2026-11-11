@@ -177,6 +177,11 @@ export function Home() {
                 about {fmt.format(FREE_LIMITS.people * 60)} entries a year, so{" "}
                 {fmt.format(FREE_LIMITS.rows)} lasts over three years.
               </p>
+              <p className="statement-note" data-reveal>
+                A kitchen does not have to handle money. When you start one you can choose meals
+                only: it counts who ate, who was on leave and the extras, with no prices, bills or
+                payments. You choose once, and it cannot be changed later.
+              </p>
               <p className="catch" data-reveal>
                 <b>The catch.</b> Our hosts can change their free limits. If they do, you hear from
                 us first.

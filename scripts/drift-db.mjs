@@ -480,6 +480,111 @@ const defects = [
     "time zone honest",
   ],
 
+  // A kitchen without money, and the menu that every kitchen has.
+  [
+    "money: a kitchen without money accepts a price",
+    "owner",
+    `DROP TRIGGER rate_card_guard_money ON rate_card`,
+    "refuses a price",
+  ],
+  [
+    "money: a kitchen without money accepts a claim",
+    "owner",
+    `DROP TRIGGER claim_guard_money ON claim`,
+    "refuses a claim, a decision",
+  ],
+  [
+    "money: a kitchen without money accepts a decision",
+    "owner",
+    `DROP TRIGGER claim_decision_guard_money ON claim_decision`,
+    "refuses a claim, a decision",
+  ],
+  [
+    "money: a kitchen without money accepts a reversal",
+    "owner",
+    `DROP TRIGGER claim_reversal_guard_money ON claim_reversal`,
+    "refuses a claim, a decision",
+  ],
+  [
+    "money: a kitchen without money accepts a settlement",
+    "owner",
+    `DROP TRIGGER settlement_guard_money ON settlement`,
+    "refuses a claim, a decision",
+  ],
+  [
+    "money: the guard on money never fires",
+    "owner",
+    `CREATE OR REPLACE FUNCTION guard_money() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END; END $$`,
+    "refuses a price",
+  ],
+  [
+    "money: the kitchen always answers that it tracks money",
+    "owner",
+    `CREATE OR REPLACE FUNCTION money_enabled() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS 'SELECT true'`,
+    "refuses a price",
+  ],
+  [
+    "money: a close freezes an amount in a kitchen without money",
+    "owner",
+    `DROP TRIGGER month_close_guard_close ON month_close`,
+    "only locks the month",
+  ],
+  [
+    "money: a close with no amount is taken from a person in a kitchen with money",
+    "owner",
+    `CREATE OR REPLACE FUNCTION guard_close() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.billed IS NOT NULL AND NOT money_enabled() THEN RAISE EXCEPTION 'ALIMENTATION_RULE: this kitchen does not track money, so a close freezes no amount' USING ERRCODE = 'P0001'; END IF; RETURN NEW; END $$`,
+    "freezes an amount when it closes",
+  ],
+  [
+    "money: an automatic close freezes an amount in a kitchen without money",
+    "owner",
+    `CREATE OR REPLACE FUNCTION system_close_month(p_month date, p_consumer uuid, p_meals integer, p_billed bigint) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN ALTER TABLE month_close DISABLE TRIGGER month_close_guard_close; INSERT INTO month_close (for_month, consumer_id, meals, billed, closed_on) VALUES (p_month, p_consumer, p_meals, p_billed, now()::date) ON CONFLICT DO NOTHING; ALTER TABLE month_close ENABLE TRIGGER month_close_guard_close; END $$`,
+    "by its own rule without an amount",
+  ],
+  [
+    "money: whether a kitchen tracks money can be changed",
+    "owner",
+    `DROP TRIGGER workspace_keep_money_enabled ON workspace`,
+    "refuses any change to it",
+  ],
+  [
+    "money: the flag is guarded only against the application",
+    "owner",
+    `CREATE OR REPLACE FUNCTION keep_money_enabled() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF is_app_session() AND NEW.money_enabled IS DISTINCT FROM OLD.money_enabled THEN RAISE EXCEPTION 'ALIMENTATION_IMMUTABLE: whether a kitchen tracks money is chosen when it is made and cannot change' USING ERRCODE = 'P0001'; END IF; RETURN NEW; END $$`,
+    "refuses any change to it",
+  ],
+  ["menu: a menu can be edited", "owner", `DROP TRIGGER menu_append_only ON menu`, "never edited"],
+  [
+    "menu: the application role may edit a menu",
+    "owner",
+    asApp("GRANT UPDATE, DELETE ON menu TO %I"),
+    "never edited",
+  ],
+  [
+    "menu: consumers insert menus",
+    "owner",
+    `ALTER POLICY menu_admin_insert ON menu WITH CHECK (true)`,
+    "never edited",
+  ],
+  [
+    "menu: row security off on the menu",
+    "owner",
+    `ALTER TABLE menu DISABLE ROW LEVEL SECURITY`,
+    "shows nobody anything",
+  ],
+  [
+    "menu: the audit trail stops recording menus",
+    "owner",
+    `DROP TRIGGER menu_audit ON menu`,
+    "shown in the trail",
+  ],
+  [
+    "frozen: the flag is ignored on the menu",
+    "owner",
+    `DROP TRIGGER menu_read_only ON menu`,
+    "cannot be written while the kitchen is being moved",
+  ],
+
   // Placement.
   ["migrate: runner without the lock", "owner", `SELECT 1`, null], // control: a no-op defect must NOT be caught
 ];
@@ -498,6 +603,7 @@ for (const [name, as, sql, expect] of picks) {
       "run",
       "apps/api/test/workspace.db.test.ts",
       "apps/api/test/workspace.guards.test.ts",
+      "apps/api/test/workspace.money.test.ts",
       "--reporter=json",
       `--outputFile=${file}`,
     ],

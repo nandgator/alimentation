@@ -15,7 +15,7 @@ import { LogPage } from "./LogPage.tsx";
 import { CloseMonths, Holidays, Settlements } from "./Money.tsx";
 import { Payments } from "./Payments.tsx";
 import { People } from "./People.tsx";
-import { Rates } from "./Rates.tsx";
+import { Menu, Prices, Rates } from "./Rates.tsx";
 import {
   groupsFor,
   hrefOf,
@@ -40,6 +40,8 @@ const VIEW: Record<SectionKey, ComponentType> = {
   payments: Payments,
   history: History,
   people: People,
+  menu: Menu,
+  prices: Prices,
   rates: Rates,
   holidays: Holidays,
   settlements: Settlements,
@@ -154,12 +156,13 @@ function Loaded({
     boot,
     role,
     writable: boot.workspace.state === "ACTIVE",
+    money: boot.workspace.moneyEnabled,
     fromDevice,
     api: `/api/w/${slug}`,
     reload,
     nameOf: (id) => people.get(id) ?? "Someone",
   };
-  const mine = sectionsFor(role);
+  const mine = sectionsFor(role, ws.money);
   const [more, setMore] = useState(false);
   const [pinned, setPinned] = useState(readPinned);
   const [drawer, setDrawer] = useState(false);
@@ -189,8 +192,8 @@ function Loaded({
     setDrawer(false);
   };
   // A role that sees only the everyday group needs no group heading to tell them apart.
-  const groups = groupsFor(role);
-  const waiting = role === "consumer" ? 0 : boot.pendingClaims;
+  const groups = groupsFor(role, ws.money);
+  const waiting = role === "consumer" ? 0 : (boot.pendingClaims ?? 0);
   // What does not fit in the bar goes behind More, still in its groups.
   const rest = mine.slice(PRIMARY);
   const restGroups = groups
@@ -229,8 +232,11 @@ function Loaded({
       {boot.setup.map((s) => (
         <div key={s.code} className="banner info">
           {s.message}
+          {role === "admin" && s.code === "menu" ? (
+            <Link href={`${base}/menu`}>Add one</Link>
+          ) : null}
           {role === "admin" && s.code === "rate_card" ? (
-            <Link href={`${base}/rates`}>Add one</Link>
+            <Link href={`${base}/prices`}>Add prices</Link>
           ) : null}
           {role === "admin" && s.code === "consumers" ? (
             <Link href={`${base}/people`}>Add people</Link>

@@ -16,7 +16,17 @@ import {
   rupees,
   STATUS_LABEL,
 } from "../src/index.ts";
-import { CARD_APR, CARD_NOV, close, entry, JOVIAL, policyWith, prep, SMRUTI } from "./fixtures.ts";
+import {
+  CARD_APR,
+  CARD_NOV,
+  close,
+  entry,
+  JOVIAL,
+  MENU_APR,
+  policyWith,
+  prep,
+  SMRUTI,
+} from "./fixtures.ts";
 
 const jovialOct = (over: Parameters<typeof prep>[0]) =>
   buildStatements(prep(over), ["jovial"], ["2026-10"])[0]!;
@@ -145,8 +155,8 @@ describe("rules change what is billed", () => {
 
   it("serves Saturdays when they are working days and the card has a menu for them", () => {
     const policies = [policyWith({ workingDays: [1, 2, 3, 4, 5, 6] })];
-    const card = { ...CARD_APR, menu: { ...CARD_APR.menu, 6: "Veg" as const } };
-    const p = prep({ policies, rateCards: [card], log: [] });
+    const menu = { ...MENU_APR, days: { ...MENU_APR.days, 6: "Veg" as const } };
+    const p = prep({ policies, menus: [menu], log: [] });
     const sat = ledgerMonth(p, JOVIAL, "2026-10").find((d) => d.date === "2026-10-03")!;
     expect(sat).toMatchObject({ status: "Meal", meal: "Veg" });
     expect(ledgerMonth(p, JOVIAL, "2026-10").some((d) => d.date === "2026-10-04")).toBe(false); // Sunday
@@ -161,10 +171,11 @@ describe("rules change what is billed", () => {
       expect((e as EngineError).date).toBe("2026-10-01");
     }
     const noFriday = {
-      ...CARD_APR,
-      menu: { 1: "Veg" as const, 2: "Veg" as const, 3: "Non Veg" as const, 4: "Veg" as const },
+      ...MENU_APR,
+      days: { 1: "Veg" as const, 2: "Veg" as const, 3: "Non Veg" as const, 4: "Veg" as const },
     };
-    expect(() => jovialOct({ rateCards: [noFriday] })).toThrowError(/serves nothing/);
+    expect(() => jovialOct({ menus: [noFriday] })).toThrowError(/serves nothing/);
+    expect(() => jovialOct({ menus: [] })).toThrowError(/no menu is in force/);
   });
 
   it("does not need a card on days that are not priced", () => {

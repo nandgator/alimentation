@@ -651,7 +651,8 @@ describe("the MCP server", () => {
     for (const tool of ["get_bootstrap", "post_log_check", "post_log"])
       expect(text).toContain(tool);
     expect(text).toMatch(/ask/i);
-    expect(text).toContain("paise");
+    // A prompt that is not about money does not talk of it.
+    expect(text).not.toContain("paise");
   });
 
   it("refuses a prompt with a missing or bad argument, or one the key cannot do all of", async () => {
@@ -708,6 +709,7 @@ describe("the MCP server", () => {
     expect(listed.map((r) => r.uri)).toEqual([
       "alimentation://kitchen/guide",
       "alimentation://kitchen/menu",
+      "alimentation://kitchen/prices",
       "alimentation://kitchen/holidays",
     ]);
     const templates = (await call(readOnly, "resources/templates/list")).json.result
@@ -724,7 +726,11 @@ describe("the MCP server", () => {
 
     const menu = (await call(readOnly, "resources/read", { uri: "alimentation://kitchen/menu" }))
       .json.result.contents[0];
-    expect(JSON.parse(menu.text)).toEqual((await k.jovial.get(`${w}/rate-cards`)).json);
+    expect(JSON.parse(menu.text)).toEqual((await k.jovial.get(`${w}/menus`)).json);
+    const prices = (
+      await call(readOnly, "resources/read", { uri: "alimentation://kitchen/prices" })
+    ).json.result.contents[0];
+    expect(JSON.parse(prices.text)).toEqual((await k.jovial.get(`${w}/rate-cards`)).json);
     const hol = (await call(readOnly, "resources/read", { uri: "alimentation://kitchen/holidays" }))
       .json.result.contents[0];
     expect(JSON.parse(hol.text)).toEqual((await k.jovial.get(`${w}/bootstrap`)).json.holidays);

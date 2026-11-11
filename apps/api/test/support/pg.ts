@@ -108,9 +108,12 @@ export async function seed(owner: pg.Pool): Promise<Seeded> {
     ]);
   }
   await q(
-    `INSERT INTO rate_card (effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month,
-        menu_mon, menu_tue, menu_wed, menu_thu, menu_fri)
-     VALUES ('2026-04-01', 15000, 17000, 1500, 3000, 4000, 'Veg', 'Veg', 'Non Veg', 'Veg', 'Non Veg')`,
+    `INSERT INTO menu (effective_from, menu_mon, menu_tue, menu_wed, menu_thu, menu_fri)
+     VALUES ('2026-04-01', 'Veg', 'Veg', 'Non Veg', 'Veg', 'Non Veg')`,
+  );
+  await q(
+    `INSERT INTO rate_card (effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month)
+     VALUES ('2026-04-01', 15000, 17000, 1500, 3000, 4000)`,
   );
   const log = (
     date: string,

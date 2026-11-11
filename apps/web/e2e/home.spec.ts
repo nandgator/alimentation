@@ -340,7 +340,7 @@ test.describe("the home page", () => {
         return [c.overflowX, c.overflowY];
       });
     expect(clip).toEqual(["visible", "clip"]);
-    await expect(page.locator(".limits")).toContainText("5,000");
+    await expect(page.locator(".limits")).toContainText("20,000");
   });
 
   for (const scheme of ["light", "dark"] as const) {

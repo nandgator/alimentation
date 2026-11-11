@@ -14,18 +14,20 @@ throughout.
 
 ## Input
 
-```ts file=packages/core/src/engine.ts#L29-L40
+```ts file=packages/core/src/engine.ts#L30-L50
 
 ```
 
 The kitchen's own date (`today`, in its own time zone, so the engine reads no clock), the rules in
-force (`policies`, effective-dated), the prices and weekday menu (`rateCards`), the holidays
-(confirmed or tentative), the people (a role, and for members their billed dates), and what has
-happened: the exceptions in the `log` (leave, switches, extras, kitchen off), the payment `claims`
-with one `decision` each (voided by a reversal), the `settlements` (payments, queries, resolutions),
-and the `closes` that freeze what a person was billed. `prepare(data)` indexes it once (holidays by
-date, log by person and date, the supplier's off days, decisions by claim, closes by person and
-month) and returns a `Prepared`, which every other call takes.
+force (`policies`, effective-dated), what is served (`menus`, effective-dated), the prices
+(`rateCards`, empty for a kitchen without money), whether the kitchen tracks money at all
+(`moneyEnabled`), the holidays (confirmed or tentative), the people (a role, and for members their
+billed dates), and what has happened: the exceptions in the `log` (leave, switches, extras, kitchen
+off), the payment `claims` with one `decision` each (voided by a reversal), the `settlements`
+(payments, queries, resolutions), and the `closes` that freeze what a person was billed.
+`prepare(data)` indexes it once (holidays by date, log by person and date, the supplier's off days,
+decisions by claim, closes by person and month) and returns a `Prepared`, which every other call
+takes.
 
 ## One day
 
@@ -40,15 +42,26 @@ under the rules in force that month. Otherwise `status` is the first of:
 | `Leave`        | The person has a leave entry. Leave beats everything after it.                                         |
 | `Meal`         | Otherwise.                                                                                             |
 
-On a meal day the meal starts as the rate card's menu entry for that weekday. Several entries on one
-day combine as: **the latest switch wins; extras add up.** The day's total is the price of the meal
-plus `quantity × price` for each extra. On a leave day the total is `leave.chargeBps` of the day's
-meal price (nothing by default); the meal considered is the menu's, after any switch.
+On a meal day the meal starts as the menu's entry for that weekday. Several entries on one day
+combine as: **the latest switch wins; extras add up.** The day's total is the price of the meal plus
+`quantity × price` for each extra. On a leave day the total is `leave.chargeBps` of the day's meal
+price (nothing by default); the meal considered is the menu's, after any switch.
 
 `basis` is `Actual` for a date up to and including `today`, and `Projected` after it.
 
-The rate card in force on a date is the latest whose `effectiveFrom` is not after it. A date with no
-card throws `EngineError('NO_RATE_CARD')`; a weekday with no menu entry throws `NO_MENU`.
+The menu and the rate card in force on a date are each the latest whose `effectiveFrom` is not after
+it. A date with no menu, or a weekday with no meal on it, throws `EngineError('NO_MENU')`; a priced
+date with no rate card throws `NO_RATE_CARD`.
+
+### Without money
+
+When `moneyEnabled` is false the engine counts and never prices. `ledgerDay` reads the menu and no
+rate card, and every amount is zero. `buildStatements` refuses to run, and
+`buildMealStatements(prepared, personIds, months)` returns a `MealStatement` for each person and
+month instead: `counts` (as below), whether the month is `closed`, and its `basis`, and no amount.
+`closeSnapshot` and `dueAutoCloses` give a close with `billed: null`. The same `buildMealStatements`
+is what a bundle's `expected` meals are made from, for a kitchen with money as well, so that a
+kitchen without money can be checked on a kitchen that tracks it and has no prices yet.
 
 ## One month
 

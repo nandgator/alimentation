@@ -45,10 +45,13 @@ export async function readBundleBody(
   cipher: FieldCipher,
   ctx: { exportedAt: string; asOf: string; members: BundleMember[] },
 ): Promise<BundleBody> {
-  const [ws] = await tx.query<R>("SELECT name, time_zone, currency FROM workspace");
+  const [ws] = await tx.query<R>("SELECT name, time_zone, currency, money_enabled FROM workspace");
   if (!ws) throw new Error("this database holds no workspace");
+  const money = ws.money_enabled !== false;
+  const none = Promise.resolve<R[]>([]);
   const [
     policies,
+    menus,
     cards,
     holidays,
     people,
@@ -61,7 +64,8 @@ export async function readBundleBody(
     audit,
   ] = await Promise.all([
     tx.query<R>("SELECT effective_from, doc, created_by FROM policy_version"),
-    tx.query<R>("SELECT * FROM rate_card"),
+    tx.query<R>("SELECT * FROM menu"),
+    money ? tx.query<R>("SELECT * FROM rate_card") : none,
     tx.query<R>("SELECT id, name, on_date, location, confirmed, created_by FROM holiday"),
     tx.query<R>(
       "SELECT id, role, name_enc, contact_enc, external_key, status, active_from, active_to, created_at FROM person",
@@ -69,14 +73,24 @@ export async function readBundleBody(
     tx.query<R>(
       "SELECT id, on_date, person_id, all_consumers, change, qty, note_enc, logged_by, logged_at FROM log_entry",
     ),
-    tx.query<R>(
-      "SELECT id, consumer_id, paid_at, for_month, amount, method, ref_note_enc, created_at FROM claim",
-    ),
-    tx.query<R>("SELECT claim_id, decision, note_enc, decided_by, decided_at FROM claim_decision"),
-    tx.query<R>("SELECT claim_id, reason_enc, reversed_by, reversed_at FROM claim_reversal"),
-    tx.query<R>(
-      "SELECT id, on_date, consumer_id, for_month, type, amount, note_enc, recorded_by, created_at FROM settlement",
-    ),
+    money
+      ? tx.query<R>(
+          "SELECT id, consumer_id, paid_at, for_month, amount, method, ref_note_enc, created_at FROM claim",
+        )
+      : none,
+    money
+      ? tx.query<R>(
+          "SELECT claim_id, decision, note_enc, decided_by, decided_at FROM claim_decision",
+        )
+      : none,
+    money
+      ? tx.query<R>("SELECT claim_id, reason_enc, reversed_by, reversed_at FROM claim_reversal")
+      : none,
+    money
+      ? tx.query<R>(
+          "SELECT id, on_date, consumer_id, for_month, type, amount, note_enc, recorded_by, created_at FROM settlement",
+        )
+      : none,
     tx.query<R>(
       "SELECT for_month, consumer_id, meals, billed, closed_on, closed_by FROM month_close",
     ),
@@ -121,7 +135,12 @@ export async function readBundleBody(
     format: BUNDLE_FORMAT,
     exportedAt: ctx.exportedAt,
     asOf: ctx.asOf,
-    workspace: { name: ws.name, timeZone: ws.time_zone, currency: ws.currency.trim() },
+    workspace: {
+      name: ws.name,
+      timeZone: ws.time_zone,
+      currency: ws.currency.trim(),
+      moneyEnabled: money,
+    },
     policies: byKey(
       policies.map((p) => ({
         effectiveFrom: p.effective_from as string,
@@ -129,6 +148,18 @@ export async function readBundleBody(
         createdBy: p.created_by ?? null,
       })),
       (p) => p.effectiveFrom,
+    ),
+    menus: byKey(
+      menus.map((m) => ({
+        id: m.id as string,
+        effectiveFrom: m.effective_from as string,
+        days: Object.fromEntries(
+          WEEKDAYS.flatMap((col, i) => (m[col] ? [[String(i), m[col] as "Veg" | "Non Veg"]] : [])),
+        ),
+        note: m.note ?? null,
+        createdBy: m.created_by ?? null,
+      })),
+      (m) => m.effectiveFrom,
     ),
     rateCards: byKey(
       cards.map((c) => ({
@@ -139,9 +170,6 @@ export async function readBundleBody(
         extraChapati: c.extra_chapati,
         extraBhakri: c.extra_bhakri,
         extrasPerMonth: c.extras_per_month,
-        menu: Object.fromEntries(
-          WEEKDAYS.flatMap((col, i) => (c[col] ? [[String(i), c[col] as "Veg" | "Non Veg"]] : [])),
-        ),
         note: c.note ?? null,
         createdBy: c.created_by ?? null,
       })),
@@ -234,7 +262,7 @@ export async function readBundleBody(
         forMonth: month(c.for_month),
         consumerId: c.consumer_id,
         meals: c.meals,
-        billed: c.billed,
+        billed: (c.billed as number | null) ?? null,
         closedOn: c.closed_on as string,
         closedBy: c.closed_by ?? null,
       })),

@@ -12,8 +12,8 @@ const RATES = {
   extraChapati: rupees(15),
   extraBhakri: rupees(30),
   extrasPerMonth: rupees(40),
-  menu: MENU,
 };
+const MENUS = { effectiveFrom: "2026-04-01", menu: MENU };
 
 describe("two kitchens on one platform", () => {
   let p: TestPlatform;
@@ -75,6 +75,7 @@ describe("two kitchens on one platform", () => {
   });
 
   it("sets up Maple's kitchen: prices, people, and an invitation each", async () => {
+    expect((await maple.post("/api/w/maple/menus", MENUS)).status).toBe(201);
     expect((await maple.post("/api/w/maple/rate-cards", RATES)).status).toBe(201);
     for (const [name, key] of [
       ["Jovial", "jovial"],
@@ -103,6 +104,7 @@ describe("two kitchens on one platform", () => {
   });
 
   it("puts Jovial in the Willow mess as well, with one sign-in", async () => {
+    await willow.post("/api/w/willow-mess/menus", MENUS);
     expect(
       (
         await willow.post("/api/w/willow-mess/rate-cards", {
@@ -265,6 +267,7 @@ describe("invitations", () => {
       (await owner.post(`/api/w/inv-test-2/people/${person}/invite`, { email: "not-an-email" }))
         .status,
     ).toBe(422);
+    await owner.post("/api/w/inv-test-2/menus", MENUS);
     const rate = await owner.post("/api/w/inv-test-2/rate-cards", RATES);
     expect(rate.status).toBe(201);
   });
@@ -475,6 +478,7 @@ describe("[P5] no plaintext personal data reaches a log, application or database
         const from = statSync(PG_LOG).size;
 
         // A full tour of everything that carries free text.
+        await owner.post("/api/w/logcheck/menus", MENUS);
         await owner.post("/api/w/logcheck/rate-cards", RATES);
         const person = await owner.post("/api/w/logcheck/people", {
           name: "ZZSENTINELNAME",

@@ -12,7 +12,7 @@ flowchart TD
   Browser["<b>Browser</b><br/>installable PWA, static assets, offline reads"]
   Edge["<b>Edge or API</b> (Hono: a Cloudflare Worker, or Node)<br/>signed session cookie, per-workspace rate limit, request size and range caps<br/>directory lookup: slug to placement and wrapped key (cached in memory)"]
   Control[("<b>Control database</b> (one)<br/>accounts, workspaces, members,<br/>invites, wrapped keys, usage,<br/>platform events, wipe receipts")]
-  Workspace[("<b>Workspace database</b> (one per kitchen)<br/>people, rate cards, holidays, log,<br/>claims, decisions, settlements,<br/>month closes, audit, policy versions")]
+  Workspace[("<b>Workspace database</b> (one per kitchen)<br/>people, menus, rate cards, holidays, log,<br/>claims, decisions, settlements,<br/>month closes, audit, policy versions")]
   Browser --> Edge
   Edge --> Control
   Edge --> Workspace

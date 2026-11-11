@@ -122,6 +122,8 @@ export interface Me {
   };
   authDev: boolean;
   signInWithProvider: boolean;
+  /** False where the instance allows no kitchen that tracks money (`MONEY_ALLOWED=0`). */
+  moneyAllowed?: boolean;
 }
 
 export interface Capacity {

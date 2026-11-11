@@ -10,6 +10,7 @@ async function seed(owner: Page, member: Page, tag: string) {
   const api = owner.request;
   await api.post("/api/workspaces", { data: { slug, name: `Layout ${tag}`, alsoSupplier: true } });
   const w = `/api/w/${slug}`;
+  await api.post(`${w}/menus`, { data: { effectiveFrom: firstOfMonth(), menu: MENU } });
   await api.post(`${w}/rate-cards`, {
     data: {
       effectiveFrom: firstOfMonth(),
@@ -18,7 +19,6 @@ async function seed(owner: Page, member: Page, tag: string) {
       extraChapati: 1500,
       extraBhakri: 3000,
       extrasPerMonth: 4000,
-      menu: MENU,
     },
   });
   const made = await api.post(`${w}/people`, {

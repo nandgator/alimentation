@@ -56,14 +56,19 @@ type JsonSchema = {
 export const toolName = (op: Operation): string =>
   `${op.method}_${op.path.replace("/api/w/:slug/", "").replace(/[^A-Za-z0-9]+/g, "_")}`;
 
-/** The tools for a key that has these scopes: one for each route they open, and none for what is a person's. */
+/**
+ * The tools for a key that has these scopes: one for each route they open, and none for what is a person's.
+ * In a kitchen that does not track money there is no tool for a route about money, whatever the scopes.
+ */
 export function toolsFor(
   scopes: readonly AgentScope[],
   schemaOf: (s: NonNullable<Operation["body"]>) => JsonSchema,
+  moneyEnabled = true,
 ): McpTool[] {
   const out: McpTool[] = [];
   for (const m of matchers) {
     if (!m.scope || !scopes.includes(m.scope)) continue;
+    if (m.op.money && !moneyEnabled) continue;
     const properties: Record<string, Record<string, unknown>> = {};
     const required: string[] = [];
     const pathNames = [...m.op.path.matchAll(/:([A-Za-z]+)/g)]

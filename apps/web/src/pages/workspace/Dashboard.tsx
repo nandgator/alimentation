@@ -1,4 +1,10 @@
-import { addMonths, STATUS_LABEL, type StatementDto } from "@alimentation/core";
+import {
+  addMonths,
+  isMoneyStatement,
+  type MealStatementDto,
+  STATUS_LABEL,
+  type StatementDto,
+} from "@alimentation/core";
 import { useMemo, useState } from "react";
 import { getJson } from "../../api.ts";
 import { BarChart } from "../../components/Chart.tsx";
@@ -26,12 +32,10 @@ const TONE: Record<string, "good" | "warn" | "bad" | undefined> = {
 const sum = (xs: StatementDto[], f: (s: StatementDto) => number) =>
   xs.reduce((a, s) => a + f(s), 0);
 
-export function Dashboard() {
-  const ws = useWorkspace();
-  const { boot } = ws;
-  const [selected, setSelected] = useState<string>(boot.currentMonth);
-  // Six months ending with the selected one, never before the first month with anything to bill.
-  const range = useMemo(() => {
+/** The six months ending with the selected one, never before the first month with anything to count. */
+function useRange(selected: string) {
+  const { boot } = useWorkspace();
+  return useMemo(() => {
     const first = boot.months[0] ?? boot.currentMonth;
     const out: string[] = [];
     for (let i = 5; i >= 0; i--) {
@@ -40,11 +44,168 @@ export function Dashboard() {
     }
     return out.length ? out : [selected];
   }, [boot.months, boot.currentMonth, selected]);
+}
+
+const total = (xs: MealStatementDto[], f: (s: MealStatementDto) => number) =>
+  xs.reduce((a, s) => a + f(s), 0);
+
+/** What a kitchen without money has for a dashboard: how many meals, leaves and extras, and which months are locked. */
+function MealsDashboard() {
+  const ws = useWorkspace();
+  const { boot } = ws;
+  const [selected, setSelected] = useState<string>(boot.currentMonth);
+  const range = useRange(selected);
+  const stm = useLoad(
+    () =>
+      boot.menu
+        ? getJson<MealStatementDto[]>(`${ws.api}/statements?months=${range.join(",")}`)
+        : Promise.resolve([] as MealStatementDto[]),
+    [ws.api, range.join(","), boot.menu?.id],
+  );
+  const all = stm.data ?? [];
+  const mine = all.filter((s) => s.month === selected);
+  const single = ws.role === "consumer";
+  const projected = mine.length > 0 && mine.every((s) => s.basis === "Projected");
+  const series = [...new Set(all.map((s) => s.personId))].map((id) => ({
+    name: single ? "Meals" : ws.nameOf(id),
+    values: range.map(
+      (m) => all.find((s) => s.personId === id && s.month === m)?.counts.meals ?? null,
+    ),
+  }));
+  return (
+    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
+      <PageHead
+        title="Dashboard"
+        lead={
+          single
+            ? `Hello, ${boot.me.name}. Your meals, leave and extras.`
+            : "Who ate, who was on leave, and the extras."
+        }
+        actions={
+          <>
+            <Chip tone={projected ? undefined : "good"}>{projected ? "Projected" : "Actual"}</Chip>
+            <MonthPicker
+              months={boot.months.length ? boot.months : [boot.currentMonth]}
+              value={selected}
+              onChange={setSelected}
+              current={boot.currentMonth}
+            />
+          </>
+        }
+      />
+      {boot.organisation ? (
+        <p className="muted small">
+          This kitchen shares its totals (how many people and how many meals, with no names) with{" "}
+          {boot.organisation.name}.
+        </p>
+      ) : null}
+      <Problem error={stm.error} />
+      {stm.loading && !stm.data ? <Spinner /> : null}
+      {mine.length > 0 ? (
+        <div className="tilegroups">
+          <div className="tiles lead">
+            <Tile
+              lead
+              label="Meals"
+              value={total(mine, (s) => s.counts.meals)}
+              projected={projected}
+            />
+            <Tile lead label="Leave days" value={total(mine, (s) => s.counts.leave) || "-"} />
+            <Tile
+              lead
+              label="Extras"
+              value={total(mine, (s) => s.counts.extraChapati + s.counts.extraBhakri) || "-"}
+            />
+          </div>
+          <div className="tiles">
+            <Tile label="Veg" value={total(mine, (s) => s.counts.veg)} />
+            <Tile label="Non veg" value={total(mine, (s) => s.counts.nonVeg)} />
+            <Tile label="Chapatis" value={total(mine, (s) => s.counts.extraChapati) || "-"} />
+            <Tile label="Bhakris" value={total(mine, (s) => s.counts.extraBhakri) || "-"} />
+          </div>
+        </div>
+      ) : !stm.loading && boot.menu ? (
+        <p className="muted">Nothing to show for {monthLabel(selected)} yet.</p>
+      ) : null}
+      {!single && mine.length > 0 ? (
+        <div
+          className="tablewrap"
+          tabIndex={0}
+          role="region"
+          aria-label="Table; scrolls sideways when it is wider than the screen"
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th className="r">Meals</th>
+                <th className="r">Veg</th>
+                <th className="r">Non veg</th>
+                <th className="r">Leave</th>
+                <th className="r">Chapatis</th>
+                <th className="r">Bhakris</th>
+                <th>Month</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mine.map((s) => (
+                <tr key={s.personId} className={s.basis === "Projected" ? "projected" : ""}>
+                  <td>{s.name}</td>
+                  <td className="r">{s.counts.meals}</td>
+                  <td className="r">{s.counts.veg}</td>
+                  <td className="r">{s.counts.nonVeg}</td>
+                  <td className="r">{s.counts.leave || "-"}</td>
+                  <td className="r">{s.counts.extraChapati || "-"}</td>
+                  <td className="r">{s.counts.extraBhakri || "-"}</td>
+                  <td>
+                    <Chip tone={s.closed ? "good" : undefined}>{s.closed ? "Locked" : "Open"}</Chip>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {series.length > 0 ? (
+        <section className="card stack" aria-label="Meals each month">
+          <h2>Meals each month</h2>
+          <BarChart
+            counts
+            categories={range}
+            projected={range.map((m) =>
+              all.filter((s) => s.month === m).every((s) => s.basis === "Projected"),
+            )}
+            series={series}
+            label={
+              single
+                ? "Your meals in each of the last months"
+                : "Meals for each person in each of the last months"
+            }
+          />
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+export function Dashboard() {
+  const ws = useWorkspace();
+  return ws.money ? <MoneyDashboard /> : <MealsDashboard />;
+}
+
+function MoneyDashboard() {
+  const ws = useWorkspace();
+  const { boot } = ws;
+  const [selected, setSelected] = useState<string>(boot.currentMonth);
+  // Six months ending with the selected one, never before the first month with anything to bill.
+  const range = useRange(selected);
 
   const stm = useLoad(
     () =>
       boot.rateCard
-        ? getJson<StatementDto[]>(`${ws.api}/statements?months=${range.join(",")}`)
+        ? getJson<(StatementDto | MealStatementDto)[]>(
+            `${ws.api}/statements?months=${range.join(",")}`,
+          ).then((r) => r.filter(isMoneyStatement))
         : Promise.resolve([] as StatementDto[]),
     [ws.api, range.join(","), boot.rateCard?.id],
   );

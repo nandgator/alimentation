@@ -111,6 +111,14 @@ try {
   const first = new Date();
   const day = `${first.getUTCFullYear()}-${String(first.getUTCMonth() + 1).padStart(2, "0")}-01`;
   must(
+    await call("POST", `${w}/menus`, {
+      effectiveFrom: day,
+      menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
+    }),
+    201,
+    "menu",
+  );
+  must(
     await call("POST", `${w}/rate-cards`, {
       effectiveFrom: day,
       veg: 15000,
@@ -118,7 +126,6 @@ try {
       extraChapati: 1500,
       extraBhakri: 3000,
       extrasPerMonth: 4000,
-      menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
     }),
     201,
     "rate card",

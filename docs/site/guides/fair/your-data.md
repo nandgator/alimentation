@@ -39,6 +39,11 @@ How a move goes:
    with the same email, and is matched to the same person automatically.
 5. **This copy stays read-only for seven days**, in case you change your mind, then is removed.
 
+If your kitchen tracks money, it can only move to a place that tracks money too: nothing is left
+behind on the way. A kitchen without money can move to either, and when it is sent to an
+Alimentation of your own you can choose **Track money in the new kitchen**. It then arrives with no
+prices, and says **Add prices to start billing**.
+
 If anything cannot be carried across exactly, the move is **refused**. Your rules are never
 approximated.
 

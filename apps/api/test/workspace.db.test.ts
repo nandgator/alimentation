@@ -78,6 +78,7 @@ describe("[P7] one person's rows are invisible to everyone else", () => {
       "month_close",
       "audit_log",
       "rate_card",
+      "menu",
       "holiday",
       "workspace",
     ]) {
@@ -170,6 +171,7 @@ describe("decisions, settlements, prices and rules never change", () => {
       ["claim_decision", "claim_id"],
       ["settlement", "id"],
       ["rate_card", "id"],
+      ["menu", "id"],
       ["audit_log", "table_name"],
     ] as const) {
       expect(
@@ -188,6 +190,7 @@ describe("decisions, settlements, prices and rules never change", () => {
       ["claim_decision", "claim_id"],
       ["settlement", "id"],
       ["rate_card", "id"],
+      ["menu", "id"],
       ["audit_log", "table_name"],
     ] as const) {
       const u = await dbError(ws.owner.query(`UPDATE ${table} SET ${key} = ${key}`));
@@ -505,7 +508,15 @@ describe("everyone can see what was done to their own records", () => {
       (r) => r.table_name,
     );
 
-  const CORE = ["claim", "claim_decision", "log_entry", "month_close", "rate_card", "settlement"];
+  const CORE = [
+    "claim",
+    "claim_decision",
+    "log_entry",
+    "menu",
+    "month_close",
+    "rate_card",
+    "settlement",
+  ];
 
   it("shows a member the trail of their own records and of what everyone is billed by, and nothing of anyone else", async () => {
     const seen = await tables(s.jovial);

@@ -2,9 +2,9 @@ import { type Policy, rupees } from "@alimentation/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Actor } from "../src/workspace/context.ts";
 import { ApiError } from "../src/workspace/errors.ts";
-import { type Fixture, makeFixture } from "./support/fixture.ts";
+import { type Fixture, makeFixture, moneyStatements } from "./support/fixture.ts";
 
-import { at, MENU, seedSpec } from "./support/spec.ts";
+import { at, seedSpec } from "./support/spec.ts";
 
 const thrown = async (p: Promise<unknown>): Promise<ApiError> => {
   try {
@@ -27,7 +27,7 @@ describe("the spec, end to end: database, row-level security, encryption and eng
   afterAll(async () => fx.close());
 
   it("bills October 2026: Jovial 3,260, Smruti 3,030, total 6,290", async () => {
-    const all = await fx.svc.statements(fx.admin, ["2026-10"]);
+    const all = await moneyStatements(fx.svc, fx.admin, ["2026-10"]);
     const by = Object.fromEntries(all.map((s) => [s.name, s]));
     expect(by.Jovial!.billed).toBe(rupees(3260));
     expect(by.Smruti!.billed).toBe(rupees(3030));
@@ -37,18 +37,18 @@ describe("the spec, end to end: database, row-level security, encryption and eng
   });
 
   it("gives the supplier the same numbers and each consumer only their own", async () => {
-    expect((await fx.svc.statements(fx.supplier, ["2026-10"])).map((s) => s.billed).sort()).toEqual(
-      [rupees(3030), rupees(3260)],
-    );
-    const mine = await fx.svc.statements(jovial, ["2026-10"]);
+    expect(
+      (await moneyStatements(fx.svc, fx.supplier, ["2026-10"])).map((s) => s.billed).sort(),
+    ).toEqual([rupees(3030), rupees(3260)]);
+    const mine = await moneyStatements(fx.svc, jovial, ["2026-10"]);
     expect(mine.map((s) => s.name)).toEqual(["Jovial"]);
     expect(mine[0]!.billed).toBe(rupees(3260));
   });
 
   it("[P7] keeps one consumer away from another through the whole service", async () => {
-    expect((await thrown(fx.svc.statements(jovial, ["2026-10"], smruti.personId))).status).toBe(
-      404,
-    );
+    expect(
+      (await thrown(moneyStatements(fx.svc, jovial, ["2026-10"], smruti.personId))).status,
+    ).toBe(404);
     expect((await thrown(fx.svc.ledger(jovial, "2026-10", smruti.personId))).status).toBe(404);
     const log = await fx.svc.listLog(jovial, { from: "2026-10-01", to: "2026-10-31" });
     expect(log.every((e) => e.personId === jovial.personId || e.personId === null)).toBe(true);
@@ -89,10 +89,14 @@ describe("the spec, end to end: database, row-level security, encryption and eng
       extraChapati: rupees(15),
       extraBhakri: rupees(30),
       extrasPerMonth: rupees(40),
-      menu: MENU,
     });
     fx.clock.now = at("2026-11-15T06:00:00Z");
-    const [oct, nov] = await fx.svc.statements(fx.admin, ["2026-10", "2026-11"], jovial.personId);
+    const [oct, nov] = await moneyStatements(
+      fx.svc,
+      fx.admin,
+      ["2026-10", "2026-11"],
+      jovial.personId,
+    );
     expect(oct!.billed).toBe(rupees(3260));
     expect(nov!.liveTotal).toBe(rupees(3060)); // 11 Veg x160 + 7 Non Veg x180 + 40
   });
@@ -108,7 +112,6 @@ describe("the spec, end to end: database, row-level security, encryption and eng
             extraChapati: 1,
             extraBhakri: 1,
             extrasPerMonth: 1,
-            menu: MENU,
           }),
         )
       ).code,
@@ -123,7 +126,6 @@ describe("the spec, end to end: database, row-level security, encryption and eng
             extraChapati: 1,
             extraBhakri: 1,
             extrasPerMonth: 1,
-            menu: MENU,
           }),
         )
       ).code,
@@ -142,7 +144,7 @@ describe("paying: claim, confirm, dispute, reverse", () => {
   afterAll(async () => fx.close());
 
   const statement = async (who: Actor, month = "2026-10") =>
-    (await fx.svc.statements(who, [month], who.personId))[0]!;
+    (await moneyStatements(fx.svc, who, [month], who.personId))[0]!;
 
   it("walks Jovial's 100-rupee claim from pending to confirmed, and freezes the decision", async () => {
     const { id } = await fx.svc.addClaim(jovial, {
@@ -301,7 +303,7 @@ describe("closing a month", () => {
     expect((await thrown(add(jovial, "2026-10-14"))).code).toBe("invalid");
     const { warnings } = await add(fx.admin, "2026-10-14"); // Wednesday, Non Veg: 170 off
     expect(warnings.map((w) => w.code)).toEqual(["CHANGES_AFTER_CLOSE", "LATE_ENTRY"]);
-    const s = (await fx.svc.statements(fx.admin, ["2026-10"], jovial.personId))[0]!;
+    const s = (await moneyStatements(fx.svc, fx.admin, ["2026-10"], jovial.personId))[0]!;
     expect(s.billed).toBe(rupees(3260));
     expect(s.liveTotal).toBe(rupees(3090));
     expect(s.changedAfterClose).toBe(-rupees(170));
@@ -310,7 +312,7 @@ describe("closing a month", () => {
 
   it("reopens a month so it can be closed again", async () => {
     await fx.svc.reopenMonth(fx.admin, "2026-10", jovial.personId);
-    const s = (await fx.svc.statements(fx.admin, ["2026-10"], jovial.personId))[0]!;
+    const s = (await moneyStatements(fx.svc, fx.admin, ["2026-10"], jovial.personId))[0]!;
     expect(s.closed).toBe(false);
     expect(s.billed).toBe(rupees(3090));
     expect(
@@ -354,12 +356,12 @@ describe("rules that differ by workspace", () => {
       );
       // Within the grace days nothing is closed.
       fx.clock.now = at("2026-11-05T06:00:00Z");
-      expect((await fx.svc.statements(fx.admin, ["2026-10"], jovial.personId))[0]!.closed).toBe(
-        false,
-      );
+      expect(
+        (await moneyStatements(fx.svc, fx.admin, ["2026-10"], jovial.personId))[0]!.closed,
+      ).toBe(false);
       // The first read after the grace days closes it, at the amount it had.
       fx.clock.now = at("2026-11-06T06:00:00Z");
-      const s = (await fx.svc.statements(fx.admin, ["2026-10"], jovial.personId))[0]!;
+      const s = (await moneyStatements(fx.svc, fx.admin, ["2026-10"], jovial.personId))[0]!;
       expect(s.closed).toBe(true);
       expect(s.billed).toBe(rupees(3260));
       const rows = (await fx.ws.owner.query("SELECT closed_by FROM month_close")).rows;
@@ -376,7 +378,7 @@ describe("rules that differ by workspace", () => {
         }),
       );
       expect(err.code).toBe("invalid");
-      expect(await fx.svc.statements(fx.admin, ["2026-10"], jovial.personId)).toMatchObject([
+      expect(await moneyStatements(fx.svc, fx.admin, ["2026-10"], jovial.personId)).toMatchObject([
         { billed: rupees(3260), changedAfterClose: 0 },
       ]);
     } finally {
@@ -515,7 +517,7 @@ describe("limits and states", () => {
     const fx = await makeFixture();
     try {
       const boot = await fx.svc.bootstrap(fx.admin, ["admin"]);
-      expect(boot.setup.map((s) => s.code).sort()).toEqual(["consumers", "rate_card"]);
+      expect(boot.setup.map((s) => s.code).sort()).toEqual(["consumers", "menu", "rate_card"]);
       expect(boot.statements).toEqual([]);
       await fx.addConsumer("One");
       expect((await fx.svc.bootstrap(fx.admin, ["admin"])).setup.map((s) => s.code)).toContain(

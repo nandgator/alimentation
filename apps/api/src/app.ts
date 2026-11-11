@@ -37,10 +37,11 @@ import {
   canRead,
   complete,
   getPrompt,
-  KITCHEN_GUIDE,
+  kitchenGuide,
   LEDGER_TEMPLATE,
   parseResource,
   promptArguments,
+  promptIsMoney,
   promptNeeds,
   promptsFor,
   resourcesFor,
@@ -66,6 +67,7 @@ import {
   CreateAgentKey,
   CreateClaim,
   CreateHoliday,
+  CreateMenu,
   CreateOrganisation,
   CreatePerson,
   CreatePolicy,
@@ -101,6 +103,7 @@ import {
 import { SECURITY_HEADERS } from "./security.ts";
 import { type Actor, resolveActors } from "./workspace/context.ts";
 import { ApiError, forbidden, invalid } from "./workspace/errors.ts";
+import { noMoney } from "./workspace/service.ts";
 
 export interface AppDeps {
   config: Config;
@@ -397,7 +400,11 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
 
   app.get("/api/me", async (c) => {
     const a = c.get("account");
-    const base = { authDev: config.authDev, signInWithProvider: !!deps.oidc };
+    const base = {
+      authDev: config.authDev,
+      signInWithProvider: !!deps.oidc,
+      moneyAllowed: config.moneyAllowed,
+    };
     if (!a) return c.json({ account: null, ...base });
     const [mine, organisations, start] = await Promise.all([
       deps.control.workspacesOf(a.id),
@@ -804,6 +811,9 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         hit.actors.find((x) => x.role === wanted) ??
         must(hit.actors.find((x) => x.role === held[0]));
     }
+    // A kitchen that does not track money has no prices, claims or settlements to ask about. This is said
+    // to its own members only, and after the key (if any) has been held to its scopes.
+    if (!handle.info.moneyEnabled && routeFor(c.req.method, c.req.path)?.op.money) throw noMoney();
     c.set("handle", handle);
     c.set("actor", actor);
     c.set("roles", roles);
@@ -849,6 +859,13 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   w.post("/agents", async (c) => {
     const account = needAccount(c);
     const b = await parse(c, CreateAgentKey);
+    // There is nothing for the claims scope to do in a kitchen that has no claims.
+    if (!c.get("handle").info.moneyEnabled && b.scopes.includes("claims"))
+      throw new ApiError(
+        422,
+        "money_not_tracked",
+        "This kitchen does not track money, so a key cannot have the claims scope.",
+      );
     const row = c.get("handle").row;
     if ((await deps.control.countActiveAgentKeys(account.id, row.id)) >= MAX_ACTIVE_KEYS)
       throw invalid(
@@ -987,11 +1004,16 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     );
   });
 
+  w.get("/menus", async (c) => c.json(await svc(c).listMenus(who(c))));
+  w.post("/menus", async (c) => {
+    const b = await parse(c, CreateMenu);
+    const menu = Object.fromEntries(Object.entries(b.menu).map(([k, v]) => [Number(k), v]));
+    return c.json(await svc(c).addMenu(who(c), { ...b, menu }), 201);
+  });
   w.get("/rate-cards", async (c) => c.json(await svc(c).listRateCards(who(c))));
   w.post("/rate-cards", async (c) => {
     const b = await parse(c, CreateRateCard);
-    const menu = Object.fromEntries(Object.entries(b.menu).map(([k, v]) => [Number(k), v]));
-    return c.json(await svc(c).addRateCard(who(c), { ...b, menu }), 201);
+    return c.json(await svc(c).addRateCard(who(c), b), 201);
   });
   w.get("/policies", async (c) => c.json(await svc(c).listPolicies(who(c))));
   w.post("/policies", async (c) => {
@@ -1180,7 +1202,8 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     // A message with no id is a notification: it is taken and not answered.
     if (msg.id === undefined) return c.body(null, 202);
 
-    const tools = toolsFor(key.scopes, schemaOf);
+    const money = handle.info.moneyEnabled;
+    const tools = toolsFor(key.scopes, schemaOf, money);
     const toolNames = tools.map((t) => t.name);
     /** An ordinary request to the kitchen with this key: it is checked, counted and recorded as any other. */
     const asKey = (method: string, pathAndQuery: string, body?: unknown) =>
@@ -1224,7 +1247,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
             protocolVersion: MCP_VERSIONS.includes(asked) ? asked : MCP_VERSIONS[0],
             capabilities: { tools: {}, prompts: {}, resources: {}, completions: {} },
             serverInfo: { name: "alimentation", version: "1" },
-            instructions: `This key is for the kitchen “${handle.row.displayName}”, as its ${key.role}, with the scopes ${key.scopes.join(", ")}. What you do is recorded in the kitchen as done by an agent, for the person who gave you the key. Amounts are in paise (hundredths of a rupee). Start with get_bootstrap. The server also has prompts (starting points for common jobs: logging meals, reading a balance, saying a payment was made) and resources (the kitchen guide at alimentation://kitchen/guide, the menu, the holidays and your ledger): read the guide first.`,
+            instructions: `This key is for the kitchen “${handle.row.displayName}”, as its ${key.role}, with the scopes ${key.scopes.join(", ")}. What you do is recorded in the kitchen as done by an agent, for the person who gave you the key. ${money ? "Amounts are in paise (hundredths of a rupee). " : "This kitchen does not track money: it counts meals and has no prices, bills or payments. "}Start with get_bootstrap. The server also has prompts (starting points for common jobs${money ? ": logging meals, reading a balance, saying a payment was made" : ": logging meals"}) and resources (the kitchen guide at alimentation://kitchen/guide, the menu, the holidays and your ${money ? "ledger" : "meal counts"}): read the guide first.`,
           }),
         );
       }
@@ -1284,13 +1307,14 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         );
       }
       case "prompts/list":
-        return c.json(rpc(msg.id, { prompts: promptsFor(toolNames) }));
+        return c.json(rpc(msg.id, { prompts: promptsFor(toolNames, money) }));
       case "prompts/get": {
         const name = String(msg.params?.name ?? "");
         const got = getPrompt(
           name,
           msg.params?.arguments as Record<string, unknown> | undefined,
           toolNames,
+          money,
         );
         if (!got.ok) return c.json(rpcError(msg.id, -32602, got.message));
         return c.json(rpc(msg.id, { description: got.description, messages: got.messages }));
@@ -1309,8 +1333,9 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
           let text: string;
           if (ref.kind === "guide") {
             mimeType = "text/plain";
-            text = KITCHEN_GUIDE;
-          } else if (ref.kind === "menu") text = (await read(`${base}/rate-cards`)).text;
+            text = kitchenGuide(money);
+          } else if (ref.kind === "menu") text = (await read(`${base}/menus`)).text;
+          else if (ref.kind === "prices") text = (await read(`${base}/rate-cards`)).text;
           else if (ref.kind === "holidays")
             text = JSON.stringify((await read(`${base}/bootstrap`)).json.holidays ?? [], null, 2);
           else {
@@ -1337,7 +1362,10 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         let takes: readonly string[] = [];
         if (ref?.type === "ref/prompt") {
           const needs = promptNeeds(String(ref.name ?? ""));
-          known = !!needs && needs.every((n) => toolNames.includes(n));
+          known =
+            !!needs &&
+            needs.every((n) => toolNames.includes(n)) &&
+            (money || !promptIsMoney(String(ref.name ?? "")));
           takes = promptArguments(String(ref.name ?? "")) ?? [];
         } else if (ref?.type === "ref/resource") {
           known = ref.uri === LEDGER_TEMPLATE && canRead({ kind: "ledger", month: "" }, toolNames);

@@ -55,6 +55,10 @@ CREATE TABLE workspace (
   read_only  boolean NOT NULL DEFAULT false,
   people_cap integer CHECK (people_cap IS NULL OR people_cap >= 0),
   row_cap    integer CHECK (row_cap IS NULL OR row_cap >= 0),
+  -- Whether the kitchen puts a price on its meals. Chosen when the kitchen is made and fixed after: a guard
+  -- below refuses any change. A kitchen without money counts meals and keeps no prices, claims, settlements
+  -- or billed amounts, and the database refuses to hold them (see guard_money).
+  money_enabled boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -100,6 +104,24 @@ CREATE TABLE policy_version (
   created_by     uuid
 );
 
+-- What is served, dated and append-only like a rate card, and with no prices in it. Every kitchen has one,
+-- whether or not it tracks money.
+CREATE TABLE menu (
+  id              uuid PRIMARY KEY DEFAULT uuidv7(),
+  effective_from  date NOT NULL UNIQUE,
+  menu_sun text CHECK (menu_sun IN ('Veg', 'Non Veg')),
+  menu_mon text CHECK (menu_mon IN ('Veg', 'Non Veg')),
+  menu_tue text CHECK (menu_tue IN ('Veg', 'Non Veg')),
+  menu_wed text CHECK (menu_wed IN ('Veg', 'Non Veg')),
+  menu_thu text CHECK (menu_thu IN ('Veg', 'Non Veg')),
+  menu_fri text CHECK (menu_fri IN ('Veg', 'Non Veg')),
+  menu_sat text CHECK (menu_sat IN ('Veg', 'Non Veg')),
+  note       text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  created_by uuid
+);
+
+-- Prices only. A kitchen that does not track money has none (see guard_money).
 CREATE TABLE rate_card (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
   effective_from  date NOT NULL UNIQUE,
@@ -108,13 +130,6 @@ CREATE TABLE rate_card (
   extra_chapati   paise NOT NULL,
   extra_bhakri    paise NOT NULL,
   extras_per_month paise NOT NULL,
-  menu_sun text CHECK (menu_sun IN ('Veg', 'Non Veg')),
-  menu_mon text CHECK (menu_mon IN ('Veg', 'Non Veg')),
-  menu_tue text CHECK (menu_tue IN ('Veg', 'Non Veg')),
-  menu_wed text CHECK (menu_wed IN ('Veg', 'Non Veg')),
-  menu_thu text CHECK (menu_thu IN ('Veg', 'Non Veg')),
-  menu_fri text CHECK (menu_fri IN ('Veg', 'Non Veg')),
-  menu_sat text CHECK (menu_sat IN ('Veg', 'Non Veg')),
   note       text,
   created_at timestamptz NOT NULL DEFAULT now(),
   created_by uuid
@@ -202,7 +217,8 @@ CREATE TABLE month_close (
   for_month   date NOT NULL CHECK (extract(day FROM for_month) = 1),
   consumer_id uuid NOT NULL REFERENCES person (id),
   meals       integer NOT NULL CHECK (meals >= 0),
-  billed      paise NOT NULL,
+  -- Null when the close only locks the month, which is all a kitchen without money can do (see guard_close).
+  billed      paise,
   closed_on   date NOT NULL,
   -- Null when the workspace's automatic rule closed it.
   closed_by   uuid REFERENCES person (id),
@@ -261,6 +277,8 @@ BEGIN
 END $$;
 
 CREATE TRIGGER rate_card_append_only BEFORE UPDATE OR DELETE ON rate_card
+  FOR EACH ROW EXECUTE FUNCTION forbid_change();
+CREATE TRIGGER menu_append_only BEFORE UPDATE OR DELETE ON menu
   FOR EACH ROW EXECUTE FUNCTION forbid_change();
 CREATE TRIGGER policy_version_append_only BEFORE UPDATE OR DELETE ON policy_version
   FOR EACH ROW EXECUTE FUNCTION forbid_change();
@@ -405,6 +423,8 @@ CREATE TRIGGER policy_version_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRU
   FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
 CREATE TRIGGER rate_card_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON rate_card
   FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER menu_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON menu
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
 CREATE TRIGGER holiday_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON holiday
   FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
 CREATE TRIGGER log_entry_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON log_entry
@@ -483,6 +503,8 @@ CREATE TRIGGER policy_version_audit AFTER INSERT OR UPDATE OR DELETE ON policy_v
   FOR EACH ROW EXECUTE FUNCTION audit_row('effective_from');
 CREATE TRIGGER rate_card_audit AFTER INSERT OR UPDATE OR DELETE ON rate_card
   FOR EACH ROW EXECUTE FUNCTION audit_row('id');
+CREATE TRIGGER menu_audit AFTER INSERT OR UPDATE OR DELETE ON menu
+  FOR EACH ROW EXECUTE FUNCTION audit_row('id');
 CREATE TRIGGER holiday_audit AFTER INSERT OR UPDATE OR DELETE ON holiday
   FOR EACH ROW EXECUTE FUNCTION audit_row('id');
 CREATE TRIGGER log_entry_audit AFTER INSERT OR UPDATE OR DELETE ON log_entry
@@ -519,12 +541,15 @@ BEGIN
 END $$;
 
 -- An automatic close, made on behalf of the workspace's own rule. The amounts
--- come from the engine; this checks the rule really has come due.
+-- come from the engine; this checks the rule really has come due. A kitchen
+-- without money writes the close without an amount, whatever it is given: the
+-- month is locked and nothing is frozen.
 CREATE FUNCTION system_close_month(p_month date, p_consumer uuid, p_meals integer, p_billed bigint) RETURNS void
   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   rule jsonb := policy_on(p_month) -> 'monthClose';
   due  date;
+  money boolean := (SELECT money_enabled FROM workspace);
 BEGIN
   IF (SELECT read_only FROM workspace) THEN
     RETURN;
@@ -537,7 +562,7 @@ BEGIN
     RAISE EXCEPTION 'ALIMENTATION_RULE: that month is not due to close yet' USING ERRCODE = 'P0001';
   END IF;
   INSERT INTO month_close (for_month, consumer_id, meals, billed, closed_on, closed_by)
-  VALUES (p_month, p_consumer, p_meals, p_billed, workspace_today(), NULL)
+  VALUES (p_month, p_consumer, p_meals, CASE WHEN money THEN p_billed END, workspace_today(), NULL)
   ON CONFLICT DO NOTHING;
 END $$;
 
@@ -547,6 +572,7 @@ END $$;
 ALTER TABLE workspace ENABLE ROW LEVEL SECURITY;
 ALTER TABLE person ENABLE ROW LEVEL SECURITY;
 ALTER TABLE policy_version ENABLE ROW LEVEL SECURITY;
+ALTER TABLE menu ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_card ENABLE ROW LEVEL SECURITY;
 ALTER TABLE holiday ENABLE ROW LEVEL SECURITY;
 ALTER TABLE log_entry ENABLE ROW LEVEL SECURITY;
@@ -569,6 +595,9 @@ CREATE POLICY person_admin_update ON person FOR UPDATE
 
 CREATE POLICY policy_read ON policy_version FOR SELECT USING (app_role() IS NOT NULL);
 CREATE POLICY policy_admin_insert ON policy_version FOR INSERT WITH CHECK (app_role() = 'admin');
+
+CREATE POLICY menu_read ON menu FOR SELECT USING (app_role() IS NOT NULL);
+CREATE POLICY menu_admin_insert ON menu FOR INSERT WITH CHECK (app_role() = 'admin');
 
 CREATE POLICY rate_card_read ON rate_card FOR SELECT USING (app_role() IS NOT NULL);
 CREATE POLICY rate_card_admin_insert ON rate_card FOR INSERT WITH CHECK (app_role() = 'admin');
@@ -658,6 +687,7 @@ SELECT grant_to_app('SELECT', 'meta');
 SELECT grant_to_app('SELECT, UPDATE', 'workspace');
 SELECT grant_to_app('SELECT, INSERT, UPDATE', 'person');
 SELECT grant_to_app('SELECT, INSERT', 'policy_version');
+SELECT grant_to_app('SELECT, INSERT', 'menu');
 SELECT grant_to_app('SELECT, INSERT', 'rate_card');
 SELECT grant_to_app('SELECT, INSERT, UPDATE, DELETE', 'holiday');
 SELECT grant_to_app('SELECT, INSERT, UPDATE, DELETE', 'log_entry');
@@ -691,5 +721,75 @@ END $$;
 CREATE TRIGGER workspace_keep_caps BEFORE UPDATE ON workspace
   FOR EACH ROW EXECUTE FUNCTION keep_caps();
 
+-- A kitchen without money.
+--
+-- Whether a kitchen puts a price on its meals is chosen when it is made (workspace.money_enabled) and never
+-- changes: not from inside the kitchen, and not by the platform either. A kitchen without money keeps no
+-- prices, claims, decisions, reversals, settlements or billed amounts, and the database refuses to hold them
+-- whoever is writing, the owner who imports a moved kitchen included. Menus, people, the log, holidays and
+-- the rules are the same for both kinds, and a close without an amount is the lock on a month that both
+-- can have.
+
+-- The kitchen's own answer, readable by the application role without a role in the workspace (the platform
+-- asks it when a kitchen is first served). A database with no workspace yet answers yes: nothing is refused
+-- before the kitchen's row exists.
+CREATE FUNCTION money_enabled() RETURNS boolean
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+  AS $$ SELECT coalesce((SELECT money_enabled FROM workspace), true) $$;
+
+CREATE FUNCTION keep_money_enabled() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.money_enabled IS DISTINCT FROM OLD.money_enabled THEN
+    RAISE EXCEPTION 'ALIMENTATION_IMMUTABLE: whether a kitchen tracks money is chosen when it is made and cannot change' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER workspace_keep_money_enabled BEFORE UPDATE ON workspace
+  FOR EACH ROW EXECUTE FUNCTION keep_money_enabled();
+
+CREATE FUNCTION guard_money() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  IF NOT money_enabled() THEN
+    RAISE EXCEPTION 'ALIMENTATION_RULE: this kitchen does not track money' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END $$;
+CREATE TRIGGER rate_card_guard_money BEFORE INSERT OR UPDATE OR DELETE ON rate_card
+  FOR EACH ROW EXECUTE FUNCTION guard_money();
+CREATE TRIGGER claim_guard_money BEFORE INSERT OR UPDATE OR DELETE ON claim
+  FOR EACH ROW EXECUTE FUNCTION guard_money();
+CREATE TRIGGER claim_decision_guard_money BEFORE INSERT OR UPDATE OR DELETE ON claim_decision
+  FOR EACH ROW EXECUTE FUNCTION guard_money();
+CREATE TRIGGER claim_reversal_guard_money BEFORE INSERT OR UPDATE OR DELETE ON claim_reversal
+  FOR EACH ROW EXECUTE FUNCTION guard_money();
+CREATE TRIGGER settlement_guard_money BEFORE INSERT OR UPDATE OR DELETE ON settlement
+  FOR EACH ROW EXECUTE FUNCTION guard_money();
+
+-- A close of a kitchen without money has no amount; a close made by a person in one that tracks money has.
+-- (A close with no amount may arrive in a money kitchen by import, as the owner, from a kitchen that had no
+-- money: it locks the month and freezes nothing.)
+CREATE FUNCTION guard_close() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.billed IS NOT NULL AND NOT money_enabled() THEN
+    RAISE EXCEPTION 'ALIMENTATION_RULE: this kitchen does not track money, so a close freezes no amount' USING ERRCODE = 'P0001';
+  END IF;
+  IF NEW.billed IS NULL AND money_enabled() AND is_app_session() THEN
+    RAISE EXCEPTION 'ALIMENTATION_RULE: a close in a kitchen that tracks money needs its billed amount' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER month_close_guard_close BEFORE INSERT OR UPDATE ON month_close
+  FOR EACH ROW EXECUTE FUNCTION guard_close();
+
 -- No function is executable by everyone.
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
+
+DO $$
+DECLARE
+  app text := (SELECT value FROM meta WHERE key = 'app_role');
+BEGIN
+  EXECUTE format('GRANT EXECUTE ON FUNCTION money_enabled() TO %I', app);
+END $$;

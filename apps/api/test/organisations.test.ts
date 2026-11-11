@@ -130,6 +130,7 @@ describe("a head office over several kitchens", () => {
       const k = out.kitchens.find((x) => x.slug === slug)!;
       expect(k.unavailable).toBeNull();
       expect(k.totals).toEqual({
+        moneyEnabled: true,
         month: own.currentMonth,
         currency: own.workspace.currency,
         consumers: own.statements.length,
@@ -144,7 +145,7 @@ describe("a head office over several kitchens", () => {
         setup: own.setup.length,
       });
       expect(k.totals!.consumers).toBe(2);
-      expect(k.totals!.billed).toBeGreaterThan(0);
+      expect((k.totals as { billed: number }).billed).toBeGreaterThan(0);
     }
   });
 
@@ -172,6 +173,7 @@ describe("a head office over several kitchens", () => {
         "consumers",
         "currency",
         "meals",
+        "moneyEnabled",
         "month",
         "owed",
         "paid",
@@ -331,6 +333,7 @@ describe("what a head office reads, and what that leaves behind", () => {
     };
     const out = (await owner.get(`/api/organisations/${org}`)).json as OrganisationDto;
     const read = out.kitchens[0]!.totals!;
+    if (!read.moneyEnabled) throw new Error("this kitchen tracks money");
     expect(read.month).toBe("2026-12");
     expect({
       closes: await count("quiet-kitchen", "month_close"),

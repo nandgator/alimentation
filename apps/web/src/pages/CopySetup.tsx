@@ -1,4 +1,4 @@
-import type { BootstrapDto, IsoDate, RateCard } from "@alimentation/core";
+import type { BootstrapDto, IsoDate, MenuVersion, RateCard } from "@alimentation/core";
 import { must } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../api.ts";
@@ -20,13 +20,17 @@ interface Kitchen {
 /** What a kitchen says about its prices, rules and holidays, to someone who is its admin. */
 async function snapshot(slug: string): Promise<Snapshot> {
   const base = `/api/w/${slug}`;
-  const [boot, rateCards, policies] = await Promise.all([
-    api.get<BootstrapDto>(`${base}/bootstrap`),
-    getJson<RateCard[]>(`${base}/rate-cards`),
+  const boot = await api.get<BootstrapDto>(`${base}/bootstrap`);
+  const money = boot.data.workspace.moneyEnabled;
+  const [menus, rateCards, policies] = await Promise.all([
+    getJson<MenuVersion[]>(`${base}/menus`),
+    money ? getJson<RateCard[]>(`${base}/rate-cards`) : Promise.resolve([] as RateCard[]),
     getJson<{ effectiveFrom: IsoDate; doc: unknown }[]>(`${base}/policies`),
   ]);
   return {
     today: boot.data.today,
+    moneyEnabled: money,
+    menus,
     rateCards,
     policies,
     holidays: boot.data.holidays,
@@ -37,11 +41,13 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
 
 function Summary({ plan }: { plan: Plan }) {
   const kinds = {
+    menu: plan.steps.filter((s) => s.kind === "menu").length,
     rules: plan.steps.filter((s) => s.kind === "rules").length,
     prices: plan.steps.filter((s) => s.kind === "prices").length,
     holiday: plan.steps.filter((s) => s.kind === "holiday").length,
   };
   const parts = [
+    kinds.menu ? count(kinds.menu, "menu") : "",
     kinds.prices ? count(kinds.prices, "price list") : "",
     kinds.rules ? count(kinds.rules, "set of rules", "sets of rules") : "",
     kinds.holiday ? count(kinds.holiday, "holiday") : "",
@@ -81,14 +87,14 @@ function Summary({ plan }: { plan: Plan }) {
 }
 
 /**
- * Prices, rules and holidays from one kitchen to others, for someone who runs them all. It shows what would
+ * The menu, prices, rules and holidays from one kitchen to others, for someone who runs them all. It shows what would
  * be added before anything is, and adds it through each kitchen's own pages, so each kitchen still refuses
  * what its own rules refuse and the people in it are told nothing.
  */
 export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
   const [from, setFrom] = useState(must(kitchens[0]).slug);
   const [to, setTo] = useState<Set<string>>(new Set());
-  const [what, setWhat] = useState<What>({ prices: true, rules: true, holidays: true });
+  const [what, setWhat] = useState<What>({ menu: true, prices: true, rules: true, holidays: true });
   const [plans, setPlans] = useState<Record<string, Plan> | null>(null);
   const [done, setDone] = useState<Record<string, Outcome> | null>(null);
   const check = useAction();
@@ -96,7 +102,7 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
   const others = kitchens.filter((k) => k.slug !== from);
   const chosen = others.filter((k) => to.has(k.slug));
   const nameOf = (slug: string) => kitchens.find((k) => k.slug === slug)?.name ?? slug;
-  const nothingChosen = !what.prices && !what.rules && !what.holidays;
+  const nothingChosen = !what.menu && !what.prices && !what.rules && !what.holidays;
   const anyToAdd = plans ? Object.values(plans).some((p) => p.steps.length > 0) : false;
 
   const forget = () => {
@@ -108,8 +114,9 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
     <section className="card stack" aria-labelledby="copy-h">
       <h2 id="copy-h">Copy a setup to other kitchens</h2>
       <p className="muted">
-        Take prices, rules and holidays from one kitchen you run and add them to others you run. You
-        see what would be added first. Nothing already there is changed.
+        Take the menu, prices, rules and holidays from one kitchen you run and add them to others
+        you run. Prices go only between kitchens that track money. You see what would be added
+        first. Nothing already there is changed.
       </p>
       <Form
         error={check.error}
@@ -163,7 +170,8 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
           <legend>What to copy</legend>
           {(
             [
-              ["prices", "Prices (the rate cards)"],
+              ["menu", "Menu (what is served each day)"],
+              ["prices", "Prices (the rate cards), between kitchens that track money"],
               ["rules", "Rules (working days, leave and the rest)"],
               ["holidays", "Holidays from this month on"],
             ] as const

@@ -10,6 +10,7 @@ import {
   type LogChange,
   type LogEntry,
   ledgerMonth,
+  type MenuVersion,
   type Month,
   monthEnd,
   monthOf,
@@ -45,7 +46,13 @@ export const SAMPLE_CARD: RateCard = {
   extraChapati: rupees(10),
   extraBhakri: rupees(20),
   extrasPerMonth: rupees(30),
-  menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
+  note: null,
+};
+
+export const SAMPLE_MENU: MenuVersion = {
+  id: "sample",
+  effectiveFrom: "2000-01-01",
+  days: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
   note: null,
 };
 
@@ -177,7 +184,7 @@ export function board(marks: Marks, today: IsoDate, month: Month): Board {
     if (mark === "leave") log.push(entry(date, "Leave", null));
     if (mark === "chapati") log.push(entry(date, "Extra Chapati", CHAPATIS));
     if (mark === "switch") {
-      const served = SAMPLE_CARD.menu[weekdayOf(date)];
+      const served = SAMPLE_MENU.days[weekdayOf(date)];
       log.push(entry(date, served === "Veg" ? "Switch to Non Veg" : "Switch to Veg", null));
     }
   }
@@ -188,6 +195,8 @@ export function board(marks: Marks, today: IsoDate, month: Month): Board {
   };
   const data: EngineData = {
     today,
+    moneyEnabled: true,
+    menus: [SAMPLE_MENU],
     policies: [{ effectiveFrom: "2000-01-01", doc: DEFAULT_POLICY }],
     rateCards: [SAMPLE_CARD],
     holidays: [],

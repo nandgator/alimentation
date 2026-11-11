@@ -1,4 +1,11 @@
-import { dayName, type IsoDate, type LedgerDto, weekdayOf } from "@alimentation/core";
+import {
+  dayName,
+  type IsoDate,
+  type LedgerDay,
+  type LedgerDto,
+  type MealLedgerDay,
+  weekdayOf,
+} from "@alimentation/core";
 import { useState } from "react";
 import { getJson } from "../../api.ts";
 import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
@@ -20,7 +27,8 @@ export function Daily() {
         : Promise.resolve(null),
     [ws.api, selected, person],
   );
-  const days = res.data?.days ?? [];
+  // Days with a price on them for a kitchen that tracks money; the same days without one for a kitchen that does not.
+  const days: (MealLedgerDay | LedgerDay)[] = res.data?.days ?? [];
   return (
     <div className="stack">
       <PageHead
@@ -69,7 +77,7 @@ export function Daily() {
                 <th>Status</th>
                 <th>Meal</th>
                 <th className="r">Extras</th>
-                <th className="r">Amount</th>
+                {ws.money ? <th className="r">Amount</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -100,7 +108,9 @@ export function Daily() {
                       </td>
                       <td>{d.meal ?? "-"}</td>
                       <td className="r">{extras || "-"}</td>
-                      <td className="r">{money(d.dayTotal)}</td>
+                      {ws.money ? (
+                        <td className="r">{"dayTotal" in d ? money(d.dayTotal) : "-"}</td>
+                      ) : null}
                     </tr>
                   );
                 })}
@@ -111,7 +121,9 @@ export function Daily() {
         <p className="muted">No days to show.</p>
       ) : null}
       <p className="muted small">
-        Greyed days have not happened yet, so their amounts are projected.
+        {ws.money
+          ? "Greyed days have not happened yet, so their amounts are projected."
+          : "Greyed days have not happened yet, so they are what is expected."}
       </p>
     </div>
   );

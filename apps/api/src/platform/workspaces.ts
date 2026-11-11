@@ -78,6 +78,27 @@ export interface WorkspaceSummary {
   slug: string;
   name: string;
   roles: Role[];
+  moneyEnabled: boolean;
+}
+
+/** What this instance says to a kitchen that would track money, when it does not allow that. */
+export const moneyNotAllowed = () =>
+  new ApiError(
+    403,
+    "money_not_allowed",
+    "This service does not allow kitchens that track money. A kitchen here counts meals only.",
+  );
+
+/**
+ * Whether a new kitchen tracks money: what was asked, or, when nothing was asked, whatever this instance
+ * allows. Asking for money where it is not allowed is refused and never quietly turned into the other thing.
+ */
+export function moneyFor(
+  config: Pick<Config, "moneyAllowed">,
+  asked: boolean | undefined,
+): boolean {
+  if (asked === true && !config.moneyAllowed) throw moneyNotAllowed();
+  return asked ?? config.moneyAllowed;
 }
 
 export async function capacityNow(p: Pick<PlatformDeps, "control" | "config">): Promise<{
@@ -214,7 +235,14 @@ export async function assertMayStart(p: PlatformDeps, account: AccountRow): Prom
 export async function createWorkspace(
   p: PlatformDeps,
   account: AccountRow,
-  input: { slug: string; name: string; timeZone: string; alsoSupplier: boolean },
+  input: {
+    slug: string;
+    name: string;
+    timeZone: string;
+    alsoSupplier: boolean;
+    /** Chosen here and fixed after. Left out, it is whatever this instance allows. */
+    moneyEnabled?: boolean;
+  },
 ): Promise<WorkspaceSummary> {
   const slugProblem = checkSlug(input.slug);
   if (slugProblem) throw invalid(slugProblem);
@@ -223,6 +251,7 @@ export async function createWorkspace(
     throw invalid("Give the workspace a name of up to 120 characters.");
   if (!isKnownTimeZone(input.timeZone)) throw invalid(`"${input.timeZone}" is not a time zone`);
 
+  const moneyEnabled = moneyFor(p.config, input.moneyEnabled);
   await assertMayStart(p, account);
   if (!(await capacityNow(p)).open) throw fullError();
   if (await p.control.workspaceBySlug(input.slug))
@@ -267,6 +296,7 @@ export async function createWorkspace(
         adminName: account.displayName ?? account.email,
         alsoSupplier: input.alsoSupplier,
         caps: capsOf(p.config, limits),
+        moneyEnabled,
       });
     } finally {
       await owner.close();
@@ -291,7 +321,7 @@ export async function createWorkspace(
       await p.control.addMembership(account.id, id, ids.supplierId, "supplier");
     }
     await p.control.event("workspace.created", id, { placement: provisioned.ref.kind });
-    return { id, slug: input.slug, name, roles };
+    return { id, slug: input.slug, name, roles, moneyEnabled };
   } catch (e) {
     if (inserted) await p.control.deleteWorkspaceRow(id).catch(() => undefined);
     await p.placement.destroy(provisioned.ref).catch(() => undefined);

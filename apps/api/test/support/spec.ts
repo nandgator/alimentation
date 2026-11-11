@@ -18,8 +18,8 @@ export async function seedSpec(
     extraChapati: rupees(15),
     extraBhakri: rupees(30),
     extrasPerMonth: rupees(40),
-    menu: MENU,
   });
+  await svc.addMenu(admin, { effectiveFrom: "2026-04-01", menu: MENU });
   for (const [date, name, confirmed] of [
     ["2026-05-01", "Maharashtra Day", true],
     ["2026-09-14", "Holiday", true],

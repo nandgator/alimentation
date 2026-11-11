@@ -1,6 +1,13 @@
 import * as z from "zod";
 import { monthOf } from "./dates.ts";
-import { buildStatements, consumers, type EngineData, monthRange, prepare } from "./engine.ts";
+import {
+  buildMealStatements,
+  buildStatements,
+  consumers,
+  type EngineData,
+  monthRange,
+  prepare,
+} from "./engine.ts";
 import { PolicySchema } from "./policy.ts";
 import { LOG_CHANGES, PAY_METHODS, SETTLEMENT_TYPES } from "./types.ts";
 
@@ -32,11 +39,29 @@ export const BundleSchema = z
         name: z.string().min(1).max(120),
         timeZone: z.string(),
         currency: z.string().length(3),
+        /**
+         * Whether the kitchen tracks money. When it does not, the bundle holds no rate cards, claims,
+         * decisions, reversals or settlements, and its closes carry no amounts.
+         */
+        moneyEnabled: z.boolean(),
       })
       .strict(),
     policies: z.array(
       z.object({ effectiveFrom: date, doc: z.unknown(), createdBy: nullable(uuid) }).strict(),
     ),
+    /** What is served, by date. Every kitchen has it, with or without money. */
+    menus: z.array(
+      z
+        .object({
+          id: uuid,
+          effectiveFrom: date,
+          days: z.record(z.string().regex(/^[0-6]$/), z.enum(["Veg", "Non Veg"])),
+          note: nullable(z.string()),
+          createdBy: nullable(uuid),
+        })
+        .strict(),
+    ),
+    /** Prices only. Empty for a kitchen without money. */
     rateCards: z.array(
       z
         .object({
@@ -47,7 +72,6 @@ export const BundleSchema = z
           extraChapati: int,
           extraBhakri: int,
           extrasPerMonth: int,
-          menu: z.record(z.string().regex(/^[0-6]$/), z.enum(["Veg", "Non Veg"])),
           note: nullable(z.string()),
           createdBy: nullable(uuid),
         })
@@ -147,7 +171,8 @@ export const BundleSchema = z
           forMonth: month,
           consumerId: uuid,
           meals: int,
-          billed: int,
+          /** Null for a month that was only locked, as every close of a kitchen without money is. */
+          billed: nullable(int),
           closedOn: date,
           closedBy: nullable(uuid),
         })
@@ -180,18 +205,28 @@ export const BundleSchema = z
         })
         .strict(),
     ),
-    /** What every consumer's statement was for every month at export, to be reproduced to the paisa. */
+    /**
+     * What every consumer's month was at export, to be reproduced: the meals always, and, where the kitchen
+     * tracks money and has prices, the figures to the paisa.
+     */
     expected: z.array(
       z
         .object({
           personId: uuid,
           month,
-          liveTotal: int,
-          billed: int,
-          paid: int,
-          balance: int,
-          openQueries: int,
-          status: z.string(),
+          meals: int,
+          money: nullable(
+            z
+              .object({
+                liveTotal: int,
+                billed: int,
+                paid: int,
+                balance: int,
+                openQueries: int,
+                status: z.string(),
+              })
+              .strict(),
+          ),
         })
         .strict(),
     ),
@@ -223,6 +258,7 @@ export async function sha256Hex(text: string): Promise<string> {
 
 const TABLES = [
   "policies",
+  "menus",
   "rateCards",
   "holidays",
   "people",
@@ -272,6 +308,12 @@ export async function parseBundle(raw: unknown): Promise<ParsedBundle> {
       problems.push(`${t}: the manifest says ${manifest.counts[t]} but there are ${counts[t]}`);
   if ((await digestOf(body)) !== manifest.digest)
     problems.push("the checksum does not match: the bundle was altered after it was made");
+  if (!bundle.workspace.moneyEnabled) {
+    for (const t of ["rateCards", "claims", "decisions", "reversals", "settlements"] as const)
+      if (bundle[t].length > 0) problems.push(`${t}: a bundle without money holds none`);
+    if (bundle.closes.some((c) => c.billed !== null))
+      problems.push("closes: a bundle without money freezes no amounts");
+  }
   return problems.length ? { ok: false, problems } : { ok: true, bundle };
 }
 
@@ -289,33 +331,63 @@ export function unsupportedRules(b: Pick<Bundle, "policies">): string[] {
   return out;
 }
 
-/** Every consumer's statement for every month up to today, in the form a bundle carries. */
+/**
+ * Every consumer's month up to today, in the form a bundle carries: the meals, and the money where the
+ * kitchen tracks it and has prices. Without a menu there is nothing to count.
+ */
 export function expectedTotals(data: EngineData): ExpectedTotal[] {
-  if (data.rateCards.length === 0) return [];
+  if (data.menus.length === 0) return [];
   const p = prepare(data);
   const ids = consumers(p)
     .filter((c) => c.activeFrom !== null)
     .map((c) => c.id);
   if (ids.length === 0) return [];
   const months = monthRange(p).filter((m) => m <= monthOf(data.today));
-  return buildStatements(p, ids, months)
-    .map((s) => ({
-      personId: s.personId,
-      month: s.month,
-      liveTotal: s.liveTotal,
-      billed: s.billed,
-      paid: s.paid,
-      balance: s.balance,
-      openQueries: s.openQueries,
-      status: s.status,
-    }))
+  const priced = data.moneyEnabled && data.rateCards.length > 0;
+  const meals = buildMealStatements(p, ids, months);
+  const money = priced
+    ? new Map(buildStatements(p, ids, months).map((s) => [`${s.personId}|${s.month}`, s]))
+    : null;
+  return meals
+    .map((m) => {
+      const s = money?.get(`${m.personId}|${m.month}`);
+      return {
+        personId: m.personId,
+        month: m.month,
+        meals: m.counts.meals,
+        money: s
+          ? {
+              liveTotal: s.liveTotal,
+              billed: s.billed,
+              paid: s.paid,
+              balance: s.balance,
+              openQueries: s.openQueries,
+              status: s.status,
+            }
+          : null,
+      };
+    })
     .sort((a, b) => (a.personId + a.month < b.personId + b.month ? -1 : 1));
+}
+
+/**
+ * Why a bundle cannot go into a kitchen that tracks money or does not, or null when it can. Money is never
+ * dropped on the way in: a kitchen with prices and payments does not become one without them by being moved.
+ * The other way is fine, and leaves the new kitchen with no prices yet.
+ */
+export function moneyBundleProblem(
+  bundle: Pick<Bundle, "workspace">,
+  targetMoneyEnabled: boolean,
+): string | null {
+  return bundle.workspace.moneyEnabled && !targetMoneyEnabled
+    ? "This kitchen tracks money, and the kitchen it is going to does not. Nothing is dropped on the way: choose a kitchen that tracks money."
+    : null;
 }
 
 export interface TotalMismatch {
   personId: string;
   month: string;
-  field: keyof Omit<ExpectedTotal, "personId" | "month"> | "missing" | "unexpected";
+  field: keyof NonNullable<ExpectedTotal["money"]> | "meals" | "money" | "missing" | "unexpected";
   expected: unknown;
   actual: unknown;
 }
@@ -335,14 +407,49 @@ export function compareTotals(
         personId: e.personId,
         month: e.month,
         field: "missing",
-        expected: e.billed,
+        expected: e.meals,
         actual: null,
       });
       continue;
     }
-    for (const f of ["liveTotal", "billed", "paid", "balance", "openQueries", "status"] as const) {
-      if (a[f] !== e[f])
-        out.push({ personId: e.personId, month: e.month, field: f, expected: e[f], actual: a[f] });
+    if (a.meals !== e.meals)
+      out.push({
+        personId: e.personId,
+        month: e.month,
+        field: "meals",
+        expected: e.meals,
+        actual: a.meals,
+      });
+    // Money is compared where the original had it. A copy that has none (a meals-only bundle moved into a
+    // kitchen with no prices yet) is checked by its meals alone.
+    if (e.money !== null) {
+      if (a.money === null) {
+        out.push({
+          personId: e.personId,
+          month: e.month,
+          field: "money",
+          expected: e.money.billed,
+          actual: null,
+        });
+        continue;
+      }
+      for (const f of [
+        "liveTotal",
+        "billed",
+        "paid",
+        "balance",
+        "openQueries",
+        "status",
+      ] as const) {
+        if (a.money[f] !== e.money[f])
+          out.push({
+            personId: e.personId,
+            month: e.month,
+            field: f,
+            expected: e.money[f],
+            actual: a.money[f],
+          });
+      }
     }
   }
   for (const a of have.values())
@@ -351,7 +458,7 @@ export function compareTotals(
       month: a.month,
       field: "unexpected",
       expected: null,
-      actual: a.billed,
+      actual: a.meals,
     });
   return out;
 }

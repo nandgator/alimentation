@@ -4,6 +4,7 @@ import { figuresOf, type KitchenFigures, sumOrganisation, totalsOf } from "./kit
 
 const stmt = (personId: string, billed: number, paid: number, earlierUnpaid = 0) => ({
   personId,
+  counts: { meals: 10 },
   billed,
   paid,
   balance: billed - paid,
@@ -13,10 +14,15 @@ const stmt = (personId: string, billed: number, paid: number, earlierUnpaid = 0)
 const boot = (
   role: "admin" | "supplier" | "consumer",
   statements: ReturnType<typeof stmt>[],
-  extra: { pendingClaims?: number; setup?: number; currency?: string } = {},
+  extra: {
+    pendingClaims?: number;
+    setup?: number;
+    currency?: string;
+    moneyEnabled?: boolean;
+  } = {},
 ) =>
   ({
-    workspace: { currency: extra.currency ?? "INR" },
+    workspace: { currency: extra.currency ?? "INR", moneyEnabled: extra.moneyEnabled ?? true },
     me: { role },
     statements,
     pendingClaims: extra.pendingClaims ?? 0,
@@ -30,7 +36,9 @@ describe("the figures beside each kitchen", () => {
     );
     expect(f).toEqual({
       role: "admin",
+      moneyEnabled: true,
       currency: "INR",
+      meals: 20,
       headline: { billed: 600, paid: 300, owed: 300, toConfirm: 3, people: 2 },
       setup: 1,
       fromDevice: false,
@@ -51,6 +59,18 @@ describe("the figures beside each kitchen", () => {
     expect(t.owe).toEqual({ amount: 75, kitchens: 2 });
   });
 
+  it("leave a kitchen without money out of the sums of money, and show its meals", () => {
+    const f = figuresOf(boot("admin", [stmt("a", 0, 0)], { moneyEnabled: false }));
+    expect(f).toMatchObject({ moneyEnabled: false, meals: 10 });
+    expect(f.headline).toMatchObject({ billed: 0, owed: 0, people: 0 });
+    const list: KitchenFigures[] = [
+      figuresOf(boot("admin", [stmt("a", 500, 200)])),
+      figuresOf(boot("admin", [stmt("a", 100, 0)])),
+      f,
+    ];
+    expect(totalsOf(list)?.running).toMatchObject({ billed: 600, kitchens: 2 });
+  });
+
   it("are not totalled for one kitchen, or for kitchens that keep their books in different currencies", () => {
     const one = [figuresOf(boot("admin", [stmt("a", 1, 0)]))];
     expect(totalsOf(one)).toBeNull();
@@ -64,7 +84,10 @@ describe("the figures beside each kitchen", () => {
 });
 
 describe("an organisation's kitchens added up", () => {
-  const totals = (over: Partial<KitchenTotals> = {}): KitchenTotals => ({
+  const totals = (
+    over: Partial<Extract<KitchenTotals, { moneyEnabled: true }>> = {},
+  ): KitchenTotals => ({
+    moneyEnabled: true,
     month: "2026-11" as KitchenTotals["month"],
     currency: "INR",
     consumers: 10,
@@ -73,6 +96,16 @@ describe("an organisation's kitchens added up", () => {
     paid: 1000,
     owed: 2000,
     toConfirm: 1,
+    setup: 0,
+    ...over,
+  });
+  const plain = (
+    over: { consumers?: number; meals?: number; setup?: number } = {},
+  ): KitchenTotals => ({
+    moneyEnabled: false,
+    month: "2026-11" as KitchenTotals["month"],
+    consumers: 4,
+    meals: 60,
     setup: 0,
     ...over,
   });
@@ -101,22 +134,38 @@ describe("an organisation's kitchens added up", () => {
       kitchen(null),
     ]);
     expect(sum).toEqual({
-      currency: "INR",
       counted: 2,
       unread: 1,
       consumers: 15,
       meals: 290,
-      billed: 4000,
-      paid: 2000,
-      owed: 2000,
-      toConfirm: 1,
       setup: 1,
+      mealsOnly: 0,
+      money: { currency: "INR", kitchens: 2, billed: 4000, paid: 2000, owed: 2000, toConfirm: 1 },
     });
   });
 
-  it("has no sum when nothing could be read, or the books are in different currencies", () => {
+  it("adds money over the kitchens that track it and counts over all of them", () => {
+    const sum = sumOrganisation([
+      kitchen(totals()),
+      kitchen(plain(), "p"),
+      kitchen(plain({ meals: 40 }), "q"),
+    ]);
+    expect(sum).toMatchObject({
+      counted: 3,
+      consumers: 18,
+      meals: 300,
+      mealsOnly: 2,
+      money: { kitchens: 1, billed: 3000, owed: 2000 },
+    });
+    const none = sumOrganisation([kitchen(plain())]);
+    expect(none).toMatchObject({ counted: 1, meals: 60, mealsOnly: 1, money: null });
+  });
+
+  it("has no sum when nothing could be read, and no money when the books are in different currencies", () => {
     expect(sumOrganisation([])).toBeNull();
     expect(sumOrganisation([kitchen(null)])).toBeNull();
-    expect(sumOrganisation([kitchen(totals()), kitchen(totals({ currency: "USD" }))])).toBeNull();
+    const mixed = sumOrganisation([kitchen(totals()), kitchen(totals({ currency: "USD" }))]);
+    expect(mixed?.money).toBeNull();
+    expect(mixed?.meals).toBe(400);
   });
 });

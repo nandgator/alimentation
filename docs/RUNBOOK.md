@@ -23,6 +23,7 @@ All settings are environment variables (Worker variables and secrets on Cloudfla
 | `DEDICATED`                                                     | `1` on a dedicated instance: no free-tier caps, and only operators may make kitchens.                                                                                                                                                            |
 | `SIGNUP`                                                        | `open`, `invite` or `closed`: who may start a kitchen. Default `invite` on a shared instance, `open` on a dedicated one.                                                                                                                         |
 | `MAX_WORKSPACES_PER_ACCOUNT`                                    | Kitchens one account may have started and not wiped. Default 3 shared, unlimited dedicated; `unlimited` lifts it.                                                                                                                                |
+| `MONEY_ALLOWED`                                                 | `1` (default) or `0`. With `0` every new kitchen counts meals only, and making or receiving a kitchen that tracks money is refused (`money_not_allowed`). Shared and dedicated alike; kitchens already here are not changed.                     |
 | `MIGRATION_TOKEN`                                               | At least 24 characters. Lets another instance send a kitchen here. Unset, that endpoint does not exist.                                                                                                                                          |
 | `INSTANCE_DIR`                                                  | Node only. With `PLACEMENT_ADMIN_URL`, the server makes its keys and control database on first start and keeps them here.                                                                                                                        |
 | `FREE_LIMITS_JSON`, `CAPACITY_JSON`, `HARD_CAP_FACTOR`          | Change the free-tier numbers when a host changes its terms. The meter, the home page and the capacity follow `FREE_LIMITS_JSON`; `CAPACITY_JSON` states the host's side, and `perWorkspaceRequestsPerDay` in it only if that is meant to differ. |
@@ -262,16 +263,25 @@ release, and `node cli.mjs migrate:all` does them all at once. The control datab
 Neon project for up to 7 days (unreadable: its key is destroyed first); Cloudflare request logs for
 a few days, carrying only a pseudonym. Copies the tenant exported are theirs.
 
+**Kitchens without money.** Whether a kitchen tracks money is chosen when it is made and cannot be
+changed, by the tenant or by you; the database refuses it. `MONEY_ALLOWED=0` makes every new kitchen
+a kitchen that only counts meals, and a kitchen that tracks money sent to such an instance is
+refused (`money_not_allowed`), so nothing is dropped on the way. The other direction is open: a
+kitchen without money can be received as a kitchen that tracks money, and arrives with no prices.
+Nothing in a move needs your help for it. To see which a kitchen is, ask for its `/bootstrap`:
+`workspace.moneyEnabled`.
+
 **A tenant over the limit.** The meter on **Your data** warns at 70 and 90 percent and gives 14 days
 at 100. Reading and exporting never stop. The tenant moves with one action; there is nothing for you
 to do.
 
 ## When something is wrong
 
-| Sign                                           | Likely cause and what to do                                                                                        |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Everyone gets "Something went wrong"           | The control database is unreachable or `MASTER_KEYS` is wrong. Check `/api/health`, then the logs.                 |
-| `502 move_unconfirmed` for a tenant            | See "A move that stopped part-way".                                                                                |
-| A kitchen answers 410                          | Its wipe stopped after destroying keys. Run housekeeping; it finishes.                                             |
-| New kitchens fail with `placement_unavailable` | The database host refused: look for `neon …` in the logs (a quota, a bad key, a wrong region).                     |
-| Cloudflare error 1027                          | The account's daily request cap was reached. Budgets exist to prevent it; lower `FREE_LIMITS_JSON.requestsPerDay`. |
+| Sign                                           | Likely cause and what to do                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Everyone gets "Something went wrong"           | The control database is unreachable or `MASTER_KEYS` is wrong. Check `/api/health`, then the logs.                       |
+| `502 move_unconfirmed` for a tenant            | See "A move that stopped part-way".                                                                                      |
+| A route answers 404 `money_not_tracked`        | The kitchen was made without money, which cannot be changed. Make a new kitchen that tracks money and move the meals in. |
+| A kitchen answers 410                          | Its wipe stopped after destroying keys. Run housekeeping; it finishes.                                                   |
+| New kitchens fail with `placement_unavailable` | The database host refused: look for `neon …` in the logs (a quota, a bad key, a wrong region).                           |
+| Cloudflare error 1027                          | The account's daily request cap was reached. Budgets exist to prevent it; lower `FREE_LIMITS_JSON.requestsPerDay`.       |

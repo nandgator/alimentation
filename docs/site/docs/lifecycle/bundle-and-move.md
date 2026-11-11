@@ -22,19 +22,21 @@ The format is `alimentation.workspace.v1`, defined by `BundleSchema` in
 `packages/core/src/bundle.ts`. Every object is `.strict()`: an unknown field is refused, not
 ignored.
 
-| Part                                                        | Holds                                                                                                                      |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `workspace`                                                 | Name, time zone, currency.                                                                                                 |
-| `policies`                                                  | Every version of the kitchen's rules, with the date each takes effect.                                                     |
-| `rateCards`                                                 | Every set of prices, including the weekly menu.                                                                            |
-| `holidays`                                                  | Every holiday and whether it is confirmed.                                                                                 |
-| `people`                                                    | Role, name, contact, key (optional), status and billing dates. Names and contacts are **plain text**.                      |
-| `log`                                                       | Every entry, with who logged it and when the database stamped it.                                                          |
-| `claims`, `decisions`, `reversals`, `settlements`, `closes` | The money, in integer paise, with who and when.                                                                            |
-| `audit`                                                     | The whole audit trail. Personal columns are written as `{ "$plain": "…" }` so the receiving end can encrypt them afresh.   |
-| `members`                                                   | Who signs in as whom, by verified email, so logins can be re-bound at the other end.                                       |
-| `expected`                                                  | Every consumer's statement for every month up to the export date: live total, billed, paid, balance, open queries, status. |
-| `manifest`                                                  | Row counts per part, and a SHA-256 of everything else.                                                                     |
+| Part                                              | Holds                                                                                                                                                                                               |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace`                                       | Name, time zone, currency, and `moneyEnabled`: whether the kitchen tracks money.                                                                                                                    |
+| `policies`                                        | Every version of the kitchen's rules, with the date each takes effect.                                                                                                                              |
+| `menus`                                           | Every menu: a meal for each weekday, from a date. Every kitchen has them.                                                                                                                           |
+| `rateCards`                                       | Every set of prices. Empty for a kitchen without money.                                                                                                                                             |
+| `holidays`                                        | Every holiday and whether it is confirmed.                                                                                                                                                          |
+| `people`                                          | Role, name, contact, key (optional), status and billing dates. Names and contacts are **plain text**.                                                                                               |
+| `log`                                             | Every entry, with who logged it and when the database stamped it.                                                                                                                                   |
+| `claims`, `decisions`, `reversals`, `settlements` | The money, in integer paise, with who and when. Empty for a kitchen without money.                                                                                                                  |
+| `closes`                                          | The months locked for a person, with the amount frozen (`billed`), which is `null` for a lock that froze none.                                                                                      |
+| `audit`                                           | The whole audit trail. Personal columns are written as `{ "$plain": "…" }` so the receiving end can encrypt them afresh.                                                                            |
+| `members`                                         | Who signs in as whom, by verified email, so logins can be re-bound at the other end.                                                                                                                |
+| `expected`                                        | Every consumer's month up to the export date: the `meals` always, and `money` (live total, billed, paid, balance, open queries, status) where the kitchen tracks money and has prices, else `null`. |
+| `manifest`                                        | Row counts per part, and a SHA-256 of everything else.                                                                                                                                              |
 
 Because personal fields are plain text, a bundle is the ledger itself. Treat the file like a ledger.
 
@@ -44,6 +46,18 @@ The manifest is computed, never supplied: `assembleBundle` counts every part and
 canonical JSON of the rest (keys sorted, no whitespace). `parseBundle` checks the shape, then each
 count, then the checksum. A bundle that fails any check is **refused, never repaired**, and the
 messages say which: _"the checksum does not match: the bundle was altered after it was made"_.
+
+### A kitchen without money
+
+A bundle of a kitchen with `moneyEnabled: false` holds no rate cards, claims, decisions, reversals
+or settlements, and no close with an amount; `parseBundle` refuses one that does. Its `expected`
+carries meals only, and verification counts meals, not money.
+
+`moneyBundleProblem` is the one rule about what may go where: a bundle that tracks money is never
+imported into a kitchen that does not (`money_bundle_into_meals_only`), because that would drop its
+money. A bundle without money may be imported as a kitchen that tracks money, or as one without. The
+rest is the same for both. In `importBundle` the target is `opts.moneyEnabled`, which, left out, is
+the bundle's own.
 
 ### Rules this release does not know
 
@@ -66,10 +80,17 @@ is kept unless the copy proves itself:
 
 - the bundle's counts and checksum hold, and every rule in it is understood;
 - the copy, read back and sealed again, has the very same digest as the original;
-- every consumer's statement for every month, recomputed with the engine, equals `expected` to the
-  paisa. Any difference is a `TotalMismatch` (`liveTotal`, `billed`, `paid`, `balance`,
-  `openQueries`, `status`, or a statement `missing` or `unexpected`), and the whole thing rolls
-  back.
+- every consumer's month, recomputed with the engine, equals `expected`: the meals, and, where the
+  original had money, every figure to the paisa. Any difference is a `TotalMismatch` (`meals`,
+  `money`, `liveTotal`, `billed`, `paid`, `balance`, `openQueries`, `status`, or a month `missing`
+  or `unexpected`), and the whole thing rolls back.
+
+The one case where the digest cannot be the original's is a kitchen without money that becomes a
+kitchen that tracks money: the setting is part of the bundle, and it is the one thing that differs.
+Every part is still compared on its own, and the copy has no rate cards, so its `expected` is meals
+only and matches. It then says **Add prices to start billing**; a month that was locked with no
+amount stays locked and freezes nothing (`billed` is `null`, the month bills its live total, and
+nothing counts as changed after the close).
 
 The audit trail is imported **as it was**, not made again: the audit and stamp triggers are switched
 off for the import, so rows that were valid when written are taken as they stand, whatever the rules
@@ -83,10 +104,10 @@ made.
 
 There are two destinations:
 
-| Destination        | What the admin gives                                 | `target` in the request                            |
-| ------------------ | ---------------------------------------------------- | -------------------------------------------------- |
-| Their own database | The connection string of an empty Postgres           | `{ "kind": "database", "url": "…" }`               |
-| Their own instance | The address and the `MIGRATION_TOKEN` of another one | `{ "kind": "instance", "url": "…", "token": "…" }` |
+| Destination        | What the admin gives                                 | `target` in the request                                                                                                                                         |
+| ------------------ | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Their own database | The connection string of an empty Postgres           | `{ "kind": "database", "url": "…" }`                                                                                                                            |
+| Their own instance | The address and the `MIGRATION_TOKEN` of another one | `{ "kind": "instance", "url": "…", "token": "…" }` (and optionally `"moneyEnabled": true` for a kitchen without money that should arrive as one that tracks it) |
 
 `POST /api/w/:slug/move/preview` takes a target and changes nothing. It returns
 `{ ok, target, problems, counts, digest, steps }`, where `steps` is the plan in words, so the person
@@ -135,6 +156,14 @@ returns the state to `ACTIVE`. Nothing has changed for anyone.
 A definite refusal (the other side answered below 500 and said no) unfreezes and restores the
 kitchen. A network failure or a 5xx after the push is not a refusal: see below.
 
+### Money and where a kitchen is sent
+
+A move to a database of their own keeps the kitchen as it is. A move to an instance sends
+`moneyEnabled` with the bundle when it was asked for. The receiving instance answers
+`403 money_not_allowed` if its `MONEY_ALLOWED` is `0` and the kitchen would track money, and
+`422 money_bundle_into_meals_only` if a kitchen that tracks money is sent as one that does not;
+either is a refusal before anything is frozen, and the kitchen stays as it was.
+
 ### Where a kitchen may be sent
 
 `targetProblem` refuses an address that leads into a private network when the instance runs in
@@ -155,7 +184,9 @@ an instance may have sent data, so housekeeping only lists it for a person.
 
 ## Tests
 
-`packages/core/test/bundle.test.ts` covers the format, counts, checksum and tampering.
+`packages/core/test/bundle.test.ts` covers the format, counts, checksum and tampering, and a bundle
+of a kitchen without money. `apps/api/test/meals-only.test.ts` imports each of the four combinations
+of a kitchen with and without money and moves kitchens between instances.
 `apps/api/test/lifecycle.test.ts` and `lifecycle.move.test.ts` run real exports, imports and moves
 on Postgres, including refusals and failures partway. `scripts/drift-db.mjs` removes the read-only
 guard to prove that a frozen kitchen is really frozen.

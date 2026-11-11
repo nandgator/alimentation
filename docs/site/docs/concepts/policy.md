@@ -30,11 +30,19 @@ rule this build does not know is refused, never silently dropped.
 
 That is `DEFAULT_POLICY`, and what a kitchen runs on until it adds a version.
 
+### The rules about money
+
+`extras`, `leave`, `payments` and `rateCards` are about money (`MONEY_RULES`). A kitchen that does
+not track money has none to choose: its policy documents are stored with these four at the values
+above, whatever is sent for them, and they are left out of `/bootstrap` and `/policies` (the
+`PolicyView` type). Rules that arrive in a bundle from such a kitchen therefore carry the neutral
+values, and a kitchen that tracks money can take them as they are.
+
 ## Fields
 
 | Field                   | Values                                                                                                                               | Default             |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
-| `workingDays`           | Distinct integers 0 to 6 (0 is Sunday), at least one. Each needs a menu entry on the rate card.                                      | `[1,2,3,4,5]`       |
+| `workingDays`           | Distinct integers 0 to 6 (0 is Sunday), at least one. Each needs a meal on the menu.                                                 | `[1,2,3,4,5]`       |
 | `holidays.count`        | `confirmed` (only confirmed holidays cancel a meal) or `all`.                                                                        | `confirmed`         |
 | `extras`                | `{ "minMeals": 1–31 }` or `null` for no monthly extras. The amount comes from the rate card.                                         | `{ "minMeals": 1 }` |
 | `leave.chargeBps`       | 0 to 10000: the share of the day's meal charged on a leave day, in basis points.                                                     | `0`                 |

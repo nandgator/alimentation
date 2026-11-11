@@ -7,7 +7,7 @@ import {
   complete,
   deriveTitle,
   getPrompt,
-  KITCHEN_GUIDE,
+  kitchenGuide,
   MAX_COMPLETIONS,
   parseResource,
   promptsFor,
@@ -27,6 +27,7 @@ const READ = [
   "get_log",
   "post_log_check",
   "get_rate_cards",
+  "get_menus",
 ];
 const LOG = [...READ, "post_log", "delete_log_id"];
 const CLAIMS = [...READ, "post_claims", "delete_claims_id"];
@@ -81,11 +82,13 @@ describe("prompts", () => {
       return r.messages[0]?.content.text ?? "";
     });
     for (const t of texts) {
-      expect(t).toContain("paise");
       expect(t).toMatch(/Read before you write/);
       expect(t).toMatch(/ask/i);
       expect(t).toContain("get_bootstrap");
     }
+    // Only a prompt about money talks of money.
+    expect(texts[0]).not.toContain("paise");
+    for (const t of texts.slice(1)) expect(t).toContain("paise");
     expect(texts[0]).toContain("post_log_check");
     expect(texts[0]?.indexOf("post_log_check")).toBeLessThan(
       texts[0]?.lastIndexOf("post_log") ?? 0,
@@ -149,6 +152,7 @@ describe("resources", () => {
     expect(resourcesFor(READ).map((r) => r.uri)).toEqual([
       "alimentation://kitchen/guide",
       "alimentation://kitchen/menu",
+      "alimentation://kitchen/prices",
       "alimentation://kitchen/holidays",
     ]);
     expect(resourcesFor(["get_bootstrap"]).map((r) => r.name)).toEqual(["guide", "holidays"]);
@@ -188,8 +192,8 @@ describe("resources", () => {
 
   it("have a guide that says the units and the way of working", () => {
     for (const w of ["paise", "YYYY-MM-DD", "YYYY-MM", "post_log_check", "get_bootstrap", "ask"])
-      expect(KITCHEN_GUIDE).toContain(w);
-    for (const c of LOG_CHANGES) expect(KITCHEN_GUIDE).toContain(c);
+      expect(kitchenGuide(true)).toContain(w);
+    for (const c of LOG_CHANGES) expect(kitchenGuide(true)).toContain(c);
   });
 });
 

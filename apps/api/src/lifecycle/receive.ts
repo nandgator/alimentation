@@ -1,4 +1,4 @@
-import { parseBundle, unsupportedRules } from "@alimentation/core";
+import { moneyBundleProblem, parseBundle, unsupportedRules } from "@alimentation/core";
 import { FieldCipher } from "../crypto/fields.ts";
 import { loadWorkspaceKeys, newWorkspaceKeys } from "../crypto/keys.ts";
 import { WORKSPACE_MIGRATIONS } from "../db/migrations.generated.ts";
@@ -10,6 +10,8 @@ import {
   capsOf,
   checkSlug,
   limitsFor,
+  moneyFor,
+  moneyNotAllowed,
   type PlatformDeps,
   writeCaps,
 } from "../platform/workspaces.ts";
@@ -26,8 +28,14 @@ class Refused extends Error {
 export interface ReceiveReport {
   ok: boolean;
   dryRun: boolean;
-  /** `slug_taken` and `full` are told apart from a bundle that is wrong, because the caller can act on them. */
-  code: "ok" | "invalid" | "slug_taken" | "full";
+  /** These are told apart from a bundle that is wrong, because the caller can act on them. */
+  code:
+    | "ok"
+    | "invalid"
+    | "slug_taken"
+    | "full"
+    | "money_not_allowed"
+    | "money_bundle_into_meals_only";
   problems: string[];
   digest: string | null;
   counts: Record<string, number>;
@@ -42,7 +50,13 @@ export interface ReceiveReport {
  */
 export async function receiveWorkspace(
   p: PlatformDeps,
-  input: { slug: string; bundle: unknown; dryRun: boolean },
+  input: {
+    slug: string;
+    bundle: unknown;
+    dryRun: boolean;
+    /** Whether the kitchen it becomes tracks money. Left out, as the bundle's kitchen was. */
+    moneyEnabled?: boolean;
+  },
 ): Promise<ReceiveReport> {
   const report: ReceiveReport = {
     ok: false,
@@ -62,6 +76,18 @@ export async function receiveWorkspace(
   report.counts = bundle.manifest.counts;
   const unsupported = unsupportedRules(bundle);
   if (unsupported.length) return { ...report, problems: unsupported };
+  // What the new kitchen will be, before anything is made: this instance may not allow money, and a kitchen
+  // that tracks it can only go to one that does.
+  let targetMoney: boolean;
+  try {
+    targetMoney = moneyFor(p.config, input.moneyEnabled ?? bundle.workspace.moneyEnabled);
+  } catch {
+    const e = moneyNotAllowed();
+    return { ...report, code: "money_not_allowed", problems: [e.message] };
+  }
+  const moneyProblem = moneyBundleProblem(bundle, targetMoney);
+  if (moneyProblem)
+    return { ...report, code: "money_bundle_into_meals_only", problems: [moneyProblem] };
   if (await p.control.workspaceBySlug(input.slug))
     return { ...report, code: "slug_taken", problems: ["That address is already taken here."] };
   if (!(await capacityNow(p)).open)
@@ -107,10 +133,13 @@ export async function receiveWorkspace(
 
     const owner = p.openDb(provisioned.ownerUrl, { ephemeral: true });
     try {
-      const imported = await importBundle(owner, cipher, bundle, { dryRun: false });
+      const imported = await importBundle(owner, cipher, bundle, {
+        dryRun: false,
+        moneyEnabled: targetMoney,
+      });
       if (!imported.ok) {
         report.problems = imported.problems;
-        throw new Refused();
+        throw new Refused(imported.code);
       }
       await writeCaps(owner, capsOf(p.config, limits));
     } finally {

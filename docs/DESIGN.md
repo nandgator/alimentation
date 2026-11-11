@@ -18,7 +18,7 @@ limit. `docs/PROMISES.md` is the ledger; CI fails if a promise has no test that 
 | --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P1  | Nobody can crowd you out.                            | One database per workspace. Per-workspace request budget, row caps, statement timeouts. Admission control stops signups before the free tiers are over-subscribed. | The stateless API layer is shared. On the free Cloudflare plan the daily request cap is account-wide (section 3), so fairness is enforced by budgets, not guaranteed by the platform.                                                                                                        |
 | P2  | Free until you outgrow it, and we say so in advance. | A usage meter with three thresholds (70, 90, 100 percent) and a 14 day grace period at 100. Reads and export are never blocked.                                    | Thresholds are ours. The host's own limits (Neon, Cloudflare) can change without notice.                                                                                                                                                                                                     |
-| P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa, then cutover. The old copy stays read-only for 7 days.                                                                    | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email.                                                                                                                                    |
+| P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa (to the meal, for a kitchen without money), then cutover. The old copy stays read-only for 7 days.                         | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email. A kitchen that tracks money is never moved into one that does not, because that would drop its money (section 5.16).               |
 | P4  | Leave, and everything goes.                          | Rows deleted, workspace key destroyed, database removed, receipt issued. The key is destroyed first, so the encrypted fields are unreadable at once.               | Neon keeps a deleted project recoverable for 7 days, then removes it; its plain-text ledger is readable there until then, only the encrypted fields are not. Copies you exported are yours. Law may require some logs to be kept (section 9).                                                |
 | P5  | Your people's details are never readable in logs.    | Names, contacts and free-text notes are encrypted in the application before they reach the database. Logs carry only pseudonymous ids.                             | Amounts, dates and ids are not encrypted. Without the key they cannot be tied to a person. A person's optional key (a code the kitchen chose, section 5.14) is also kept readable. The operator holds the keys: this is not a promise against whoever runs the infrastructure (section 5.6). |
 | P6  | Your data is yours to take, at any time.             | Full export in an open, versioned format. Works when over limit and after cancelling.                                                                              | Plain JSON over TLS. Keep it as carefully as you would a ledger.                                                                                                                                                                                                                             |
@@ -194,10 +194,11 @@ measure first (section 3, item 2).
 ### 5.4 Rules engine (ADR-03)
 
 The billing logic is a pure TypeScript package with no I/O:
-`(policy, rate cards, holidays, log, claims, decisions, settlements, closes, today)` in, ledger and
-statements out. It runs on the server, in the browser (for the offline "projected" view and the log
-form's live hint), and inside the migration verifier, so all three always agree. Amounts are
-integers in paise.
+`(policy, menus, rate cards, holidays, log, claims, decisions, settlements, closes, today)` in,
+ledger and statements out. A kitchen that does not track money (section 5.16) has no rate cards,
+claims, decisions or settlements, and the engine counts for it and never prices. It runs on the
+server, in the browser (for the offline "projected" view and the log form's live hint), and inside
+the migration verifier, so all three always agree. Amounts are integers in paise.
 
 The spec suggested SQL views. A TypeScript engine was chosen because per-workspace rules (section
 5.5) are far easier to express and test there, and because the migration check needs to recompute
@@ -206,20 +207,23 @@ every statement on the target.
 ### 5.5 Per-workspace rules (ADR-04)
 
 Rules are a typed, versioned, date-effective policy document, validated by a schema, appended and
-never edited (like rate cards). The engine evaluates a month under the policy in force on its first
-day.
+never edited (like menus and rate cards). The engine evaluates a month under the policy in force on
+its first day.
 
-| Rule                  | Options                                                                                   | Default               |
-| --------------------- | ----------------------------------------------------------------------------------------- | --------------------- |
-| Working days          | any subset of Mon to Sun                                                                  | Mon to Fri            |
-| Holidays              | only confirmed ones count, or all                                                         | confirmed only        |
-| Monthly extras        | flat amount charged when at least N meals were eaten                                      | 40 rupees when N is 1 |
-| Leave                 | no charge, or a fixed fraction of the meal charged                                        | no charge             |
-| Month close           | `manual`, or `auto` N days after month end                                                | manual                |
-| Edits after close     | `flag` (show "changed after close"), `block` (refuse), or `reprice` (billed follows live) | flag                  |
-| Exception cut-off     | none, or must be logged N days before at HH:MM                                            | none                  |
-| Payments              | `claim_confirm` (consumer claims, supplier decides) or `direct` (supplier records)        | claim_confirm         |
-| Rate card back-dating | `none`, `current_month`, `unrestricted`                                                   | current_month         |
+| Rule                    | Options                                                                                   | Default               |
+| ----------------------- | ----------------------------------------------------------------------------------------- | --------------------- |
+| Working days            | any subset of Mon to Sun; each needs a meal on the menu                                   | Mon to Fri            |
+| Holidays                | only confirmed ones count, or all                                                         | confirmed only        |
+| Monthly extras\*        | flat amount charged when at least N meals were eaten                                      | 40 rupees when N is 1 |
+| Leave\*                 | no charge, or a fixed fraction of the meal charged                                        | no charge             |
+| Month close             | `manual`, or `auto` N days after month end                                                | manual                |
+| Edits after close       | `flag` (show "changed after close"), `block` (refuse), or `reprice` (billed follows live) | flag                  |
+| Exception cut-off       | none, or must be logged N days before at HH:MM                                            | none                  |
+| Payments\*              | `claim_confirm` (consumer claims, supplier decides) or `direct` (supplier records)        | claim_confirm         |
+| Rate card back-dating\* | `none`, `current_month`, `unrestricted`                                                   | current_month         |
+
+\* A rule about money. A kitchen that does not track money (section 5.16) is not shown these four,
+cannot set them, and keeps them at the values in the last column.
 
 Anything a target instance cannot represent is listed and the move is refused; rules are never
 approximated.
@@ -382,6 +386,10 @@ Decisions that are easy to miss:
   in constant time; the body is size-limited as it arrives, not by trusting the header).
 - **Free-tier caps lift on a database move** (people, rows, bytes) because the storage is theirs;
   the request budget stays because this instance still serves it.
+- **Money is never dropped.** The bundle says whether its kitchen tracks money and carries the menu
+  as a section of its own (section 5.16). A kitchen without money may arrive as a new kitchen that
+  tracks money (it has no prices yet), or as another without; a kitchen that tracks money may only
+  arrive as one that does, and the other way round is refused with `money_bundle_into_meals_only`.
 - Not built: sealing the bundle to the target's public key. Transport is HTTPS with a bearer token;
   the bundle is not otherwise encrypted in transit.
 
@@ -630,6 +638,57 @@ first migration) refuses a change to them from any application session, and the 
 it to prove a test notices. Other instances pick up new limits when their cached copy of the kitchen
 expires (60 seconds).
 
+### 5.16 A kitchen without money (ADR-17)
+
+Some kitchens only need to know who ate. Pricing them, billing them and asking them to claim
+payments is work and a burden of records they never wanted. A kitchen can therefore be made
+**without money**: it counts meals and keeps everything else a kitchen keeps (people and roles,
+holidays, working days, leave and exception logging with its cut-off, Supplier Off, extras as
+counts, the Daily and Dashboard screens as meal counts, history and audit, export, move, agent keys
+with the `read` and `log` scopes, a month close as a plain lock of the month, invitations). It does
+not have prices, bills, claims, decisions, reversals, settlements, balances, the money rules, or the
+`claims` agent scope.
+
+**One setting, chosen once.** `workspace.money_enabled` (default true) is chosen when the kitchen is
+made (`POST /api/workspaces`, `moneyEnabled`) and shown in the bootstrap. A trigger
+(`workspace_keep_money_enabled`) refuses any change, from the application and from the owner, so it
+is fixed for the life of the kitchen. The instance setting `MONEY_ALLOWED=1|0` (default 1) decides
+what a new kitchen may be: with `0` every new kitchen is meals only, asking for money is refused
+(`money_not_allowed`), and a kitchen that tracks money cannot be received either. It does not change
+kitchens already there, and it is the same on shared and dedicated instances.
+
+**The menu is split from the prices.** `menu` is its own dated, append-only table (an effective
+date, a meal for each weekday, a note, who and when, an audit trigger and row-level security exactly
+like `rate_card`, written by the admin alone) and `rate_card` holds prices and exists only for a
+kitchen with money. The engine reads what is served from the menu and what it costs from the rate
+card. The working days in the rules decide which weekdays must have a meal on a menu
+(`NO_MENU_FOR_WORKING_DAY`, now a check of the menu). A kitchen that tracks money needs both before
+it is billed. For a kitchen without money, the engine's statements are counts (meals, Veg, Non Veg,
+leave, extra chapatis and bhakris) and a month is either locked or open.
+
+**Enforced in layers, and the database is the authority.**
+
+| Layer    | What it does                                                                                                                                                                                                                                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database | `guard_money` refuses every insert, update and delete on `rate_card`, `claim`, `claim_decision`, `claim_reversal` and `settlement`; `guard_close` refuses a billed amount on `month_close`, and makes a person's close in a kitchen with money carry one; `system_close_month` writes a close with no amount for a kitchen without money. |
+| API      | A route about money answers 404 `money_not_tracked` ("This kitchen does not track money."). Statements, ledger, `/bootstrap`, `/policies`, `/export` and the totals a head office reads leave out money. A key cannot be made with the `claims` scope (422).                                                                              |
+| Agents   | The MCP server lists no tool made from a money route, no prompt that needs money, and no prices resource. The menu resource is the menu; the ledger resource is counts.                                                                                                                                                                   |
+| App      | The screens list leaves out Payments, Prices and Settlements; Dashboard, Daily, Month close, the head office pages and the kitchens list show counts, not money.                                                                                                                                                                          |
+
+**Moves.** A bundle carries `workspace.moneyEnabled`, the menus as a section of their own, prices
+only for a kitchen with money, closes whose amount is null where they only lock, and expected totals
+that are meals always and money only where there are prices. Verification therefore counts meals for
+a kitchen without money and money to the paisa for one with. A meals-only bundle imports into a new
+kitchen with money (a database move keeps the kitchen as it was; moving to an instance of your own
+may ask for it) and the new kitchen has no prices yet and says "Add prices to start billing". A
+month that was locked with no amount stays locked there and freezes nothing. A bundle that tracks
+money into a kitchen without is refused. The digest of the copy is checked against the original's
+except where the kitchen became one that tracks money, which is the one setting that differs; every
+section is still compared.
+
+Not built, on purpose: changing the setting later. A kitchen that wants the other kind makes a new
+one and moves its meals in.
+
 ## 6. Technology
 
 | Layer      | Choice                                                                                                   | Why                                                                                                                              |
@@ -671,21 +730,22 @@ Considered and set aside:
 
 ## 7. Verification matrix
 
-| Claim                                                       | Verified how, where                                                                                                                               |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Spec rules and reference numbers                            | Unit and property tests in `packages/core`; mutation score 99.8 percent (`docs/DRIFT.md`)                                                         |
-| Cross-person and cross-workspace isolation                  | Database and HTTP tests on Postgres 18: two workspaces, several consumers, with and without a role set                                            |
-| Append-only decisions, settlements, rate cards, receipts    | Tests that attempt the update and delete as the application role, and (for receipts) as the owner                                                 |
-| Guards are not dead code                                    | Each database guard removed in turn; its test must fail (`bun run drift:db`: 69 defects, 0 missed)                                                |
-| No personal data in logs                                    | A full flow with `log_statement=all`; the server log is searched for every sentinel. CI requires the log to be readable, so it cannot be skipped  |
-| Wipe leaves nothing                                         | The database server's catalog and the control database are listed before and after; keys, receipt, interrupted and restored cases                 |
-| Move reconciles to the paisa                                | Two real databases and two instances; a failure injected at each stage leaves the source as it was                                                |
-| Free-tier fairness                                          | Per-workspace budget and flood tests; export is exempt from the daily budget                                                                      |
-| Browser: install, offline read, role screens, layout        | Chromium through Playwright against the built app, desktop and phone; accessibility (axe) and no-sideways-scroll checks at every stage            |
-| Security policy                                             | The strict policy is asserted on every response and the whole journey runs under it with no violations                                            |
-| Worker bundle and runtime                                   | `wrangler deploy --dry-run`; `scripts/smoke-worker.sh` runs it in the Workers runtime through Neon's WebSocket path                               |
-| Container image                                             | `scripts/smoke-compose.sh` builds it, starts it with its own Postgres, makes a kitchen, restarts, and finds it again; the tests run in containers |
-| Neon provisioner, Worker CPU time, claim links, live deploy | **Not verified here.** Needs credentials; `scripts/smoke-live.mts` is the check to run on first deploy (`docs/RUNBOOK.md`).                       |
+| Claim                                                           | Verified how, where                                                                                                                               |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Spec rules and reference numbers                                | Unit and property tests in `packages/core`; mutation score 99.8 percent (`docs/DRIFT.md`)                                                         |
+| Cross-person and cross-workspace isolation                      | Database and HTTP tests on Postgres 18: two workspaces, several consumers, with and without a role set                                            |
+| Append-only decisions, settlements, rate cards, menus, receipts | Tests that attempt the update and delete as the application role, and (for receipts) as the owner                                                 |
+| A kitchen without money holds no money                          | Database tests for every refused write, as the application and as the owner; HTTP tests for each money route; MCP tests; bundle round trips       |
+| Guards are not dead code                                        | Each database guard removed in turn; its test must fail (`bun run drift:db`: 96 defects and a control, 0 missed)                                  |
+| No personal data in logs                                        | A full flow with `log_statement=all`; the server log is searched for every sentinel. CI requires the log to be readable, so it cannot be skipped  |
+| Wipe leaves nothing                                             | The database server's catalog and the control database are listed before and after; keys, receipt, interrupted and restored cases                 |
+| Move reconciles to the paisa                                    | Two real databases and two instances; a failure injected at each stage leaves the source as it was                                                |
+| Free-tier fairness                                              | Per-workspace budget and flood tests; export is exempt from the daily budget                                                                      |
+| Browser: install, offline read, role screens, layout            | Chromium through Playwright against the built app, desktop and phone; accessibility (axe) and no-sideways-scroll checks at every stage            |
+| Security policy                                                 | The strict policy is asserted on every response and the whole journey runs under it with no violations                                            |
+| Worker bundle and runtime                                       | `wrangler deploy --dry-run`; `scripts/smoke-worker.sh` runs it in the Workers runtime through Neon's WebSocket path                               |
+| Container image                                                 | `scripts/smoke-compose.sh` builds it, starts it with its own Postgres, makes a kitchen, restarts, and finds it again; the tests run in containers |
+| Neon provisioner, Worker CPU time, claim links, live deploy     | **Not verified here.** Needs credentials; `scripts/smoke-live.mts` is the check to run on first deploy (`docs/RUNBOOK.md`).                       |
 
 ## 8. Risks
 
@@ -825,7 +885,9 @@ see what. The technical one is `docs/site/docs/concepts/trust-model.md`.
 ### 11.2 The menu, and where the kitchen and the role sit (ADR-12)
 
 - The screens of a kitchen are one list (`apps/web/src/pages/workspace/sections.ts`): address, name,
-  group and roles. The menu, the routes and the "not for your role" answer are read from it.
+  group and roles. The menu, the routes and the "not for your role" answer are read from it. A
+  screen about money (Payments, Prices, Settlements) is marked so, and a kitchen without money
+  (section 5.16) is given the list without those: they are not in its menu and have no address.
 - From 960px the list is a sidebar in three groups. It can be hidden; it then becomes a drawer
   behind **Menu** in the top bar, and the choice is kept on the device. Hidden, it is `inert`, and
   it moves with `transform` and `opacity` only, which stop under reduced motion.

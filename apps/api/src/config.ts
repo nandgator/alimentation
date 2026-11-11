@@ -58,6 +58,12 @@ const Env = z.object({
     (v) => (v === "" ? undefined : v),
     z.union([z.literal("unlimited"), z.coerce.number().int().min(1).max(1000)]).optional(),
   ),
+  /**
+   * Whether this instance lets a kitchen track money. `0` makes every new kitchen one without money (counts of
+   * meals, no prices, claims or bills) and refuses to make or receive one that tracks money. Kitchens already
+   * here are not changed by it.
+   */
+  MONEY_ALLOWED: z.enum(["0", "1"]).default("1"),
   /** Requests a day beyond the budget before a workspace is refused, as a multiple. */
   HARD_CAP_FACTOR: z.coerce.number().min(1).max(20).default(2),
 });
@@ -91,6 +97,8 @@ export interface Config {
   maxWorkspacesPerAccount: number | null;
   hardCapFactor: number;
   dedicated: boolean;
+  /** False: every new kitchen is one without money. */
+  moneyAllowed: boolean;
   migrationToken: string | null;
 }
 
@@ -161,6 +169,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
         : (e.MAX_WORKSPACES_PER_ACCOUNT ?? (dedicated ? null : DEFAULT_MAX_WORKSPACES_PER_ACCOUNT)),
     hardCapFactor: e.HARD_CAP_FACTOR,
     dedicated,
+    moneyAllowed: e.MONEY_ALLOWED === "1",
     migrationToken: e.MIGRATION_TOKEN ?? null,
   };
 }

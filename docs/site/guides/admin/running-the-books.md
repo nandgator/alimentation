@@ -1,6 +1,7 @@
 ---
 title: Running the books as the admin
-description: People, prices, holidays, rules, settlements and closing, and what each screen is for.
+description:
+  People, the menu, prices, holidays, rules, settlements and closing, and what each screen is for.
 ---
 
 # Running the books as the admin
@@ -59,10 +60,13 @@ fingerprint of the file, never the file), beside the usual line for each person.
 and import it back. People you have not given a key will be added again if you import their rows,
 which the preview shows.
 
-## Rates and rules
+## Menu, prices and rules
 
-- **Rate cards** carry the prices and the weekly menu from a date. They are **added, never edited**:
-  a new card applies from its date, and earlier months keep their prices.
+- **Menu** says which meal is served on each working day, from a date. Every kitchen has one.
+- **Prices** (rate cards) carry what a meal and an extra cost, from a date. Only a kitchen that
+  tracks money has them; see [A kitchen without money](/guides/admin/a-kitchen-without-money/).
+- Both are **added, never edited**: a new one applies from its date, and earlier months keep what
+  they had.
 - **Rules for this kitchen** are the options in [the rules reference](/guides/admin/kitchen-rules/).
   A change applies from the first of a month. It can start in the current month or later, never in a
   month that has passed.

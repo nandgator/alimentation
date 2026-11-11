@@ -26,6 +26,9 @@ busy.
 
 ## How long is the catch-up window?
 
+In a kitchen without money, closing is only a lock: it stops changes to a month's meals, leave and
+extras, and freezes no amount.
+
 It is up to your kitchen, in **Rates & rules**, under **Month close**:
 
 | Setting                 | The window                                                                                            |

@@ -94,6 +94,8 @@ function Move() {
   const [url, setUrl] = useState("");
   const [token, setToken] = useState("");
   const [confirm, setConfirm] = useState("");
+  // A kitchen without money may become one that tracks money when it is made again on an instance of your own.
+  const [track, setTrack] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [done, setDone] = useState<Moved | null>(null);
   const check = useAction();
@@ -101,7 +103,12 @@ function Move() {
   const target =
     kind === "database"
       ? { kind, url: url.trim() }
-      : { kind, url: url.trim(), token: token.trim() };
+      : {
+          kind,
+          url: url.trim(),
+          token: token.trim(),
+          ...(!ws.money && track ? { moneyEnabled: true } : {}),
+        };
   const reset = () => setPreview(null);
 
   if (done)
@@ -114,8 +121,10 @@ function Move() {
             : "Your kitchen now lives on your own instance."}
         </div>
         <p>
-          Everything was copied and every statement was recomputed from the raw entries and matched
-          to the paisa. Checksum <code className="small">{done.digest.slice(0, 16)}…</code>
+          {ws.money
+            ? "Everything was copied and every statement was recomputed from the raw entries and matched to the paisa."
+            : "Everything was copied and every month was counted again from the raw entries and matched, meal for meal."}{" "}
+          Checksum <code className="small">{done.digest.slice(0, 16)}…</code>
         </p>
         <p className="muted">
           The old copy stays read-only until {date(done.oldCopyRemovedBy.slice(0, 10))}, then it is
@@ -186,6 +195,22 @@ function Move() {
             spellCheck={false}
           />
         </Field>
+        {kind === "instance" && !ws.money ? (
+          <label className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
+            <input
+              type="checkbox"
+              checked={track}
+              onChange={(e) => {
+                setTrack(e.target.checked);
+                reset();
+              }}
+            />
+            <span>
+              Track money in the new kitchen. It arrives with no prices, and you add them there to
+              start billing. This kitchen stays as it is.
+            </span>
+          </label>
+        ) : null}
         {kind === "instance" ? (
           <Field label="Token" id="mtoken" hint="The migration token set on that instance.">
             <input

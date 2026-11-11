@@ -88,9 +88,9 @@ and the servers you hold, though the app shows you only metadata. See
 
 ## 7. Check it
 
-Open `/api/health`. Sign in with your real account. Make a kitchen, add a rate card and one person,
-invite yourself under a second email, log an entry and claim a payment. Then take a copy and delete
-the test kitchen. If that all works, the instance does.
+Open `/api/health`. Sign in with your real account. Make a kitchen, add a menu, prices and one
+person, invite yourself under a second email, log an entry and claim a payment. Then take a copy and
+delete the test kitchen. If that all works, the instance does.
 
 ## The pre-flight list
 

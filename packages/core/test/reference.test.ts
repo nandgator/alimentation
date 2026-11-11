@@ -18,6 +18,7 @@ import {
   decision,
   entry,
   JOVIAL,
+  MENU_APR,
   prep,
   SMRUTI,
   settlement,
@@ -86,6 +87,7 @@ describe("spec section 11: October 2026", () => {
       log: [],
       today: monthEnd(found!),
       rateCards: [{ ...CARD_APR, effectiveFrom: "2020-01-01" }],
+      menus: [{ ...MENU_APR, effectiveFrom: "2020-01-01" }],
     });
     const s = buildStatements(p, ["jovial"], [found!])[0]!;
     expect(s.counts).toMatchObject({ meals: 22, veg: 14, nonVeg: 8 });

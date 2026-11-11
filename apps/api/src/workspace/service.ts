@@ -1,6 +1,7 @@
 import {
   type AuditRow,
   type BootstrapDto,
+  buildMealStatements,
   buildStatements,
   type ClaimDto,
   checkClaim,
@@ -9,12 +10,14 @@ import {
   checkExternalKey,
   checkLogChange,
   checkLogEntry,
+  checkMenu,
   checkPersonFields,
   checkRateCard,
   checkReversal,
   closeSnapshot,
   meter as computeMeter,
   consumers,
+  DEFAULT_POLICY,
   describeAudit,
   type EngineData,
   EngineError,
@@ -45,8 +48,12 @@ import {
   localNow,
   MAX_HOLIDAY_ROWS,
   MAX_PEOPLE_IMPORT_ROWS,
+  type MealLedgerDay,
+  type MealStatementDto,
   type MealType,
+  type MenuVersion,
   type Month,
+  mealLedgerDay,
   monthEnd,
   monthOf,
   monthRange,
@@ -60,11 +67,13 @@ import {
   type PersonImportRow,
   type Policy,
   PolicySchema,
+  type PolicyView,
   type Prepared,
   parseHolidayCsv,
   parsePeopleCsv,
   planPeopleImport,
   policyForMonth,
+  policyView,
   prepare,
   type RateCard,
   type Role,
@@ -75,12 +84,19 @@ import {
   type StatementDto,
   type Usage,
   whoLabel,
+  withoutMoneyRules,
 } from "@alimentation/core";
 import type { FieldCipher } from "../crypto/fields.ts";
 import type { Db, Tx } from "../db/driver.ts";
 import { type Actor, asActor } from "./context.ts";
 import { ApiError, forbidden, invalid, mapDbError, notFound } from "./errors.ts";
-import { applyAutoCloses, loadEngineData, rateCardFromRow, withDueCloses } from "./load.ts";
+import {
+  applyAutoCloses,
+  loadEngineData,
+  menuFromRow,
+  rateCardFromRow,
+  withDueCloses,
+} from "./load.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
 type R = Record<string, any>;
@@ -91,6 +107,8 @@ export interface WorkspaceInfo {
   name: string;
   timeZone: string;
   currency: string;
+  /** Whether the kitchen tracks money. Fixed when it was made, so it is read once and kept. */
+  moneyEnabled: boolean;
   state: "ACTIVE" | "MIGRATING" | "MOVED";
   movedTo: string | null;
   limits: Limits;
@@ -115,6 +133,14 @@ export interface ServiceDeps {
  */
 const NO_ONE: Actor = { role: "admin", personId: "00000000-0000-0000-0000-000000000000" };
 
+/** The money rules at their neutral values, for a policy document to be filled in with. */
+const DEFAULT_MONEY = (({ extras, leave, payments, rateCards }) => ({
+  extras,
+  leave,
+  payments,
+  rateCards,
+}))(DEFAULT_POLICY);
+
 const WEEKDAY_COLUMNS = [
   "menu_sun",
   "menu_mon",
@@ -130,6 +156,10 @@ async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+/** What a route about money answers in a kitchen that does not track it. */
+export const noMoney = () =>
+  new ApiError(404, "money_not_tracked", "This kitchen does not track money.");
 
 function requireOk(issues: Issue[]): Issue[] {
   if (hasErrors(issues)) {
@@ -173,6 +203,11 @@ export class WorkspaceService {
     }
   }
 
+  /** For what only a kitchen with money has: prices, claims, settlements. */
+  private requireMoney(): void {
+    if (!this.d.info.moneyEnabled) throw noMoney();
+  }
+
   private assertWritable(): void {
     if (this.d.info.state !== "ACTIVE") {
       throw new ApiError(
@@ -197,26 +232,36 @@ export class WorkspaceService {
       const current = monthOf(today);
       const me = data.people.find((x) => x.id === actor.personId);
 
+      const money = info.moneyEnabled;
       const setup: BootstrapDto["setup"] = [];
-      if (data.rateCards.length === 0)
-        setup.push({ code: "rate_card", message: "Add a rate card to start billing." });
+      if (data.menus.length === 0)
+        setup.push({ code: "menu", message: "Add the menu to start counting meals." });
+      if (money && data.rateCards.length === 0)
+        setup.push({ code: "rate_card", message: "Add prices to start billing." });
       if (!data.people.some((x) => x.role === "consumer"))
         setup.push({ code: "consumers", message: "Add the people you feed." });
 
-      let statements: StatementDto[] = [];
-      if (data.rateCards.length > 0) {
+      let statements: BootstrapDto["statements"] = [];
+      const ids = consumers(p).map((c) => c.id);
+      if (data.menus.length > 0) {
         try {
-          const ids = consumers(p).map((c) => c.id);
-          statements = this.dto(buildStatements(p, ids, [current]), data);
+          if (!money) statements = this.mealDto(buildMealStatements(p, ids, [current]), data);
+          else if (data.rateCards.length > 0)
+            statements = this.dto(buildStatements(p, ids, [current]), data);
+          else statements = this.mealDto(buildMealStatements(p, ids, [current]), data);
         } catch (e) {
           if (!(e instanceof EngineError)) throw e;
           setup.push({ code: e.code.toLowerCase(), message: e.message });
         }
       }
 
-      const [pending] = await tx.query<R>(
-        `SELECT count(*)::int AS n FROM claim c WHERE NOT EXISTS (SELECT 1 FROM claim_decision d WHERE d.claim_id = c.id)`,
-      );
+      const pending = money
+        ? (
+            await tx.query<R>(
+              `SELECT count(*)::int AS n FROM claim c WHERE NOT EXISTS (SELECT 1 FROM claim_decision d WHERE d.claim_id = c.id)`,
+            )
+          )[0]
+        : undefined;
 
       let meterOut: BootstrapDto["meter"] = null;
       if (actor.role === "admin") {
@@ -226,10 +271,12 @@ export class WorkspaceService {
         meterOut = { ...m, usage };
       }
 
-      const cards = [...data.rateCards].sort((a, b) =>
-        a.effectiveFrom < b.effectiveFrom ? 1 : -1,
-      );
-      const rateCard = cards.find((c) => c.effectiveFrom <= today) ?? null;
+      const newestFirst = <T extends { effectiveFrom: string }>(list: readonly T[]) =>
+        [...list].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1));
+      const menu = newestFirst(data.menus).find((m) => m.effectiveFrom <= today) ?? null;
+      const rateCard = money
+        ? (newestFirst(data.rateCards).find((c) => c.effectiveFrom <= today) ?? null)
+        : undefined;
       return {
         workspace: {
           id: info.id,
@@ -237,6 +284,7 @@ export class WorkspaceService {
           name: info.name,
           timeZone: info.timeZone,
           currency: info.currency,
+          moneyEnabled: money,
           state: info.state,
           movedTo: info.movedTo,
         },
@@ -245,13 +293,14 @@ export class WorkspaceService {
         today,
         currentMonth: current,
         months: monthRange(p),
-        policy: policyForMonth(data.policies, current),
-        rateCard,
+        policy: policyView(policyForMonth(data.policies, current), money),
+        menu,
+        ...(rateCard !== undefined ? { rateCard } : {}),
         holidays: [...data.holidays],
         people: await this.peopleDtos(tx, actor, data),
         statements,
         setup,
-        pendingClaims: pending?.n ?? 0,
+        ...(money ? { pendingClaims: pending?.n ?? 0 } : {}),
         meter: meterOut,
         workspaceState: info.state,
         movedTo: info.movedTo,
@@ -273,11 +322,29 @@ export class WorkspaceService {
         const p = prepare(data);
         const current = monthOf(data.today);
         const ids = consumers(p).map((c) => c.id);
+        const money = this.d.info.moneyEnabled;
         let setup = 0;
-        if (data.rateCards.length === 0) setup++;
+        if (data.menus.length === 0) setup++;
+        if (money && data.rateCards.length === 0) setup++;
         if (ids.length === 0) setup++;
+        const counts = { month: current, consumers: ids.length };
+        if (!money) {
+          let meals = 0;
+          if (data.menus.length > 0) {
+            try {
+              meals = buildMealStatements(p, ids, [current]).reduce(
+                (a, x) => a + x.counts.meals,
+                0,
+              );
+            } catch (e) {
+              if (!(e instanceof EngineError)) throw e;
+              setup++;
+            }
+          }
+          return { ...counts, meals, setup, moneyEnabled: false as const };
+        }
         let statements: ReturnType<typeof buildStatements> = [];
-        if (data.rateCards.length > 0) {
+        if (data.menus.length > 0 && data.rateCards.length > 0) {
           try {
             statements = buildStatements(p, ids, [current]);
           } catch (e) {
@@ -290,9 +357,9 @@ export class WorkspaceService {
         );
         const h = headline(statements, pending?.n ?? 0);
         return {
-          month: current,
+          ...counts,
+          moneyEnabled: true as const,
           currency: this.d.info.currency,
-          consumers: ids.length,
           meals: statements.reduce((a, x) => a + x.counts.meals, 0),
           billed: h.billed,
           paid: h.paid,
@@ -334,6 +401,14 @@ export class WorkspaceService {
     }));
   }
 
+  private mealDto(
+    statements: ReturnType<typeof buildMealStatements>,
+    data: EngineData,
+  ): MealStatementDto[] {
+    const names = new Map(data.people.map((x) => [x.id, x.name]));
+    return statements.map((s) => ({ ...s, name: names.get(s.personId) ?? "" }));
+  }
+
   private async peopleDtos(tx: Tx, actor: Actor, data: EngineData): Promise<PersonDto[]> {
     const rows = await tx.query<R>(
       "SELECT id, status, contact_enc, external_key, (account_id IS NOT NULL) AS linked FROM person",
@@ -361,7 +436,11 @@ export class WorkspaceService {
     return out;
   }
 
-  async statements(actor: Actor, months: Month[], personId?: string): Promise<StatementDto[]> {
+  async statements(
+    actor: Actor,
+    months: Month[],
+    personId?: string,
+  ): Promise<(StatementDto | MealStatementDto)[]> {
     for (const m of months) if (!isValidMonth(m)) throw invalid(`"${m}" is not a month`);
     if (months.length > 36) throw invalid("Ask for at most 36 months at a time.");
     return this.run(actor, async (_tx, load) => {
@@ -370,7 +449,9 @@ export class WorkspaceService {
       const ids = personId ? [personId] : consumers(p).map((c) => c.id);
       if (personId && !data.people.some((x) => x.id === personId)) throw notFound("Person");
       try {
-        return this.dto(buildStatements(p, ids, months), data);
+        return this.d.info.moneyEnabled
+          ? this.dto(buildStatements(p, ids, months), data)
+          : this.mealDto(buildMealStatements(p, ids, months), data);
       } catch (e) {
         if (e instanceof EngineError) throw new ApiError(422, e.code.toLowerCase(), e.message);
         throw e;
@@ -385,7 +466,12 @@ export class WorkspaceService {
       const person = data.people.find((x) => x.id === personId && x.role === "consumer");
       if (!person) throw notFound("Person");
       try {
-        return { personId, month, days: ledgerMonth(prepare(data), person, month) };
+        const days = ledgerMonth(prepare(data), person, month);
+        return {
+          personId,
+          month,
+          days: this.d.info.moneyEnabled ? days : days.map((d): MealLedgerDay => mealLedgerDay(d)),
+        };
       } catch (e) {
         if (e instanceof EngineError) throw new ApiError(422, e.code.toLowerCase(), e.message);
         throw e;
@@ -669,6 +755,7 @@ export class WorkspaceService {
   // --- prices, rules, holidays -------------------------------------------
 
   async listRateCards(actor: Actor): Promise<RateCard[]> {
+    this.requireMoney();
     return this.run(actor, async (tx) =>
       (await tx.query<R>("SELECT * FROM rate_card ORDER BY effective_from")).map(rateCardFromRow),
     );
@@ -683,21 +770,19 @@ export class WorkspaceService {
       extraChapati: number;
       extraBhakri: number;
       extrasPerMonth: number;
-      menu: Partial<Record<number, MealType>>;
       note?: string | null;
     },
   ): Promise<{ id: string; warnings: Issue[] }> {
+    this.requireMoney();
     this.assertWritable();
     this.mustBeAdmin(actor);
     return this.run(actor, async (tx, load) => {
       const data = await load();
-      const warnings = requireOk(checkRateCard(prepare(data), input.effectiveFrom, input.menu));
+      const warnings = requireOk(checkRateCard(prepare(data), input.effectiveFrom));
       const id = crypto.randomUUID();
-      const menuValues = WEEKDAY_COLUMNS.map((_, i) => input.menu[i] ?? null);
       await tx.query(
-        `INSERT INTO rate_card (id, effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month,
-            menu_sun, menu_mon, menu_tue, menu_wed, menu_thu, menu_fri, menu_sat, note, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        `INSERT INTO rate_card (id, effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month, note, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [
           id,
           input.effectiveFrom,
@@ -706,7 +791,6 @@ export class WorkspaceService {
           input.extraChapati,
           input.extraBhakri,
           input.extrasPerMonth,
-          ...menuValues,
           input.note ?? null,
           actor.personId,
         ],
@@ -715,11 +799,45 @@ export class WorkspaceService {
     });
   }
 
-  async listPolicies(actor: Actor): Promise<{ effectiveFrom: string; doc: Policy }[]> {
+  async listMenus(actor: Actor): Promise<MenuVersion[]> {
+    return this.run(actor, async (tx) =>
+      (await tx.query<R>("SELECT * FROM menu ORDER BY effective_from")).map(menuFromRow),
+    );
+  }
+
+  /** A new menu, from a date. It is dated and never edited, like the prices of a kitchen that has them. */
+  async addMenu(
+    actor: Actor,
+    input: {
+      effectiveFrom: string;
+      menu: Partial<Record<number, MealType>>;
+      note?: string | null;
+    },
+  ): Promise<{ id: string; warnings: Issue[] }> {
+    this.assertWritable();
+    this.mustBeAdmin(actor);
+    return this.run(actor, async (tx, load) => {
+      const data = await load();
+      const warnings = requireOk(checkMenu(prepare(data), input.effectiveFrom, input.menu));
+      const id = crypto.randomUUID();
+      const values = WEEKDAY_COLUMNS.map((_, i) => input.menu[i] ?? null);
+      await tx.query(
+        `INSERT INTO menu (id, effective_from, menu_sun, menu_mon, menu_tue, menu_wed, menu_thu, menu_fri, menu_sat, note, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [id, input.effectiveFrom, ...values, input.note ?? null, actor.personId],
+      );
+      return { id, warnings };
+    });
+  }
+
+  async listPolicies(actor: Actor): Promise<{ effectiveFrom: string; doc: PolicyView }[]> {
     return this.run(actor, async (tx) =>
       (
         await tx.query<R>("SELECT effective_from, doc FROM policy_version ORDER BY effective_from")
-      ).map((r) => ({ effectiveFrom: r.effective_from, doc: r.doc })),
+      ).map((r) => ({
+        effectiveFrom: r.effective_from,
+        doc: policyView(r.doc as Policy, this.d.info.moneyEnabled),
+      })),
     );
   }
 
@@ -731,7 +849,13 @@ export class WorkspaceService {
       throw invalid("Rules take effect from the first of a month.");
     if (monthOf(effectiveFrom) < monthOf(this.local().date))
       throw invalid("Rules cannot take effect in a month that has already begun.");
-    const parsed = PolicySchema.safeParse(doc);
+    // A kitchen without money has no money rules to choose: whatever is sent for them is set aside, and they
+    // are kept at their neutral values.
+    const parsed = PolicySchema.safeParse(
+      this.d.info.moneyEnabled || typeof doc !== "object" || doc === null
+        ? doc
+        : { ...(doc as object), ...DEFAULT_MONEY },
+    );
     if (!parsed.success)
       throw invalid(
         `These rules are not valid: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`,
@@ -739,7 +863,11 @@ export class WorkspaceService {
     await this.run(actor, async (tx) => {
       await tx.query(
         "INSERT INTO policy_version (effective_from, doc, created_by) VALUES ($1, $2, $3)",
-        [effectiveFrom, JSON.stringify(parsed.data), actor.personId],
+        [
+          effectiveFrom,
+          JSON.stringify(this.d.info.moneyEnabled ? parsed.data : withoutMoneyRules(parsed.data)),
+          actor.personId,
+        ],
       );
     });
   }
@@ -1049,6 +1177,7 @@ export class WorkspaceService {
       timeZone: this.tz,
       nameOf: (id) => names.get(id),
       roleOf: (id) => roles.get(id),
+      moneyEnabled: this.d.info.moneyEnabled,
       claimOf: (id) => claims.get(id),
     };
   }
@@ -1172,6 +1301,7 @@ export class WorkspaceService {
   // --- payments ----------------------------------------------------------
 
   async listClaims(actor: Actor): Promise<ClaimDto[]> {
+    this.requireMoney();
     return this.run(actor, async (tx) => {
       const rows = await tx.query<R>(
         `SELECT c.id, c.consumer_id, c.paid_at, c.for_month, c.amount, c.method, c.ref_note_enc, c.created_at,
@@ -1223,6 +1353,7 @@ export class WorkspaceService {
       refNote?: string | null;
     },
   ): Promise<{ id: string }> {
+    this.requireMoney();
     this.assertWritable();
     return this.run(actor, async (tx, load) => {
       const data = await load();
@@ -1245,6 +1376,7 @@ export class WorkspaceService {
   }
 
   async withdrawClaim(actor: Actor, id: string): Promise<void> {
+    this.requireMoney();
     this.assertWritable();
     await this.run(actor, async (tx, load) => {
       requireOk(checkClaimWithdrawal(prepare(await load()), actor, id));
@@ -1259,6 +1391,7 @@ export class WorkspaceService {
     decision: string,
     note: string | null,
   ): Promise<void> {
+    this.requireMoney();
     this.assertWritable();
     await this.run(actor, async (tx, load) => {
       requireOk(checkDecision(prepare(await load()), actor, claimId, decision, note));
@@ -1275,6 +1408,7 @@ export class WorkspaceService {
   }
 
   async reverse(actor: Actor, claimId: string, reason: string): Promise<void> {
+    this.requireMoney();
     this.assertWritable();
     await this.run(actor, async (tx, load) => {
       requireOk(checkReversal(prepare(await load()), actor, claimId, reason));
@@ -1290,6 +1424,7 @@ export class WorkspaceService {
   }
 
   async listSettlements(actor: Actor): Promise<SettlementDto[]> {
+    this.requireMoney();
     return this.run(actor, async (tx) => {
       const rows = await tx.query<R>(
         "SELECT id, on_date, consumer_id, for_month, type, amount, note_enc, recorded_by, created_at FROM settlement ORDER BY on_date DESC, created_at DESC LIMIT 500",
@@ -1323,6 +1458,7 @@ export class WorkspaceService {
       date?: string;
     },
   ): Promise<{ id: string }> {
+    this.requireMoney();
     this.assertWritable();
     this.mustBeAdmin(actor);
     if (!isValidMonth(input.forMonth)) throw invalid(`"${input.forMonth}" is not a month`);
@@ -1362,7 +1498,7 @@ export class WorkspaceService {
     actor: Actor,
     month: Month,
     consumerId?: string,
-  ): Promise<{ closed: { consumerId: string; billed: number; meals: number }[] }> {
+  ): Promise<{ closed: { consumerId: string; billed?: number; meals: number }[] }> {
     this.assertWritable();
     this.mustBeAdmin(actor);
     if (!isValidMonth(month)) throw invalid(`"${month}" is not a month`);
@@ -1379,7 +1515,7 @@ export class WorkspaceService {
             (c.activeTo === null || monthOf(c.activeTo) >= month),
       );
       if (consumerId && targets.length === 0) throw notFound("Consumer");
-      const closed: { consumerId: string; billed: number; meals: number }[] = [];
+      const closed: { consumerId: string; billed?: number; meals: number }[] = [];
       for (const c of targets) {
         if (data.closes.some((x) => x.consumerId === c.id && x.forMonth === month)) {
           if (consumerId)
@@ -1391,7 +1527,11 @@ export class WorkspaceService {
           `INSERT INTO month_close (for_month, consumer_id, meals, billed, closed_on, closed_by) VALUES ($1,$2,$3,$4,$5,$6)`,
           [monthStart(month), c.id, snap.meals, snap.billed, data.today, actor.personId],
         );
-        closed.push({ consumerId: c.id, ...snap });
+        closed.push(
+          snap.billed === null
+            ? { consumerId: c.id, meals: snap.meals }
+            : { consumerId: c.id, meals: snap.meals, billed: snap.billed },
+        );
       }
       return { closed };
     });

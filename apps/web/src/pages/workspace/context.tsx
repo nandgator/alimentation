@@ -8,6 +8,8 @@ export interface Workspace {
   role: Role;
   /** False while the workspace is being moved or has moved. */
   writable: boolean;
+  /** Whether the kitchen tracks money. When it does not, there are no prices, bills or payments to show. */
+  money: boolean;
   fromDevice: boolean;
   api: string;
   reload(): void;

@@ -19,12 +19,20 @@ in **Start a kitchen**:
 | **Address**                | Letters, numbers and dashes. It becomes the link: `/w/willow-mess`. It is chosen once.                            |
 | **I am also the supplier** | Leave this ticked if you cook, or if you are the one who confirms payments. You can switch between the two roles. |
 
-You land on the dashboard. It tells you what is missing: **Add a rate card to start billing**, then
-**Add the people you feed**.
+You land on the dashboard. It tells you what is missing: **Add the menu to start counting meals**,
+**Add prices to start billing**, then **Add the people you feed**.
 
-## 2. Add a rate card
+> [!NOTE] Starting a kitchen asks one question: **Track money in this kitchen**. Leave it ticked to
+> set prices and bill people. Untick it and the kitchen only counts meals. You choose once, and it
+> cannot be changed later. See [A kitchen without money](/guides/admin/a-kitchen-without-money/).
+> Where the steps below talk about prices, a kitchen without money skips them.
 
-Open **Rates & rules** and choose **New rate card**.
+## 2. Add the menu, then the prices
+
+Open **Menu** and choose **New menu**. It asks which meal is served on each working day, and from
+which date. Everyone gets this meal unless they say otherwise.
+
+Then open **Prices** and choose **New prices**.
 
 | Field                               | Meaning                                                                                    |
 | ----------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -32,10 +40,9 @@ Open **Rates & rules** and choose **New rate card**.
 | **Veg meal**, **Non-veg meal**      | The price of one meal.                                                                     |
 | **Extra chapati**, **Extra bhakri** | The price of one extra piece, beyond the default portion.                                  |
 | **Extras charged monthly**          | A flat amount for the things that are not counted one by one (papad, salad), once a month. |
-| **Menu on Mon... Fri**              | Which meal is served each working day. Everyone gets this meal unless they say otherwise.  |
 
-> [!TIP] A rate card is never edited. When prices change, add a new card with a new start date. Past
-> months keep the prices they were billed at.
+> [!TIP] A menu or a set of prices is never edited. When either changes, add a new one with a new
+> start date. Past months keep what they were counted and billed at.
 
 ## 3. Add the people
 
@@ -59,7 +66,8 @@ On a person's row, press **Invite**, type their email address, and send them the
 
 ## 5. Look at the rules
 
-**Rates & rules** also shows the rules your kitchen runs on. The defaults suit most kitchens:
+**Rates & rules** (**Rules**, in a kitchen without money) also shows the rules your kitchen runs on.
+The defaults suit most kitchens:
 
 - meals Monday to Friday; only confirmed holidays cancel a meal;
 - a leave day costs nothing;

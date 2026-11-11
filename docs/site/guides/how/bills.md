@@ -1,8 +1,8 @@
 ---
 title: How a bill is worked out
 description:
-  Rate cards, working days, holidays, exceptions and extras, with a month worked through to the
-  rupee.
+  The menu, rate cards, working days, holidays, exceptions and extras, with a month worked through
+  to the rupee.
 ---
 
 # How a bill is worked out
@@ -13,9 +13,11 @@ while the month is open) and when a kitchen moves, so they always agree.
 
 ## The ingredients
 
-**A rate card** has the price of a veg meal and a non-veg meal, of an extra chapati and an extra
-bhakri, a flat monthly amount for extras, and a menu: which meal is served on each working day. A
-card applies **from a date**. A day uses the latest card that started on or before it.
+**A menu** says which meal is served on each working day. **A rate card** has the price of a veg
+meal and a non-veg meal, of an extra chapati and an extra bhakri, and a flat monthly amount for
+extras. Each applies **from a date**. A day uses the latest of each that started on or before it. A
+kitchen needs both before it can bill. (A kitchen without money has a menu and no rate card; see
+[A kitchen without money](/guides/admin/a-kitchen-without-money/).)
 
 **Working days** are Monday to Friday unless the kitchen's rules say otherwise. A day that is not a
 working day has no meal and no bill.

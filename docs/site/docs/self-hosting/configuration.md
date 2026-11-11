@@ -57,6 +57,15 @@ See [Architecture](/docs/overview/architecture/) for what a placement is.
 | `CAPACITY_JSON`    | JSON merged over the host's side of the capacity sum (`hostProjects`, `reservedProjects`, `accountRequestsPerDay`, `headroom`). Add `perWorkspaceRequestsPerDay` only to state that figure on purpose instead of following the limits. |
 | `HARD_CAP_FACTOR`  | A number from 1 to 20, default 2. How many times its daily request budget a kitchen may use before it is refused.                                                                                                                      |
 
+## Money
+
+| Setting         | What it is                                                                                                                                                                                                                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MONEY_ALLOWED` | `1` (the default) or `0`. With `0` every new kitchen counts meals only, and making or receiving a kitchen that tracks money is refused (`money_not_allowed`). Shared and dedicated instances alike. Kitchens already here are not changed: whether a kitchen tracks money is fixed when it is made. |
+
+See [A kitchen without money](/guides/admin/a-kitchen-without-money/) for what a kitchen without
+money keeps and does not have.
+
 ## Who may start a kitchen
 
 | Setting                      | What it is                                                                                                                                                                                                                                        |

@@ -19,6 +19,7 @@ import {
   type Holiday,
   type LogEntry,
   type MealType,
+  type MenuVersion,
   type MonthClose,
   type Person,
   type RateCard,
@@ -28,7 +29,15 @@ import {
 /** Everything the engine needs. It performs no I/O and reads no clock: `today` is an input. */
 export interface EngineData {
   today: IsoDate;
+  /**
+   * Whether the kitchen puts a price on its meals. When it does not, the engine counts and never prices:
+   * it reads no rate card, and its statements are counts only (see `buildMealStatements`).
+   */
+  moneyEnabled: boolean;
   policies: readonly PolicyVersion[];
+  /** What is served, by date. Every kitchen has it. */
+  menus: readonly MenuVersion[];
+  /** Prices, by date. Empty for a kitchen that does not track money. */
   rateCards: readonly RateCard[];
   holidays: readonly Holiday[];
   people: readonly Person[];
@@ -58,6 +67,17 @@ export interface LedgerDay {
   holidayName: string | null;
 }
 
+/** A day of a kitchen without money: what was eaten, and no price on any of it. */
+export type MealLedgerDay = Omit<
+  LedgerDay,
+  "mealPrice" | "breadAmount" | "leaveAmount" | "dayTotal"
+>;
+
+export function mealLedgerDay(d: LedgerDay): MealLedgerDay {
+  const { mealPrice: _m, breadAmount: _b, leaveAmount: _l, dayTotal: _t, ...rest } = d;
+  return rest;
+}
+
 export type StatusCode =
   | "NONE"
   | "CHANGED_AFTER_CLOSE"
@@ -78,6 +98,22 @@ export const STATUS_LABEL: Record<StatusCode, string> = {
   DUE: "Due",
   PROJECTED: "Projected",
 };
+
+/** What a kitchen without money knows of a person's month: the counts, and whether the month is locked. */
+export interface MealStatement {
+  personId: string;
+  month: Month;
+  basis: Basis;
+  counts: {
+    meals: number;
+    veg: number;
+    nonVeg: number;
+    leave: number;
+    extraChapati: number;
+    extraBhakri: number;
+  };
+  closed: boolean;
+}
 
 export interface Statement {
   personId: string;
@@ -112,6 +148,7 @@ export interface Statement {
 export interface Prepared {
   readonly data: EngineData;
   readonly cards: readonly RateCard[];
+  readonly menus: readonly MenuVersion[];
   readonly holidaysByDate: ReadonlyMap<IsoDate, readonly Holiday[]>;
   readonly supplierOff: ReadonlySet<IsoDate>;
   readonly logByPersonDate: ReadonlyMap<string, readonly LogEntry[]>;
@@ -157,6 +194,7 @@ export function prepare(data: EngineData): Prepared {
   return {
     data,
     cards: [...data.rateCards].sort((a, b) => compareText(a.effectiveFrom, b.effectiveFrom)),
+    menus: [...data.menus].sort((a, b) => compareText(a.effectiveFrom, b.effectiveFrom)),
     holidaysByDate,
     supplierOff,
     logByPersonDate,
@@ -173,6 +211,29 @@ export function cardOn(p: Prepared, date: IsoDate): RateCard | null {
     else break;
   }
   return found;
+}
+
+/** The latest menu whose `effectiveFrom` is on or before `date`. */
+export function menuOn(p: Prepared, date: IsoDate): MenuVersion | null {
+  let found: MenuVersion | null = null;
+  for (const m of p.menus) {
+    if (m.effectiveFrom <= date) found = m;
+    else break;
+  }
+  return found;
+}
+
+function requireMenuMeal(p: Prepared, date: IsoDate): MealType {
+  const menu = menuOn(p, date);
+  if (!menu) throw new EngineError("NO_MENU", `no menu is in force on ${date}`, date);
+  const meal = menu.days[weekdayOf(date)];
+  if (!meal)
+    throw new EngineError(
+      "NO_MENU",
+      `the menu from ${menu.effectiveFrom} serves nothing on this weekday`,
+      date,
+    );
+  return meal;
 }
 
 function requireCard(p: Prepared, date: IsoDate): RateCard {
@@ -200,6 +261,11 @@ function countingHoliday(p: Prepared, policy: Policy, date: IsoDate): Holiday | 
  * combine like this: leave beats everything; the latest switch wins; extras add.
  */
 export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay | null {
+  return dayRow(p, person, date, p.data.moneyEnabled);
+}
+
+/** `priced` false counts the day and puts no price on it, so it reads no rate card. */
+function dayRow(p: Prepared, person: Person, date: IsoDate, priced: boolean): LedgerDay | null {
   const policy = policyForMonth(p.data.policies, monthOf(date));
   const wd = weekdayOf(date);
   if (!policy.workingDays.includes(wd)) return null;
@@ -232,22 +298,11 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
   const priceOf = (card: RateCard, meal: MealType): Paise =>
     meal === "Veg" ? card.veg : card.nonVeg;
 
-  const menuMeal = (card: RateCard): MealType => {
-    const m = card.menu[wd];
-    if (!m)
-      throw new EngineError(
-        "NO_MENU",
-        `the rate card from ${card.effectiveFrom} serves nothing on this weekday`,
-        date,
-      );
-    return m;
-  };
-
   if (entries.some((e) => e.change === "Leave")) {
     let leaveAmount = 0;
-    if (policy.leave.chargeBps > 0) {
+    if (priced && policy.leave.chargeBps > 0) {
       const card = requireCard(p, date);
-      let meal = menuMeal(card);
+      let meal = requireMenuMeal(p, date);
       for (const e of entries) {
         switch (e.change) {
           case "Switch to Veg":
@@ -263,8 +318,7 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
     return { ...row, status: "Leave", leaveAmount, dayTotal: leaveAmount };
   }
 
-  const card = requireCard(p, date);
-  let meal = menuMeal(card);
+  let meal = requireMenuMeal(p, date);
   let chapati = 0;
   let bhakri = 0;
   for (const e of entries) {
@@ -283,8 +337,9 @@ export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay
         break;
     }
   }
-  const mealPrice = priceOf(card, meal);
-  const breadAmount = chapati * card.extraChapati + bhakri * card.extraBhakri;
+  const card = priced ? requireCard(p, date) : null;
+  const mealPrice = card ? priceOf(card, meal) : 0;
+  const breadAmount = card ? chapati * card.extraChapati + bhakri * card.extraBhakri : 0;
   return {
     ...row,
     status: "Meal",
@@ -393,8 +448,10 @@ function monthStatement(
   const close =
     policy.monthClose.mode === "off" ? undefined : p.closeByKey.get(`${person.id}|${month}`);
   const closed = close !== undefined;
-  const billed = close ? close.billed : liveTotal;
-  const changedAfterClose = close ? liveTotal - close.billed : 0;
+  // A close that only locked the month (it came from a kitchen without money) froze no amount.
+  const frozen = close?.billed ?? null;
+  const billed = frozen ?? liveTotal;
+  const changedAfterClose = frozen === null ? 0 : liveTotal - frozen;
 
   let paid: Paise = 0;
   let claimedPending: Paise = 0;
@@ -461,6 +518,11 @@ export function buildStatements(
   consumerIds: readonly string[],
   months: readonly Month[],
 ): Statement[] {
+  if (!p.data.moneyEnabled)
+    throw new EngineError(
+      "BAD_INPUT",
+      "this kitchen does not track money, so it has no statements of money",
+    );
   // Stryker disable next-line ConditionalExpression: with no months the loops below yield nothing anyway
   if (months.length === 0) return [];
   const wanted = new Set(months);
@@ -483,6 +545,55 @@ export function buildStatements(
   return out;
 }
 
+function countsOf(days: readonly LedgerDay[]): MealStatement["counts"] {
+  const counts = { meals: 0, veg: 0, nonVeg: 0, leave: 0, extraChapati: 0, extraBhakri: 0 };
+  for (const d of days) {
+    if (d.status === "Leave") counts.leave++;
+    if (d.status === "Meal") {
+      counts.meals++;
+      if (d.meal === "Veg") counts.veg++;
+      else counts.nonVeg++;
+      counts.extraChapati += d.extraChapati;
+      counts.extraBhakri += d.extraBhakri;
+    }
+  }
+  return counts;
+}
+
+function mealStatement(p: Prepared, person: Person, month: Month): MealStatement {
+  const policy = policyForMonth(p.data.policies, month);
+  const days: LedgerDay[] = [];
+  for (const date of daysBetween(monthStart(month), monthEnd(month))) {
+    const row = dayRow(p, person, date, false);
+    if (row) days.push(row);
+  }
+  return {
+    personId: person.id,
+    month,
+    basis: p.data.today > monthEnd(month) ? "Actual" : "Projected",
+    counts: countsOf(days),
+    closed: policy.monthClose.mode !== "off" && p.closeByKey.has(`${person.id}|${month}`),
+  };
+}
+
+/**
+ * Counts only: what a kitchen without money has in place of statements, and what a bundle's meals are checked
+ * by. It reads the menu and never a rate card, so it works whether or not the kitchen has prices.
+ */
+export function buildMealStatements(
+  p: Prepared,
+  consumerIds: readonly string[],
+  months: readonly Month[],
+): MealStatement[] {
+  const out: MealStatement[] = [];
+  for (const id of consumerIds) {
+    const person = p.data.people.find((x) => x.id === id);
+    if (!person) throw new EngineError("BAD_INPUT", `unknown person ${id}`);
+    for (const month of months) out.push(mealStatement(p, person, month));
+  }
+  return out;
+}
+
 /** The last date a consumer can have been billed up to, given today. */
 function billedThrough(person: Person, today: IsoDate): IsoDate {
   // Stryker disable next-line all: months after today never come due, so clipping at today is only a shortcut
@@ -494,7 +605,8 @@ export interface DueClose {
   consumerId: string;
   month: Month;
   meals: number;
-  billed: Paise;
+  /** Null in a kitchen without money: the month is locked and no amount is frozen. */
+  billed: Paise | null;
 }
 
 /**
@@ -513,6 +625,15 @@ export function dueAutoCloses(p: Prepared): DueClose[] {
       const until = autoCloseDate(policy, m);
       if (until === null || today <= until) continue;
       if (p.closeByKey.has(`${person.id}|${m}`)) continue;
+      if (!p.data.moneyEnabled) {
+        out.push({
+          consumerId: person.id,
+          month: m,
+          meals: mealStatement(p, person, m).counts.meals,
+          billed: null,
+        });
+        continue;
+      }
       const s = monthStatement(p, person, m);
       out.push({ consumerId: person.id, month: m, meals: s.counts.meals, billed: s.liveTotal });
     }
@@ -525,9 +646,11 @@ export function closeSnapshot(
   p: Prepared,
   consumerId: string,
   month: Month,
-): { meals: number; billed: Paise } {
+): { meals: number; billed: Paise | null } {
   const person = p.data.people.find((x) => x.id === consumerId);
   if (!person) throw new EngineError("BAD_INPUT", `unknown person ${consumerId}`);
+  if (!p.data.moneyEnabled)
+    return { meals: mealStatement(p, person, month).counts.meals, billed: null };
   const s = monthStatement(p, person, month);
   return { meals: s.counts.meals, billed: s.liveTotal };
 }

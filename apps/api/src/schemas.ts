@@ -37,6 +37,8 @@ export const CreateWorkspace = z.object({
   name: z.string().min(1).max(120),
   timeZone: z.string().default("Asia/Kolkata"),
   alsoSupplier: z.boolean().default(true),
+  /** Whether the kitchen tracks money. Chosen here and fixed after. Left out, as the instance allows. */
+  moneyEnabled: z.boolean().optional(),
 });
 
 /** An email as it is kept: trimmed, and in lower case. */
@@ -62,6 +64,8 @@ export const MigrateReceive = z.object({
   slug: z.string().max(60),
   bundle: z.unknown(),
   dryRun: z.boolean().default(false),
+  /** Whether the kitchen made here tracks money. Left out, as the bundle's kitchen did. */
+  moneyEnabled: z.boolean().optional(),
 });
 
 // --- inside a kitchen ----------------------------------------------------------------------------
@@ -117,6 +121,7 @@ export const ImportPeopleQuery = z.object({
 
 export const InvitePerson = z.object({ email: z.string().email() });
 
+/** Prices only. What is served is a menu of its own. */
 export const CreateRateCard = z.object({
   effectiveFrom: IsoDate,
   veg: Money,
@@ -124,6 +129,12 @@ export const CreateRateCard = z.object({
   extraChapati: Money,
   extraBhakri: Money,
   extrasPerMonth: Money,
+  note: z.string().max(500).nullish(),
+});
+
+/** What is served, a meal for each working weekday, from a date. */
+export const CreateMenu = z.object({
+  effectiveFrom: IsoDate,
   menu: z.record(z.string().regex(/^[0-6]$/), z.enum(["Veg", "Non Veg"])),
   note: z.string().max(500).nullish(),
 });
@@ -226,6 +237,8 @@ export const MoveTarget = z.discriminatedUnion("kind", [
     kind: z.literal("instance"),
     url: z.string().min(10).max(500),
     token: z.string().min(24).max(500),
+    /** Whether the kitchen made at the other end tracks money. Left out, as this one does. */
+    moneyEnabled: z.boolean().optional(),
   }),
 ]);
 

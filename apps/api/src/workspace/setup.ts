@@ -14,6 +14,8 @@ export interface NewWorkspace {
   /** A kitchen owner who is also the supplier gets both roles, as two people. */
   alsoSupplier: boolean;
   caps: Caps;
+  /** Whether the kitchen puts a price on its meals. Chosen here, once: the database refuses any later change. */
+  moneyEnabled: boolean;
 }
 
 /**
@@ -29,8 +31,8 @@ export async function initializeWorkspace(
   const supplierId = input.alsoSupplier ? crypto.randomUUID() : null;
   await ownerDb.tx(async (tx) => {
     await tx.query(
-      "INSERT INTO workspace (name, time_zone, people_cap, row_cap) VALUES ($1, $2, $3, $4)",
-      [input.name, input.timeZone, input.caps.people, input.caps.rows],
+      "INSERT INTO workspace (name, time_zone, people_cap, row_cap, money_enabled) VALUES ($1, $2, $3, $4, $5)",
+      [input.name, input.timeZone, input.caps.people, input.caps.rows, input.moneyEnabled],
     );
     for (const [id, role] of [
       [adminId, "admin"],

@@ -6,6 +6,7 @@ import {
   type Holiday,
   type LogEntry,
   type MealType,
+  type MenuVersion,
   type MonthClose,
   type Person,
   type PolicyVersion,
@@ -40,10 +41,6 @@ const WEEKDAY_COLUMNS = [
 ] as const;
 
 export function rateCardFromRow(r: R): RateCard {
-  const menu: RateCard["menu"] = {};
-  WEEKDAY_COLUMNS.forEach((c, i) => {
-    if (r[c]) menu[i as 0] = r[c] as MealType;
-  });
   return {
     id: r.id,
     effectiveFrom: r.effective_from,
@@ -52,9 +49,16 @@ export function rateCardFromRow(r: R): RateCard {
     extraChapati: r.extra_chapati,
     extraBhakri: r.extra_bhakri,
     extrasPerMonth: r.extras_per_month,
-    menu,
     note: r.note ?? null,
   };
+}
+
+export function menuFromRow(r: R): MenuVersion {
+  const days: MenuVersion["days"] = {};
+  WEEKDAY_COLUMNS.forEach((c, i) => {
+    if (r[c]) days[i as 0] = r[c] as MealType;
+  });
+  return { id: r.id, effectiveFrom: r.effective_from, days, note: r.note ?? null };
 }
 
 export async function loadEngineData(
@@ -62,25 +66,37 @@ export async function loadEngineData(
   cipher: FieldCipher,
   today: string,
 ): Promise<EngineData> {
-  const [people, policies, cards, holidays, log, claims, decisions, settlements, closes] =
+  // The kitchen says it itself, so what is read is what the database will hold. A kitchen without money
+  // has no prices, claims or settlements to read, and none is asked for.
+  const [flag] = await tx.query<R>("SELECT money_enabled() AS on");
+  const moneyEnabled = flag?.on !== false;
+  const none = Promise.resolve<R[]>([]);
+  const [people, policies, menus, cards, holidays, log, claims, decisions, settlements, closes] =
     await Promise.all([
       tx.query<R>("SELECT id, role, name_enc, active_from, active_to FROM person"),
       tx.query<R>("SELECT effective_from, doc FROM policy_version"),
-      tx.query<R>("SELECT * FROM rate_card"),
+      tx.query<R>("SELECT * FROM menu"),
+      moneyEnabled ? tx.query<R>("SELECT * FROM rate_card") : none,
       tx.query<R>("SELECT id, name, on_date, location, confirmed FROM holiday"),
       tx.query<R>(
         "SELECT id, on_date, person_id, all_consumers, change, qty, logged_by, logged_at FROM log_entry",
       ),
-      tx.query<R>(
-        "SELECT id, consumer_id, paid_at, for_month, amount, method, created_at FROM claim",
-      ),
-      tx.query<R>(
-        `SELECT d.claim_id, d.decision, d.decided_by, d.decided_at, (r.claim_id IS NOT NULL) AS voided
+      moneyEnabled
+        ? tx.query<R>(
+            "SELECT id, consumer_id, paid_at, for_month, amount, method, created_at FROM claim",
+          )
+        : none,
+      moneyEnabled
+        ? tx.query<R>(
+            `SELECT d.claim_id, d.decision, d.decided_by, d.decided_at, (r.claim_id IS NOT NULL) AS voided
          FROM claim_decision d LEFT JOIN claim_reversal r ON r.claim_id = d.claim_id`,
-      ),
-      tx.query<R>(
-        "SELECT id, on_date, consumer_id, for_month, type, amount, recorded_by, created_at FROM settlement",
-      ),
+          )
+        : none,
+      moneyEnabled
+        ? tx.query<R>(
+            "SELECT id, on_date, consumer_id, for_month, type, amount, recorded_by, created_at FROM settlement",
+          )
+        : none,
       tx.query<R>(
         "SELECT for_month, consumer_id, meals, billed, closed_on, closed_by FROM month_close",
       ),
@@ -92,7 +108,9 @@ export async function loadEngineData(
 
   return {
     today,
+    moneyEnabled,
     policies: policies.map((p): PolicyVersion => ({ effectiveFrom: p.effective_from, doc: p.doc })),
+    menus: menus.map(menuFromRow),
     rateCards: cards.map(rateCardFromRow),
     holidays: holidays.map(
       (h): Holiday => ({

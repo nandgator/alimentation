@@ -520,25 +520,20 @@ describe("validation, at the edges", () => {
   });
 
   it("spots a duplicate rate card date among several cards, and uses the latest closed month", () => {
-    const menu = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" };
     const p = prep({ rateCards: [CARD_APR, CARD_NOV], today: "2026-10-20" });
-    expect(codes(checkRateCard(p, "2026-11-01", menu))).toEqual(["DUPLICATE"]);
-    expect(codes(checkRateCard(p, "2026-04-01", menu)).includes("DUPLICATE")).toBe(true);
+    expect(codes(checkRateCard(p, "2026-11-01"))).toEqual(["DUPLICATE"]);
+    expect(codes(checkRateCard(p, "2026-04-01")).includes("DUPLICATE")).toBe(true);
 
     const closes = [
       close({ forMonth: "2026-10" }),
       close({ forMonth: "2026-09", consumerId: "smruti" }),
     ];
-    expect(codes(checkRateCard(prep({ closes, today: "2026-10-20" }), "2026-10-25", menu))).toEqual(
-      ["BACKDATED_RATE_CARD"],
-    );
+    expect(codes(checkRateCard(prep({ closes, today: "2026-10-20" }), "2026-10-25"))).toEqual([
+      "BACKDATED_RATE_CARD",
+    ]);
     expect(
       codes(
-        checkRateCard(
-          prep({ closes: [...closes].reverse(), today: "2026-10-20" }),
-          "2026-10-25",
-          menu,
-        ),
+        checkRateCard(prep({ closes: [...closes].reverse(), today: "2026-10-20" }), "2026-10-25"),
       ),
     ).toEqual(["BACKDATED_RATE_CARD"]);
   });

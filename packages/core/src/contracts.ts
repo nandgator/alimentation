@@ -1,9 +1,17 @@
 import type { IsoDate, Month } from "./dates.ts";
-import type { LedgerDay, Statement } from "./engine.ts";
+import type { LedgerDay, MealLedgerDay, MealStatement, Statement } from "./engine.ts";
 import type { Meter, Usage } from "./limits.ts";
 import type { Paise } from "./money.ts";
-import type { Policy } from "./policy.ts";
-import type { Holiday, LogChange, PayMethod, RateCard, Role, SettlementType } from "./types.ts";
+import type { PolicyView } from "./policy.ts";
+import type {
+  Holiday,
+  LogChange,
+  MenuVersion,
+  PayMethod,
+  RateCard,
+  Role,
+  SettlementType,
+} from "./types.ts";
 import type { Issue } from "./validate.ts";
 
 /** What the API sends and the app reads. Plain data; amounts are paise. */
@@ -28,6 +36,15 @@ export interface StatementDto extends Statement {
   label: string;
 }
 
+/** A person's month in a kitchen without money: counts, and whether it is locked. */
+export interface MealStatementDto extends MealStatement {
+  name: string;
+}
+
+/** Whether a statement is the kind with money in it. A kitchen without money sends only the other kind. */
+export const isMoneyStatement = (s: StatementDto | MealStatementDto): s is StatementDto =>
+  "billed" in s;
+
 export interface BootstrapDto {
   workspace: {
     id: string;
@@ -35,6 +52,8 @@ export interface BootstrapDto {
     name: string;
     timeZone: string;
     currency: string;
+    /** Whether the kitchen tracks money. Chosen when it was made, and fixed after. */
+    moneyEnabled: boolean;
     /** Anything but ACTIVE is read-only; `movedTo` says where it went once it has. */
     state: "ACTIVE" | "MIGRATING" | "MOVED";
     movedTo: string | null;
@@ -45,15 +64,20 @@ export interface BootstrapDto {
   today: IsoDate;
   currentMonth: Month;
   months: Month[];
-  policy: Policy;
-  rateCard: RateCard | null;
+  /** All the rules; for a kitchen without money, all but the four that are about money. */
+  policy: PolicyView;
+  /** The menu in force today. Every kitchen has one to make. */
+  menu: MenuVersion | null;
+  /** The prices in force today. Left out for a kitchen without money. */
+  rateCard?: RateCard | null;
   holidays: Holiday[];
   people: PersonDto[];
-  statements: StatementDto[];
-  /** What is not set up yet, such as a rate card. */
+  /** Money statements, or counts only for a kitchen without money. */
+  statements: (StatementDto | MealStatementDto)[];
+  /** What is not set up yet, such as a menu or prices. */
   setup: { code: string; message: string }[];
-  /** Claims waiting for a decision (the supplier's and admin's queue). */
-  pendingClaims: number;
+  /** Claims waiting for a decision (the supplier's and admin's queue). Left out for a kitchen without money. */
+  pendingClaims?: number;
   /** Shown to the admin only. */
   meter: (Meter & { usage: Usage }) | null;
   workspaceState: "ACTIVE" | "MIGRATING" | "MOVED";
@@ -63,21 +87,30 @@ export interface BootstrapDto {
 }
 
 /**
- * What a head office may know of one kitchen: counts and money for the month, and nothing about anyone. It is
- * worked out inside the kitchen from its books and leaves with no name, contact, note or ledger line.
+ * What a head office may know of one kitchen: counts for the month, and the money too where the kitchen
+ * tracks it, and nothing about anyone. It is worked out inside the kitchen from its books and leaves with no
+ * name, contact, note or ledger line.
  */
-export interface KitchenTotals {
+export type KitchenTotals = KitchenCounts &
+  (
+    | {
+        moneyEnabled: true;
+        currency: string;
+        billed: Paise;
+        paid: Paise;
+        /** What is owed to the kitchen: see `headline`. */
+        owed: Paise;
+        /** Claims of payment waiting to be confirmed. */
+        toConfirm: number;
+      }
+    | { moneyEnabled: false }
+  );
+
+export interface KitchenCounts {
   month: Month;
-  currency: string;
   consumers: number;
   meals: number;
-  billed: Paise;
-  paid: Paise;
-  /** What is owed to the kitchen: see `headline`. */
-  owed: Paise;
-  /** Claims of payment waiting to be confirmed. */
-  toConfirm: number;
-  /** Things the kitchen has not set up yet, such as a rate card. */
+  /** Things the kitchen has not set up yet, such as a menu or prices. */
   setup: number;
 }
 
@@ -152,7 +185,8 @@ export interface SettlementDto {
 export interface LedgerDto {
   personId: string;
   month: Month;
-  days: LedgerDay[];
+  /** Priced days, or for a kitchen without money the same days with no price on them. */
+  days: LedgerDay[] | MealLedgerDay[];
 }
 
 export interface ApiErrorBody {

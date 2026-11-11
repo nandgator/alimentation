@@ -225,6 +225,17 @@ describe("the trail in words", () => {
         me,
       ),
     ).toBe("The admin added you to the kitchen, billed from 01-Oct-2026.");
+    // A kitchen without money does not bill anyone, and does not say it does.
+    const plain = { ...me, moneyEnabled: false };
+    expect(describeAudit(upd({ active_to: "2026-12-31" }), plain)).toBe(
+      "The admin changed your meal dates: from 01-Oct-2026 until 31-Dec-2026.",
+    );
+    expect(
+      describeAudit(
+        row({ table: "person", rowId: "jovial", actor: "admin", after: { ...was } }),
+        plain,
+      ),
+    ).toBe("The admin added you to the kitchen, counted from 01-Oct-2026.");
   });
 
   it("words what everyone is billed by: prices, rules and holidays", () => {

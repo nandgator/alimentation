@@ -51,7 +51,8 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       await page.getByRole("button", { name: "Create" }).click();
       await page.waitForURL(`**/w/${slug}`);
       await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-      await expect(page.getByText("Add a rate card to start billing.")).toBeVisible();
+      await expect(page.getByText("Add the menu to start counting meals.")).toBeVisible();
+      await expect(page.getByText("Add prices to start billing.")).toBeVisible();
       await expectAccessible(page, "new kitchen");
       // The menu is a grouped column beside the page on a wide screen, and a bar at the bottom on a phone.
       const menu = page.getByRole("navigation", { name: "Sections" });
@@ -66,16 +67,11 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       await shot(page, info, "1-new-kitchen");
     });
 
-    await test.step("prices and the menu are set once, by the admin", async () => {
-      await go(page, "Rates & rules");
-      await page.getByRole("button", { name: "New rate card" }).click();
-      const dlg = page.getByRole("dialog", { name: "New rate card" });
-      await dlg.getByLabel("Applies from").fill(firstOfMonth());
-      await dlg.getByLabel("Veg meal (₹)", { exact: true }).fill("150");
-      await dlg.getByLabel("Non-veg meal (₹)").fill("170");
-      await dlg.getByLabel("Extra chapati (₹)").fill("15");
-      await dlg.getByLabel("Extra bhakri (₹)").fill("30");
-      await dlg.getByLabel("Extras charged monthly (₹)").fill("40");
+    await test.step("the menu and the prices are set once, by the admin, each on its own screen", async () => {
+      await go(page, "Menu");
+      await page.getByRole("button", { name: "New menu" }).click();
+      const menuDlg = page.getByRole("dialog", { name: "New menu" });
+      await menuDlg.getByLabel("Applies from").fill(firstOfMonth());
       for (const [d, m] of [
         ["Mon", "Veg"],
         ["Tue", "Veg"],
@@ -83,12 +79,28 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
         ["Thu", "Veg"],
         ["Fri", "Non Veg"],
       ])
-        await dlg.getByLabel(`Menu on ${d}`).selectOption(m!);
-      await expectAccessible(page, "rate card dialog");
-      await dlg.getByRole("button", { name: "Add rate card" }).click();
+        await menuDlg.getByLabel(`Menu on ${d}`).selectOption(m!);
+      await expectAccessible(page, "menu dialog");
+      await menuDlg.getByRole("button", { name: "Add menu" }).click();
+      await expect(page.getByRole("cell", { name: "Non Veg" }).first()).toBeVisible();
+      await shot(page, info, "2-menu");
+
+      await go(page, "Prices");
+      await page.getByRole("button", { name: "New prices" }).click();
+      const dlg = page.getByRole("dialog", { name: "New prices" });
+      await dlg.getByLabel("Applies from").fill(firstOfMonth());
+      await dlg.getByLabel("Veg meal (₹)", { exact: true }).fill("150");
+      await dlg.getByLabel("Non-veg meal (₹)").fill("170");
+      await dlg.getByLabel("Extra chapati (₹)").fill("15");
+      await dlg.getByLabel("Extra bhakri (₹)").fill("30");
+      await dlg.getByLabel("Extras charged monthly (₹)").fill("40");
+      await expectAccessible(page, "prices dialog");
+      await dlg.getByRole("button", { name: "Add prices" }).click();
       await expect(page.getByRole("cell", { name: "₹150" })).toBeVisible();
+      await shot(page, info, "2-prices");
+
+      await go(page, "Rates & rules");
       await expect(page.getByText("Meals on Mon, Tue, Wed, Thu, Fri.")).toBeVisible();
-      await shot(page, info, "2-rates");
     });
 
     await test.step("a member is added and sent a link that works once", async () => {

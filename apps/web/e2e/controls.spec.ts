@@ -68,6 +68,8 @@ const PATHS = [
   "/log",
   "/payments",
   "/people",
+  "/menu",
+  "/prices",
   "/rates",
   "/holidays",
   "/settlements",
@@ -87,6 +89,12 @@ test.describe("the controls as drawn", () => {
       await api.post("/api/workspaces", {
         data: { slug, name: `Controls ${scheme}`, alsoSupplier: true },
       });
+      await api.post(`/api/w/${slug}/menus`, {
+        data: {
+          effectiveFrom: firstOfMonth(),
+          menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
+        },
+      });
       await api.post(`/api/w/${slug}/rate-cards`, {
         data: {
           effectiveFrom: firstOfMonth(),
@@ -95,7 +103,6 @@ test.describe("the controls as drawn", () => {
           extraChapati: 1500,
           extraBhakri: 3000,
           extrasPerMonth: 4000,
-          menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
         },
       });
       await api.post(`/api/w/${slug}/people`, {

@@ -53,7 +53,10 @@ export const MSG = {
   onlyAuthor2: "Only the person who filed this can withdraw it.",
   alreadyDecided2: "This claim has been decided and cannot change.",
   notADate3: "Enter the date the new rates start.",
+  notADate4: "Enter the date the new menu starts.",
   noMenuForWorkingDay: "Every working day needs a meal on the menu.",
+  backdatedMenu: "A new menu cannot start in a month that has already closed.",
+  duplicateMenu: "There is already a menu starting that day.",
   duplicate2: "A rate card already starts on that date.",
   backdatedRateCard: "New rates cannot start in a month that has already begun or closed.",
   cutoffPassedOn: (date: string, time: string, daysBefore: number): string =>
