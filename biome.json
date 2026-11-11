@@ -10,6 +10,7 @@
       "**",
       "!**/*.md",
       "!apps/api/src/db/migrations.generated.ts",
+      "!dev/idp/providers/authelia/configuration.yml",
       "!content",
       "!node_modules",
       "!build",

@@ -4,5 +4,5 @@ apps/api/src/db/migrations.generated.ts
 reports
 .stryker-tmp
 docs/research
-# Authelia renders its double-brace template lines before reading it as YAML
+# Authelia renders its double-brace template lines before reading it as YAML (biome.json excludes it too)
 dev/idp/providers/authelia/configuration.yml
