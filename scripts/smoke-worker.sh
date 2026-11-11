@@ -6,10 +6,11 @@
 #
 #   scripts/smoke-worker.sh
 #
-# Needs Docker, curl and the project's dependencies installed. Leaves nothing behind.
-# Ports used: 55432 (Postgres), 80 (the proxy), 8790 and 8791.
+# Needs Docker or Podman (CONTAINER_ENGINE chooses), curl and the project's dependencies installed. Leaves nothing behind.
+# Ports used: 55432 (Postgres), 55480 (the proxy; above 1024, so rootless Podman can open it), 8790 and 8791.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/containers.sh
 work="$(mktemp -d)"
 pgurl="postgres://postgres:smoke@127.0.0.1:55432/postgres"
 node_pid=""
@@ -18,17 +19,17 @@ cleanup() {
   [ -n "$node_pid" ] && kill "$node_pid" 2>/dev/null || true
   # The Worker runs in its own process group so that wrangler and workerd both go.
   [ -n "$worker_pid" ] && kill -TERM -- "-$worker_pid" 2>/dev/null || true
-  docker rm -f alim-smoke-pg alim-smoke-ws >/dev/null 2>&1 || true
+  ctr rm -f alim-smoke-pg alim-smoke-ws >/dev/null 2>&1 || true
   rm -rf "$work" apps/api/.dev.vars apps/web/dist/index.html.smoke
 }
 trap cleanup EXIT
 
-docker run -d --name alim-smoke-pg --network host -e POSTGRES_PASSWORD=smoke \
+ctr run -d --name alim-smoke-pg --network host -e POSTGRES_PASSWORD=smoke \
   docker.io/library/postgres:18-alpine -c port=55432 >/dev/null
-docker run -d --name alim-smoke-ws --network host -e ALLOW_ADDR_REGEX='.*' \
+ctr run -d --name alim-smoke-ws --network host -e ALLOW_ADDR_REGEX='.*' -e LISTEN_PORT=:55480 \
   ghcr.io/neondatabase/wsproxy:latest >/dev/null
 for _ in $(seq 1 40); do
-  docker exec alim-smoke-pg pg_isready -h 127.0.0.1 -p 55432 -U postgres >/dev/null 2>&1 && break
+  ctr exec alim-smoke-pg pg_isready -h 127.0.0.1 -p 55432 -U postgres >/dev/null 2>&1 && break
   sleep 1
 done
 
@@ -56,7 +57,7 @@ node -e '
 const s = JSON.parse(require("fs").readFileSync(process.argv[1] + "/inst/instance.json", "utf8"));
 const v = { APP_ORIGIN: "http://localhost:8791", SESSION_SECRETS: s.SESSION_SECRETS, MASTER_KEYS: s.MASTER_KEYS,
   CONTROL_DATABASE_URL: s.CONTROL_DATABASE_URL, AUTH_DEV: "1", NODE_ENV: "development",
-  NEON_WS_PROXY: "127.0.0.1:80/v1", OPERATOR_EMAILS: "smoke@example.org" };
+  NEON_WS_PROXY: "127.0.0.1:55480/v1", OPERATOR_EMAILS: "smoke@example.org" };
 require("fs").writeFileSync("apps/api/.dev.vars", Object.entries(v).map(([k, x]) => k + "=" + x + "\n").join(""));
 ' "$work"
 mkdir -p apps/web/dist

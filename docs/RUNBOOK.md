@@ -55,9 +55,36 @@ The check that no personal data reaches the Postgres log needs that log to be re
 `ALIMENTATION_TEST_PG_LOG=/path/to/postgres.log` (the compose file does this for you, and CI
 requires it).
 
-To work on it with live reload, run the API (`bun run dev:api`, with the settings above and
-`AUTH_DEV=1`, `NODE_ENV=development`, `APP_ORIGIN=http://localhost:5173`) and the web app
-(`bun run dev:web`) side by side.
+### The application, without containers
+
+The server and the web app run straight on this machine with Node; only Postgres is in a container,
+on Docker or Podman.
+
+```sh
+dev/local.sh up       # builds the server and the web app, then runs them on http://localhost:8787 (Ctrl-C stops it)
+dev/local.sh dev      # live reload: the API on :8787, the web app on http://localhost:5173 (Ctrl-C stops both)
+dev/local.sh down     # stops the Postgres container; its data is kept
+dev/local.sh reset    # removes the container and its volume, and forgets the keys
+```
+
+It is a trial: `NODE_ENV=development`, `AUTH_DEV=1` (anyone signs in with any email) and
+`OPERATOR_EMAILS=you@example.com`, unless they are set in the environment, as can any setting above.
+Postgres is the container `alimentation-local-pg` on `127.0.0.1:55433` (`LOCAL_PG_PORT` moves it),
+its data in the volume of the same name; its password, and the keys and control database address the
+server makes on its first start, are in `dev/.state` (ignored by git). With `PLACEMENT_ADMIN_URL`
+set to a Postgres you already run, no container is started.
+
+By hand, the same is the API (`bun run dev:api`, with the settings above and `AUTH_DEV=1`,
+`NODE_ENV=development`, `APP_ORIGIN=http://localhost:5173`) and the web app (`bun run dev:web`) side
+by side.
+
+### Docker or Podman
+
+Every script that starts containers (`dev/local.sh`, `dev/idp/idp.sh`, `scripts/smoke-compose.sh`,
+`scripts/smoke-worker.sh`) uses Docker if it is installed, otherwise Podman.
+`CONTAINER_ENGINE=docker` or `CONTAINER_ENGINE=podman` chooses when both are. Under Podman,
+`podman compose` hands the work to docker-compose or podman-compose, whichever is installed; the
+scripts keep to the options both understand.
 
 ### Sign in through a real provider, on your machine
 

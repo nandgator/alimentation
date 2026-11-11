@@ -46,7 +46,20 @@ every image name is fully qualified, so no registry setup is needed. Podman buil
 format and ignores the image's health check, which is harmless here: Compose runs its own for the
 database.
 
-Without Docker:
+The application straight on your machine, with only its Postgres in a container (Docker or Podman):
+
+```sh
+bun install
+dev/local.sh up      # builds it and runs it on http://localhost:8787; anyone signs in with any email
+dev/local.sh dev     # the same with live reload, on http://localhost:5173
+dev/local.sh down    # stops the Postgres container (reset forgets the database and the keys)
+```
+
+`dev/local.sh` uses Docker if it is installed, otherwise Podman; `CONTAINER_ENGINE=podman` (or
+`docker`) chooses. Set `PLACEMENT_ADMIN_URL` to a Postgres you already run and no container is
+started at all. The same choice of engine holds for `dev/idp/idp.sh` and the smoke scripts.
+
+The tests without Docker:
 
 ```sh
 bun install

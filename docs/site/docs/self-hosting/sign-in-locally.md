@@ -18,9 +18,10 @@ $ dev/idp/idp.sh down authelia    # stops it; the people and keys are kept
 $ dev/idp/idp.sh reset authelia   # stops it and forgets everything it made
 ```
 
-It needs Docker with Compose, `openssl` and `curl`. Nothing is installed on your computer beyond the
-containers and a git-ignored folder, `dev/idp/.state`, where it keeps a certificate authority of its
-own, every secret it made, and the test people's passwords.
+It needs Docker or Podman with Compose (`CONTAINER_ENGINE=docker` or `podman` chooses when both are
+installed), `openssl` and `curl`. Nothing is installed on your computer beyond the containers and a
+git-ignored folder, `dev/idp/.state`, where it keeps a certificate authority of its own, every
+secret it made, and the test people's passwords.
 
 ## What it starts
 

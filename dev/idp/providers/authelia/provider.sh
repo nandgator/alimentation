@@ -15,7 +15,7 @@ provider_prepare() {
   done
   [ -s "$d/oidc_jwks.pem" ] || openssl genrsa -out "$d/oidc_jwks.pem" 2048 2>/dev/null
   if [ ! -s "$d/client_secret_digest" ]; then
-    docker run --rm "$AUTHELIA_IMAGE" authelia crypto hash generate pbkdf2 --password "$(cat "$d/client_secret")" \
+    ctr run --rm "$AUTHELIA_IMAGE" authelia crypto hash generate pbkdf2 --password "$(cat "$d/client_secret")" \
       | sed -n 's/^Digest: //p' > "$d/client_secret_digest"
     [ -s "$d/client_secret_digest" ] || fail "could not make the client secret's digest"
   fi

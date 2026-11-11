@@ -16,6 +16,7 @@ documentation: `docs/site/docs/self-hosting/sign-in-locally.md`, hosted at
 - `idp.sh` is the entry point; `lib.sh` makes the certificate authority and the secrets;
   `providers/<name>/` holds a provider's compose overlay, its configuration and `provider.sh` (what
   to make before it starts, how to make the people, what to print).
-- Everything it makes is in `.state/`, which git and the Docker build both ignore.
+- It runs on Docker or Podman, whichever is installed (Docker first); `CONTAINER_ENGINE` chooses.
+- Everything it makes is in `.state/`, which git and the image build both ignore.
 - To add a provider: a directory under `providers/`, and its sign-in page in
   `apps/web/e2e-idp/providers.ts`, so that the one spec, `signin.spec.ts`, runs against it.

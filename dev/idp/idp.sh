@@ -8,9 +8,11 @@
 #   dev/idp/idp.sh status authelia
 #   dev/idp/idp.sh test authelia     sign in through it in a real browser, as a person would (Playwright)
 #
-# Needs Docker with Compose, openssl and curl. See dev/idp/README.md.
+# Needs Docker or Podman with Compose (CONTAINER_ENGINE chooses when both are here), openssl and curl.
+# See dev/idp/README.md.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+source "$ROOT/scripts/containers.sh"
 
 cmd="${1:-}"
 PROVIDER="${2:-}"
@@ -19,17 +21,16 @@ usage() { echo "usage: dev/idp/idp.sh <up|down|reset|status|test> <$(providers |
 [ -n "$cmd" ] && [ -n "$PROVIDER" ] || usage
 [ -f "$IDP_DIR/providers/$PROVIDER/provider.sh" ] || { echo "idp: no provider called $PROVIDER" >&2; usage; }
 source "$IDP_DIR/providers/$PROVIDER/provider.sh"
-need docker; need openssl; need curl
+need openssl; need curl
 
 # IDP_COMPOSE_OVERRIDE is one more compose file laid on top, for a host that cannot build the app's image and
 # runs a prebuilt one (the same way scripts/smoke-compose.sh takes SMOKE_COMPOSE_OVERRIDE).
+# One env file: the project's .env first, then what is made here. podman-compose takes only one.
 compose() {
-  local env=()
-  [ -f "$ROOT/.env" ] && env+=(--env-file "$ROOT/.env")
-  docker compose -p alimentation --project-directory "$ROOT" \
+  ctr_compose -p alimentation \
     -f "$ROOT/compose.yaml" -f "$IDP_DIR/providers/$PROVIDER/compose.yaml" \
     ${IDP_COMPOSE_OVERRIDE:+-f "$IDP_COMPOSE_OVERRIDE"} \
-    "${env[@]}" --env-file "$STATE/$PROVIDER/compose.env" "$@"
+    --env-file "$STATE/$PROVIDER/compose.env" "$@"
 }
 
 case "$cmd" in
@@ -37,6 +38,7 @@ case "$cmd" in
     mkdir -p "$STATE/$PROVIDER"
     # What compose is given. Rewritten each time, so a change to the provider's settings is picked up.
     {
+      [ -f "$ROOT/.env" ] && { cat "$ROOT/.env"; echo; }
       echo "IDP_STATE=$STATE"
       # The database's password, kept here unless the project already has a .env with one.
       if [ -f "$ROOT/.env" ] && grep -q '^DB_PASSWORD=' "$ROOT/.env"; then :; else

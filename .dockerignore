@@ -15,3 +15,5 @@ playwright-report
 *.log
 # Secrets and keys made for the local identity providers
 dev/idp/.state
+# The local Postgres and keys of dev/local.sh
+dev/.state

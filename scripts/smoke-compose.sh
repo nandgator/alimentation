@@ -4,15 +4,16 @@
 #
 #   scripts/smoke-compose.sh
 #
-# Leaves nothing behind. Needs Docker with Compose, and curl.
+# Leaves nothing behind. Needs Docker or Podman with Compose (CONTAINER_ENGINE chooses), and curl.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/containers.sh
 
 export DB_PASSWORD="$(openssl rand -hex 16)"
 export NODE_ENV=development AUTH_DEV=1 PORT="${PORT:-18787}"
 export OPERATOR_EMAILS=smoke@example.org APP_ORIGIN="http://localhost:${PORT}"
 # SMOKE_COMPOSE_OVERRIDE and SMOKE_BUILD_FLAG let a host that cannot build the image test a prebuilt one.
-compose=(docker compose -p alimentation-smoke -f compose.yaml ${SMOKE_COMPOSE_OVERRIDE:+-f "$SMOKE_COMPOSE_OVERRIDE"})
+compose=(ctr_compose -p alimentation-smoke -f compose.yaml ${SMOKE_COMPOSE_OVERRIDE:+-f "$SMOKE_COMPOSE_OVERRIDE"})
 base="http://localhost:${PORT}"
 jar="$(mktemp)"
 cleanup() { "${compose[@]}" down -v >/dev/null 2>&1 || true; rm -f "$jar"; }
@@ -31,7 +32,7 @@ wait_healthy() {
 # container itself must come to report healthy, not only answer the request.
 wait_reported_healthy() {
   for _ in $(seq 1 40); do
-    if [ "$("${compose[@]}" ps app --format '{{.Health}}')" = healthy ]; then return 0; fi
+    if [ "$(ctr_health alimentation-smoke app)" = healthy ]; then return 0; fi
     sleep 3
   done
   "${compose[@]}" ps >&2
