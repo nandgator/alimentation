@@ -859,8 +859,12 @@ describe("the MCP server", () => {
     expect(
       (await complete(claims, promptRef("mark-payment-made"), "amount")).result.completion,
     ).toEqual({ values: [], total: 0, hasMore: false });
-    // A prompt this key does not have is not completed.
-    expect((await complete(readOnly, promptRef("log-my-meals"), "date")).error.code).toBe(-32602);
+    // A prompt this key does not have, or one that does not exist, completes to nothing and is no error.
+    for (const ref of [promptRef("log-my-meals"), promptRef("no-such-prompt")]) {
+      const r = await complete(readOnly, ref, "date");
+      expect(r.error).toBeUndefined();
+      expect(r.result.completion).toEqual({ values: [], total: 0, hasMore: false });
+    }
   });
 
   it("is still unknown for a method it has not got", async () => {

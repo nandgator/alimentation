@@ -1280,7 +1280,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
           known = ref.uri === LEDGER_TEMPLATE && canRead({ kind: "ledger", month: "" }, toolNames);
           takes = ["month"];
         } else known = false;
-        if (!known) return c.json(rpcError(msg.id, -32602, "There is nothing to complete there."));
+        if (!known) return c.json(rpc(msg.id, empty));
         if (!takes.includes(argName) || !(COMPLETABLE as readonly string[]).includes(argName))
           return c.json(rpc(msg.id, empty));
         const ctx: CompletionContext = {
