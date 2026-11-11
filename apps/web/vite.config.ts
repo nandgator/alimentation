@@ -5,6 +5,9 @@ import { VitePWA } from "vite-plugin-pwa";
 // In development the API runs separately (bun run dev:api) and is reached through this server,
 // so cookies and the Origin header are those of the page.
 const api = process.env.API_ORIGIN ?? "http://localhost:8787";
+// The API reference is a site of its own; given its address (dev/local.sh dev does), it is reached at
+// /reference/ here too, as it is behind the proxy in front of a deployment.
+const reference = process.env.REFERENCE_ORIGIN;
 
 export default defineConfig({
   plugins: [
@@ -50,6 +53,14 @@ export default defineConfig({
     proxy: {
       "/api": { target: api, changeOrigin: false },
       "/auth": { target: api, changeOrigin: false },
+      ...(reference
+        ? {
+            "^/reference/": {
+              target: reference,
+              rewrite: (path: string) => path.slice("/reference".length),
+            },
+          }
+        : {}),
     },
   },
   build: { target: "es2023", sourcemap: false },

@@ -61,8 +61,8 @@ The server and the web app run straight on this machine with Node; only Postgres
 on Docker or Podman.
 
 ```sh
-dev/local.sh up       # builds the server and the web app, then runs them on http://localhost:8787 (Ctrl-C stops it)
-dev/local.sh dev      # live reload: the API on :8787, the web app on http://localhost:5173 (Ctrl-C stops both)
+dev/local.sh up       # builds the server, the web app and the API reference, then runs them on http://localhost:8787 (Ctrl-C stops it)
+dev/local.sh dev      # live reload: the web app on http://localhost:5173, the API itself on :8787 (Ctrl-C stops them)
 dev/local.sh down     # stops the Postgres container; its data is kept
 dev/local.sh reset    # removes the container and its volume, and forgets the keys
 ```
@@ -73,6 +73,13 @@ Postgres is the container `alimentation-local-pg` on `127.0.0.1:55433` (`LOCAL_P
 its data in the volume of the same name; its password, and the keys and control database address the
 server makes on its first start, are in `dev/.state` (ignored by git). With `PLACEMENT_ADMIN_URL`
 set to a Postgres you already run, no container is started.
+
+As behind the proxy of `compose.proxy.yaml`, the API reference is at `/reference/` on the same
+address: under `up`, `dev/front.mjs` answers on `PORT` (8787) and passes `/reference/` to the
+reference (`REFERENCE_PORT`, 8788) and everything else to the app (`APP_PORT`, 8785); under `dev`,
+Vite does the same. The reference is built when the script starts, so after changing the server's
+routes start it again. If one of those ports is already taken, by an earlier run or a Compose stack,
+it says so and stops instead of leaving the browser on whatever answers there.
 
 By hand, the same is the API (`bun run dev:api`, with the settings above and `AUTH_DEV=1`,
 `NODE_ENV=development`, `APP_ORIGIN=http://localhost:5173`) and the web app (`bun run dev:web`) side

@@ -50,7 +50,7 @@ The application straight on your machine, with only its Postgres in a container 
 
 ```sh
 bun install
-dev/local.sh up      # builds it and runs it on http://localhost:8787; anyone signs in with any email
+dev/local.sh up      # builds it and runs it on http://localhost:8787 (the API reference at /reference/); anyone signs in with any email
 dev/local.sh dev     # the same with live reload, on http://localhost:5173
 dev/local.sh down    # stops the Postgres container (reset forgets the database and the keys)
 ```
