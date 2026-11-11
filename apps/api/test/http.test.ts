@@ -62,7 +62,9 @@ describe("two kitchens on one platform", () => {
       (await willow.post("/api/workspaces", { slug: "maple", name: "x" })).json.error.code,
     ).toBe("slug_taken");
     expect((await willow.post("/api/workspaces", { slug: "admin", name: "x" })).status).toBe(422);
-    expect((await willow.post("/api/workspaces", { slug: "Bad Name", name: "x" })).status).toBe(422);
+    expect((await willow.post("/api/workspaces", { slug: "Bad Name", name: "x" })).status).toBe(
+      422,
+    );
     expect(
       (await willow.post("/api/workspaces", { slug: "ok-name", name: "x", timeZone: "Mars/Base" }))
         .status,

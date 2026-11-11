@@ -4,10 +4,10 @@ Status: accepted for build, 2026-10-24. Owner: nandgator.
 
 Alimentation keeps the books for small kitchens that feed a few people every weekday: who ate, what
 each meal cost, who paid, what is still owed. The first two workspaces are the Willow mess and
-Maple's home kitchen. The functional rules come from the "Lunch Tracker: PWA Rebuild Spec"
-(referred to below as the spec). This document records the decisions that go beyond the spec: how
-many small workspaces share one free deployment without hurting each other, how one grows out of it,
-and how one leaves without a trace.
+Maple's home kitchen. The functional rules come from the "Lunch Tracker: PWA Rebuild Spec" (referred
+to below as the spec). This document records the decisions that go beyond the spec: how many small
+workspaces share one free deployment without hurting each other, how one grows out of it, and how
+one leaves without a trace.
 
 ## 1. Promises
 

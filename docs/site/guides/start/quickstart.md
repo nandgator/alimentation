@@ -15,8 +15,8 @@ in **Start a kitchen**:
 
 | Field                      | What to put                                                                                                       |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Name**                   | What your people call it, for example "Willow mess".                                                                |
-| **Address**                | Letters, numbers and dashes. It becomes the link: `/w/willow-mess`. It is chosen once.                              |
+| **Name**                   | What your people call it, for example "Willow mess".                                                              |
+| **Address**                | Letters, numbers and dashes. It becomes the link: `/w/willow-mess`. It is chosen once.                            |
 | **I am also the supplier** | Leave this ticked if you cook, or if you are the one who confirms payments. You can switch between the two roles. |
 
 You land on the dashboard. It tells you what is missing: **Add a rate card to start billing**, then

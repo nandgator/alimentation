@@ -21,7 +21,7 @@ Smruti, and more later).
 | Role     | Who               | Can see                                                                          | Can do                                                                   |
 | -------- | ----------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Admin    | Owner             | Everything                                                                       | Rates, menu, people, holidays, settlements, month close, resolve queries |
-| Supplier | Maple           | All consumers' bills, meals, payments, claims; total receivable                  | Log "Supplier Off" days; confirm/dispute payment claims                  |
+| Supplier | Maple             | All consumers' bills, meals, payments, claims; total receivable                  | Log "Supplier Off" days; confirm/dispute payment claims                  |
 | Consumer | Jovial, Smruti, … | **Only their own** bill, daily meals, payments, claim status; current rates/menu | Log their own exceptions; submit payment claims                          |
 
 Hard privacy rule: a consumer must never be able to read another consumer's rows, through the UI
