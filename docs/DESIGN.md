@@ -490,10 +490,18 @@ of person.
   and which agent (`audit_log.via`, set from `app.via` beside `app.role`), and History says it in
   words ("You, through the agent “Lunch bot”, logged Leave on 5 Nov."), to the people the change
   affects, like any other change. A moved kitchen takes the marks with it.
-- **What shape.** An MCP server in the app at `/mcp` (Streamable HTTP, JSON-RPC, tools only), made
+- **What shape.** An MCP server in the app at `/mcp` (Streamable HTTP, JSON-RPC, no session), made
   from the same operation table, so it cannot list what the API would refuse; each tool call is an
-  ordinary request to the kitchen and counts against its day. And documentation written for language
-  models: `/llms.txt` and `/llms-full.txt`.
+  ordinary request to the kitchen and counts against its day. Besides tools it has **prompts**
+  (starting points for common jobs, listed to a key only if its scopes can do all they ask), three
+  **resources** and a template (the guide, the menu, the holidays, the key's own ledger for a month)
+  and **completions** for their arguments. All of this is `apps/api/src/mcp-content.ts`, pure text
+  and rules, tested without a kitchen. A resource is read by making the same request a tool would
+  with the same key, so it is never wider than that request; the guide, which is text, is the
+  exception and holds nothing of the kitchen's. Each tool has a human title beside its generated
+  name. A tool's result stays the kitchen's JSON alone: a summary line in front of it would break a
+  client that parses it. And documentation written for language models: `/llms.txt` and
+  `/llms-full.txt`.
 
 Built: the API (`/api/w/:slug/agents`), the MCP server, `llms.txt`, and a card under **Your data**
 (the admin's page). Not built: a kitchen's admin widening or narrowing what agents may do there (the

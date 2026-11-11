@@ -24,6 +24,11 @@ A helper can **read** what its person can read. If the person allows it, it can 
 withdraw entries** (leaves, extras, days off), and **say that a payment was made**. That is the
 whole list.
 
+An assistant that uses the kitchen's MCP server is also offered a few starting points, such as "log
+my meals for a day", "what is my balance?" and "say a payment was made". They are offered only if
+the key can do everything they involve, and each tells the assistant to look first, to say what it
+is about to do, and to ask you before it writes anything.
+
 ## What it may not
 
 A helper can never confirm or dispute a payment, close or reopen a month, change who is in the

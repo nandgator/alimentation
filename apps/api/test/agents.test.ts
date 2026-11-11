@@ -3,6 +3,7 @@ import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AGENT_SCOPES } from "../src/agent-scopes.ts";
 import { toolName } from "../src/agents.ts";
+import { promptNeeds } from "../src/mcp-content.ts";
 import { accessKey, agentScopeOf, OPERATIONS, PERSON_ONLY } from "../src/openapi.ts";
 import { emptyDatabase, type Kitchen, seedKitchen } from "./support/kitchen.ts";
 import { type Client, makePlatform, type TestPlatform } from "./support/platform.ts";
@@ -426,11 +427,13 @@ describe("the MCP server", () => {
     expect(init.status).toBe(200);
     expect(init.json.result).toMatchObject({
       protocolVersion: "2025-03-26",
-      capabilities: { tools: {} },
+      capabilities: { tools: {}, prompts: {}, resources: {}, completions: {} },
       serverInfo: { name: "alimentation" },
     });
     expect(init.json.result.instructions).toContain("Kitchen mcp-kitchen");
     expect(init.json.result.instructions).toContain("consumer");
+    expect(init.json.result.instructions).toMatch(/prompts/);
+    expect(init.json.result.instructions).toContain("alimentation://kitchen/guide");
     // A version it does not know is answered with one it does.
     const odd = await call(readOnly, "initialize", { protocolVersion: "1999-01-01" });
     expect(odd.json.result.protocolVersion).toBe("2025-06-18");
@@ -474,7 +477,7 @@ describe("the MCP server", () => {
       .anonymous()
       .req("POST", "/mcp", { hello: "there" }, { authorization: `Bearer ${readOnly}` });
     expect(notRpc.json.error.code).toBe(-32600);
-    expect((await call(readOnly, "resources/list")).json.error.code).toBe(-32601);
+    expect((await call(readOnly, "no/such/method")).json.error.code).toBe(-32601);
   });
 
   it("offers as tools the routes the key’s scopes open, and none that are a person’s", async () => {
@@ -575,6 +578,294 @@ describe("the MCP server", () => {
     const removed = (await call(logs, "tools/call", { name: "delete_log_id", arguments: { id } }))
       .json.result;
     expect(removed.isError).toBe(false);
+  });
+
+  it("gives every tool a title beside its generated name, and leaves the names as they were", async () => {
+    const all = (await k.owner.post(`${w}/agents`, { name: "Titles", scopes: ["log", "claims"] }))
+      .json.token as string;
+    const listed = (await call(all, "tools/list")).json.result.tools as {
+      name: string;
+      title: string;
+    }[];
+    for (const t of listed) {
+      expect(t.title, t.name).toMatch(/^[A-Z]/);
+      expect(t.title).not.toContain("_");
+    }
+    const titleOf = (n: string) => listed.find((t) => t.name === n)?.title;
+    expect(titleOf("get_bootstrap")).toBe("Read the kitchen");
+    expect(titleOf("post_claims")).toBe("Say a payment was made");
+    // One with no hand-written title gets the words of its name.
+    expect(titleOf("get_rate_cards")).toBe("Get rate cards");
+    expect(listed.map((t) => t.name)).toContain("delete_claims_id");
+  });
+
+  it("keeps a tool’s result exactly the kitchen’s JSON, with no line put before it", async () => {
+    const r = (await call(readOnly, "tools/call", { name: "get_bootstrap", arguments: {} })).json
+      .result;
+    expect(r.content).toHaveLength(1);
+    expect(() => JSON.parse(r.content[0].text)).not.toThrow();
+  });
+
+  const promptNames = async (token: string) =>
+    ((await call(token, "prompts/list")).json.result.prompts as { name: string }[]).map(
+      (x) => x.name,
+    );
+
+  it("lists only the prompts the key’s scopes can do all of", async () => {
+    const claims = (await k.jovial.post(`${w}/agents`, { name: "Payer", scopes: ["claims"] })).json
+      .token as string;
+    const reads = ["whats-my-balance", "month-end-summary", "am-i-square-for-the-month"];
+    expect(await promptNames(readOnly)).toEqual(reads);
+    expect(await promptNames(logs)).toEqual(["log-my-meals", ...reads]);
+    expect(await promptNames(claims)).toEqual([...reads, "mark-payment-made"]);
+    const listed = (await call(logs, "prompts/list")).json.result.prompts;
+    expect(listed[0]).toMatchObject({
+      name: "log-my-meals",
+      title: expect.any(String),
+      arguments: [
+        { name: "date", required: true },
+        { name: "change", required: false },
+      ],
+    });
+    // Every tool a prompt asks for is a tool this server really has.
+    const every = (
+      await k.owner.post(`${w}/agents`, { name: "Everything", scopes: ["log", "claims"] })
+    ).json.token as string;
+    const real = new Set((await tools(every)).map((t) => t.name));
+    for (const needs of ["log-my-meals", ...reads, "mark-payment-made"].map(promptNeeds))
+      for (const n of needs ?? []) expect(real.has(n), n).toBe(true);
+  });
+
+  it("gives a prompt as a message to the assistant, with its arguments in it", async () => {
+    const got = (
+      await call(logs, "prompts/get", {
+        name: "log-my-meals",
+        arguments: { date: "2026-10-28", change: "Leave" },
+      })
+    ).json.result;
+    expect(got.messages).toHaveLength(1);
+    expect(got.messages[0].role).toBe("user");
+    const text = got.messages[0].content.text as string;
+    expect(text).toContain("2026-10-28");
+    expect(text).toContain("Leave");
+    for (const tool of ["get_bootstrap", "post_log_check", "post_log"])
+      expect(text).toContain(tool);
+    expect(text).toMatch(/ask/i);
+    expect(text).toContain("paise");
+  });
+
+  it("refuses a prompt with a missing or bad argument, or one the key cannot do all of", async () => {
+    const missing = await call(logs, "prompts/get", { name: "log-my-meals", arguments: {} });
+    expect(missing.json.error.code).toBe(-32602);
+    expect(missing.json.error.message).toContain("date");
+    for (const args of [{ date: "28-10-2026" }, { date: "2026-10-28", change: "Dance" }])
+      expect(
+        (await call(logs, "prompts/get", { name: "log-my-meals", arguments: args })).json.error
+          .code,
+      ).toBe(-32602);
+    expect(
+      (await call(readOnly, "prompts/get", { name: "month-end-summary", arguments: {} })).json.error
+        .message,
+    ).toContain("month");
+    // A read-only key is not given the prompt that writes, even by name.
+    const noWrite = await call(readOnly, "prompts/get", {
+      name: "log-my-meals",
+      arguments: { date: "2026-10-28" },
+    });
+    expect(noWrite.json.error.code).toBe(-32602);
+    expect(noWrite.json.error.message).toContain("no prompt");
+    expect((await call(logs, "prompts/get", { name: "nope" })).json.error.code).toBe(-32602);
+  });
+
+  it("gives the payment prompt its amount, method and month", async () => {
+    const claims = (await k.jovial.post(`${w}/agents`, { name: "Payer 2", scopes: ["claims"] }))
+      .json.token as string;
+    const ok = (
+      await call(claims, "prompts/get", {
+        name: "mark-payment-made",
+        arguments: { amount: "250000", method: "UPI", month: "2026-10" },
+      })
+    ).json.result;
+    const text = ok.messages[0].content.text as string;
+    expect(text).toContain("250000 paise");
+    expect(text).toContain("2500.00 rupees");
+    expect(text).toContain("post_claims");
+    for (const args of [
+      { amount: "12.5", method: "UPI" },
+      { amount: "100", method: "Barter" },
+      { method: "UPI" },
+    ])
+      expect(
+        (await call(claims, "prompts/get", { name: "mark-payment-made", arguments: args })).json
+          .error.code,
+      ).toBe(-32602);
+  });
+
+  it("lists resources, reads them as the key, and offers the ledger as a template", async () => {
+    const listed = (await call(readOnly, "resources/list")).json.result.resources as {
+      uri: string;
+    }[];
+    expect(listed.map((r) => r.uri)).toEqual([
+      "alimentation://kitchen/guide",
+      "alimentation://kitchen/menu",
+      "alimentation://kitchen/holidays",
+    ]);
+    const templates = (await call(readOnly, "resources/templates/list")).json.result
+      .resourceTemplates;
+    expect(templates.map((t: { uriTemplate: string }) => t.uriTemplate)).toEqual([
+      "alimentation://kitchen/ledger/{month}",
+    ]);
+
+    const guide = (await call(readOnly, "resources/read", { uri: "alimentation://kitchen/guide" }))
+      .json.result.contents[0];
+    expect(guide).toMatchObject({ uri: "alimentation://kitchen/guide", mimeType: "text/plain" });
+    expect(guide.text).toContain("paise");
+    expect(guide.text).toContain("get_bootstrap");
+
+    const menu = (await call(readOnly, "resources/read", { uri: "alimentation://kitchen/menu" }))
+      .json.result.contents[0];
+    expect(JSON.parse(menu.text)).toEqual((await k.jovial.get(`${w}/rate-cards`)).json);
+    const hol = (await call(readOnly, "resources/read", { uri: "alimentation://kitchen/holidays" }))
+      .json.result.contents[0];
+    expect(JSON.parse(hol.text)).toEqual((await k.jovial.get(`${w}/bootstrap`)).json.holidays);
+
+    const ledger = (
+      await call(readOnly, "resources/read", { uri: "alimentation://kitchen/ledger/2026-10" })
+    ).json.result.contents[0];
+    expect(JSON.parse(ledger.text)).toEqual(
+      (await k.jovial.get(`${w}/ledger?month=2026-10&person=${k.ids.jovial}`)).json,
+    );
+  });
+
+  it("counts a resource read against the kitchen’s day like the request it is", async () => {
+    const id = (await p.runtime.deps.directory.bySlug("mcp-kitchen"))!.row.id;
+    // Settle the count first, so that a flush part-way through cannot make it look to go backwards.
+    const today = async () => {
+      await p.runtime.deps.gate.flush();
+      return p.runtime.deps.gate.today(id);
+    };
+    const before = await today();
+    await call(readOnly, "resources/list");
+    expect(await today()).toBe(before);
+    await call(readOnly, "resources/read", { uri: "alimentation://kitchen/guide" });
+    expect(await today()).toBe(before);
+    await call(readOnly, "resources/read", { uri: "alimentation://kitchen/menu" });
+    expect(await today()).toBe(before + 1);
+  });
+
+  it("does not read what the key may not: an unknown address, another kitchen’s, an ended key", async () => {
+    for (const uri of [
+      "alimentation://kitchen/people",
+      "alimentation://kitchen/ledger/2026-13",
+      "alimentation://kitchen/ledger/2026-10/extra",
+      "alimentation://kitchen/ledger/2026-10?person=someone-else",
+      "alimentation://other-kitchen/menu",
+      "https://example.org/menu",
+      "",
+    ])
+      expect((await call(readOnly, "resources/read", { uri })).json.error.code, uri).toBe(-32002);
+
+    // A key shows its own kitchen's books at the same address, and another kitchen's key shows that kitchen's.
+    const other = await seedKitchen(p, "mcp-other", "mcp-other-owner@example.org");
+    const theirs = (await other.jovial.post("/api/w/mcp-other/agents", { name: "Theirs" })).json
+      .token as string;
+    const mine = (
+      await call(readOnly, "resources/read", { uri: "alimentation://kitchen/holidays" })
+    ).json.result.contents[0].text;
+    const there = (await call(theirs, "resources/read", { uri: "alimentation://kitchen/holidays" }))
+      .json.result.contents[0].text;
+    expect(JSON.parse(mine)).toEqual((await k.jovial.get(`${w}/bootstrap`)).json.holidays);
+    expect(JSON.parse(there)).toEqual(
+      (await other.jovial.get("/api/w/mcp-other/bootstrap")).json.holidays,
+    );
+
+    // Without a key, or with one that has ended, it is refused as any other call is.
+    expect(
+      (await call(null, "resources/read", { uri: "alimentation://kitchen/guide" })).status,
+    ).toBe(401);
+    const ended = (await k.jovial.post(`${w}/agents`, { name: "Ended" })).json;
+    await k.jovial.req("DELETE", `${w}/agents/${ended.id}`);
+    expect(
+      (await call(ended.token, "resources/read", { uri: "alimentation://kitchen/guide" })).status,
+    ).toBe(401);
+  });
+
+  it("shows a member only their own ledger, and gives the admin the kitchen’s own refusal", async () => {
+    const member = (
+      await call(readOnly, "resources/read", { uri: "alimentation://kitchen/ledger/2026-10" })
+    ).json.result.contents[0].text;
+    expect(member).not.toContain(k.ids.smruti);
+    const adminKey = (await k.owner.post(`${w}/agents`, { name: "Admin reader" })).json
+      .token as string;
+    const boot = JSON.parse(
+      (await call(adminKey, "tools/call", { name: "get_bootstrap", arguments: {} })).json.result
+        .content[0].text,
+    );
+    // The kitchen refuses an admin a ledger of themselves (they are not a consumer); the resource says the same.
+    const direct = await k.owner.get(`${w}/ledger?month=2026-10&person=${boot.me.personId}`);
+    const asAdmin = (
+      await call(adminKey, "resources/read", { uri: "alimentation://kitchen/ledger/2026-10" })
+    ).json;
+    expect(direct.status).toBe(404);
+    expect(asAdmin.error.message).toContain(String(direct.status));
+  });
+
+  const complete = async (token: string, ref: unknown, name: string, value = "") =>
+    (await call(token, "completion/complete", { ref, argument: { name, value } })).json;
+  const promptRef = (name: string) => ({ type: "ref/prompt", name });
+
+  it("suggests months, working days, the changes a key may use, and payment methods", async () => {
+    const m = (await complete(readOnly, promptRef("month-end-summary"), "month")).result.completion;
+    expect(m.values.length).toBeGreaterThan(1);
+    expect(m.values.every((v: string) => /^\d{4}-\d{2}$/.test(v))).toBe(true);
+    expect(m.total).toBe(m.values.length);
+    expect(m.hasMore).toBe(false);
+    const narrowed = (
+      await complete(readOnly, promptRef("month-end-summary"), "month", m.values[0])
+    ).result.completion;
+    expect(narrowed.values).toEqual([m.values[0]]);
+
+    const d = (await complete(logs, promptRef("log-my-meals"), "date")).result.completion;
+    expect(d.values.length).toBeGreaterThan(5);
+    expect(d.values.length).toBeLessThanOrEqual(100);
+    const { weekdayOf } = await import("@alimentation/core");
+    const boot = (await k.jovial.get(`${w}/bootstrap`)).json;
+    for (const day of d.values as string[]) {
+      expect(boot.policy.workingDays, day).toContain(weekdayOf(day));
+      expect(day >= boot.today).toBe(true);
+    }
+
+    const c = (await complete(logs, promptRef("log-my-meals"), "change")).result.completion;
+    expect(c.values).toContain("Leave");
+    expect(c.values).not.toContain("Supplier Off");
+    expect(
+      (await complete(logs, promptRef("log-my-meals"), "change", "sw")).result.completion.values,
+    ).toEqual(["Switch to Veg", "Switch to Non Veg"]);
+
+    const claims = (await k.jovial.post(`${w}/agents`, { name: "Payer 3", scopes: ["claims"] }))
+      .json.token as string;
+    const pm = (await complete(claims, promptRef("mark-payment-made"), "method", "u")).result
+      .completion;
+    expect(pm).toEqual({ values: ["UPI"], total: 1, hasMore: false });
+    // The ledger template completes its month too, and an argument with nothing to suggest gets nothing.
+    const tm = (
+      await complete(
+        readOnly,
+        { type: "ref/resource", uri: "alimentation://kitchen/ledger/{month}" },
+        "month",
+      )
+    ).result.completion;
+    expect(tm.values.length).toBeGreaterThan(1);
+    expect(
+      (await complete(claims, promptRef("mark-payment-made"), "amount")).result.completion,
+    ).toEqual({ values: [], total: 0, hasMore: false });
+    // A prompt this key does not have is not completed.
+    expect((await complete(readOnly, promptRef("log-my-meals"), "date")).error.code).toBe(-32602);
+  });
+
+  it("is still unknown for a method it has not got", async () => {
+    for (const method of ["resources/subscribe", "logging/setLevel", "sampling/createMessage"])
+      expect((await call(readOnly, method)).json.error.code, method).toBe(-32601);
   });
 
   it("tells a model what went wrong, in the kitchen’s own words, and refuses what it was not given", async () => {

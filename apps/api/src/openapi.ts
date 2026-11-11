@@ -1488,7 +1488,7 @@ export const OPERATIONS: Operation[] = [
     who: "An agent, with its key",
     keyOnly: true,
     description:
-      "The Model Context Protocol, over Streamable HTTP, JSON-RPC 2.0, tools only: `initialize`, `ping`, `tools/list` and `tools/call`. There is one tool for each route that the key’s scopes allow (each marked on its route in this reference), named for the route (`get_bootstrap`, `post_log`), and none for what stays with a person. A call is an ordinary request to the kitchen the key is for, as the person and role it is for, so it is checked, counted against the kitchen’s day and recorded the same way. A request without a key is 401.",
+      "The Model Context Protocol, over Streamable HTTP, JSON-RPC 2.0: `initialize`, `ping`, `tools/list` and `tools/call`; `prompts/list` and `prompts/get`; `resources/list`, `resources/templates/list` and `resources/read`; and `completion/complete`. There is one tool for each route that the key’s scopes allow (each marked on its route in this reference), named for the route (`get_bootstrap`, `post_log`), and none for what stays with a person, each with a plain title beside its name. The prompts (starting points such as logging meals or saying a payment was made) are listed only when the key’s scopes can do all they ask, and a resource (the kitchen guide, the menu, the holidays, your ledger for a month) is read as the equivalent ordinary request. A call is an ordinary request to the kitchen the key is for, as the person and role it is for, so it is checked, counted against the kitchen’s day and recorded the same way. A request without a key is 401.",
     bodyNote: 'A JSON-RPC 2.0 message: `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`.',
     ok: {
       status: 200,

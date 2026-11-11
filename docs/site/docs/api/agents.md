@@ -68,24 +68,52 @@ it. A person's own entries have none.
 
 `POST /mcp` is a
 [Model Context Protocol](https://github.com/modelcontextprotocol/modelcontextprotocol) server over
-Streamable HTTP (JSON-RPC 2.0, tools only). Send the key as `Authorization: Bearer alk_…`. It has no
-session and no stream, so `GET` and `DELETE` are 405.
+Streamable HTTP (JSON-RPC 2.0). It offers tools, prompts, resources and argument completion. Send
+the key as `Authorization: Bearer alk_…`. It has no session and no stream, so `GET` and `DELETE`
+are 405.
 
 - **`tools/list`** returns one tool for each route the key's scopes open, named for the route
   (`get_bootstrap`, `get_statements`, `post_log_check`, `post_log`, `delete_log_id`, `post_claims`),
-  with an input schema made from the same schemas the route itself reads. It offers none for what
-  stays with a person, so a model is never shown a tool that would be refused.
+  with a short human `title` beside the name, and an input schema made from the same schemas the
+  route itself reads. It offers none for what stays with a person, so a model is never shown a tool
+  that would be refused.
 - **`tools/call`** is an ordinary request to the kitchen with the same key. It is checked, counted
   against the kitchen's day and recorded exactly as it would be through the API, and the answer is
   what the kitchen said: the JSON, or its error in its own words, with `isError` set.
+- **`prompts/list`** and **`prompts/get`** give a few starting points for common jobs, as messages
+  to the assistant: `log-my-meals` (`date`, `change`), `whats-my-balance` (`month`),
+  `month-end-summary` (`month`), `am-i-square-for-the-month` (`month`) and `mark-payment-made`
+  (`amount`, `method`, `month`). A prompt is listed only when the key's scopes can do everything it
+  asks for, so a key with only `read` is shown the three that read, and `log-my-meals` and
+  `mark-payment-made` need `log` and `claims`. Each tells the assistant, in plain words, which tools
+  to call, to read before it writes, to show the person what it will do and ask before any write,
+  and that money is in paise. A missing or unusable argument is answered `-32602` with what is
+  missing.
+- **`resources/list`**, **`resources/templates/list`** and **`resources/read`** offer
+  `alimentation://kitchen/guide` (the units, the rules and how to use the tools, as plain text),
+  `alimentation://kitchen/menu` (the rate cards), `alimentation://kitchen/holidays`, and the
+  template `alimentation://kitchen/ledger/{month}` (the day ledger of the person the key acts as).
+  Each is read by making the same request a tool would, with the same key, so it is checked, counted
+  against the kitchen's day and refused exactly as that request would be; the guide is text and
+  costs nothing. An address there is no resource for, including one that names another kitchen, is
+  `-32002`. The address has no kitchen in it: a key is for one.
+- **`completion/complete`** suggests values for a prompt's arguments (or the ledger template's
+  month): `month` (the last twelve), `date` (upcoming working days, without the kitchen's holidays),
+  `change` (the log changes the key's role may write) and `method`. At most 100 values come back,
+  with `total` and `hasMore`. Suggesting `date` reads the kitchen once, which counts like any
+  request.
 - **`initialize`** says which kitchen the key is for, as which role and with which scopes, and where
-  to start (`get_bootstrap`).
+  to start (`get_bootstrap`). Its capabilities are `tools`, `prompts`, `resources` and
+  `completions`.
 
 Most clients take the address and a header. For Claude Code, for example:
 
 ```console
 $ claude mcp add --transport http alimentation https://kitchen.example.org/mcp --header "Authorization: Bearer alk_…"
 ```
+
+A tool's answer is the kitchen's JSON in a single text block, as it was: it is not given a summary
+line in front, because a client that reads the block as JSON would then fail to.
 
 Other clients differ in where they put these two things; the address and the header are all there
 is.

@@ -31,6 +31,22 @@ import { moveToDatabase, moveToInstance, previewMove, releaseMove } from "./life
 import { receiveWorkspace } from "./lifecycle/receive.ts";
 import { toReceipt, wipeWorkspace } from "./lifecycle/wipe.ts";
 import type { Gate } from "./limits/gate.ts";
+import {
+  COMPLETABLE,
+  type CompletionContext,
+  canRead,
+  complete,
+  getPrompt,
+  KITCHEN_GUIDE,
+  LEDGER_TEMPLATE,
+  parseResource,
+  promptArguments,
+  promptNeeds,
+  promptsFor,
+  resourcesFor,
+  resourceTemplatesFor,
+  toolTitle,
+} from "./mcp-content.ts";
 import { schemaOf } from "./openapi.ts";
 import { acceptInvite, claimAutoInvites, createInvite } from "./platform/invites.ts";
 import { capacityNow, createWorkspace, type PlatformDeps } from "./platform/workspaces.ts";
@@ -1102,15 +1118,50 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     if (msg.id === undefined) return c.body(null, 202);
 
     const tools = toolsFor(key.scopes, schemaOf);
+    const toolNames = tools.map((t) => t.name);
+    /** An ordinary request to the kitchen with this key: it is checked, counted and recorded as any other. */
+    const asKey = (method: string, pathAndQuery: string, body?: unknown) =>
+      app.request(`http://localhost${pathAndQuery}`, {
+        method,
+        headers: {
+          authorization: must(c.req.header("authorization")),
+          ...(body !== undefined ? { "content-type": "application/json" } : {}),
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    const base = `/api/w/${encodeURIComponent(handle.row.slug)}`;
+    type Boot = {
+      holidays?: { date: string; confirmed: boolean }[];
+      me?: { personId?: string };
+      today?: string;
+      policy?: { workingDays?: number[]; holidays?: { count?: string } };
+    };
+    /** The kitchen's answer as JSON, or the error to give back in its words. */
+    const read = async (pathAndQuery: string) => {
+      const res = await asKey("GET", pathAndQuery);
+      const text = await res.text();
+      if (!res.ok) {
+        let message = text;
+        try {
+          message = (JSON.parse(text) as { error?: { message?: string } }).error?.message ?? text;
+        } catch {}
+        throw new ApiError(res.status, "refused", message);
+      }
+      return { text, json: JSON.parse(text) as Boot };
+    };
+    const refused = (e: unknown) =>
+      e instanceof ApiError
+        ? rpcError(msg.id, -32603, `The kitchen answered ${e.status}: ${e.message}`)
+        : null;
     switch (msg.method) {
       case "initialize": {
         const asked = String(msg.params?.protocolVersion ?? "");
         return c.json(
           rpc(msg.id, {
             protocolVersion: MCP_VERSIONS.includes(asked) ? asked : MCP_VERSIONS[0],
-            capabilities: { tools: {} },
+            capabilities: { tools: {}, prompts: {}, resources: {}, completions: {} },
             serverInfo: { name: "alimentation", version: "1" },
-            instructions: `This key is for the kitchen “${handle.row.displayName}”, as its ${key.role}, with the scopes ${key.scopes.join(", ")}. What you do is recorded in the kitchen as done by an agent, for the person who gave you the key. Amounts are in paise (hundredths of a rupee). Start with get_bootstrap.`,
+            instructions: `This key is for the kitchen “${handle.row.displayName}”, as its ${key.role}, with the scopes ${key.scopes.join(", ")}. What you do is recorded in the kitchen as done by an agent, for the person who gave you the key. Amounts are in paise (hundredths of a rupee). Start with get_bootstrap. The server also has prompts (starting points for common jobs: logging meals, reading a balance, saying a payment was made) and resources (the kitchen guide at alimentation://kitchen/guide, the menu, the holidays and your ledger): read the guide first.`,
           }),
         );
       }
@@ -1121,6 +1172,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
           rpc(msg.id, {
             tools: tools.map((t) => ({
               name: t.name,
+              title: toolTitle(t.name),
               description: t.description,
               inputSchema: t.inputSchema,
               annotations: {
@@ -1155,20 +1207,106 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
                 )
               : undefined;
         // An ordinary request to the kitchen, as this key: the same checks, the same count, the same record.
-        const res = await app.request(`http://localhost${path}${query.size ? `?${query}` : ""}`, {
-          method: tool.op.method.toUpperCase(),
-          headers: {
-            authorization: must(c.req.header("authorization")),
-            ...(body !== undefined ? { "content-type": "application/json" } : {}),
-          },
-          body: body !== undefined ? JSON.stringify(body) : undefined,
-        });
+        const res = await asKey(
+          tool.op.method.toUpperCase(),
+          `${path}${query.size ? `?${query}` : ""}`,
+          body,
+        );
         const text = await res.text();
         return c.json(
           rpc(msg.id, {
             content: [{ type: "text", text: text || "(no content)" }],
             isError: !res.ok,
           }),
+        );
+      }
+      case "prompts/list":
+        return c.json(rpc(msg.id, { prompts: promptsFor(toolNames) }));
+      case "prompts/get": {
+        const name = String(msg.params?.name ?? "");
+        const got = getPrompt(
+          name,
+          msg.params?.arguments as Record<string, unknown> | undefined,
+          toolNames,
+        );
+        if (!got.ok) return c.json(rpcError(msg.id, -32602, got.message));
+        return c.json(rpc(msg.id, { description: got.description, messages: got.messages }));
+      }
+      case "resources/list":
+        return c.json(rpc(msg.id, { resources: resourcesFor(toolNames) }));
+      case "resources/templates/list":
+        return c.json(rpc(msg.id, { resourceTemplates: resourceTemplatesFor(toolNames) }));
+      case "resources/read": {
+        const uri = String(msg.params?.uri ?? "");
+        const ref = parseResource(uri);
+        if (!ref || !canRead(ref, toolNames))
+          return c.json(rpcError(msg.id, -32002, `There is no resource “${uri}” for this key.`));
+        try {
+          let mimeType = "application/json";
+          let text: string;
+          if (ref.kind === "guide") {
+            mimeType = "text/plain";
+            text = KITCHEN_GUIDE;
+          } else if (ref.kind === "menu") text = (await read(`${base}/rate-cards`)).text;
+          else if (ref.kind === "holidays")
+            text = JSON.stringify((await read(`${base}/bootstrap`)).json.holidays ?? [], null, 2);
+          else {
+            // The ledger is of one person: the one the key acts as, which the kitchen says.
+            const me = (await read(`${base}/bootstrap`)).json.me?.personId as string | undefined;
+            if (!me) return c.json(rpcError(msg.id, -32002, "This key has no person to read for."));
+            text = (
+              await read(`${base}/ledger?${new URLSearchParams({ month: ref.month, person: me })}`)
+            ).text;
+          }
+          return c.json(rpc(msg.id, { contents: [{ uri, mimeType, text }] }));
+        } catch (e) {
+          const out = refused(e);
+          if (out) return c.json(out);
+          throw e;
+        }
+      }
+      case "completion/complete": {
+        const ref = msg.params?.ref as { type?: string; name?: string; uri?: string } | undefined;
+        const arg = msg.params?.argument as { name?: string; value?: string } | undefined;
+        const argName = String(arg?.name ?? "");
+        const empty = { completion: { values: [], total: 0, hasMore: false } };
+        let known: boolean;
+        let takes: readonly string[] = [];
+        if (ref?.type === "ref/prompt") {
+          const needs = promptNeeds(String(ref.name ?? ""));
+          known = !!needs && needs.every((n) => toolNames.includes(n));
+          takes = promptArguments(String(ref.name ?? "")) ?? [];
+        } else if (ref?.type === "ref/resource") {
+          known = ref.uri === LEDGER_TEMPLATE && canRead({ kind: "ledger", month: "" }, toolNames);
+          takes = ["month"];
+        } else known = false;
+        if (!known) return c.json(rpcError(msg.id, -32602, "There is nothing to complete there."));
+        if (!takes.includes(argName) || !(COMPLETABLE as readonly string[]).includes(argName))
+          return c.json(rpc(msg.id, empty));
+        const ctx: CompletionContext = {
+          today: localNow(deps.now(), handle.info.timeZone).date,
+          role: key.role as Role,
+          workingDays: [1, 2, 3, 4, 5],
+          holidays: [],
+        };
+        if (argName === "date") {
+          // Which days are working days, and which are holidays, are the kitchen's to say.
+          try {
+            const boot = (await read(`${base}/bootstrap`)).json;
+            ctx.today = boot.today ?? ctx.today;
+            ctx.workingDays = boot.policy?.workingDays ?? ctx.workingDays;
+            const all = boot.policy?.holidays?.count === "all";
+            ctx.holidays = ((boot.holidays ?? []) as { date: string; confirmed: boolean }[])
+              .filter((h) => all || h.confirmed)
+              .map((h) => h.date);
+          } catch (e) {
+            const out = refused(e);
+            if (out) return c.json(out);
+            throw e;
+          }
+        }
+        return c.json(
+          rpc(msg.id, { completion: complete(argName, String(arg?.value ?? ""), ctx) }),
         );
       }
       default:
