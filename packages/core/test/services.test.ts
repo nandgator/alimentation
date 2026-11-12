@@ -534,6 +534,33 @@ describe("rows and days that have no meal", () => {
     );
   });
 
+  it("does not count a day before the first menu, and does not let it fail the month", () => {
+    // The menu starts on Wednesday the 7th. Monday the 5th and Tuesday the 6th are before it: no rows, no error.
+    const late = { ...MENU, effectiveFrom: "2026-10-07" };
+    const got = rows(ASHA, { menus: [late] }).map((r) => r.date);
+    expect(got.some((d) => d < "2026-10-07")).toBe(false);
+    expect(got).toContain("2026-10-07");
+    expect(() => stmt("asha", { menus: [late] })).not.toThrow();
+    const p = prepare(kitchen({ menus: [late] }));
+    expect(ledgerRows(p, ASHA, "2026-10-05")).toEqual([]);
+  });
+
+  it("still refuses a working day under a menu that serves nothing that weekday, and a kitchen with no menu", () => {
+    const noFri = {
+      ...MENU,
+      days: { [B]: { 1: IDLI }, [L]: { 1: THALI, 2: THALI, 3: RICE, 4: RICE } },
+    };
+    expect(() => rows(ASHA, { menus: [noFri] })).toThrowError(
+      expect.objectContaining({ code: "NO_MENU", message: expect.stringMatching(/Menu\./) }),
+    );
+    expect(() => rows(ASHA, { menus: [] })).toThrowError(
+      expect.objectContaining({
+        code: "NO_MENU",
+        message: expect.stringMatching(/Add one under Menu/),
+      }),
+    );
+  });
+
   it("gives a person enrolled in nothing no rows, and no bill but the fee they do not reach", () => {
     const s = stmt("asha", { enrolments: [] });
     expect(s.liveTotal).toBe(0);

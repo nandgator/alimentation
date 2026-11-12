@@ -73,7 +73,7 @@ describe("what the errors say", () => {
     };
     expect(() =>
       buildStatements(prep({ menus: [noFriday] }), ["jovial"], ["2026-10"]),
-    ).toThrowError(/serves nothing on this weekday/);
+    ).toThrowError(/serves no meal on one of the days you cook/);
     try {
       buildStatements(prep({ menus: [noFriday] }), ["jovial"], ["2026-10"]);
     } catch (e) {

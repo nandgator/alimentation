@@ -7,6 +7,7 @@ import { AppBar, RequireSignIn } from "../../components/Chrome.tsx";
 import { ThemeSwitch } from "../../components/ThemeSwitch.tsx";
 import { Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { useMedia } from "../../home/motion.tsx";
+import { nextStep } from "../../setup.ts";
 import { Audit } from "./Audit.tsx";
 import { Catalogue } from "./Catalogue.tsx";
 import { type Workspace, WorkspaceProvider } from "./context.tsx";
@@ -24,6 +25,7 @@ import {
   groupsFor,
   hrefOf,
   isHere,
+  notHereWords,
   type Section,
   type SectionKey,
   sectionsFor,
@@ -167,7 +169,8 @@ function Loaded({
     reload,
     nameOf: (id) => people.get(id) ?? "Someone",
   };
-  const mine = sectionsFor(role, ws.money);
+  const priced = Boolean(boot.rateCard);
+  const mine = sectionsFor(role, ws.money, priced);
   const [more, setMore] = useState(false);
   const [pinned, setPinned] = useState(readPinned);
   const [drawer, setDrawer] = useState(false);
@@ -197,7 +200,7 @@ function Loaded({
     setDrawer(false);
   };
   // A role that sees only the everyday group needs no group heading to tell them apart.
-  const groups = groupsFor(role, ws.money);
+  const groups = groupsFor(role, ws.money, priced);
   const waiting = role === "consumer" ? 0 : (boot.pendingClaims ?? 0);
   // What does not fit in the bar goes behind More, still in its groups.
   const rest = mine.slice(PRIMARY);
@@ -238,31 +241,36 @@ function Loaded({
           . This copy is read-only and will be removed.
         </div>
       ) : null}
-      {boot.setup.map((s) => (
-        <div key={s.code} className="banner info">
-          {s.message}
-          {role === "admin" && s.code === "menu" ? (
-            serves ? (
-              <Link href={`${base}/menu`}>Add one</Link>
-            ) : (
-              <Link href={`${base}/catalogue`}>Add what you serve</Link>
-            )
-          ) : null}
-          {role === "admin" && s.code === "rate_card" ? (
-            <Link href={`${base}/prices`}>Add prices</Link>
-          ) : null}
-          {role === "admin" && s.code === "consumers" ? (
-            <Link href={`${base}/people`}>Add people</Link>
-          ) : null}
-        </div>
-      ))}
+      {[nextStep(boot.setup)]
+        .flatMap((s) => (s ? [s] : []))
+        .map((s) => (
+          <div key={s.code} className="banner info">
+            {s.message}
+            {role === "admin" && s.code === "menu" ? (
+              serves ? (
+                <Link href={`${base}/menu`}>Add one</Link>
+              ) : (
+                <Link href={`${base}/catalogue`}>Add what you serve</Link>
+              )
+            ) : null}
+            {role === "admin" && s.code === "rate_card" ? (
+              <Link href={`${base}/prices`}>Add prices</Link>
+            ) : null}
+            {role === "admin" && s.code === "consumers" ? (
+              <Link href={`${base}/people`}>Add people</Link>
+            ) : null}
+          </div>
+        ))}
       <div className="view">
         <Switch>
           {mine.map((s) => (
             <Route key={s.key} path={hrefOf(base, s)} component={VIEW[s.key]} />
           ))}
           <Route>
-            <p className="muted">There is nothing at this address for your role.</p>
+            <p className="muted">{notHereWords(base, location, role)}</p>
+            <p>
+              <Link href={base}>Back to the dashboard</Link>
+            </p>
           </Route>
         </Switch>
       </div>

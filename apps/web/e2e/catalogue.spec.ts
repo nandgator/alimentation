@@ -208,7 +208,9 @@ test("a new kitchen starts from a home lunch, a mess or nothing, set up with ord
     expect(b.setup.map((s) => s.message)).toContain(
       "Price 4 items to start billing: Veg, Non Veg, Chapati, Bhakri.",
     );
-    await expect(page.getByText(/Price 4 items to start billing/)).toBeVisible();
+    // One next step at a time: the people come before the prices.
+    await expect(page.getByText("Add the people you feed")).toBeVisible();
+    await expect(page.getByText(/Price 4 items to start billing/)).toHaveCount(0);
     await expectAccessible(page, "a home lunch kitchen");
   });
 

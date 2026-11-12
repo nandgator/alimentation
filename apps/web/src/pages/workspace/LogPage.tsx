@@ -9,7 +9,14 @@ import {
 } from "@alimentation/core";
 import { useEffect, useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
-import { describeEntry, itemName, menuIn, serviceName } from "../../catalogue.ts";
+import {
+  beforeMenuWords,
+  describeEntry,
+  itemName,
+  menuIn,
+  menuStartsAfter,
+  serviceName,
+} from "../../catalogue.ts";
 import {
   Chip,
   Field,
@@ -42,7 +49,10 @@ export function LogPage() {
 
   // The menu in force on the chosen day decides what can be logged for it.
   const menus = useLoad(() => getJson<MenuVersion[]>(`${ws.api}/menus`), [ws.api]);
-  const menu = menuIn(menus.data ?? (boot.menu ? [boot.menu] : []), day);
+  const known = menus.data ?? (boot.menu ? [boot.menu] : []);
+  const menu = menuIn(known, day);
+  // A day before the first menu has nothing to log: say why, beside the date, in place of a refusal.
+  const menuStart = menuStartsAfter(known, day);
   const person = boot.people.find((p) => p.id === who);
   const choicesFor = (people: typeof consumers) =>
     people.map((p) => logChoices(menu, boot.catalogue, boot.services, p, day, boot.enrolments));
@@ -85,7 +95,8 @@ export function LogPage() {
     () => getJson<LogEntryDto[]>(`${ws.api}/log?from=${from}&to=${to}`),
     [ws.api, from, to],
   );
-  const blocked = issues.some((i) => i.severity === "error");
+  const shownIssues = menuStart ? [] : issues;
+  const blocked = menuStart !== null || issues.some((i) => i.severity === "error");
 
   return (
     <div className="stack" style={{ ["--gap" as string]: "20px" }}>
@@ -115,7 +126,7 @@ export function LogPage() {
                 </select>
               </Field>
             ) : null}
-            <Field label="Date" id="day">
+            <Field label="Date" id="day" hint={menuStart ? beforeMenuWords(menuStart) : undefined}>
               <input
                 id="day"
                 type="date"
@@ -216,7 +227,7 @@ export function LogPage() {
               </Field>
             ) : null}
           </div>
-          {!view.action ? (
+          {!view.action && !menuStart ? (
             <p className="muted small">
               Nothing can be logged for this person on this day: they are not eating, or the menu
               does not serve it.
@@ -233,7 +244,7 @@ export function LogPage() {
               onChange={(e) => setNote(e.target.value)}
             />
           </Field>
-          {issues.map((i, k) => (
+          {shownIssues.map((i, k) => (
             <div
               // biome-ignore lint/suspicious/noArrayIndexKey: issues are shown in the order checked, and are replaced as a whole
               key={k}
@@ -262,12 +273,12 @@ export function LogPage() {
         {list.data && list.data.length === 0 ? <p className="muted">Nothing logged yet.</p> : null}
         {list.data && list.data.length > 0 ? (
           <div
-            className="tablewrap"
+            className="tablewrap cards"
             tabIndex={0}
             role="region"
             aria-label="Table; scrolls sideways when it is wider than the screen"
           >
-            <table>
+            <table className="cards">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -283,15 +294,15 @@ export function LogPage() {
                 {list.data.map((e) => (
                   <tr key={e.id}>
                     <td>{date(e.date)}</td>
-                    <td>
+                    <td data-label="Who">
                       {e.allConsumers ? "Everyone" : e.personId ? ws.nameOf(e.personId) : "-"}
                     </td>
-                    <td>
+                    <td data-label="Change">
                       <Chip tone={e.action === "Leave" ? "warn" : undefined}>
                         {describeEntry(boot, e)}
                       </Chip>
                     </td>
-                    <td>
+                    <td data-label="Added by">
                       {e.by}
                       {e.lateByDays > 0 ? (
                         <>
@@ -302,8 +313,12 @@ export function LogPage() {
                         </>
                       ) : null}
                     </td>
-                    <td className="r">{e.qty ?? "-"}</td>
-                    <td className="cell-text">{e.note ?? ""}</td>
+                    <td className="r" data-label="Qty">
+                      {e.qty ?? "-"}
+                    </td>
+                    <td className="cell-text" data-label="Note">
+                      {e.note ?? ""}
+                    </td>
                     <td>
                       {ws.writable ? (
                         <button

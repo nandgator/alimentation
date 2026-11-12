@@ -57,7 +57,9 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       await expect(
         page.getByText("Add what you serve, then the menu, to start counting meals."),
       ).toBeVisible();
-      await expect(page.getByText("Add prices to start billing.")).toBeVisible();
+      // Only the first step is asked for; the prices come after the menu and the people.
+      await expect(page.getByText("Add prices to start billing.")).toHaveCount(0);
+      await expect(page.locator("main .banner")).toHaveCount(1);
       await expectAccessible(page, "new kitchen");
       // The menu is a grouped column beside the page on a wide screen, and a bar at the bottom on a phone.
       const menu = page.getByRole("navigation", { name: "Sections" });
@@ -188,7 +190,7 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       // The same link does not work a second time, and people-management is not theirs.
       await jovial.goto(`/w/${slug}/people`);
       await expect(
-        jovial.getByText("There is nothing at this address for your role."),
+        jovial.getByText("People is not part of the member view of this kitchen."),
       ).toBeVisible();
     });
 
@@ -201,7 +203,7 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       // After its day an entry is allowed, but it says so before it is made, and shows as late after.
       if (afterTheDay) await expect(jovial.getByText(/already passed/)).toBeVisible();
       await jovial.getByRole("button", { name: "Add", exact: true }).click();
-      await expect(jovial.getByRole("cell", { name: "Leave", exact: true })).toBeVisible();
+      await expect(jovial.getByRole("cell", { name: /^(Change )?Leave$/ })).toBeVisible();
       if (afterTheDay) await expect(jovial.getByText(/Late: \d+ days? after/)).toBeVisible();
 
       await go(jovial, "Payments");
@@ -244,10 +246,10 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
     await test.step("the admin removes the member’s leave, and the member can see who did it and when", async () => {
       await go(page, "My log");
       await page
-        .getByRole("row", { name: /Jovial Leave/ })
+        .getByRole("row", { name: /Jovial.*Leave/ })
         .getByRole("button", { name: "Remove" })
         .click();
-      await expect(page.getByRole("row", { name: /Jovial Leave/ })).toHaveCount(0);
+      await expect(page.getByRole("row", { name: /Jovial.*Leave/ })).toHaveCount(0);
       await go(jovial, "History");
       await expect(jovial.getByRole("heading", { name: "History", level: 1 })).toBeVisible();
       await expect(jovial.getByText(/^You logged Leave on /)).toBeVisible();

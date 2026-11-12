@@ -186,9 +186,26 @@ test("a kitchen that tracks money still shows its prices, so the two are told ap
   await page.getByLabel("Address").fill(slug);
   await page.getByRole("button", { name: "Create" }).click();
   await page.waitForURL(`**/w/${slug}`);
-  // It starts from a home lunch, so what it serves is there already and only the prices are missing.
-  await expect(page.getByText(/^Price 4 items to start billing: /)).toBeVisible();
-  const names = await menuNames(page);
+  // It starts from a home lunch, so what it serves is there already; the people come next, then the prices.
+  await expect(page.getByText("Add the people you feed")).toBeVisible();
+  let names = await menuNames(page);
+  for (const kept of ["Prices", "Menu", "Rates & rules"]) expect(names).toContain(kept);
+  // Nothing to pay or settle until there are prices.
+  for (const later of ["Payments", "Settlements"]) expect(names).not.toContain(later);
+  // With prices, the screens about money are there.
+  const w = `/api/w/${slug}`;
+  const items = (await (await page.request.get(`${w}/catalogue`)).json()) as { id: string }[];
+  const card = await page.request.post(`${w}/rate-cards`, {
+    data: {
+      effectiveFrom: `${new Date().toISOString().slice(0, 8)}01`,
+      monthlyFee: 0,
+      prices: items.map((i) => ({ itemId: i.id, serviceId: null, amount: 10000 })),
+    },
+  });
+  expect(card.status()).toBe(201);
+  await page.reload();
+  await expect(page.getByRole("link", { name: "Payments" })).toBeVisible();
+  names = await menuNames(page);
   for (const kept of ["Payments", "Prices", "Settlements", "Menu", "Rates & rules"])
     expect(names).toContain(kept);
 });

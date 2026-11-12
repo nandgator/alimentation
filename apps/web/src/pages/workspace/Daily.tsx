@@ -11,6 +11,7 @@ import { getJson } from "../../api.ts";
 import { everSeveral, groupByDate, itemName, serviceName } from "../../catalogue.ts";
 import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { date, money } from "../../format.ts";
+import { bodyProblem } from "../../setup.ts";
 import { useWorkspace } from "./context.tsx";
 
 export function Daily() {
@@ -69,7 +70,7 @@ export function Daily() {
           </>
         }
       />
-      <Problem error={res.error} />
+      <Problem error={bodyProblem(res.error, boot.setup)} />
       {res.loading && !res.data ? <Spinner /> : null}
       {days.length > 0 ? (
         <div

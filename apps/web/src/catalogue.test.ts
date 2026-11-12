@@ -1,10 +1,12 @@
 import type { CatalogueItem, LogEntryDto, MenuVersion, Service } from "@alimentation/core";
 import { describe, expect, it } from "vitest";
 import {
+  beforeMenuWords,
   describeEntry,
   everSeveral,
   groupByDate,
   menuIn,
+  menuStartsAfter,
   priceWords,
   retiredBy,
   severalServices,
@@ -89,6 +91,24 @@ describe("what a kitchen calls things", () => {
     expect(menuIn(menus, "2026-03-31")).toBeNull();
     expect(menuIn(menus, "2026-10-31")?.id).toBe("a");
     expect(menuIn(menus, "2026-11-01")?.id).toBe("b");
+  });
+
+  it("says when the first menu starts, for a day before it and for no other", () => {
+    const menu = (id: string, effectiveFrom: string): MenuVersion => ({
+      id,
+      effectiveFrom,
+      days: {},
+      offered: {},
+      note: null,
+    });
+    const menus = [menu("b", "2026-11-12"), menu("a", "2026-11-05")];
+    expect(menuStartsAfter(menus, "2026-11-04")).toBe("2026-11-05");
+    expect(menuStartsAfter(menus, "2026-11-05")).toBeNull();
+    expect(menuStartsAfter(menus, "2026-12-01")).toBeNull();
+    expect(menuStartsAfter([], "2026-11-04")).toBeNull();
+    expect(beforeMenuWords("2026-11-12")).toBe(
+      "Your menu starts on 12-Nov-2026, so days before that are not counted. Set an earlier start under Menu.",
+    );
   });
 
   it("names a log entry in the kitchen's words, with the service only when there are several", () => {

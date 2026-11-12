@@ -6,6 +6,7 @@ import type {
   MenuVersion,
   Service,
 } from "@alimentation/core";
+import { date } from "./format.ts";
 
 /** What a kitchen calls things. Every screen reads names from here, so a rename shows everywhere at once. */
 export type Words = Pick<BootstrapDto, "catalogue" | "services">;
@@ -48,6 +49,17 @@ export function menuIn(menus: readonly MenuVersion[], date: IsoDate): MenuVersio
     if (m.effectiveFrom <= date && (!best || m.effectiveFrom > best.effectiveFrom)) best = m;
   return best;
 }
+
+/** When the kitchen's first menu starts, if `date` is a day before it: such a day has no menu and is not counted. */
+export function menuStartsAfter(menus: readonly MenuVersion[], date: IsoDate): IsoDate | null {
+  if (menuIn(menus, date)) return null;
+  const starts = menus.map((m) => m.effectiveFrom).sort();
+  return starts[0] ?? null;
+}
+
+/** What to tell a person who looks at a day before the first menu, in plain words. */
+export const beforeMenuWords = (start: IsoDate): string =>
+  `Your menu starts on ${date(start)}, so days before that are not counted. Set an earlier start under Menu.`;
 
 /** `2 Chapati`, `1 Chapati`: a quantity of an add-on. */
 export const quantity = (w: Words, itemId: string, qty: number): string =>

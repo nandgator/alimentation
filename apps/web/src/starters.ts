@@ -124,5 +124,12 @@ export async function applyStarter(api: StarterApi, base: string, starter: Start
     );
     offered[serviceId] = [...new Set([sv.meal, ...sv.also])].map(id);
   });
-  await api.post(`${base}/menus`, { effectiveFrom: boot.today, days, offered, note: null });
+  // From the first of the month, as the people and the prices are: a menu that began today would leave the
+  // days before it with no meal, and a bill for the month would be missing them.
+  await api.post(`${base}/menus`, {
+    effectiveFrom: `${boot.today.slice(0, 7)}-01`,
+    days,
+    offered,
+    note: null,
+  });
 }

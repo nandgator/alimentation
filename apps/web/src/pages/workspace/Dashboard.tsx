@@ -19,6 +19,7 @@ import {
   useLoad,
 } from "../../components/ui.tsx";
 import { date, money, month as monthLabel } from "../../format.ts";
+import { billingLead, bodyProblem } from "../../setup.ts";
 import { BillLines } from "./BillLines.tsx";
 import { useWorkspace } from "./context.tsx";
 
@@ -116,7 +117,7 @@ function MealsDashboard() {
           {boot.organisation.name}.
         </p>
       ) : null}
-      <Problem error={stm.error} />
+      <Problem error={bodyProblem(stm.error, boot.setup)} />
       {stm.loading && !stm.data ? <Spinner /> : null}
       {mine.length > 0 ? (
         <div className="tilegroups">
@@ -252,6 +253,9 @@ function MoneyDashboard() {
   const consumers = [...new Set(all.map((s) => s.personId))];
   const single = ws.role === "consumer";
   const projected = mine.length > 0 && mine.every((s) => s.basis === "Projected");
+  // Until there is a menu, prices and someone to bill, there is nothing to say about who owes what.
+  const billable =
+    Boolean(boot.menu && boot.rateCard) && boot.people.some((p) => p.role === "consumer");
 
   const series = consumers.map((id) => ({
     name: single ? "Bill" : ws.nameOf(id),
@@ -268,11 +272,7 @@ function MoneyDashboard() {
     <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead
         title="Dashboard"
-        lead={
-          single
-            ? `Hello, ${boot.me.name}. What you owe, and what you have paid.`
-            : "Who owes what, and what has been paid."
-        }
+        lead={billingLead(single, boot.me.name, billable)}
         actions={
           <>
             <Chip tone={projected ? undefined : "good"}>{projected ? "Projected" : "Actual"}</Chip>
@@ -291,7 +291,7 @@ function MoneyDashboard() {
           and owed, with no names) with {boot.organisation.name}.
         </p>
       ) : null}
-      <Problem error={stm.error} />
+      <Problem error={bodyProblem(stm.error, boot.setup)} />
       {stm.loading && !stm.data ? <Spinner /> : null}
 
       {mine.length > 0 ? (

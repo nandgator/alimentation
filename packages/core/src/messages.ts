@@ -67,6 +67,9 @@ export const MSG = {
   alreadyDecided2: "This claim has been decided and cannot change.",
   notADate3: "Enter the date the new rates start.",
   notADate4: "Enter the date the new menu starts.",
+  noMenuYet: "There is no menu yet, so there is nothing to count. Add one under Menu.",
+  menuServesNothing:
+    "The menu serves no meal on one of the days you cook. Give every working day a meal under Menu.",
   noServiceForWorkingDay: "Every working day needs at least one service with a meal.",
   menuServiceArchived: "A retired service cannot be on a new menu.",
   menuMealNotOffered: "A service's meal must be one of the items it offers.",

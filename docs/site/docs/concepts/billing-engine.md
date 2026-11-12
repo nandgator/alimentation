@@ -38,8 +38,10 @@ person and month) and returns a `Prepared`, which every other call takes.
 working day under the rules in force that month. There is **one row for each service the person
 takes** on that date and that the menu serves that weekday. A person who is not active that day gets
 one row with no service; a service that is not served that weekday, or that the person is not
-enrolled in, gives no row. If a working weekday is served by no service at all, the engine throws
-`EngineError('NO_MENU')`. A row's `status` is the first of:
+enrolled in, gives no row. A date before the kitchen's first menu starts has no rows either: it is
+not counted, and does not fail the month. If a working weekday under a menu is served by no service
+at all, or the kitchen has no menu, the engine throws `EngineError('NO_MENU')` with a message in
+plain words. A row's `status` is the first of:
 
 | Status         | When                                                                                                   |
 | -------------- | ------------------------------------------------------------------------------------------------------ |

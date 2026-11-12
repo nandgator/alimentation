@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { GROUP_LABEL, groupsFor, hrefOf, isHere, SECTIONS, sectionsFor } from "./sections.ts";
+import {
+  GROUP_LABEL,
+  groupsFor,
+  hrefOf,
+  isHere,
+  notHereWords,
+  SECTIONS,
+  sectionsFor,
+} from "./sections.ts";
 
 describe("the screens of a kitchen", () => {
   it("lists each screen once, with a unique address and name", () => {
@@ -34,6 +42,26 @@ describe("the screens of a kitchen", () => {
       ["The kitchen", ["People", "Catalogue", "Menu", "Prices", "Rates & rules", "Holidays"]],
       ["The books", ["Settlements", "Month close", "Audit", "Your data"]],
     ]);
+  });
+
+  it("holds back Payments and Settlements in a kitchen with money until it has prices", () => {
+    expect(sectionsFor("admin", true, false).map((s) => s.label)).not.toContain("Payments");
+    expect(sectionsFor("admin", true, false).map((s) => s.label)).not.toContain("Settlements");
+    expect(sectionsFor("admin", true, false).map((s) => s.label)).toContain("Prices");
+    expect(sectionsFor("consumer", true, false).map((s) => s.label)).toEqual([
+      "Dashboard",
+      "Daily",
+      "My log",
+      "History",
+    ]);
+    expect(sectionsFor("admin", true, true)).toEqual(sectionsFor("admin"));
+    // A kitchen without money is not asked about prices at all.
+    expect(sectionsFor("admin", false, false)).toEqual(sectionsFor("admin", false));
+  });
+
+  it("does not offer History to the admin, who has the audit trail", () => {
+    for (const money of [true, false])
+      expect(sectionsFor("admin", money).some((s) => s.key === "history")).toBe(false);
   });
 
   it("leaves out every screen about money for a kitchen that does not track it, and says Rules for Rates & rules", () => {
@@ -72,5 +100,23 @@ describe("the screens of a kitchen", () => {
     expect(isHere(base, payments!, "/w/kitchen/payments")).toBe(true);
     expect(isHere(base, payments!, "/w/kitchen/payments/9")).toBe(true);
     expect(isHere(base, payments!, "/w/kitchen/payments-old")).toBe(false);
+  });
+});
+
+describe("what is said at an address with no screen for the role", () => {
+  it("names the screen when it exists for another role, and otherwise says there is nothing", () => {
+    expect(notHereWords("/w/maple", "/w/maple/history", "admin")).toBe(
+      "History is not part of the admin view of this kitchen.",
+    );
+    expect(notHereWords("/w/maple", "/w/maple/people", "consumer")).toBe(
+      "People is not part of the member view of this kitchen.",
+    );
+    expect(notHereWords("/w/maple", "/w/maple/nowhere", "admin")).toBe(
+      "There is nothing at this address for your role.",
+    );
+    // A screen the role has, but the kitchen does not show, is not a matter of role.
+    expect(notHereWords("/w/maple", "/w/maple/payments", "admin")).toBe(
+      "There is nothing at this address for your role.",
+    );
   });
 });

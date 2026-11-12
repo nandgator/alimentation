@@ -528,6 +528,22 @@ input[type="radio"] {
   min-height: 20px;
   accent-color: var(--brand);
 }
+/* A tick box or a radio button and its words are one line: the box keeps its size and the words take the rest and
+   wrap beside it, never under it, however narrow the screen. */
+label.row:has(> input[type="checkbox"], > input[type="radio"]) {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+label.row > input[type="checkbox"],
+label.row > input[type="radio"] {
+  flex: none;
+  margin-block-start: 2px;
+}
+/* :where keeps this a default that any later rule for a span can override */
+:where(label.row:has(> input[type="checkbox"], > input[type="radio"]) > span) {
+  flex: 1 1 0;
+  min-width: 0;
+}
 /* A set of radio buttons under one question: the fieldset's frame is dropped, the question is kept as a label. */
 .choices {
   min-width: 0;
@@ -705,6 +721,58 @@ th {
   text-transform: uppercase;
   color: var(--ink-2);
   background: var(--paper-2);
+}
+/* A table of entries that is read as a list on a phone: each row is a card, each cell says what it is. The
+   column heads stay for a screen reader. Wider than a phone, it is the table it always was. */
+@media (max-width: 560px) {
+  .tablewrap.cards {
+    overflow: visible;
+    border: 0;
+    background: none;
+  }
+  table.cards,
+  table.cards tbody,
+  table.cards tr,
+  table.cards td {
+    display: block;
+  }
+  table.cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  table.cards tr {
+    margin-bottom: var(--space-2);
+    padding: var(--space-3);
+    background: var(--card);
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-md);
+  }
+  table.cards td {
+    padding: var(--space-1) 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  table.cards td[data-label] {
+    display: flex;
+    gap: var(--space-2);
+  }
+  table.cards td[data-label]::before {
+    content: attr(data-label);
+    flex: none;
+    width: 5.5rem;
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+  }
+  table.cards td:empty {
+    display: none;
+  }
+  table.cards td.r {
+    text-align: left;
+  }
 }
 /* A day with several services: the day on one line, then a line for each service under it. */
 .day-row th,

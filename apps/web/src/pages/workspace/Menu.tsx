@@ -55,7 +55,8 @@ function MenuForm({
   const several = services.length >= 2;
   const meals = offerable(boot, "meal", boot.today);
   const addOns = offerable(boot, "addon", boot.today);
-  const [from, setFrom] = useState(boot.today);
+  // The first menu starts with the month, as people and prices do; a later one starts today.
+  const [from, setFrom] = useState(boot.menu ? boot.today : `${boot.today.slice(0, 7)}-01`);
   const [grid, setGrid] = useState<Grid>(() => gridFrom(last, services, [...meals, ...addOns]));
   const [note, setNote] = useState("");
   const act = useAction();

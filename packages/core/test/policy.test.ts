@@ -192,8 +192,10 @@ describe("rules change what is billed", () => {
       ...MENU_APR,
       days: { [LUNCH]: { 1: VEG, 2: VEG, 3: NON_VEG, 4: VEG } },
     };
-    expect(() => jovialOct({ menus: [noFriday] })).toThrowError(/serves nothing/);
-    expect(() => jovialOct({ menus: [] })).toThrowError(/no menu is in force/);
+    expect(() => jovialOct({ menus: [noFriday] })).toThrowError(
+      /serves no meal on one of the days you cook/,
+    );
+    expect(() => jovialOct({ menus: [] })).toThrowError(/There is no menu yet/);
   });
 
   it("does not need a card on days that are not priced", () => {

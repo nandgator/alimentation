@@ -34,6 +34,8 @@ export interface Section {
   roles: readonly Role[];
   /** About money: a kitchen that does not track it has no such screen. */
   money?: true;
+  /** Only worth opening once the kitchen has prices: before that there is nothing to pay or settle. */
+  needsPrices?: true;
   /** What it is called in a kitchen that does not track money, where that differs. */
   labelWithoutMoney?: string;
 }
@@ -58,6 +60,7 @@ export const SECTIONS: readonly Section[] = [
     group: "day",
     roles: EVERYONE,
     money: true,
+    needsPrices: true,
   },
   {
     key: "history",
@@ -92,6 +95,7 @@ export const SECTIONS: readonly Section[] = [
     group: "books",
     roles: ADMIN,
     money: true,
+    needsPrices: true,
   },
   { key: "close", path: "/close", label: "Month close", group: "books", roles: ADMIN },
   { key: "audit", path: "/audit", label: "Audit", group: "books", roles: ADMIN },
@@ -100,24 +104,28 @@ export const SECTIONS: readonly Section[] = [
 
 /**
  * The screens a role has in a kitchen: those of the role, and, for a kitchen that does not track money, none
- * that are about money. A screen that is left out is not in the menu and has no address.
+ * that are about money, and, for a kitchen that tracks money but has no prices yet, none that need prices. A screen that is left out is not in the menu and has no address.
  */
 /** The same screens as a kitchen without money names them. Made once, so a screen is the same object each time. */
 const PLAIN: readonly Section[] = SECTIONS.map((s) =>
   s.labelWithoutMoney ? { ...s, label: s.labelWithoutMoney } : s,
 );
 
-export const sectionsFor = (role: Role, moneyEnabled = true): Section[] =>
+export const sectionsFor = (role: Role, moneyEnabled = true, priced = true): Section[] =>
   (moneyEnabled ? SECTIONS : PLAIN).filter(
-    (s) => s.roles.includes(role) && (moneyEnabled || !s.money),
+    (s) =>
+      s.roles.includes(role) &&
+      (moneyEnabled || !s.money) &&
+      (priced || !moneyEnabled || !s.needsPrices),
   );
 
 /** The menu for a role, in groups; a group with nothing in it for that role is left out. */
 export function groupsFor(
   role: Role,
   moneyEnabled = true,
+  priced = true,
 ): { key: GroupKey; label: string; sections: Section[] }[] {
-  const mine = sectionsFor(role, moneyEnabled);
+  const mine = sectionsFor(role, moneyEnabled, priced);
   return (Object.keys(GROUP_LABEL) as GroupKey[])
     .map((key) => ({
       key,
@@ -134,4 +142,14 @@ export function isHere(base: string, section: Section, location: string): boolea
   const href = hrefOf(base, section);
   if (section.path === "") return location === href || location === `${href}/`;
   return location === href || location.startsWith(`${href}/`);
+}
+
+const VIEW_OF: Record<Role, string> = { admin: "admin", supplier: "supplier", consumer: "member" };
+
+/** What to say at an address that has no screen for this role: which screen it is, if it is one, and who has it. */
+export function notHereWords(base: string, location: string, role: Role): string {
+  const other = SECTIONS.find((s) => s.path !== "" && isHere(base, s, location));
+  return other && !other.roles.includes(role)
+    ? `${other.label} is not part of the ${VIEW_OF[role]} view of this kitchen.`
+    : "There is nothing at this address for your role.";
 }

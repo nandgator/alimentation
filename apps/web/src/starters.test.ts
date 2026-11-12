@@ -60,7 +60,8 @@ describe("the starters for a new kitchen", () => {
       days: Record<string, Record<string, string>>;
       offered: Record<string, string[]>;
     };
-    expect(menu.effectiveFrom).toBe("2026-11-02");
+    // From the first of the month, though the kitchen is made on the second: people and prices start there too.
+    expect(menu.effectiveFrom).toBe("2026-11-01");
     expect(Object.keys(menu.days["svc-0"] ?? {})).toEqual(["1", "2", "3", "4", "5"]);
     expect(new Set(Object.values(menu.days["svc-0"] ?? {})).size).toBe(1);
     expect(menu.offered["svc-0"]).toHaveLength(4);

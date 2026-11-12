@@ -2,7 +2,7 @@ import { type Enrolment, type LedgerRow, rupees, type StatementDto } from "@alim
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Actor } from "../src/workspace/context.ts";
 import { ApiError } from "../src/workspace/errors.ts";
-import { type Fixture, makeFixture } from "./support/fixture.ts";
+import { type Fixture, makeFixture, moneyStatements } from "./support/fixture.ts";
 import { homePrices, setUpHomeService } from "./support/setup.ts";
 import { at } from "./support/spec.ts";
 
@@ -701,5 +701,54 @@ describe("a member whose first day is moved earlier", () => {
     const after = await dates();
     expect(after).toContain("2026-10-01");
     expect(after.filter((d) => d < "2026-10-12").length).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe("what a kitchen is asked to do first", () => {
+  it("lists the steps in the order to do them: what it serves and the menu, the people, then the prices", async () => {
+    const fx = await makeFixture();
+    try {
+      const boot = await fx.svc.bootstrap(fx.admin, ["admin"]);
+      expect(boot.setup.map((h) => h.code)).toEqual(["menu", "consumers", "rate_card"]);
+    } finally {
+      await fx.close();
+    }
+  });
+});
+
+describe("a kitchen whose first menu starts partway through the month", () => {
+  let fx: Fixture;
+  let ids: Awaited<ReturnType<typeof setUpHomeService>>;
+  let asha: Actor;
+  beforeAll(async () => {
+    fx = await makeFixture();
+    ids = await setUpHomeService(fx, { from: "2026-10-15" });
+    asha = await fx.addConsumer("Asha", "2026-10-05");
+  });
+  afterAll(async () => fx.close());
+
+  it("counts from the menu's first day and does not fail the month for the days before it", async () => {
+    const stm = (await moneyStatements(fx.svc, fx.admin, ["2026-10"]))[0] as StatementDto;
+    expect(stm.personId).toBe(asha.personId);
+    const rows = (await fx.svc.ledger(fx.admin, "2026-10", asha.personId)).rows as LedgerRow[];
+    expect(rows.some((r) => r.date < "2026-10-15" && r.status === "Meal")).toBe(false);
+    expect(rows.some((r) => r.date === "2026-10-15" && r.status === "Meal")).toBe(true);
+    const boot = await fx.svc.bootstrap(fx.admin, ["admin"]);
+    expect(boot.setup.map((h) => h.code)).not.toContain("no_menu");
+    expect(ids.lunch).toBeTruthy();
+  });
+
+  it("says in plain words that there is no menu, when there is none", async () => {
+    const bare = await makeFixture();
+    try {
+      const who = await bare.addConsumer("Bina", "2026-10-05");
+      const err = await thrown(bare.svc.ledger(bare.admin, "2026-10", who.personId));
+      expect(err.code).toBe("no_menu");
+      expect(err.message).toBe(
+        "There is no menu yet, so there is nothing to count. Add one under Menu.",
+      );
+    } finally {
+      await bare.close();
+    }
   });
 });

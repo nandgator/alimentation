@@ -10,6 +10,7 @@ import {
   type Weekday,
   weekdayOf,
 } from "./dates.ts";
+import { MSG } from "./messages.ts";
 import { fractionOf, type Paise } from "./money.ts";
 import { must } from "./must.ts";
 import { autoCloseDate, type Policy, type PolicyVersion, policyForMonth } from "./policy.ts";
@@ -406,13 +407,15 @@ function dayRows(p: Prepared, person: Person, date: IsoDate, priced: boolean): L
       holidayName: holiday.name,
     }));
 
-  if (!menu) throw new EngineError("NO_MENU", `no menu is in force on ${date}`, date);
-  if (cells.length === 0)
-    throw new EngineError(
-      "NO_MENU",
-      `the menu from ${menu.effectiveFrom} serves nothing on this weekday`,
-      date,
-    );
+  if (!menu) {
+    // A day before the kitchen's first menu is simply not counted: the kitchen had not said what it serves,
+    // so there is nothing to bill or to get wrong. With no menu at all, nothing can be counted, and that is said.
+    const first = p.menus[0];
+    if (first && date < first.effectiveFrom) return [];
+    throw new EngineError("NO_MENU", MSG.noMenuYet, date);
+  }
+  // A working day with a menu in force that serves nothing is still a mistake in the menu, and is named.
+  if (cells.length === 0) throw new EngineError("NO_MENU", MSG.menuServesNothing, date);
 
   const off = p.supplierOff.get(date);
   // Stryker disable next-line ArrayDeclaration: an empty fallback is never read as data
