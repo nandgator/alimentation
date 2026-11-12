@@ -706,6 +706,14 @@ th {
   color: var(--ink-2);
   background: var(--paper-2);
 }
+/* A day with several services: the day on one line, then a line for each service under it. */
+.day-row th,
+.day-row td {
+  font-weight: 600;
+}
+.service-row td:first-child {
+  padding-left: var(--space-5);
+}
 tr:last-child td {
   border-bottom: 0;
 }
@@ -784,6 +792,28 @@ td.linked > button[disabled] .nm {
 }
 .chip + .chip {
   margin-left: 6px;
+}
+/* A choice among many short names, such as the items a service offers: each is a box and a name in a pill. */
+.chip-checks {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.chip-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  cursor: pointer;
+}
+.chip-check:has(input:checked) {
+  background: var(--paper-2);
+}
+.chip-check:has(input:disabled) {
+  cursor: default;
 }
 /* What has been done to your records: a time, and a sentence. */
 .history {

@@ -48,10 +48,15 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       await expect(page.getByRole("heading", { name: "Your kitchens" })).toBeVisible();
       await page.getByLabel("Name", { exact: true }).fill("Test Kitchen");
       await page.getByLabel("Address").fill(slug);
+      // A kitchen can start from a home lunch, a mess or nothing; this one starts from nothing, and is built by hand.
+      await expect(page.getByLabel(/^Home lunch/)).toBeChecked();
+      await page.getByLabel(/^Blank/).check();
       await page.getByRole("button", { name: "Create" }).click();
       await page.waitForURL(`**/w/${slug}`);
       await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-      await expect(page.getByText("Add the menu to start counting meals.")).toBeVisible();
+      await expect(
+        page.getByText("Add what you serve, then the menu, to start counting meals."),
+      ).toBeVisible();
       await expect(page.getByText("Add prices to start billing.")).toBeVisible();
       await expectAccessible(page, "new kitchen");
       // The menu is a grouped column beside the page on a wide screen, and a bar at the bottom on a phone.
@@ -67,7 +72,32 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       await shot(page, info, "1-new-kitchen");
     });
 
-    await test.step("the menu and the prices are set once, by the admin, each on its own screen", async () => {
+    await test.step("what is served, the menu and the prices are set once, by the admin, each on its own screen", async () => {
+      await go(page, "Catalogue");
+      // A kitchen made by hand has no service yet: the first is Lunch.
+      await page.getByRole("button", { name: "Add a service" }).click();
+      const svc = page.getByRole("dialog", { name: "Add a service" });
+      await svc.getByLabel("Name").fill("Lunch");
+      await svc.getByRole("button", { name: "Add service" }).click();
+      await expect(page.getByRole("cell", { name: "Lunch", exact: true })).toBeVisible();
+      for (const [kind, name, unit] of [
+        ["Meal", "Veg", "plate"],
+        ["Meal", "Non Veg", "plate"],
+        ["Add-on", "Chapati", "piece"],
+        ["Add-on", "Bhakri", "piece"],
+      ] as const) {
+        await page.getByRole("button", { name: "Add an item" }).click();
+        const add = page.getByRole("dialog", { name: "Add an item" });
+        await add.getByLabel(new RegExp(`^${kind}`)).check();
+        await add.getByLabel("Name", { exact: true }).fill(name);
+        await add.getByLabel("Counted in").fill(unit);
+        if (name === "Veg") await expectAccessible(page, "add an item");
+        await add.getByRole("button", { name: "Add", exact: true }).click();
+        await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
+      }
+      await expectAccessible(page, "catalogue");
+      await shot(page, info, "1b-catalogue");
+
       await go(page, "Menu");
       await page.getByRole("button", { name: "New menu" }).click();
       const menuDlg = page.getByRole("dialog", { name: "New menu" });
@@ -79,7 +109,10 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
         ["Thu", "Veg"],
         ["Fri", "Non Veg"],
       ])
-        await menuDlg.getByLabel(`Menu on ${d}`).selectOption(m!);
+        await menuDlg.getByLabel(`Menu on ${d}`).selectOption({ label: m! });
+      // One service: no service anywhere in the form.
+      await expect(menuDlg.getByText("Offered in")).toHaveCount(0);
+      for (const item of ["Chapati", "Bhakri"]) await menuDlg.getByLabel(item).check();
       await expectAccessible(page, "menu dialog");
       await menuDlg.getByRole("button", { name: "Add menu" }).click();
       await expect(page.getByRole("cell", { name: "Non Veg" }).first()).toBeVisible();
@@ -89,11 +122,12 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       await page.getByRole("button", { name: "New prices" }).click();
       const dlg = page.getByRole("dialog", { name: "New prices" });
       await dlg.getByLabel("Applies from").fill(firstOfMonth());
-      await dlg.getByLabel("Veg meal (₹)", { exact: true }).fill("150");
-      await dlg.getByLabel("Non-veg meal (₹)").fill("170");
-      await dlg.getByLabel("Extra chapati (₹)").fill("15");
-      await dlg.getByLabel("Extra bhakri (₹)").fill("30");
-      await dlg.getByLabel("Extras charged monthly (₹)").fill("40");
+      await dlg.getByLabel("Veg (₹ per plate)", { exact: true }).fill("150");
+      await dlg.getByLabel("Non Veg (₹ per plate)").fill("170");
+      await dlg.getByLabel("Chapati (₹ per piece)").fill("15");
+      await dlg.getByLabel("Bhakri (₹ per piece)").fill("30");
+      await dlg.getByLabel("Monthly fee (₹)").fill("40");
+      await expect(dlg.getByText("Different price in a service")).toHaveCount(0);
       await expectAccessible(page, "prices dialog");
       await dlg.getByRole("button", { name: "Add prices" }).click();
       await expect(page.getByRole("cell", { name: "₹150" })).toBeVisible();
@@ -146,7 +180,9 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       await jovial.waitForURL(`**/w/${slug}`);
       await expect(jovial.getByRole("heading", { name: "Dashboard" })).toBeVisible();
       await expect(tile(jovial, "Bill")).not.toHaveText("-");
-      await expect(jovial.getByText("Veg ₹150 · Non Veg ₹170")).toBeVisible();
+      await expect(jovial.getByText(/Veg ₹150 · Non Veg ₹170/)).toBeVisible();
+      await expect(jovial.getByRole("heading", { name: "Your bill" })).toBeVisible();
+      await expect(jovial.getByRole("cell", { name: "Veg", exact: true })).toBeVisible();
       await expectAccessible(jovial, "member dashboard");
       await shot(jovial, info, "4-member-dashboard");
       // The same link does not work a second time, and people-management is not theirs.

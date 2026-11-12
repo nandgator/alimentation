@@ -31,8 +31,8 @@ describe("[P7] one person's rows are invisible to everyone else", () => {
   });
 
   it("shows a consumer their own entries and the kitchen's off days, never another consumer's", async () => {
-    const mine = await rows(s.jovial, "SELECT person_id, change FROM log_entry ORDER BY on_date");
-    expect(mine.map((r) => r.change)).toEqual(["Extra Bhakri", "Supplier Off"]);
+    const mine = await rows(s.jovial, "SELECT person_id, action FROM log_entry ORDER BY on_date");
+    expect(mine.map((r) => r.action)).toEqual(["Extra", "Supplier Off"]);
     expect(mine.every((r) => r.person_id === s.jovial.personId || r.person_id === null)).toBe(true);
     const probe = await rows(s.jovial, "SELECT * FROM log_entry WHERE person_id = $1", [
       s.smruti.personId,
@@ -78,7 +78,13 @@ describe("[P7] one person's rows are invisible to everyone else", () => {
       "month_close",
       "audit_log",
       "rate_card",
+      "rate_price",
       "menu",
+      "menu_offer",
+      "menu_day",
+      "service",
+      "catalogue_item",
+      "person_service",
       "holiday",
       "workspace",
     ]) {
@@ -90,7 +96,7 @@ describe("[P7] one person's rows are invisible to everyone else", () => {
     const forOther = dbError(
       rows(
         s.jovial,
-        `INSERT INTO log_entry (on_date, person_id, change, logged_by) VALUES ('2026-10-14', $1, 'Leave', $2)`,
+        `INSERT INTO log_entry (on_date, person_id, action, logged_by) VALUES ('2026-10-14', $1, 'Leave', $2)`,
         [s.smruti.personId, s.jovial.personId],
       ),
     );
@@ -98,7 +104,7 @@ describe("[P7] one person's rows are invisible to everyone else", () => {
     const off = dbError(
       rows(
         s.jovial,
-        `INSERT INTO log_entry (on_date, all_consumers, change, logged_by) VALUES ('2026-10-14', true, 'Supplier Off', $1)`,
+        `INSERT INTO log_entry (on_date, all_consumers, action, logged_by) VALUES ('2026-10-14', true, 'Supplier Off', $1)`,
         [s.jovial.personId],
       ),
     );
@@ -123,10 +129,7 @@ describe("[P7] one person's rows are invisible to everyone else", () => {
 
   it("stops a consumer changing prices, rules, people, holidays or settlements", async () => {
     const attempts: [string, unknown[]][] = [
-      [
-        `INSERT INTO rate_card (effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month) VALUES ('2030-01-01', 1, 1, 1, 1, 1)`,
-        [],
-      ],
+      [`INSERT INTO rate_card (effective_from, monthly_fee) VALUES ('2030-01-01', 1)`, []],
       [`INSERT INTO policy_version (effective_from, doc) VALUES ('2030-01-01', '{}')`, []],
       [`INSERT INTO person (role, name_enc) VALUES ('admin', $1)`, [fakeEnc("x")]],
       [`INSERT INTO holiday (name, on_date) VALUES ('x', '2026-10-30')`, []],
@@ -300,7 +303,7 @@ describe("the database, not the caller, says who did it and when", () => {
   it("overwrites a forged author and time on a log entry", async () => {
     const forged = await asActor(ws.app, s.jovial, async (c) => {
       const r = await c.query(
-        `INSERT INTO log_entry (on_date, person_id, change, logged_by, logged_at) VALUES ('2026-10-14', $1, 'Leave', $2, '2020-01-01') RETURNING logged_by, logged_at`,
+        `INSERT INTO log_entry (on_date, person_id, action, logged_by, logged_at) VALUES ('2026-10-14', $1, 'Leave', $2, '2020-01-01') RETURNING logged_by, logged_at`,
         [s.jovial.personId, s.smruti.personId],
       );
       return r.rows[0];
@@ -362,15 +365,28 @@ describe("what a log entry may be", () => {
     actor: Parameters<typeof asActor>[1],
     date: string,
     person: string | null,
-    change: string,
+    action: string,
     qty: number | null = null,
     all = false,
+    what: { service?: string | null; item?: string | null; kind?: string | null } = {},
   ) =>
     rows(
       actor,
-      `INSERT INTO log_entry (on_date, person_id, all_consumers, change, qty, logged_by) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [date, person, all, change, qty, s.admin.personId],
+      `INSERT INTO log_entry (on_date, person_id, all_consumers, action, service_id, item_id, item_kind, qty, logged_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        date,
+        person,
+        all,
+        action,
+        what.service ?? null,
+        what.item ?? null,
+        what.kind ?? null,
+        qty,
+        s.admin.personId,
+      ],
     );
+  const lunch = (item: string, kind: string) => ({ service: s.ids.lunch, item, kind });
 
   it("refuses weekends, and honours a workspace that works Saturdays", async () => {
     const sat = await dbError(insert(s.admin, "2026-10-17", s.jovial.personId, "Leave"));
@@ -398,16 +414,53 @@ describe("what a log entry may be", () => {
       "23514",
     );
     expect(
-      (await dbError(insert(s.admin, "2026-10-13", s.jovial.personId, "Extra Chapati"))).code,
+      (
+        await dbError(
+          insert(
+            s.admin,
+            "2026-10-13",
+            s.jovial.personId,
+            "Extra",
+            null,
+            false,
+            lunch(s.ids.chapati, "addon"),
+          ),
+        )
+      ).code,
     ).toBe("23514");
     expect((await dbError(insert(s.admin, "2026-10-13", s.jovial.personId, "Leave", 2))).code).toBe(
       "23514",
     );
+    // Above the item's own largest quantity the stamp trigger speaks first (see the catalogue tests).
     expect(
-      (await dbError(insert(s.admin, "2026-10-13", s.jovial.personId, "Extra Bhakri", 21))).code,
-    ).toBe("23514");
+      (
+        await dbError(
+          insert(
+            s.admin,
+            "2026-10-13",
+            s.jovial.personId,
+            "Extra",
+            21,
+            false,
+            lunch(s.ids.bhakri, "addon"),
+          ),
+        )
+      ).message,
+    ).toContain("at most 20");
     expect(
-      (await dbError(insert(s.admin, "2026-10-13", s.jovial.personId, "Extra Bhakri", 0))).code,
+      (
+        await dbError(
+          insert(
+            s.admin,
+            "2026-10-13",
+            s.jovial.personId,
+            "Extra",
+            0,
+            false,
+            lunch(s.ids.bhakri, "addon"),
+          ),
+        )
+      ).code,
     ).toBe("23514");
   });
 
@@ -416,9 +469,29 @@ describe("what a log entry may be", () => {
     expect((await dbError(insert(s.admin, "2026-10-21", s.jovial.personId, "Leave"))).code).toBe(
       "23505",
     );
-    await insert(s.admin, "2026-10-22", s.jovial.personId, "Switch to Veg");
+    await insert(
+      s.admin,
+      "2026-10-22",
+      s.jovial.personId,
+      "Switch",
+      null,
+      false,
+      lunch(s.ids.veg, "meal"),
+    );
     expect(
-      (await dbError(insert(s.admin, "2026-10-22", s.jovial.personId, "Switch to Veg"))).code,
+      (
+        await dbError(
+          insert(
+            s.admin,
+            "2026-10-22",
+            s.jovial.personId,
+            "Switch",
+            null,
+            false,
+            lunch(s.ids.nonVeg, "meal"),
+          ),
+        )
+      ).code,
     ).toBe("23505");
     expect(
       (await dbError(insert(s.admin, "2026-10-07", null, "Supplier Off", null, true))).code,
@@ -441,7 +514,7 @@ describe("closed months", () => {
   const entry = (actor: Parameters<typeof asActor>[1], person: string, date: string) =>
     asActor(ws2.app, actor, (c) =>
       c.query(
-        `INSERT INTO log_entry (on_date, person_id, change, logged_by) VALUES ($1, $2, 'Leave', $3)`,
+        `INSERT INTO log_entry (on_date, person_id, action, logged_by) VALUES ($1, $2, 'Leave', $3)`,
         [date, person, t.admin.personId],
       ),
     );
@@ -455,7 +528,7 @@ describe("closed months", () => {
 
   it("refuses the consumer taking back an entry in a closed month", async () => {
     await ws2.owner.query(
-      `INSERT INTO log_entry (on_date, person_id, change, logged_by) VALUES ('2026-10-15', $1, 'Leave', $1)`,
+      `INSERT INTO log_entry (on_date, person_id, action, logged_by) VALUES ('2026-10-15', $1, 'Leave', $1)`,
       [t.jovial.personId],
     );
     const del = await dbError(
@@ -509,12 +582,18 @@ describe("everyone can see what was done to their own records", () => {
     );
 
   const CORE = [
+    "catalogue_item",
     "claim",
     "claim_decision",
     "log_entry",
     "menu",
+    "menu_day",
+    "menu_offer",
     "month_close",
+    "person_service",
     "rate_card",
+    "rate_price",
+    "service",
     "settlement",
   ];
 
@@ -573,7 +652,7 @@ describe("everyone can see what was done to their own records", () => {
     const id = randomUUID();
     await asActor(ws.app, s.jovial, (c) =>
       c.query(
-        `INSERT INTO log_entry (id, on_date, person_id, change, logged_by) VALUES ($1, '2026-10-20', $2, 'Leave', $2)`,
+        `INSERT INTO log_entry (id, on_date, person_id, action, logged_by) VALUES ($1, '2026-10-20', $2, 'Leave', $2)`,
         [id, s.jovial.personId],
       ),
     );

@@ -14,15 +14,18 @@ const AfterClose = z.enum(["flag", "block"]);
 export const PolicySchema = z
   .object({
     version: z.literal(1),
-    /** 0 is Sunday. Each of these needs an entry on the menu. */
+    /** 0 is Sunday. Each of these must be served by at least one service on the menu. */
     workingDays: z
       .array(z.number().int().min(0).max(6))
       .min(1)
       .refine((a) => new Set(a).size === a.length, "workingDays must be distinct"),
     holidays: z.object({ count: z.enum(["confirmed", "all"]) }).strict(),
-    /** Null means no flat monthly extras. The amount comes from the rate card. */
-    extras: z
-      .object({ minMeals: z.number().int().min(1).max(31) })
+    /**
+     * Null means no flat monthly fee. Otherwise the fee on the rate card is charged in a month with at least
+     * this many days on which the person has a meal, however many services they eat on one of those days.
+     */
+    monthlyFee: z
+      .object({ minDays: z.number().int().min(1).max(31) })
       .strict()
       .nullable(),
     /** Share of the day's meal price charged on a leave day, in basis points. */
@@ -58,7 +61,7 @@ export const DEFAULT_POLICY: Policy = {
   version: 1,
   workingDays: [1, 2, 3, 4, 5],
   holidays: { count: "confirmed" },
-  extras: { minMeals: 1 },
+  monthlyFee: { minDays: 1 },
   leave: { chargeBps: 0 },
   monthClose: { mode: "manual", afterClose: "flag" },
   exceptionCutoff: null,
@@ -75,14 +78,14 @@ export interface PolicyVersion {
  * The four rules that are about money. A kitchen that does not track money has none of them: they sit at these
  * neutral values, do nothing, and are not shown or taken.
  */
-export const MONEY_RULES = ["extras", "leave", "payments", "rateCards"] as const;
+export const MONEY_RULES = ["monthlyFee", "leave", "payments", "rateCards"] as const;
 export type MoneyRule = (typeof MONEY_RULES)[number];
 
 /** The rules as a kitchen without money has them: the money rules at their neutral values. */
 export function withoutMoneyRules(doc: Policy): Policy {
   return {
     ...doc,
-    extras: DEFAULT_POLICY.extras,
+    monthlyFee: DEFAULT_POLICY.monthlyFee,
     leave: DEFAULT_POLICY.leave,
     payments: DEFAULT_POLICY.payments,
     rateCards: DEFAULT_POLICY.rateCards,
@@ -94,7 +97,7 @@ export type PolicyView = Omit<Policy, MoneyRule> & Partial<Pick<Policy, MoneyRul
 
 export function policyView(doc: Policy, moneyEnabled: boolean): PolicyView {
   if (moneyEnabled) return doc;
-  const { extras: _e, leave: _l, payments: _p, rateCards: _r, ...rest } = doc;
+  const { monthlyFee: _e, leave: _l, payments: _p, rateCards: _r, ...rest } = doc;
   return rest;
 }
 

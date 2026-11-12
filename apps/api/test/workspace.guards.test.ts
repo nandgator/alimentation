@@ -44,7 +44,7 @@ describe("[P1] a free workspace has caps that cannot be dodged", () => {
     const leave = (a: Seeded["jovial"], date: string) =>
       asActor(ws.app, a, (c) =>
         c.query(
-          `INSERT INTO log_entry (on_date, person_id, change, logged_by) VALUES ($1, $2, 'Leave', $2)`,
+          `INSERT INTO log_entry (on_date, person_id, action, logged_by) VALUES ($1, $2, 'Leave', $2)`,
           [date, a.personId],
         ),
       );
@@ -79,7 +79,7 @@ describe("[P1] a free workspace has caps that cannot be dodged", () => {
     await ws.owner.query("UPDATE workspace SET people_cap = NULL, row_cap = NULL");
     await asActor(ws.app, s.jovial, (c) =>
       c.query(
-        `INSERT INTO log_entry (on_date, person_id, change, logged_by) VALUES ('2026-10-15', $1, 'Leave', $1)`,
+        `INSERT INTO log_entry (on_date, person_id, action, logged_by) VALUES ('2026-10-15', $1, 'Leave', $1)`,
         [s.jovial.personId],
       ),
     );
@@ -135,18 +135,19 @@ describe("[P5] personal data reaches the database only as ciphertext", () => {
       // letters, digits and a few marks by a CHECK so that a name, an email or a number to call cannot be one.
       "person.external_key",
       "policy_version.doc",
-      "menu.menu_sun",
-      "menu.menu_mon",
-      "menu.menu_tue",
-      "menu.menu_wed",
-      "menu.menu_thu",
-      "menu.menu_fri",
-      "menu.menu_sat",
+      // What a kitchen calls its services and items, and the unit it counts them in: a few words chosen by the
+      // admin, like a holiday's name. The kind and the action are from fixed lists.
+      "service.name",
+      "catalogue_item.kind",
+      "catalogue_item.name",
+      "catalogue_item.unit",
+      "menu_day.meal_kind",
       "menu.note",
       "rate_card.note",
       "holiday.name",
       "holiday.location",
-      "log_entry.change",
+      "log_entry.action",
+      "log_entry.item_kind",
       "claim.method",
       "claim_decision.decision",
       "settlement.type",
@@ -464,7 +465,7 @@ describe("[P3] a workspace being moved can be read and not written, by the datab
     await ws.owner.query("UPDATE workspace SET read_only = true");
     const writes: [string, unknown[]][] = [
       [
-        `INSERT INTO log_entry (on_date, person_id, change, logged_by) VALUES ('2026-10-14', $1, 'Leave', $1)`,
+        `INSERT INTO log_entry (on_date, person_id, action, logged_by) VALUES ('2026-10-14', $1, 'Leave', $1)`,
         [s.jovial.personId],
       ],
       [
@@ -721,6 +722,8 @@ describe("[P1] nothing in the schema is open to everyone by accident", () => {
         "app_role",
         "bind_account",
         "close_blocks_admin",
+        "enrolled_on",
+        "enrolment_locked",
         "is_app_session",
         "is_working_day",
         "money_enabled",

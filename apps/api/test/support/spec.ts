@@ -1,25 +1,23 @@
-import { rupees } from "@alimentation/core";
 import type { Actor } from "../../src/workspace/context.ts";
+import { type CatalogueIds, seedCatalogue } from "./catalogue.ts";
 import type { Fixture } from "./fixture.ts";
 
-export const MENU = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" } as const;
 export const at = (iso: string) => new Date(iso);
 
-/** The spec's seed (section 10), entered the way people would enter it. */
-export async function seedSpec(
-  fx: Fixture,
-): Promise<{ jovial: Actor; smruti: Actor; admin: Actor; supplier: Actor }> {
+/**
+ * The spec's seed (section 10): what the kitchen serves and its prices as rows, the way an import writes
+ * them, and the people and the two entries entered through the service, the way people would enter them.
+ */
+export async function seedSpec(fx: Fixture): Promise<{
+  jovial: Actor;
+  smruti: Actor;
+  admin: Actor;
+  supplier: Actor;
+  ids: CatalogueIds;
+}> {
   fx.clock.now = at("2026-09-30T06:00:00Z");
   const { svc, admin, supplier } = fx;
-  await svc.addRateCard(admin, {
-    effectiveFrom: "2026-04-01",
-    veg: rupees(150),
-    nonVeg: rupees(170),
-    extraChapati: rupees(15),
-    extraBhakri: rupees(30),
-    extrasPerMonth: rupees(40),
-  });
-  await svc.addMenu(admin, { effectiveFrom: "2026-04-01", menu: MENU });
+  const ids = await seedCatalogue(fx.ws.owner, { money: fx.info.moneyEnabled });
   for (const [date, name, confirmed] of [
     ["2026-05-01", "Maharashtra Day", true],
     ["2026-09-14", "Holiday", true],
@@ -39,17 +37,21 @@ export async function seedSpec(
     date: "2026-10-01",
     personId: jovial.personId,
     allConsumers: false,
-    change: "Extra Bhakri",
+    action: "Extra",
+    serviceId: ids.lunch,
+    itemId: ids.bhakri,
     qty: 2,
   });
   await svc.addLog(smruti, {
     date: "2026-10-16",
     personId: smruti.personId,
     allConsumers: false,
-    change: "Leave",
+    action: "Leave",
+    serviceId: null,
+    itemId: null,
     qty: null,
     note: "WFH",
   });
   fx.clock.now = at("2026-11-15T06:00:00Z");
-  return { jovial, smruti, admin, supplier };
+  return { jovial, smruti, admin, supplier, ids };
 }

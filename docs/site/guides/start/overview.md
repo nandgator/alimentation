@@ -14,9 +14,9 @@ They are short, they take one job at a time, and they use no jargon.
 ## How a month works
 
 - **Everyone gets the day's meal unless they say otherwise.** Nobody logs a plain lunch. People log
-  only the exceptions: a day on leave, a switched dish, two extra chapatis.
-- **The bill is worked out from the rules, never typed in.** Prices, the weekly menu, holidays and a
-  few kitchen rules go in once. The month's bill follows.
+  only the exceptions: a day on leave, a switched dish, two extra pieces of something.
+- **The bill is worked out from the rules, never typed in.** What the kitchen serves, the weekly
+  menu, prices, holidays and a few kitchen rules go in once. The month's bill follows.
 - **Paying takes two people.** A member says they paid. The supplier confirms it. Once decided, that
   decision cannot be quietly changed.
 - **Everything has a name and a time on it.** Who did what, and when, is written down, and the

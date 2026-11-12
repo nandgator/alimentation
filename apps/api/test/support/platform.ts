@@ -150,5 +150,3 @@ export async function makePlatform(
     },
   };
 }
-
-export const MENU = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" } as const;

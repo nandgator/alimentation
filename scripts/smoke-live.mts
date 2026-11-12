@@ -110,10 +110,30 @@ try {
   const w = `/api/w/${slug}`;
   const first = new Date();
   const day = `${first.getUTCFullYear()}-${String(first.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const made1 = async (path: string, body: unknown, what: string): Promise<string> =>
+    must(await call("POST", `${w}/${path}`, body), 201, what).id as string;
+  const service = await made1("services", { name: "Lunch" }, "service");
+  const meal = await made1(
+    "catalogue",
+    { kind: "meal", name: "Thali", unit: "plate", maxQty: 20 },
+    "meal",
+  );
+  const other = await made1(
+    "catalogue",
+    { kind: "meal", name: "Khichdi", unit: "plate", maxQty: 20 },
+    "meal",
+  );
+  const addOn = await made1(
+    "catalogue",
+    { kind: "addon", name: "Curd", unit: "cup", maxQty: 20 },
+    "add-on",
+  );
   must(
     await call("POST", `${w}/menus`, {
       effectiveFrom: day,
-      menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
+      days: { [service]: { 1: meal, 2: meal, 3: other, 4: meal, 5: other } },
+      offered: { [service]: [meal, other, addOn] },
+      note: null,
     }),
     201,
     "menu",
@@ -121,11 +141,13 @@ try {
   must(
     await call("POST", `${w}/rate-cards`, {
       effectiveFrom: day,
-      veg: 15000,
-      nonVeg: 17000,
-      extraChapati: 1500,
-      extraBhakri: 3000,
-      extrasPerMonth: 4000,
+      prices: [
+        { itemId: meal, serviceId: null, amount: 15000 },
+        { itemId: other, serviceId: null, amount: 17000 },
+        { itemId: addOn, serviceId: null, amount: 1500 },
+      ],
+      monthlyFee: 4000,
+      note: null,
     }),
     201,
     "rate card",

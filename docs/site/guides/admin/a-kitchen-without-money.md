@@ -31,40 +31,43 @@ meals. The page says so.
 Everything about who eats and when:
 
 - people and their roles, and the invitations that bring them in;
-- holidays, working days and the **menu**;
+- holidays, working days, the **catalogue** of what you serve, your services and the **menu**;
 - leave, switches, and the days the supplier is off, with the cut-off you set;
-- extras, as **counts**: how many extra chapatis and bhakris, never what they cost;
-- the Dashboard and Daily screens, as numbers of meals, leave days and extras;
+- add-ons, as **counts**: how many of each were asked for, never what they cost;
+- the Dashboard and Daily screens, as numbers of meals (by item), leave days and add-ons;
 - the history of what was done, the audit trail, your data, moving and deleting;
 - keys for helpers that read and log;
-- closing a month, as a **lock**: after it, nobody changes that month's meals, leave and extras. It
+- closing a month, as a **lock**: after it, nobody changes that month's meals, leave and add-ons. It
   freezes no amount, because there is none.
 
 ## What it leaves out
 
 Prices, bills, claims, confirming payments, settlements, balances, and every figure of money on the
 dashboard, the lists and the head office pages. The rules that are about money (what a leave day is
-charged, monthly extras, how payments are recorded, how far back prices may start) are not shown.
+charged, the monthly fee, how payments are recorded, how far back prices may start) are not shown.
 The **Payments**, **Prices** and **Settlements** screens are not in the menu. A helper cannot be
 given the right to say a payment was made.
 
 This is not just hidden: the kitchen's own database refuses to hold a price, a claim or a payment,
 so it cannot appear by mistake.
 
-## The menu is its own thing
+## What you serve is its own thing
 
-Every kitchen has a **menu**: which meal is served on each working day, from a date. It is added,
-never edited, like the rules. A kitchen that tracks money needs both a menu and prices before it can
-bill; a kitchen without money needs only the menu. The days your rules say you cook are the days
-that need a meal on the menu.
+Every kitchen has a **catalogue** (the meals and add-ons it serves), its **services**, and a
+**menu**: which meal each service serves on each working day, from a date. None of them carries a
+price. The menu is added, never edited, like the rules. A kitchen that tracks money needs a menu and
+a price for every item on it before it can bill; a kitchen without money needs only the menu. The
+days your rules say you cook are the days that need a service serving them. See
+[What you serve](/guides/admin/what-you-serve/).
 
 ## Moving
 
 - A kitchen without money can move to a place of your own and stay as it is.
 - It can also be sent to an Alimentation of your own **as a kitchen that tracks money**: tick
-  **Track money in the new kitchen** when you move. Its people, menu, log, holidays and rules
-  arrive, and so do its locked months, still locked. It has no prices yet, so it says **Add prices
-  to start billing**. The copy is checked meal for meal.
+  **Track money in the new kitchen** when you move. Its people, catalogue, services, menu, log,
+  holidays and rules arrive, and so do its locked months, still locked. It has no prices yet, so it
+  says **Price N items to start billing** and lists exactly those items. The copy is checked meal
+  for meal.
 - A kitchen that tracks money cannot be moved into a kitchen that does not, because its prices and
   payments would be lost. The move is refused and nothing changes.
 

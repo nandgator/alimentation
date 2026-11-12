@@ -1,11 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  buildMealStatements,
   buildStatements,
   type Claim,
   type Decision,
   daysBetween,
-  type LogChange,
   type LogEntry,
   ledgerMonth,
   monthEnd,
@@ -14,18 +14,42 @@ import {
   type Settlement,
   weekdayOf,
 } from "../src/index.ts";
-import { CARD_APR, CARD_NOV, close, JOVIAL, policyWith, prep } from "./fixtures.ts";
+import {
+  BHAKRI,
+  CARD_APR,
+  CARD_NOV,
+  CATALOGUE,
+  CHAPATI,
+  close,
+  JOVIAL,
+  LUNCH,
+  NON_VEG,
+  policyWith,
+  prep,
+  SERVICES,
+  VEG,
+  withPrice,
+} from "./fixtures.ts";
 
 const OCT = daysBetween(monthStart("2026-10"), monthEnd("2026-10")).filter(
   (d) => weekdayOf(d) >= 1 && weekdayOf(d) <= 5,
 );
-const CHANGES: LogChange[] = [
+type Change = "Leave" | "Switch Veg" | "Switch Non Veg" | "Extra Chapati" | "Extra Bhakri";
+const CHANGES: Change[] = [
   "Leave",
-  "Switch to Veg",
-  "Switch to Non Veg",
+  "Switch Veg",
+  "Switch Non Veg",
   "Extra Chapati",
   "Extra Bhakri",
 ];
+
+const SHAPE: Record<Change, Pick<LogEntry, "action" | "serviceId" | "itemId">> = {
+  Leave: { action: "Leave", serviceId: null, itemId: null },
+  "Switch Veg": { action: "Switch", serviceId: LUNCH, itemId: VEG },
+  "Switch Non Veg": { action: "Switch", serviceId: LUNCH, itemId: NON_VEG },
+  "Extra Chapati": { action: "Extra", serviceId: LUNCH, itemId: CHAPATI },
+  "Extra Bhakri": { action: "Extra", serviceId: LUNCH, itemId: BHAKRI },
+};
 
 const logArb = fc
   .array(
@@ -43,7 +67,7 @@ const logArb = fc
       date: r.day,
       personId: "jovial",
       allConsumers: false,
-      change: r.change,
+      ...SHAPE[r.change],
       qty: r.change.startsWith("Extra") ? r.qty : null,
       note: null,
       loggedBy: "jovial",
@@ -62,11 +86,13 @@ describe("statement invariants over arbitrary logs", () => {
         const p = prep({ log });
         const days = ledgerMonth(p, JOVIAL, "2026-10");
         const s = buildStatements(p, ["jovial"], ["2026-10"])[0]!;
-        const daily = days.reduce((a, d) => a + d.dayTotal, 0);
-        expect(daily + s.extrasAmount).toBe(s.liveTotal);
-        expect(s.mealsAmount + s.breadAmount + s.leaveAmount).toBe(daily);
+        const daily = days.reduce((a, d) => a + d.rowTotal, 0);
+        expect(daily + s.feeAmount).toBe(s.liveTotal);
+        expect(s.mealsAmount + s.addOnAmount + s.leaveAmount).toBe(daily);
         expect(s.counts.meals).toBe(days.filter((d) => d.status === "Meal").length);
-        expect(s.counts.veg + s.counts.nonVeg).toBe(s.counts.meals);
+        // The meal items add up to the servings, and the lines add up to the bill less leave and fee.
+        expect(Object.values(s.counts.items).reduce((a, b) => a + b, 0)).toBe(s.counts.meals);
+        expect(s.lines.reduce((a, l) => a + l.amount, 0)).toBe(s.mealsAmount + s.addOnAmount);
       }),
       RUNS,
     );
@@ -93,7 +119,9 @@ describe("statement invariants over arbitrary logs", () => {
           date: day,
           personId: "jovial",
           allConsumers: false,
-          change: "Leave",
+          action: "Leave",
+          serviceId: null,
+          itemId: null,
           qty: null,
           note: null,
           loggedBy: "jovial",
@@ -114,7 +142,9 @@ describe("statement invariants over arbitrary logs", () => {
           date: day,
           personId: null,
           allConsumers: true,
-          change: "Supplier Off",
+          action: "Supplier Off",
+          serviceId: null,
+          itemId: null,
           qty: null,
           note: null,
           loggedBy: "maple",
@@ -158,11 +188,9 @@ describe("statement invariants over arbitrary logs", () => {
         fc.constantFrom("2026-11-01", "2026-11-15", "2027-03-01"),
         (log, price, from) => {
           const later = {
-            ...CARD_NOV,
+            ...withPrice(withPrice(CARD_NOV, VEG, price), NON_VEG, price + 1),
             id: "later",
             effectiveFrom: from,
-            veg: price,
-            nonVeg: price + 1,
           };
           expect(stmt({ log, rateCards: [CARD_APR, later] })).toEqual(
             stmt({ log, rateCards: [CARD_APR] }),
@@ -184,6 +212,48 @@ describe("statement invariants over arbitrary logs", () => {
         });
         expect(later.billed).toBe(frozen.liveTotal);
         expect(later.changedAfterClose).toBe(later.liveTotal - frozen.liveTotal);
+      }),
+      RUNS,
+    );
+  });
+});
+
+describe("what the engine does not look at", () => {
+  it("a rename, an archive or a reordering of the catalogue changes no ledger and no statement", () => {
+    fc.assert(
+      fc.property(logArb, fc.nat(), (log, n) => {
+        const renamed = CATALOGUE.map((it, i) => ({
+          ...it,
+          name: `${it.name}-${n}`,
+          unit: "box",
+          archivedOn: i % 2 === 0 ? "2026-10-10" : null,
+        })).reverse();
+        const services = SERVICES.map((sv) => ({
+          ...sv,
+          name: `renamed ${n}`,
+          archivedOn: "2026-10-05",
+        }));
+        const base = prep({ log });
+        const other = prep({ log, catalogue: renamed, services });
+        expect(buildStatements(other, ["jovial"], ["2026-10"])).toEqual(
+          buildStatements(base, ["jovial"], ["2026-10"]),
+        );
+        expect(ledgerMonth(other, JOVIAL, "2026-10")).toEqual(ledgerMonth(base, JOVIAL, "2026-10"));
+      }),
+      RUNS,
+    );
+  });
+
+  it("a kitchen without money counts exactly what the same kitchen with money counts", () => {
+    fc.assert(
+      fc.property(logArb, (log) => {
+        const priced = buildStatements(prep({ log }), ["jovial"], ["2026-10"])[0]!;
+        const counted = buildMealStatements(
+          prep({ log, moneyEnabled: false, rateCards: [] }),
+          ["jovial"],
+          ["2026-10"],
+        )[0]!;
+        expect(counted.counts).toEqual(priced.counts);
       }),
       RUNS,
     );

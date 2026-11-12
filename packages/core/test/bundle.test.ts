@@ -12,56 +12,91 @@ import {
   expectedTotals,
   moneyBundleProblem,
   parseBundle,
+  referenceProblems,
   rupees,
   sha256Hex,
+  unpricedItems,
   unsupportedRules,
 } from "../src/index.ts";
-import { CARD_APR, HOLIDAYS, MENU_APR } from "./fixtures.ts";
+import { homeKitchenSeed } from "./seed.ts";
 
-/** The spec's October, with real UUIDs, as an engine input and as the body of a bundle. */
+const randomUUID = () => crypto.randomUUID();
+
+/**
+ * The seed's October (willow, with the lunch service), with real UUIDs, as an engine input and as the body of a
+ * bundle. Every id in the seed is swapped for a fresh UUID, consistently.
+ */
 function october() {
-  const [admin, supplier, jovial, smruti, claim] = [1, 2, 3, 4, 5].map(() => randomUUID());
+  const seed = homeKitchenSeed();
+  const swapped = new Map<string, string>();
+  const u = (id: string): string => {
+    const v = swapped.get(id) ?? randomUUID();
+    swapped.set(id, v);
+    return v;
+  };
+  const un = (id: string | null) => (id === null ? null : u(id));
+  const { ids } = seed;
+  const claim = randomUUID();
+  const people = Object.values(seed.people).map((p) => ({ ...p, id: u(p.id) }));
+  const catalogue = seed.catalogue.map((i) => ({ ...i, id: u(i.id) }));
+  const services = seed.services.map((x) => ({ ...x, id: u(x.id) }));
+  const enrolments = seed.enrolments.map((e) => ({
+    ...e,
+    personId: u(e.personId),
+    serviceId: u(e.serviceId),
+  }));
+  const menu = {
+    ...seed.menu,
+    id: u(seed.menu.id),
+    days: Object.fromEntries(
+      Object.entries(seed.menu.days).map(([sv, week]) => [
+        u(sv),
+        Object.fromEntries(Object.entries(week).map(([d, m]) => [d, u(m)])),
+      ]),
+    ),
+    offered: Object.fromEntries(
+      Object.entries(seed.menu.offered).map(([sv, list]) => [u(sv), list.map(u)]),
+    ),
+  };
+  const card = {
+    ...seed.cardApr,
+    id: u(seed.cardApr.id),
+    prices: seed.cardApr.prices.map((l) => ({
+      ...l,
+      itemId: u(l.itemId),
+      serviceId: un(l.serviceId),
+    })),
+  };
+  const log = seed.log.map((e) => ({
+    ...e,
+    id: randomUUID(),
+    personId: un(e.personId),
+    serviceId: un(e.serviceId),
+    itemId: un(e.itemId),
+    loggedBy: u(e.loggedBy),
+  }));
+  const [admin, supplier, jovial, smruti] = people.map((p) => p.id) as [
+    string,
+    string,
+    string,
+    string,
+  ];
   const data: EngineData = {
     today: "2026-11-15",
     moneyEnabled: true,
-    policies: [],
-    menus: [{ ...MENU_APR, id: randomUUID() }],
-    rateCards: [{ ...CARD_APR, id: randomUUID() }],
-    holidays: HOLIDAYS.map((h) => ({ ...h, id: randomUUID() })),
-    people: [
-      { id: admin!, name: "Owner", role: "admin", activeFrom: null, activeTo: null },
-      { id: supplier!, name: "Maple", role: "supplier", activeFrom: null, activeTo: null },
-      { id: jovial!, name: "Jovial", role: "consumer", activeFrom: "2026-10-01", activeTo: null },
-      { id: smruti!, name: "Smruti", role: "consumer", activeFrom: "2026-10-01", activeTo: null },
-    ],
-    log: [
-      {
-        id: randomUUID(),
-        date: "2026-10-01",
-        personId: jovial!,
-        allConsumers: false,
-        change: "Extra Bhakri",
-        qty: 2,
-        note: null,
-        loggedBy: jovial!,
-        loggedAt: "2026-09-30T10:00:00.000Z",
-      },
-      {
-        id: randomUUID(),
-        date: "2026-10-16",
-        personId: smruti!,
-        allConsumers: false,
-        change: "Leave",
-        qty: null,
-        note: "WFH",
-        loggedBy: smruti!,
-        loggedAt: "2026-09-30T10:01:00.000Z",
-      },
-    ],
+    policies: [seed.policy],
+    catalogue,
+    services,
+    enrolments,
+    menus: [menu],
+    rateCards: [card],
+    holidays: seed.holidays.map((h) => ({ ...h, id: randomUUID() })),
+    people,
+    log,
     claims: [
       {
-        id: claim!,
-        consumerId: jovial!,
+        id: claim,
+        consumerId: jovial,
         paidAt: "2026-11-01T00:00:00.000Z",
         forMonth: "2026-10",
         amount: rupees(100),
@@ -72,10 +107,10 @@ function october() {
     ],
     decisions: [
       {
-        claimId: claim!,
+        claimId: claim,
         decision: "Confirmed",
         note: null,
-        decidedBy: supplier!,
+        decidedBy: supplier,
         decidedAt: "2026-11-02T01:00:00.000Z",
         voided: false,
       },
@@ -87,26 +122,22 @@ function october() {
     format: BUNDLE_FORMAT,
     exportedAt: "2026-11-15T06:00:00.000Z",
     asOf: data.today,
-    workspace: { name: "Maple", timeZone: "Asia/Kolkata", currency: "INR", moneyEnabled: true },
+    workspace: { name: "Willow", timeZone: "Asia/Kolkata", currency: "INR", moneyEnabled: true },
     policies: [],
-    menus: data.menus.map((m) => ({
-      id: m.id,
-      effectiveFrom: m.effectiveFrom,
-      days: Object.fromEntries(Object.entries(m.days)) as Record<string, "Veg" | "Non Veg">,
-      note: null,
-      createdBy: null,
-    })),
-    rateCards: data.rateCards.map((r) => ({
-      id: r.id,
-      effectiveFrom: r.effectiveFrom,
-      veg: r.veg,
-      nonVeg: r.nonVeg,
-      extraChapati: r.extraChapati,
-      extraBhakri: r.extraBhakri,
-      extrasPerMonth: r.extrasPerMonth,
-      note: null,
-      createdBy: null,
-    })),
+    catalogue: catalogue.map((i) => ({ ...i, createdBy: null })),
+    services: services.map((x) => ({ ...x, createdBy: null })),
+    enrolments: enrolments.map((e) => ({ id: randomUUID(), ...e })),
+    menus: [{ ...menu, createdBy: null }],
+    rateCards: [
+      {
+        id: card.id,
+        effectiveFrom: card.effectiveFrom,
+        prices: card.prices,
+        monthlyFee: card.monthlyFee,
+        note: null,
+        createdBy: null,
+      },
+    ],
     holidays: data.holidays.map((h) => ({
       id: h.id,
       name: h.name,
@@ -130,7 +161,9 @@ function october() {
       date: e.date,
       personId: e.personId,
       allConsumers: e.allConsumers,
-      change: e.change,
+      action: e.action,
+      serviceId: e.serviceId,
+      itemId: e.itemId,
       qty: e.qty,
       note: e.note,
       loggedBy: e.loggedBy,
@@ -148,17 +181,25 @@ function october() {
     settlements: [],
     closes: [],
     audit: [],
-    members: [{ personId: admin!, role: "admin", email: "owner@example.org" }],
+    members: [{ personId: admin, role: "admin", email: "owner@example.org" }],
     expected: expectedTotals(data),
   };
   return {
     data,
     body,
-    ids: { admin: admin!, supplier: supplier!, jovial: jovial!, smruti: smruti! },
+    ids: {
+      admin,
+      supplier,
+      jovial,
+      smruti,
+      lunch: u(ids.lunch),
+      veg: u(ids.veg),
+      nonVeg: u(ids.nonVeg),
+      chapati: u(ids.chapati),
+      bhakri: u(ids.bhakri),
+    },
   };
 }
-
-const randomUUID = () => crypto.randomUUID();
 
 describe("canonical text", () => {
   it("does not depend on key order, drops undefined, and keeps array order", () => {
@@ -181,7 +222,16 @@ describe("[P3] a bundle says what it holds, and cannot be altered unnoticed", ()
   it("accepts a sealed bundle, with its counts and digest", async () => {
     const { body } = october();
     const bundle = await assembleBundle(body);
-    expect(bundle.manifest.counts).toMatchObject({ people: 4, log: 2, claims: 1, holidays: 10 });
+    expect(bundle.manifest.counts).toMatchObject({
+      people: 4,
+      log: 2,
+      claims: 1,
+      holidays: 10,
+      catalogue: 4,
+      services: 1,
+      enrolments: 2,
+      menus: 1,
+    });
     expect(bundle.manifest.digest).toMatch(/^[0-9a-f]{64}$/);
     const parsed = await parseBundle(JSON.parse(JSON.stringify(bundle)));
     expect(parsed.ok).toBe(true);
@@ -216,7 +266,7 @@ describe("[P3] a bundle says what it holds, and cannot be altered unnoticed", ()
     expect((await bad((b) => (b.surprise = 1))).ok).toBe(false);
     expect((await bad((b) => (b.format = "alimentation.workspace.v2"))).ok).toBe(false);
     expect((await bad((b) => (b.people[0].id = "not-a-uuid"))).ok).toBe(false);
-    expect((await bad((b) => (b.log[0].change = "Teleport"))).ok).toBe(false);
+    expect((await bad((b) => (b.log[0].action = "Teleport"))).ok).toBe(false);
     expect((await bad((b) => (b.people[0].extra = 1))).ok).toBe(false);
     expect((await parseBundle("nonsense")).ok).toBe(false);
     expect((await parseBundle(null)).ok).toBe(false);
@@ -227,9 +277,11 @@ describe("[P3] a bundle says what it holds, and cannot be altered unnoticed", ()
     expect(Object.keys(countsOf(body)).sort()).toEqual(
       [
         "audit",
+        "catalogue",
         "claims",
         "closes",
         "decisions",
+        "enrolments",
         "expected",
         "holidays",
         "log",
@@ -239,6 +291,7 @@ describe("[P3] a bundle says what it holds, and cannot be altered unnoticed", ()
         "policies",
         "rateCards",
         "reversals",
+        "services",
         "settlements",
       ].sort(),
     );
@@ -404,5 +457,304 @@ describe("[P3] the expected totals are the engine's own answers", () => {
           d.field === "status",
       ),
     ).toBe(true);
+  });
+});
+
+describe("a bundle carries the catalogue, the services and who takes them, with ids kept", () => {
+  it("round-trips through JSON and parses to exactly what was sealed", async () => {
+    const { body } = october();
+    const bundle = await assembleBundle(body);
+    const parsed = await parseBundle(JSON.parse(JSON.stringify(bundle)));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const { manifest, ...again } = parsed.bundle;
+    expect(manifest).toEqual(bundle.manifest);
+    expect(canonicalJson(again)).toBe(canonicalJson(body));
+    expect(again.menus[0]?.id).toBe(body.menus[0]?.id);
+    expect(again.log.map((e) => e.itemId)).toEqual(body.log.map((e) => e.itemId));
+  });
+
+  it("changes the digest when an item is renamed, retired or moved to another service", async () => {
+    const { body, ids } = october();
+    const was = await digestOf(body);
+    const renamed = {
+      ...body,
+      catalogue: body.catalogue.map((i) => (i.id === ids.veg ? { ...i, name: "Thali" } : i)),
+    };
+    const retired = {
+      ...body,
+      catalogue: body.catalogue.map((i) =>
+        i.id === ids.veg ? { ...i, archivedOn: "2027-01-01" } : i,
+      ),
+    };
+    const ended = {
+      ...body,
+      enrolments: body.enrolments.map((e, i) => (i === 0 ? { ...e, activeTo: "2026-12-31" } : e)),
+    };
+    for (const changed of [renamed, retired, ended]) expect(await digestOf(changed)).not.toBe(was);
+  });
+
+  it("counts the new sections, so a missing one is noticed", async () => {
+    const bundle = await assembleBundle(october().body);
+    const copy = JSON.parse(JSON.stringify(bundle));
+    copy.catalogue.pop();
+    const r = await parseBundle(copy);
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.problems.join(" ")).toMatch(/catalogue: the manifest says 4 but there are 3/);
+  });
+
+  it("catches a tampered id, whether or not the checksum is fixed up afterwards", async () => {
+    const { body, ids } = october();
+    const bundle = await assembleBundle(body);
+    const tampered = JSON.parse(JSON.stringify(bundle));
+    tampered.log[0].itemId = randomUUID();
+    const bad = await parseBundle(tampered);
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.problems.join(" ")).toMatch(/checksum/);
+    // A forger who reseals it is still stopped by the references.
+    const resealed = await assembleBundle({
+      ...body,
+      log: body.log.map((e, i) => (i === 0 ? { ...e, itemId: randomUUID() } : e)),
+    });
+    const refused = await parseBundle(JSON.parse(JSON.stringify(resealed)));
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.problems.join(" ")).toMatch(/not in the catalogue/);
+    // Swapping a meal for its twin changes the digest and the expected counts.
+    const swapped = JSON.parse(JSON.stringify(bundle));
+    swapped.menus[0].days[ids.lunch][1] = ids.nonVeg;
+    expect((await parseBundle(swapped)).ok).toBe(false);
+  });
+
+  it("checks references and kinds", () => {
+    const { body, ids } = october();
+    expect(referenceProblems(body)).toEqual([]);
+    const lunchDays = body.menus[0]!.days[ids.lunch]!;
+    const cases: [string, BundleBody, RegExp][] = [
+      [
+        "a menu day served with an add-on",
+        {
+          ...body,
+          menus: [{ ...body.menus[0]!, days: { [ids.lunch]: { ...lunchDays, 1: ids.bhakri } } }],
+        },
+        /an add-on, not a meal/,
+      ],
+      [
+        "a meal a service does not offer",
+        { ...body, menus: [{ ...body.menus[0]!, offered: { [ids.lunch]: [ids.veg] } }] },
+        /does not offer/,
+      ],
+      [
+        "an unknown service in a menu",
+        { ...body, menus: [{ ...body.menus[0]!, offered: { [randomUUID()]: [ids.veg] } }] },
+        /service that is not in the bundle/,
+      ],
+      [
+        "an enrolment of a supplier",
+        {
+          ...body,
+          enrolments: [{ ...body.enrolments[0]!, personId: ids.supplier }],
+        },
+        /not a consumer/,
+      ],
+      [
+        "an enrolment that ends before it starts",
+        {
+          ...body,
+          enrolments: [
+            { ...body.enrolments[0]!, activeFrom: "2026-10-05", activeTo: "2026-10-04" },
+          ],
+        },
+        /ends before it starts/,
+      ],
+      [
+        "a price twice",
+        {
+          ...body,
+          rateCards: [
+            {
+              ...body.rateCards[0]!,
+              prices: [
+                ...body.rateCards[0]!.prices,
+                { itemId: ids.veg, serviceId: null, amount: 1 },
+              ],
+            },
+          ],
+        },
+        /priced twice/,
+      ],
+      [
+        "an extra of a meal",
+        {
+          ...body,
+          log: body.log.map((e) => (e.action === "Extra" ? { ...e, itemId: ids.veg } : e)),
+        },
+        /extra must name/,
+      ],
+      [
+        "a switch with no service",
+        {
+          ...body,
+          log: [
+            ...body.log,
+            {
+              ...body.log[0]!,
+              id: randomUUID(),
+              action: "Switch",
+              itemId: ids.nonVeg,
+              qty: null,
+              serviceId: null,
+            },
+          ],
+        },
+        /switch must name/,
+      ],
+      [
+        "a leave with an item",
+        {
+          ...body,
+          log: body.log.map((e) => (e.action === "Leave" ? { ...e, itemId: ids.veg } : e)),
+        },
+        /takes no item/,
+      ],
+      [
+        "an id used twice",
+        { ...body, catalogue: [...body.catalogue, body.catalogue[0]!] },
+        /id is used twice/,
+      ],
+      [
+        "an expected count of an add-on",
+        {
+          ...body,
+          expected: body.expected.map((x, i) =>
+            i === 0 ? { ...x, items: { [ids.bhakri]: 1 } } : x,
+          ),
+        },
+        /not a meal/,
+      ],
+    ];
+    for (const [name, broken, why] of cases)
+      expect(referenceProblems(broken).join(" "), name).toMatch(why);
+  });
+
+  it("expects the servings by meal, so a mix-up of two meals fails even with no prices", () => {
+    const { data, ids } = october();
+    const e = expectedTotals(data);
+    const jovial = e.find((t) => t.personId === ids.jovial && t.month === "2026-10")!;
+    expect(jovial.meals).toBe(20);
+    expect(jovial.items).toEqual({ [ids.veg]: 12, [ids.nonVeg]: 8 });
+    const swapped = e.map((t) =>
+      t === jovial ? { ...t, items: { [ids.veg]: 8, [ids.nonVeg]: 12 } } : t,
+    );
+    const diffs = compareTotals(e, swapped);
+    expect(diffs.map((d) => d.field)).toEqual(["items"]);
+    expect(diffs[0]?.personId).toBe(ids.jovial);
+    expect(compareTotals(e, e)).toEqual([]);
+  });
+});
+
+describe("a kitchen without money and a kitchen with it", () => {
+  const mealsOnly = () => {
+    const { data, body, ids } = october();
+    const d: EngineData = {
+      ...data,
+      moneyEnabled: false,
+      rateCards: [],
+      claims: [],
+      decisions: [],
+      settlements: [],
+    };
+    const b: BundleBody = {
+      ...body,
+      workspace: { ...body.workspace, moneyEnabled: false },
+      rateCards: [],
+      claims: [],
+      decisions: [],
+      closes: [],
+      expected: expectedTotals(d),
+    };
+    return { data: d, body: b, ids };
+  };
+
+  it("keeps its catalogue, services and menu when it goes into a kitchen that tracks money", async () => {
+    const { data, body, ids } = mealsOnly();
+    const sealed = await parseBundle(JSON.parse(JSON.stringify(await assembleBundle(body))));
+    expect(sealed.ok).toBe(true);
+    if (!sealed.ok) return;
+    expect(moneyBundleProblem(sealed.bundle, true)).toBeNull();
+    // As the money kitchen it becomes: same data, money on, no prices yet. The counts, by meal, are the same.
+    const becomes: EngineData = { ...data, moneyEnabled: true };
+    expect(compareTotals(sealed.bundle.expected, expectedTotals(becomes))).toEqual([]);
+    expect(sealed.bundle.expected.every((t) => t.money === null)).toBe(true);
+    expect(sealed.bundle.catalogue).toHaveLength(4);
+    expect(sealed.bundle.menus[0]?.offered[ids.lunch]).toHaveLength(4);
+  });
+
+  it("then says which items need a price, and stops saying it once they have one", () => {
+    const { data, ids } = mealsOnly();
+    const becomes: EngineData = { ...data, moneyEnabled: true };
+    expect(unpricedItems(becomes).map((i) => i.id)).toEqual([
+      ids.veg,
+      ids.nonVeg,
+      ids.chapati,
+      ids.bhakri,
+    ]);
+    const partly = {
+      ...becomes,
+      rateCards: [
+        {
+          id: "c",
+          effectiveFrom: "2026-04-01",
+          prices: [
+            { itemId: ids.veg, serviceId: null, amount: 100 },
+            { itemId: ids.nonVeg, serviceId: ids.lunch, amount: 120 },
+          ],
+          monthlyFee: 0,
+          note: null,
+        },
+      ],
+    };
+    expect(unpricedItems(partly).map((i) => i.id)).toEqual([ids.chapati, ids.bhakri]);
+    expect(unpricedItems(october().data)).toEqual([]);
+  });
+
+  it("looks ahead: a menu that has been replaced is not asked about, one that starts later is", () => {
+    const { data, ids } = mealsOnly();
+    const later = {
+      ...data,
+      moneyEnabled: true,
+      menus: [
+        { ...data.menus[0]!, offered: { [ids.lunch]: [ids.veg] } },
+        { ...data.menus[0]!, id: "m2", effectiveFrom: "2027-01-01" },
+      ],
+    };
+    expect(unpricedItems(later).map((i) => i.id)).toEqual([
+      ids.veg,
+      ids.nonVeg,
+      ids.chapati,
+      ids.bhakri,
+    ]);
+    const replaced = {
+      ...later,
+      menus: [
+        {
+          ...data.menus[0]!,
+          offered: { [ids.lunch]: [ids.veg, ids.nonVeg, ids.chapati, ids.bhakri] },
+        },
+        {
+          ...data.menus[0]!,
+          id: "m2",
+          effectiveFrom: "2026-06-01",
+          offered: { [ids.lunch]: [ids.veg] },
+        },
+      ],
+    };
+    expect(unpricedItems(replaced).map((i) => i.id)).toEqual([ids.veg]);
+  });
+
+  it("never goes the other way: a bundle with money is refused by a kitchen without it", () => {
+    const { body } = october();
+    expect(moneyBundleProblem(body, false)).toMatch(/tracks money/);
+    expect(moneyBundleProblem(body, true)).toBeNull();
   });
 });

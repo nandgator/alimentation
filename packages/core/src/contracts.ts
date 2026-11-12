@@ -1,15 +1,18 @@
 import type { IsoDate, Month } from "./dates.ts";
-import type { LedgerDay, MealLedgerDay, MealStatement, Statement } from "./engine.ts";
+import type { LedgerRow, MealLedgerRow, MealStatement, Statement } from "./engine.ts";
 import type { Meter, Usage } from "./limits.ts";
 import type { Paise } from "./money.ts";
 import type { PolicyView } from "./policy.ts";
 import type {
+  CatalogueItem,
+  Enrolment,
   Holiday,
-  LogChange,
+  LogAction,
   MenuVersion,
   PayMethod,
   RateCard,
   Role,
+  Service,
   SettlementType,
 } from "./types.ts";
 import type { Issue } from "./validate.ts";
@@ -45,6 +48,14 @@ export interface MealStatementDto extends MealStatement {
 export const isMoneyStatement = (s: StatementDto | MealStatementDto): s is StatementDto =>
   "billed" in s;
 
+/**
+ * An item as the catalogue route lists it. A kitchen that tracks money adds the prices in force today (none for
+ * an item not yet priced); a kitchen that does not leaves the field out.
+ */
+export interface CatalogueItemDto extends CatalogueItem {
+  prices?: { serviceId: string | null; amount: Paise }[];
+}
+
 export interface BootstrapDto {
   workspace: {
     id: string;
@@ -66,6 +77,11 @@ export interface BootstrapDto {
   months: Month[];
   /** All the rules; for a kitchen without money, all but the four that are about money. */
   policy: PolicyView;
+  /** What the kitchen serves, retired items included, so history can name them. */
+  catalogue: CatalogueItem[];
+  services: Service[];
+  /** Which services each consumer takes. The admin and the supplier see all of them; a consumer, their own. */
+  enrolments: Enrolment[];
   /** The menu in force today. Every kitchen has one to make. */
   menu: MenuVersion | null;
   /** The prices in force today. Left out for a kitchen without money. */
@@ -135,7 +151,10 @@ export interface LogEntryDto {
   date: IsoDate;
   personId: string | null;
   allConsumers: boolean;
-  change: LogChange;
+  action: LogAction;
+  /** Null: the whole day. Always set for Switch and Extra. */
+  serviceId: string | null;
+  itemId: string | null;
   qty: number | null;
   note: string | null;
   loggedBy: string;
@@ -185,8 +204,8 @@ export interface SettlementDto {
 export interface LedgerDto {
   personId: string;
   month: Month;
-  /** Priced days, or for a kitchen without money the same days with no price on them. */
-  days: LedgerDay[] | MealLedgerDay[];
+  /** One row per person, date and service: priced, or for a kitchen without money the same rows with no price on them. */
+  rows: LedgerRow[] | MealLedgerRow[];
 }
 
 export interface ApiErrorBody {

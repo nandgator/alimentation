@@ -33,9 +33,15 @@ export interface HistoryContext {
   /** A name the reader is allowed to know, if any. A member knows no one's but their own. */
   nameOf(personId: string): string | undefined;
   roleOf(personId: string): Role | undefined;
-  /** The claim a decision or reversal was about, while it still exists. */
+  /** The name an item has now, for any item the kitchen ever had. */
+  itemName(itemId: string): string | undefined;
+  /** The name a service has now. */
+  serviceName(serviceId: string): string | undefined;
+  /** Whether the kitchen has more than one service. With one, no sentence names it. */
+  severalServices: boolean;
   /** False for a kitchen that does not track money, whose people are not "billed". Left out, it tracks money. */
   moneyEnabled?: boolean;
+  /** The claim a decision or reversal was about, while it still exists. */
   claimOf(claimId: string): { consumerId: string; amount: number; forMonth: string } | undefined;
 }
 
@@ -61,6 +67,13 @@ const whose = (id: string, c: HistoryContext): string =>
   id === c.viewerId ? "your" : `${c.nameOf(id) ?? "a member"}’s`;
 const forWhom = (id: string, c: HistoryContext): string =>
   id === c.viewerId ? "you" : (c.nameOf(id) ?? "a member");
+const itemOf = (id: unknown, c: HistoryContext): string =>
+  (typeof id === "string" ? c.itemName(id) : undefined) ?? "an item";
+/** ` for Dinner` when the kitchen has several services and the entry is for one; otherwise nothing. */
+const inService = (id: unknown, c: HistoryContext, word = "for"): string => {
+  if (!c.severalServices || typeof id !== "string") return "";
+  return ` ${word} ${c.serviceName(id) ?? "a service"}`;
+};
 const monthName = (date: string) => formatDisplayMonth(monthOf(date));
 
 /** One audit row as a sentence, or null for a row that is not about anything a person would look for. */
@@ -73,13 +86,26 @@ export function describeAudit(row: AuditRow, c: HistoryContext): string | null {
   switch (row.table) {
     case "log_entry": {
       const date = formatDisplayDate(str(rec.on_date));
+      const scope = inService(rec.service_id, c);
       if (rec.all_consumers === true) {
         return row.action === "DELETE"
-          ? `${by} removed the kitchen-off day on ${date}.`
-          : `${by} marked the kitchen off on ${date}.`;
+          ? `${by} removed the kitchen-off day${scope} on ${date}.`
+          : `${by} marked the kitchen off${scope} on ${date}.`;
       }
       const target = str(rec.person_id);
-      const what = `${str(rec.change)}${rec.qty ? ` ×${num(rec.qty)}` : ""}`;
+      const qty = rec.qty ? ` ×${num(rec.qty)}` : "";
+      const action = str(rec.action);
+      const base =
+        action === "Switch"
+          ? `Switch to ${itemOf(rec.item_id, c)}`
+          : action === "Extra"
+            ? `Extra ${itemOf(rec.item_id, c)}${qty}`
+            : action;
+      // A Leave for the whole day says so only where there is a day to be whole of.
+      const what =
+        action === "Leave" && c.severalServices && typeof rec.service_id !== "string"
+          ? `${base} (whole day)`
+          : `${base}${inService(rec.service_id, c, "in")}`;
       if (row.action === "DELETE")
         return `${by} removed ${whose(target, c)} ${what} entry for ${date}.`;
       if (row.action === "UPDATE")
@@ -156,12 +182,43 @@ export function describeAudit(row: AuditRow, c: HistoryContext): string | null {
     }
     case "rate_card": {
       if (row.action !== "INSERT") return null;
-      return (
-        `${by} added prices from ${formatDisplayDate(str(now.effective_from))}: ` +
-        `Veg ${formatMoney(num(now.veg))}, Non Veg ${formatMoney(num(now.non_veg))}, ` +
-        `extra chapati ${formatMoney(num(now.extra_chapati))}, extra bhakri ${formatMoney(num(now.extra_bhakri))}, ` +
-        `${formatMoney(num(now.extras_per_month))} a month for extras.`
-      );
+      return `${by} added prices from ${formatDisplayDate(str(now.effective_from))}, with ${formatMoney(num(now.monthly_fee))} a month as the monthly fee.`;
+    }
+    case "catalogue_item":
+    case "service": {
+      const noun = row.table === "service" ? "service" : "item";
+      if (row.action === "INSERT")
+        return noun === "service"
+          ? `${by} added the service “${str(now.name)}”.`
+          : `${by} added “${str(now.name)}” to what the kitchen serves.`;
+      if (row.action !== "UPDATE") return null;
+      const parts: string[] = [];
+      if (was.name !== now.name)
+        parts.push(`${by} renamed the ${noun} “${str(was.name)}” to “${str(now.name)}”.`);
+      if (was.archived_on !== now.archived_on && now.archived_on)
+        parts.push(
+          `${by} retired the ${noun} “${str(now.name)}” from ${formatDisplayDate(str(now.archived_on))}.`,
+        );
+      return parts.length ? parts.join(" ") : null;
+    }
+    case "person_service": {
+      // With one service there is nothing to choose, so nothing to say.
+      if (!c.severalServices) return null;
+      const who = forWhom(str(rec.person_id), c);
+      const svc = c.serviceName(str(rec.service_id)) ?? "a service";
+      if (row.action === "INSERT")
+        return `${by} set ${who} to take ${svc} from ${formatDisplayDate(str(now.active_from))}${
+          now.active_to ? ` until ${formatDisplayDate(str(now.active_to))}` : ""
+        }.`;
+      if (row.action === "DELETE")
+        return `${by} removed ${whose(str(rec.person_id), c)} place in ${svc}.`;
+      return was.active_to !== now.active_to
+        ? `${by} changed ${whose(str(rec.person_id), c)} place in ${svc}: ${
+            now.active_to
+              ? `until ${formatDisplayDate(str(now.active_to))}`
+              : "until further notice"
+          }.`
+        : null;
     }
     case "menu": {
       if (row.action !== "INSERT") return null;

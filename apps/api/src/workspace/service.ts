@@ -3,10 +3,13 @@ import {
   type BootstrapDto,
   buildMealStatements,
   buildStatements,
+  type CatalogueItemDto,
   type ClaimDto,
+  checkCatalogueItem,
   checkClaim,
   checkClaimWithdrawal,
   checkDecision,
+  checkEnrolment,
   checkExternalKey,
   checkLogChange,
   checkLogEntry,
@@ -14,6 +17,7 @@ import {
   checkPersonFields,
   checkRateCard,
   checkReversal,
+  checkService,
   closeSnapshot,
   meter as computeMeter,
   consumers,
@@ -41,19 +45,17 @@ import {
   type KitchenTotals,
   type LedgerDto,
   type Limits,
-  type LogChange,
+  type LogAction,
   type LogEntryDto,
   lateByDays,
   ledgerMonth,
   localNow,
   MAX_HOLIDAY_ROWS,
   MAX_PEOPLE_IMPORT_ROWS,
-  type MealLedgerDay,
   type MealStatementDto,
-  type MealType,
   type MenuVersion,
   type Month,
-  mealLedgerDay,
+  mealLedgerRow,
   monthEnd,
   monthOf,
   monthRange,
@@ -69,6 +71,7 @@ import {
   PolicySchema,
   type PolicyView,
   type Prepared,
+  type PriceLine,
   parseHolidayCsv,
   parsePeopleCsv,
   planPeopleImport,
@@ -78,6 +81,7 @@ import {
   type RateCard,
   type Role,
   type RowProblem,
+  type Service,
   type SettlementDto,
   type SettlementType,
   STATUS_LABEL,
@@ -90,11 +94,14 @@ import type { FieldCipher } from "../crypto/fields.ts";
 import type { Db, Tx } from "../db/driver.ts";
 import { type Actor, asActor } from "./context.ts";
 import { ApiError, forbidden, invalid, mapDbError, notFound } from "./errors.ts";
+import { setupHints } from "./hints.ts";
 import {
   applyAutoCloses,
+  loadCatalogue,
   loadEngineData,
-  menuFromRow,
-  rateCardFromRow,
+  loadMenus,
+  loadRateCards,
+  loadServices,
   withDueCloses,
 } from "./load.ts";
 
@@ -134,22 +141,12 @@ export interface ServiceDeps {
 const NO_ONE: Actor = { role: "admin", personId: "00000000-0000-0000-0000-000000000000" };
 
 /** The money rules at their neutral values, for a policy document to be filled in with. */
-const DEFAULT_MONEY = (({ extras, leave, payments, rateCards }) => ({
-  extras,
+const DEFAULT_MONEY = (({ monthlyFee, leave, payments, rateCards }) => ({
+  monthlyFee,
   leave,
   payments,
   rateCards,
 }))(DEFAULT_POLICY);
-
-const WEEKDAY_COLUMNS = [
-  "menu_sun",
-  "menu_mon",
-  "menu_tue",
-  "menu_wed",
-  "menu_thu",
-  "menu_fri",
-  "menu_sat",
-] as const;
 
 /** SHA-256 of some text, as lower-case hex. */
 async function sha256Hex(text: string): Promise<string> {
@@ -233,13 +230,7 @@ export class WorkspaceService {
       const me = data.people.find((x) => x.id === actor.personId);
 
       const money = info.moneyEnabled;
-      const setup: BootstrapDto["setup"] = [];
-      if (data.menus.length === 0)
-        setup.push({ code: "menu", message: "Add the menu to start counting meals." });
-      if (money && data.rateCards.length === 0)
-        setup.push({ code: "rate_card", message: "Add prices to start billing." });
-      if (!data.people.some((x) => x.role === "consumer"))
-        setup.push({ code: "consumers", message: "Add the people you feed." });
+      const setup: BootstrapDto["setup"] = setupHints(data, money);
 
       let statements: BootstrapDto["statements"] = [];
       const ids = consumers(p).map((c) => c.id);
@@ -251,7 +242,9 @@ export class WorkspaceService {
           else statements = this.mealDto(buildMealStatements(p, ids, [current]), data);
         } catch (e) {
           if (!(e instanceof EngineError)) throw e;
-          setup.push({ code: e.code.toLowerCase(), message: e.message });
+          // An item with no price is already named by the hint that asks for prices.
+          if (!(e.code === "NO_PRICE" && setup.some((h) => h.code === "rate_card")))
+            setup.push({ code: e.code.toLowerCase(), message: e.message });
         }
       }
 
@@ -294,6 +287,9 @@ export class WorkspaceService {
         currentMonth: current,
         months: monthRange(p),
         policy: policyView(policyForMonth(data.policies, current), money),
+        catalogue: [...data.catalogue],
+        services: [...data.services],
+        enrolments: [...data.enrolments],
         menu,
         ...(rateCard !== undefined ? { rateCard } : {}),
         holidays: [...data.holidays],
@@ -323,10 +319,8 @@ export class WorkspaceService {
         const current = monthOf(data.today);
         const ids = consumers(p).map((c) => c.id);
         const money = this.d.info.moneyEnabled;
-        let setup = 0;
-        if (data.menus.length === 0) setup++;
-        if (money && data.rateCards.length === 0) setup++;
-        if (ids.length === 0) setup++;
+        const hints = setupHints(data, money);
+        let setup = hints.length;
         const counts = { month: current, consumers: ids.length };
         if (!money) {
           let meals = 0;
@@ -349,7 +343,7 @@ export class WorkspaceService {
             statements = buildStatements(p, ids, [current]);
           } catch (e) {
             if (!(e instanceof EngineError)) throw e;
-            setup++;
+            if (!(e.code === "NO_PRICE" && hints.some((h) => h.code === "rate_card"))) setup++;
           }
         }
         const [pending] = await tx.query<R>(
@@ -466,11 +460,11 @@ export class WorkspaceService {
       const person = data.people.find((x) => x.id === personId && x.role === "consumer");
       if (!person) throw notFound("Person");
       try {
-        const days = ledgerMonth(prepare(data), person, month);
+        const rows = ledgerMonth(prepare(data), person, month);
         return {
           personId,
           month,
-          days: this.d.info.moneyEnabled ? days : days.map((d): MealLedgerDay => mealLedgerDay(d)),
+          rows: this.d.info.moneyEnabled ? rows : rows.map(mealLedgerRow),
         };
       } catch (e) {
         if (e instanceof EngineError) throw new ApiError(422, e.code.toLowerCase(), e.message);
@@ -515,8 +509,78 @@ export class WorkspaceService {
           input.activeTo ?? null,
         ],
       );
+      // A new member takes every service the kitchen has, from the day they are first billed.
+      if (input.role === "consumer" && input.activeFrom) await this.enrol(tx, id, input.activeFrom);
       return { id };
     });
+  }
+
+  /** Puts a member into some services (all the kitchen's live ones if none are named) from a date. */
+  private async enrol(
+    tx: Tx,
+    personId: string,
+    from: string,
+    serviceIds?: string[],
+  ): Promise<void> {
+    const ids =
+      serviceIds ??
+      (
+        await tx.query<R>("SELECT id FROM service WHERE archived_on IS NULL ORDER BY position, id")
+      ).map((r) => r.id as string);
+    for (const serviceId of ids)
+      await tx.query(
+        "INSERT INTO person_service (person_id, service_id, active_from) VALUES ($1, $2, $3)",
+        [personId, serviceId, from],
+      );
+  }
+
+  /**
+   * Makes a member take exactly these services from `from` on: a service they take that is not named ends the
+   * day before, one named that they do not take starts. What came before `from` is not touched, so a month
+   * that is closed stays as it was.
+   */
+  private async takeServicesFrom(
+    tx: Tx,
+    personId: string,
+    serviceIds: ReadonlySet<string>,
+    from: string,
+  ): Promise<void> {
+    const rows = await tx.query<R>(
+      `SELECT id, service_id, active_from, active_to FROM person_service
+        WHERE person_id = $1 AND (active_to IS NULL OR active_to >= $2) ORDER BY active_from`,
+      [personId, from],
+    );
+    const covered = new Set<string>();
+    for (const r of rows) {
+      const wanted = serviceIds.has(r.service_id);
+      if (!wanted) {
+        if (r.active_from >= from)
+          await tx.query("DELETE FROM person_service WHERE id = $1", [r.id]);
+        else
+          await tx.query("UPDATE person_service SET active_to = ($2::date - 1) WHERE id = $1", [
+            r.id,
+            from,
+          ]);
+      } else if (r.active_from <= from) covered.add(r.service_id);
+      else if (!covered.has(r.service_id)) {
+        await tx.query("UPDATE person_service SET active_from = $2 WHERE id = $1", [r.id, from]);
+        covered.add(r.service_id);
+      }
+    }
+    for (const serviceId of serviceIds)
+      if (!covered.has(serviceId)) await this.enrol(tx, personId, from, [serviceId]);
+  }
+
+  /**
+   * A member whose first day moves earlier takes, from the new day, what they took on the old one: a service
+   * that began with them begins with the new day, or the days added would be billed as nothing.
+   */
+  private async reachBack(tx: Tx, personId: string, was: string, now: string): Promise<void> {
+    if (now >= was) return;
+    await tx.query(
+      "UPDATE person_service SET active_from = $3 WHERE person_id = $1 AND active_from = $2",
+      [personId, was, now],
+    );
   }
 
   private async mustBeFreeKey(tx: Tx, key: string): Promise<void> {
@@ -586,7 +650,17 @@ export class WorkspaceService {
         }
       }
       if (sets.length === 0) return;
+      const before = await tx.query<R>("SELECT active_from FROM person WHERE id = $1", [id]);
       await tx.query(`UPDATE person SET ${sets.join(", ")} WHERE id = $1`, values);
+      // A member who is first given a day to be billed from starts by taking every service.
+      if (row.role === "consumer" && input.activeFrom && before[0]?.active_from == null) {
+        const [has] = await tx.query<R>("SELECT 1 AS x FROM person_service WHERE person_id = $1", [
+          id,
+        ]);
+        if (!has) await this.enrol(tx, id, input.activeFrom);
+      } else if (row.role === "consumer" && input.activeFrom && before[0]?.active_from) {
+        await this.reachBack(tx, id, before[0].active_from as string, input.activeFrom);
+      }
     });
   }
 
@@ -637,12 +711,28 @@ export class WorkspaceService {
         ...new Set(parsed.items.map((e) => (e.item.externalKey ?? "").trim()).filter(Boolean)),
       ];
       const existing = new Map<string, ExistingPerson>();
+      const today = this.local().date;
+      const takes = new Map<string, string[]>();
+      if (keys.length > 0)
+        for (const t of await tx.query<R>(
+          `SELECT ps.person_id, s.name FROM person_service ps
+             JOIN service s ON s.id = ps.service_id
+             JOIN person p ON p.id = ps.person_id
+            WHERE p.external_key = ANY($1::text[]) AND ps.active_from <= $2
+              AND (ps.active_to IS NULL OR ps.active_to >= $2) ORDER BY s.position, s.id`,
+          [keys, today],
+        ))
+          takes.set(t.person_id, [...(takes.get(t.person_id) ?? []), t.name]);
+      const serviceRows = await tx.query<R>(
+        "SELECT id, name FROM service WHERE archived_on IS NULL ORDER BY position, id",
+      );
       if (keys.length > 0)
         for (const r of await tx.query<R>(
           "SELECT id, external_key, role, name_enc, contact_enc, active_from, active_to FROM person WHERE external_key = ANY($1::text[])",
           [keys],
         ))
           existing.set(r.external_key, {
+            services: takes.get(r.id) ?? [],
             id: r.id,
             externalKey: r.external_key,
             role: r.role,
@@ -651,7 +741,15 @@ export class WorkspaceService {
             activeFrom: r.active_from ?? null,
             activeTo: r.active_to ?? null,
           });
-      const plan = planPeopleImport(parsed.items, input.mode, existing);
+      const plan = planPeopleImport(
+        parsed.items,
+        input.mode,
+        existing,
+        serviceRows.map((x) => x.name as string),
+      );
+      const serviceId = (name: string) =>
+        must(serviceRows.find((x) => (x.name as string).toLowerCase() === name.toLowerCase()))
+          .id as string;
 
       // The cap is counted before anything is written, so the answer is this sentence and not the database's refusal.
       if (plan.creates.length > 0) {
@@ -687,6 +785,8 @@ export class WorkspaceService {
             ],
           );
           n.result.id = id;
+          if (n.role === "consumer" && n.activeFrom)
+            await this.enrol(tx, id, n.activeFrom, n.services?.map(serviceId));
         }
         for (const u of plan.updates) {
           const sets: string[] = [];
@@ -704,7 +804,23 @@ export class WorkspaceService {
             );
           if (u.sets.activeFrom !== undefined) set("active_from", u.sets.activeFrom);
           if (u.sets.activeTo !== undefined) set("active_to", u.sets.activeTo);
-          await tx.query(`UPDATE person SET ${sets.join(", ")} WHERE id = $1`, values);
+          const [was] = await tx.query<R>("SELECT role, active_from FROM person WHERE id = $1", [
+            u.id,
+          ]);
+          if (sets.length > 0)
+            await tx.query(`UPDATE person SET ${sets.join(", ")} WHERE id = $1`, values);
+          if (was?.role === "consumer" && was.active_from && typeof u.sets.activeFrom === "string")
+            await this.reachBack(tx, u.id, was.active_from as string, u.sets.activeFrom);
+          if (u.services) {
+            const [p] = await tx.query<R>("SELECT active_from FROM person WHERE id = $1", [u.id]);
+            const first = (p?.active_from as string | null) ?? today;
+            await this.takeServicesFrom(
+              tx,
+              u.id,
+              new Set(u.services.map(serviceId)),
+              first > today ? first : today,
+            );
+          }
         }
         const count = (a: PersonImportRow["action"]) => rows.filter((r) => r.action === a).length;
         await tx.query("SELECT record_person_import($1::jsonb)", [
@@ -754,22 +870,179 @@ export class WorkspaceService {
 
   // --- prices, rules, holidays -------------------------------------------
 
+  // --- what the kitchen serves ---------------------------------------------
+
+  /** Everything the kitchen has ever served, retired items included so that history can name them. */
+  async listCatalogue(actor: Actor): Promise<CatalogueItemDto[]> {
+    return this.run(actor, async (tx) => {
+      const items = await loadCatalogue(tx);
+      if (!this.d.info.moneyEnabled) return items;
+      // The prices in force today. A kitchen without money never reads them.
+      const today = this.local().date;
+      const card = (await loadRateCards(tx)).filter((c) => c.effectiveFrom <= today).at(-1);
+      return items.map((it) => ({
+        ...it,
+        prices: (card?.prices ?? [])
+          .filter((l) => l.itemId === it.id)
+          .map((l) => ({ serviceId: l.serviceId, amount: l.amount })),
+      }));
+    });
+  }
+
+  async addItem(
+    actor: Actor,
+    input: { kind: string; name: string; unit: string; maxQty: number },
+  ): Promise<{ id: string }> {
+    this.assertWritable();
+    this.mustBeAdmin(actor);
+    const item = { ...input, name: input.name.trim(), unit: input.unit.trim() };
+    return this.run(actor, async (tx, load) => {
+      requireOk(checkCatalogueItem(prepare(await load()), actor, { id: null, ...item }));
+      // The database chooses the id (time-ordered), so that the catalogue lists items in the order they were added.
+      const [made] = await tx.query<R>(
+        `INSERT INTO catalogue_item (kind, name, unit, max_qty, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [item.kind, item.name, item.unit, item.maxQty, actor.personId],
+      );
+      return { id: must(made).id as string };
+    });
+  }
+
+  /** Renames an item, or retires it from a date (once): `archived` alone means from today. */
+  async updateItem(
+    actor: Actor,
+    id: string,
+    input: { name?: string; archived?: true; archiveOn?: string },
+  ): Promise<void> {
+    this.assertWritable();
+    this.mustBeAdmin(actor);
+    const name = input.name?.trim();
+    const archiveOn = input.archiveOn ?? (input.archived ? this.local().date : undefined);
+    await this.run(actor, async (tx, load) => {
+      requireOk(
+        checkCatalogueItem(prepare(await load()), actor, {
+          id,
+          ...(name !== undefined ? { name } : {}),
+          ...(archiveOn !== undefined ? { archiveOn } : {}),
+        }),
+      );
+      await tx.query(
+        "UPDATE catalogue_item SET name = coalesce($2, name), archived_on = coalesce($3::date, archived_on) WHERE id = $1",
+        [id, name ?? null, archiveOn ?? null],
+      );
+    });
+  }
+
+  async listServices(actor: Actor): Promise<Service[]> {
+    return this.run(actor, (tx) => loadServices(tx));
+  }
+
+  /** A new service. Members already in the kitchen take it from the first of this month (or when they began). */
+  async addService(actor: Actor, input: { name: string }): Promise<{ id: string }> {
+    this.assertWritable();
+    this.mustBeAdmin(actor);
+    const name = input.name.trim();
+    return this.run(actor, async (tx, load) => {
+      const data = await load();
+      requireOk(checkService(prepare(data), actor, { id: null, name }));
+      const [made] = await tx.query<R>(
+        `INSERT INTO service (name, position, created_by)
+         VALUES ($1, (SELECT coalesce(max(position) + 1, 0) FROM service), $2) RETURNING id`,
+        [name, actor.personId],
+      );
+      const id = must(made).id as string;
+      const first = monthStart(monthOf(data.today));
+      for (const p of data.people) {
+        if (p.role !== "consumer" || p.activeFrom === null) continue;
+        const from = p.activeFrom > first ? p.activeFrom : first;
+        if (p.activeTo !== null && p.activeTo < from) continue;
+        await this.enrol(tx, p.id, from, [id]);
+      }
+      return { id };
+    });
+  }
+
+  /** Renames a service, or retires it from a date (once): `archived` alone means from today. */
+  async updateService(
+    actor: Actor,
+    id: string,
+    input: { name?: string; archived?: true; archiveOn?: string },
+  ): Promise<void> {
+    this.assertWritable();
+    this.mustBeAdmin(actor);
+    const name = input.name?.trim();
+    const archiveOn = input.archiveOn ?? (input.archived ? this.local().date : undefined);
+    await this.run(actor, async (tx, load) => {
+      requireOk(
+        checkService(prepare(await load()), actor, {
+          id,
+          ...(name !== undefined ? { name } : {}),
+          ...(archiveOn !== undefined ? { archiveOn } : {}),
+        }),
+      );
+      await tx.query(
+        "UPDATE service SET name = coalesce($2, name), archived_on = coalesce($3::date, archived_on) WHERE id = $1",
+        [id, name ?? null, archiveOn ?? null],
+      );
+    });
+  }
+
+  /**
+   * Replaces the services a member takes. A row left as it was is not touched, so a closed month it reaches
+   * does not refuse the change; a row that ends or starts is judged by the closed-month rule from the day it
+   * changes.
+   */
+  async setEnrolments(
+    actor: Actor,
+    personId: string,
+    rows: { serviceId: string; activeFrom: string; activeTo: string | null }[],
+  ): Promise<void> {
+    this.assertWritable();
+    this.mustBeAdmin(actor);
+    await this.run(actor, async (tx, load) => {
+      requireOk(checkEnrolment(prepare(await load()), actor, personId, rows));
+      const old = await tx.query<R>(
+        "SELECT id, service_id, active_from, active_to FROM person_service WHERE person_id = $1",
+        [personId],
+      );
+      const key = (s: string, f: string) => `${s}|${f}`;
+      const wanted = new Map(rows.map((r) => [key(r.serviceId, r.activeFrom), r]));
+      const had = new Map(old.map((r) => [key(r.service_id, r.active_from), r]));
+      for (const [k, r] of had)
+        if (!wanted.has(k)) await tx.query("DELETE FROM person_service WHERE id = $1", [r.id]);
+      // Ends that come sooner go first, so that a row never overlaps one that has not yet moved out of its way.
+      const changes = rows
+        .filter((r) => {
+          const o = had.get(key(r.serviceId, r.activeFrom));
+          return o && (o.active_to ?? null) !== r.activeTo;
+        })
+        .sort((a, b) => ((a.activeTo ?? "9999-12-31") < (b.activeTo ?? "9999-12-31") ? -1 : 1));
+      for (const r of changes)
+        await tx.query("UPDATE person_service SET active_to = $2 WHERE id = $1", [
+          must(had.get(key(r.serviceId, r.activeFrom))).id,
+          r.activeTo,
+        ]);
+      for (const r of rows)
+        if (!had.has(key(r.serviceId, r.activeFrom)))
+          await tx.query(
+            "INSERT INTO person_service (person_id, service_id, active_from, active_to) VALUES ($1,$2,$3,$4)",
+            [personId, r.serviceId, r.activeFrom, r.activeTo],
+          );
+    });
+  }
+
+  // --- prices, rules, holidays -------------------------------------------
+
   async listRateCards(actor: Actor): Promise<RateCard[]> {
     this.requireMoney();
-    return this.run(actor, async (tx) =>
-      (await tx.query<R>("SELECT * FROM rate_card ORDER BY effective_from")).map(rateCardFromRow),
-    );
+    return this.run(actor, (tx) => loadRateCards(tx));
   }
 
   async addRateCard(
     actor: Actor,
     input: {
       effectiveFrom: string;
-      veg: number;
-      nonVeg: number;
-      extraChapati: number;
-      extraBhakri: number;
-      extrasPerMonth: number;
+      prices: readonly PriceLine[];
+      monthlyFee: number;
       note?: string | null;
     },
   ): Promise<{ id: string; warnings: Issue[] }> {
@@ -778,54 +1051,82 @@ export class WorkspaceService {
     this.mustBeAdmin(actor);
     return this.run(actor, async (tx, load) => {
       const data = await load();
-      const warnings = requireOk(checkRateCard(prepare(data), input.effectiveFrom));
+      const warnings = requireOk(checkRateCard(prepare(data), input));
       const id = crypto.randomUUID();
       await tx.query(
-        `INSERT INTO rate_card (id, effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month, note, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [
-          id,
-          input.effectiveFrom,
-          input.veg,
-          input.nonVeg,
-          input.extraChapati,
-          input.extraBhakri,
-          input.extrasPerMonth,
-          input.note ?? null,
-          actor.personId,
-        ],
+        `INSERT INTO rate_card (id, effective_from, monthly_fee, note, created_by) VALUES ($1,$2,$3,$4,$5)`,
+        [id, input.effectiveFrom, input.monthlyFee, input.note ?? null, actor.personId],
       );
+      if (input.prices.length > 0)
+        await tx.query(
+          `INSERT INTO rate_price (card_id, item_id, service_id, amount)
+           SELECT $1, i, s, a FROM unnest($2::uuid[], $3::uuid[], $4::bigint[]) AS t(i, s, a)`,
+          [
+            id,
+            input.prices.map((l) => l.itemId),
+            input.prices.map((l) => l.serviceId),
+            input.prices.map((l) => l.amount),
+          ],
+        );
       return { id, warnings };
     });
   }
 
   async listMenus(actor: Actor): Promise<MenuVersion[]> {
-    return this.run(actor, async (tx) =>
-      (await tx.query<R>("SELECT * FROM menu ORDER BY effective_from")).map(menuFromRow),
-    );
+    return this.run(actor, (tx) => loadMenus(tx));
   }
 
-  /** A new menu, from a date. It is dated and never edited, like the prices of a kitchen that has them. */
+  /** A new menu, from a date. It is dated and never edited, and it carries no price. */
   async addMenu(
     actor: Actor,
     input: {
       effectiveFrom: string;
-      menu: Partial<Record<number, MealType>>;
+      /** Per service, the meal id on each weekday (0 is Sunday). */
+      days: Record<string, Record<string, string>>;
+      offered: Record<string, string[]>;
       note?: string | null;
     },
   ): Promise<{ id: string; warnings: Issue[] }> {
     this.assertWritable();
     this.mustBeAdmin(actor);
+    const days = Object.fromEntries(
+      Object.entries(input.days).map(([sv, week]) => [
+        sv,
+        Object.fromEntries(Object.entries(week).map(([wd, meal]) => [Number(wd), meal])),
+      ]),
+    );
     return this.run(actor, async (tx, load) => {
       const data = await load();
-      const warnings = requireOk(checkMenu(prepare(data), input.effectiveFrom, input.menu));
-      const id = crypto.randomUUID();
-      const values = WEEKDAY_COLUMNS.map((_, i) => input.menu[i] ?? null);
-      await tx.query(
-        `INSERT INTO menu (id, effective_from, menu_sun, menu_mon, menu_tue, menu_wed, menu_thu, menu_fri, menu_sat, note, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [id, input.effectiveFrom, ...values, input.note ?? null, actor.personId],
+      const warnings = requireOk(
+        checkMenu(prepare(data), {
+          effectiveFrom: input.effectiveFrom,
+          days,
+          offered: input.offered,
+        }),
       );
+      const id = crypto.randomUUID();
+      await tx.query(
+        `INSERT INTO menu (id, effective_from, note, created_by) VALUES ($1,$2,$3,$4)`,
+        [id, input.effectiveFrom, input.note ?? null, actor.personId],
+      );
+      const offers = Object.entries(input.offered).flatMap(([sv, ids]) =>
+        [...new Set(ids)].map((item) => [sv, item] as const),
+      );
+      if (offers.length > 0)
+        await tx.query(
+          `INSERT INTO menu_offer (menu_id, service_id, item_id)
+           SELECT $1, s, i FROM unnest($2::uuid[], $3::uuid[]) AS t(s, i)`,
+          [id, offers.map((o) => o[0]), offers.map((o) => o[1])],
+        );
+      const cells = Object.entries(days).flatMap(([sv, week]) =>
+        Object.entries(week).map(([wd, meal]) => [sv, Number(wd), meal as string] as const),
+      );
+      if (cells.length > 0)
+        await tx.query(
+          `INSERT INTO menu_day (menu_id, service_id, weekday, meal_id)
+           SELECT $1, s, w, m FROM unnest($2::uuid[], $3::int[], $4::uuid[]) AS t(s, w, m)`,
+          [id, cells.map((c) => c[0]), cells.map((c) => c[1]), cells.map((c) => c[2])],
+        );
       return { id, warnings };
     });
   }
@@ -1123,7 +1424,7 @@ export class WorkspaceService {
       if (!isValidDate(d)) throw invalid(`"${d}" is not a date`);
     return this.run(actor, async (tx, load) => {
       const rows = await tx.query<R>(
-        `SELECT id, on_date, person_id, all_consumers, change, qty, note_enc, logged_by, logged_at
+        `SELECT id, on_date, person_id, all_consumers, action, service_id, item_id, qty, note_enc, logged_by, logged_at
            FROM log_entry WHERE on_date BETWEEN $1 AND $2 ORDER BY on_date, logged_at LIMIT 2000`,
         [range.from, range.to],
       );
@@ -1140,7 +1441,9 @@ export class WorkspaceService {
             date: r.on_date,
             personId: r.person_id,
             allConsumers: r.all_consumers,
-            change: r.change,
+            action: r.action,
+            serviceId: r.service_id ?? null,
+            itemId: r.item_id ?? null,
             qty: r.qty,
             note: await this.d.cipher.dec("log_entry", "note_enc", r.id, r.note_enc),
             loggedBy: r.logged_by,
@@ -1165,6 +1468,8 @@ export class WorkspaceService {
     > = new Map(),
   ): Promise<HistoryContext> {
     const names = new Map(data.people.map((x) => [x.id, x.name]));
+    const items = new Map(data.catalogue.map((x) => [x.id, x.name]));
+    const services = new Map(data.services.map((x) => [x.id, x.name]));
     const roles = new Map<string, Role>();
     for (const id of new Set(ids)) {
       if (id === null) continue;
@@ -1177,6 +1482,9 @@ export class WorkspaceService {
       timeZone: this.tz,
       nameOf: (id) => names.get(id),
       roleOf: (id) => roles.get(id),
+      itemName: (id) => items.get(id),
+      serviceName: (id) => services.get(id),
+      severalServices: data.services.length > 1,
       moneyEnabled: this.d.info.moneyEnabled,
       claimOf: (id) => claims.get(id),
     };
@@ -1245,7 +1553,9 @@ export class WorkspaceService {
       date: string;
       personId: string | null;
       allConsumers: boolean;
-      change: LogChange;
+      action: LogAction;
+      serviceId: string | null;
+      itemId: string | null;
       qty: number | null;
     },
   ): Promise<Issue[]> {
@@ -1260,7 +1570,9 @@ export class WorkspaceService {
       date: string;
       personId: string | null;
       allConsumers: boolean;
-      change: LogChange;
+      action: LogAction;
+      serviceId: string | null;
+      itemId: string | null;
       qty: number | null;
       note?: string | null;
     },
@@ -1270,14 +1582,19 @@ export class WorkspaceService {
       const data = await load();
       const warnings = requireOk(checkLogEntry(prepare(data), actor, input, this.local()));
       const id = crypto.randomUUID();
+      // The kind is the item's own, so the database can refuse a meal where an add-on belongs.
+      const kind = data.catalogue.find((i) => i.id === input.itemId)?.kind ?? null;
       await tx.query(
-        `INSERT INTO log_entry (id, on_date, person_id, all_consumers, change, qty, note_enc, logged_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        `INSERT INTO log_entry (id, on_date, person_id, all_consumers, action, service_id, item_id, item_kind, qty, note_enc, logged_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           id,
           input.date,
           input.personId,
           input.allConsumers,
-          input.change,
+          input.action,
+          input.serviceId,
+          input.itemId,
+          kind,
           input.qty,
           await this.d.cipher.enc("log_entry", "note_enc", id, input.note?.trim() || null),
           actor.personId,

@@ -1,20 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   buildStatements,
-  checkLogChange,
-  checkLogEntry,
   compareText,
   type EngineError,
   fromEpochDay,
-  type Issue,
-  ledgerDay,
+  ledgerRows,
   monthStart,
-  type NewLogEntry,
   parseDate,
   rupees,
   toEpochDay,
 } from "../src/index.ts";
-import { CARD_APR, entry, JOVIAL, policyWith, prep } from "./fixtures.ts";
+import {
+  JOVIAL,
+  LUNCH,
+  leaveOf,
+  MENU_APR,
+  NON_VEG,
+  policyWith,
+  prep,
+  switchOf,
+  VEG,
+} from "./fixtures.ts";
 
 describe("the last day of a 400-year cycle, which random sampling will almost never reach", () => {
   it.each(["0000-02-29", "0400-02-29", "1600-02-29", "2000-02-29", "2400-02-29", "9600-02-29"])(
@@ -62,11 +68,14 @@ describe("what the errors say", () => {
       expect((e as EngineError).message).toMatch(/no rate card is in force on 2026-10-01/);
     }
     const noFriday = {
-      ...CARD_APR,
-      menu: { 1: "Veg" as const, 2: "Veg" as const, 3: "Non Veg" as const, 4: "Veg" as const },
+      ...MENU_APR,
+      days: { [LUNCH]: { 1: VEG, 2: VEG, 3: NON_VEG, 4: VEG } },
     };
+    expect(() =>
+      buildStatements(prep({ menus: [noFriday] }), ["jovial"], ["2026-10"]),
+    ).toThrowError(/serves nothing on this weekday/);
     try {
-      buildStatements(prep({ rateCards: [noFriday] }), ["jovial"], ["2026-10"]);
+      buildStatements(prep({ menus: [noFriday] }), ["jovial"], ["2026-10"]);
     } catch (e) {
       expect((e as EngineError).code).toBe("NO_MENU");
     }
@@ -87,119 +96,19 @@ describe("leave days that were switched", () => {
     const half = [policyWith({ leave: { chargeBps: 5000 } })];
     const at = (n: number) => `2026-10-01T10:0${n}:00Z`;
     const toNv = [
-      entry({ date: "2026-10-06", personId: "jovial", change: "Leave" }), // Tuesday, Veg by default
-      entry({
-        date: "2026-10-06",
-        personId: "jovial",
-        change: "Switch to Non Veg",
-        loggedAt: at(1),
-      }),
+      leaveOf("2026-10-06", "jovial"), // Tuesday, Veg by default
+      switchOf("2026-10-06", "jovial", NON_VEG, { loggedAt: at(1) }),
     ];
-    expect(ledgerDay(prep({ policies: half, log: toNv }), JOVIAL, "2026-10-06")!.leaveAmount).toBe(
-      rupees(85),
-    );
+    expect(
+      ledgerRows(prep({ policies: half, log: toNv }), JOVIAL, "2026-10-06")[0]!.leaveAmount,
+    ).toBe(rupees(85));
     const toVeg = [
-      entry({ date: "2026-10-07", personId: "jovial", change: "Leave" }), // Wednesday, Non Veg by default
-      entry({
-        date: "2026-10-07",
-        personId: "jovial",
-        change: "Switch to Non Veg",
-        loggedAt: at(1),
-      }),
-      entry({ date: "2026-10-07", personId: "jovial", change: "Switch to Veg", loggedAt: at(2) }),
+      leaveOf("2026-10-07", "jovial"), // Wednesday, Non Veg by default
+      switchOf("2026-10-07", "jovial", NON_VEG, { loggedAt: at(1) }),
+      switchOf("2026-10-07", "jovial", VEG, { loggedAt: at(2) }),
     ];
-    expect(ledgerDay(prep({ policies: half, log: toVeg }), JOVIAL, "2026-10-07")!.leaveAmount).toBe(
-      rupees(75),
-    );
-  });
-});
-
-describe("validation, last details", () => {
-  const NOW = { date: "2026-10-13", time: "12:00" };
-  const codes = (issues: Issue[], severity?: Issue["severity"]) =>
-    issues.filter((i) => !severity || i.severity === severity).map((i) => i.code);
-  const leave = (over: Partial<NewLogEntry> = {}): NewLogEntry => ({
-    date: "2026-10-14",
-    personId: "jovial",
-    allConsumers: false,
-    change: "Leave",
-    qty: null,
-    ...over,
-  });
-
-  it("marks a holiday note as a warning, not an error", () => {
-    const issues = checkLogEntry(
-      prep(),
-      { personId: "admin", role: "admin" },
-      leave({ date: "2026-10-20" }),
-      NOW,
-    );
-    expect(issues).toHaveLength(1);
-    expect(issues[0]!.severity).toBe("warning");
-    expect(issues[0]!.message.length).toBeGreaterThan(0);
-  });
-
-  it("spots a duplicate Switch to Non Veg as well as Switch to Veg", () => {
-    const p = prep({
-      log: [entry({ date: "2026-10-14", personId: "jovial", change: "Switch to Non Veg" })],
-    });
-    const e = checkLogEntry(
-      p,
-      { personId: "admin", role: "admin" },
-      leave({ change: "Switch to Non Veg" }),
-      NOW,
-    );
-    expect(codes(e, "error")).toContain("DUPLICATE");
-  });
-
-  it("judges closure by the entry's own person when taking an entry back, not by anyone's", () => {
-    const closes = [
-      {
-        forMonth: "2026-10",
-        consumerId: "jovial",
-        meals: 0,
-        billed: 0,
-        closedOn: "2026-11-01",
-        closedBy: "admin",
-      },
-    ];
-    const smrutis = entry({
-      date: "2026-10-14",
-      personId: "smruti",
-      change: "Leave",
-      loggedBy: "smruti",
-    });
     expect(
-      checkLogChange(prep({ closes }), { personId: "smruti", role: "consumer" }, smrutis, NOW),
-    ).toEqual([]);
-    const joviaIs = entry({
-      date: "2026-10-14",
-      personId: "jovial",
-      change: "Leave",
-      loggedBy: "jovial",
-    });
-    expect(
-      codes(
-        checkLogChange(prep({ closes }), { personId: "jovial", role: "consumer" }, joviaIs, NOW),
-        "error",
-      ),
-    ).toEqual(["MONTH_CLOSED"]);
-  });
-
-  it("applies the cut-off to a consumer taking an entry back, never to the admin", () => {
-    const p = prep({
-      policies: [policyWith({ exceptionCutoff: { daysBefore: 1, time: "18:00" } })],
-    });
-    const mine = entry({
-      date: "2026-10-14",
-      personId: "jovial",
-      change: "Leave",
-      loggedBy: "jovial",
-    });
-    const late = { date: "2026-10-14", time: "09:00" };
-    expect(
-      codes(checkLogChange(p, { personId: "jovial", role: "consumer" }, mine, late), "error"),
-    ).toEqual(["CUTOFF_PASSED"]);
-    expect(checkLogChange(p, { personId: "admin", role: "admin" }, mine, late)).toEqual([]);
+      ledgerRows(prep({ policies: half, log: toVeg }), JOVIAL, "2026-10-07")[0]!.leaveAmount,
+    ).toBe(rupees(75));
   });
 });

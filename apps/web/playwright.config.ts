@@ -11,6 +11,10 @@ import { defineConfig, devices } from "@playwright/test";
  */
 const PORT = Number(process.env.E2E_PORT ?? 18900);
 const PG = process.env.ALIMENTATION_TEST_PG ?? "postgres://pgadmin@127.0.0.1:5432/postgres";
+/** A second instance, for the specs that move a kitchen from one instance to another. */
+const OTHER_PORT = Number(process.env.E2E_OTHER_PORT ?? 18901);
+const OTHER_ORIGIN = `http://localhost:${OTHER_PORT}`;
+const OTHER_TOKEN = "e2e-migration-token-0123456789abcdef";
 const launchOptions = { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined };
 
 export default defineConfig({
@@ -34,21 +38,40 @@ export default defineConfig({
     },
     { name: "phone", use: { ...devices["Pixel 7"], launchOptions } },
   ],
-  webServer: {
-    command: "node ../api/dist/node.mjs",
-    url: `http://localhost:${PORT}/api/health`,
-    timeout: 60_000,
-    reuseExistingServer: false,
-    env: {
-      PORT: String(PORT),
-      APP_ORIGIN: `http://localhost:${PORT}`,
-      NODE_ENV: "development",
-      AUTH_DEV: "1",
-      SIGNUP: "open",
-      WEB_DIR: "./dist",
-      INSTANCE_DIR: mkdtempSync(join(tmpdir(), "alim-e2e-")),
-      PLACEMENT_ADMIN_URL: PG,
-      OPERATOR_EMAILS: "operator@example.org",
+  webServer: [
+    {
+      command: "node ../api/dist/node.mjs",
+      url: `http://localhost:${PORT}/api/health`,
+      timeout: 60_000,
+      reuseExistingServer: false,
+      env: {
+        PORT: String(PORT),
+        APP_ORIGIN: `http://localhost:${PORT}`,
+        NODE_ENV: "development",
+        AUTH_DEV: "1",
+        SIGNUP: "open",
+        WEB_DIR: "./dist",
+        INSTANCE_DIR: mkdtempSync(join(tmpdir(), "alim-e2e-")),
+        PLACEMENT_ADMIN_URL: PG,
+        OPERATOR_EMAILS: "operator@example.org",
+      },
     },
-  },
+    {
+      command: "node ../api/dist/node.mjs",
+      url: `${OTHER_ORIGIN}/api/health`,
+      timeout: 60_000,
+      reuseExistingServer: false,
+      env: {
+        PORT: String(OTHER_PORT),
+        APP_ORIGIN: OTHER_ORIGIN,
+        NODE_ENV: "development",
+        AUTH_DEV: "1",
+        SIGNUP: "open",
+        WEB_DIR: "./dist",
+        INSTANCE_DIR: mkdtempSync(join(tmpdir(), "alim-e2e-other-")),
+        PLACEMENT_ADMIN_URL: PG,
+        MIGRATION_TOKEN: OTHER_TOKEN,
+      },
+    },
+  ],
 });

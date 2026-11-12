@@ -18,6 +18,19 @@ const dropChecks = (table) => `DO $$ DECLARE c record; BEGIN
 const asApp = (template, ...more) =>
   `DO $$ BEGIN EXECUTE format('${template}', ${APP}${more.length ? `, ${more.join(", ")}` : ""}); END $$`;
 
+// Loosens one rule inside a function: the text `from` must be in its definition, and is replaced by `to`.
+const lit = (t) => `'${t.replaceAll("'", "''")}'`;
+const patch = (fn, from, to) =>
+  `DO $x$ DECLARE d text := pg_get_functiondef('${fn}'::regprocedure); BEGIN
+    IF position(${lit(from)} IN d) = 0 THEN RAISE EXCEPTION 'defect does not apply: ${from.slice(0, 30).replaceAll("'", "")}'; END IF;
+    EXECUTE replace(d, ${lit(from)}, ${lit(to)}); END $x$`;
+const readOnly = (t) => [
+  `frozen: the flag is ignored on ${t}`,
+  "owner",
+  `DROP TRIGGER ${t}_read_only ON ${t}`,
+  "cannot be written while the kitchen is being moved",
+];
+
 // [name, as, sql, a fragment of the name of the test that must fail]
 const defects = [
   // Row-level security: who may read what.
@@ -250,14 +263,9 @@ const defects = [
     "not billed that day",
   ],
   ["rules: entry shape unchecked", "owner", dropChecks("log_entry"), "shape of an entry"],
-  ["rules: second leave allowed", "owner", `DROP INDEX log_entry_one_leave`, "second leave"],
-  ["rules: second switch allowed", "owner", `DROP INDEX log_entry_one_switch`, "second leave"],
-  [
-    "rules: second Supplier Off allowed",
-    "owner",
-    `DROP INDEX log_entry_one_supplier_off`,
-    "second leave",
-  ],
+  ["rules: second leave allowed", "owner", `DROP INDEX log_one_leave`, "second leave"],
+  ["rules: second switch allowed", "owner", `DROP INDEX log_one_switch`, "second leave"],
+  ["rules: second Supplier Off allowed", "owner", `DROP INDEX log_one_off`, "second leave"],
   [
     "rules: payments without an amount",
     "owner",
@@ -585,6 +593,548 @@ const defects = [
     "cannot be written while the kitchen is being moved",
   ],
 
+  // The catalogue and the services: what a kitchen serves, as data with stable ids.
+  [
+    "catalogue: service names unchecked",
+    "owner",
+    dropChecks("service"),
+    "holds a name of one to forty",
+  ],
+  [
+    "catalogue: item names, kinds, units and quantities unchecked",
+    "owner",
+    dropChecks("catalogue_item"),
+    "holds a kind of meal or add-on",
+  ],
+  [
+    "catalogue: two services may share a name",
+    "owner",
+    `DROP INDEX service_name`,
+    "keeps a name once",
+  ],
+  [
+    "catalogue: two items may share a name",
+    "owner",
+    `DROP INDEX catalogue_item_name`,
+    "keeps a name once",
+  ],
+  [
+    "catalogue: the kind, unit and largest quantity of an item can change",
+    "owner",
+    `DROP TRIGGER catalogue_item_keep_shape ON catalogue_item`,
+    "keeps the kind, unit and largest quantity",
+  ],
+  [
+    "catalogue: the kind of an item is checked by the owner only against the application",
+    "owner",
+    patch(
+      "keep_item_shape()",
+      "IF NEW.kind IS DISTINCT FROM OLD.kind OR",
+      "IF is_app_session() AND NEW.kind IS DISTINCT FROM OLD.kind OR",
+    ),
+    "keeps the kind, unit and largest quantity",
+  ],
+  [
+    "catalogue: the date an item was retired can move",
+    "owner",
+    `DROP TRIGGER catalogue_item_keep_archived_once ON catalogue_item`,
+    "retires a service or an item once",
+  ],
+  [
+    "catalogue: the date a service was retired can move",
+    "owner",
+    `DROP TRIGGER service_keep_archived_once ON service`,
+    "retires a service or an item once",
+  ],
+  [
+    "catalogue: consumers add services",
+    "owner",
+    `ALTER POLICY service_admin_insert ON service WITH CHECK (true)`,
+    "lets the admin alone add or change a service",
+  ],
+  [
+    "catalogue: consumers add items",
+    "owner",
+    `ALTER POLICY item_admin_insert ON catalogue_item WITH CHECK (true)`,
+    "lets the admin alone add or change a service",
+  ],
+  [
+    "catalogue: consumers rename services",
+    "owner",
+    `ALTER POLICY service_admin_update ON service USING (true) WITH CHECK (true)`,
+    "lets the admin alone add or change a service",
+  ],
+  [
+    "catalogue: consumers rename items",
+    "owner",
+    `ALTER POLICY item_admin_update ON catalogue_item USING (true) WITH CHECK (true)`,
+    "lets the admin alone add or change a service",
+  ],
+  [
+    "catalogue: row security off on services",
+    "owner",
+    `ALTER TABLE service DISABLE ROW LEVEL SECURITY`,
+    "lets the admin alone add or change a service",
+  ],
+  [
+    "catalogue: services deletable by the application role",
+    "owner",
+    asApp("GRANT DELETE ON service TO %I"),
+    "nobody remove one",
+  ],
+  [
+    "catalogue: items deletable by the application role",
+    "owner",
+    asApp("GRANT DELETE ON catalogue_item TO %I"),
+    "nobody remove one",
+  ],
+  [
+    "catalogue: the audit trail stops recording items",
+    "owner",
+    `DROP TRIGGER catalogue_item_audit ON catalogue_item`,
+    "a rename that is written in the trail",
+  ],
+  [
+    "catalogue: the audit trail stops recording services",
+    "owner",
+    `DROP TRIGGER service_audit ON service`,
+    "every change of enrolment in the trail",
+  ],
+  readOnly("service"),
+  readOnly("catalogue_item"),
+  readOnly("person_service"),
+  readOnly("menu_offer"),
+  readOnly("menu_day"),
+  readOnly("rate_price"),
+
+  // Who takes which service.
+  [
+    "enrolment: a service can be taken twice at once",
+    "owner",
+    patch("stamp_person_service()", "IF EXISTS (", "IF false AND EXISTS ("),
+    "refuses a service taken twice on one day",
+  ],
+  [
+    "enrolment: the overlap stops one day early",
+    "owner",
+    patch(
+      "stamp_person_service()",
+      "x.active_from <= coalesce(NEW.active_to, far)",
+      "x.active_from < coalesce(NEW.active_to, far)",
+    ),
+    "refuses a service taken twice on one day",
+  ],
+  [
+    "enrolment: anyone can take a service",
+    "owner",
+    patch(
+      "stamp_person_service()",
+      "IS DISTINCT FROM 'consumer'",
+      "IS DISTINCT FROM 'consumer' AND false",
+    ),
+    "is for consumers only",
+  ],
+  [
+    "enrolment: no trigger",
+    "owner",
+    `DROP TRIGGER person_service_stamp ON person_service`,
+    "refuses a service taken twice on one day",
+  ],
+  [
+    "enrolment: who takes which service can change",
+    "owner",
+    patch(
+      "stamp_person_service()",
+      "NEW.person_id <> OLD.person_id OR",
+      "false AND NEW.person_id <> OLD.person_id OR",
+    ),
+    "does not let who takes which service change",
+  ],
+  [
+    "enrolment: the end may come before the start",
+    "owner",
+    dropChecks("person_service"),
+    "refuses a span that ends before it starts",
+  ],
+  [
+    "enrolment: closed months ignored",
+    "owner",
+    `CREATE OR REPLACE FUNCTION enrolment_locked(p_person uuid, lo date, hi date) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS 'SELECT false'`,
+    "is refused like a log entry",
+  ],
+  [
+    "enrolment: a closed month locks one day too few",
+    "owner",
+    patch("enrolment_locked(uuid, date, date)", "c.for_month <= hi", "c.for_month < hi"),
+    "is refused like a log entry",
+  ],
+  [
+    "enrolment: the admin is held to a closed month even where the workspace only flags it",
+    "owner",
+    patch(
+      "enrolment_locked(uuid, date, date)",
+      "IS DISTINCT FROM 'admin' OR close_blocks_admin(c.for_month)",
+      "IS DISTINCT FROM 'admin' OR true",
+    ),
+    "is allowed to the platform as the owner",
+  ],
+  [
+    "enrolment: a change reaching a closed month through the end date is missed",
+    "owner",
+    patch(
+      "stamp_person_service()",
+      "IF NEW.active_to IS DISTINCT FROM OLD.active_to THEN",
+      "IF false THEN",
+    ),
+    "refuses to end, move or remove a span",
+  ],
+  [
+    "enrolment: a change reaching a closed month through the start date is missed",
+    "owner",
+    patch("stamp_person_service()", "IF NEW.active_from <> OLD.active_from THEN", "IF false THEN"),
+    "refuses to end, move or remove a span",
+  ],
+  [
+    "enrolment: removing a span in a closed month is allowed",
+    "owner",
+    patch(
+      "stamp_person_service()",
+      "ELSIF TG_OP = 'DELETE' THEN",
+      "ELSIF TG_OP = 'DELETE' AND false THEN",
+    ),
+    "refuses to end, move or remove a span",
+  ],
+  [
+    "enrolment: consumers read everyone's enrolment",
+    "owner",
+    `ALTER POLICY person_service_read ON person_service USING (app_role() IS NOT NULL)`,
+    "shows a member only the services they take",
+  ],
+  [
+    "enrolment: row security off",
+    "owner",
+    `ALTER TABLE person_service DISABLE ROW LEVEL SECURITY`,
+    "shows a member only the services they take",
+  ],
+  [
+    "enrolment: consumers write enrolment",
+    "owner",
+    `ALTER POLICY person_service_admin_write ON person_service USING (true) WITH CHECK (true)`,
+    "is written by the admin alone",
+  ],
+  [
+    "enrolment: the audit trail stops recording it",
+    "owner",
+    `DROP TRIGGER person_service_audit ON person_service`,
+    "every change of enrolment in the trail",
+  ],
+  [
+    "enrolment: members read the enrolment trail of others",
+    "owner",
+    `CREATE POLICY audit_any_enrolment ON audit_log FOR SELECT USING (table_name = 'person_service')`,
+    "every change of enrolment in the trail",
+  ],
+  [
+    "enrolment: the supplier cannot read the trail of what is served",
+    "owner",
+    `ALTER POLICY audit_supplier_read ON audit_log USING (app_role() = 'supplier' AND table_name IN ('log_entry', 'claim', 'claim_decision', 'claim_reversal', 'settlement', 'month_close', 'rate_card', 'menu', 'policy_version', 'holiday'))`,
+    "every change of enrolment in the trail",
+  ],
+
+  // What a log entry may be, with a service and an item.
+  [
+    "log: an entry for a service the person does not take",
+    "owner",
+    patch(
+      "stamp_log_entry()",
+      "NOT enrolled_on(NEW.person_id",
+      "false AND NOT enrolled_on(NEW.person_id",
+    ),
+    "does not take the service that day",
+  ],
+  [
+    "log: enrolment starts a day late",
+    "owner",
+    patch("enrolled_on(uuid, uuid, date)", "active_from <= d", "active_from < d"),
+    "does not take that service",
+  ],
+  [
+    "log: enrolment ends a day early",
+    "owner",
+    patch("enrolled_on(uuid, uuid, date)", "d <= active_to", "d < active_to"),
+    "does not take the service that day",
+  ],
+  [
+    "log: an item retired on the day is still served",
+    "owner",
+    patch("stamp_log_entry()", "it.archived_on <= NEW.on_date", "it.archived_on < NEW.on_date"),
+    "refuses an item from the day it is retired",
+  ],
+  [
+    "log: a retired item is still served",
+    "owner",
+    patch(
+      "stamp_log_entry()",
+      "IF it.archived_on IS NOT NULL AND",
+      "IF false AND it.archived_on IS NOT NULL AND",
+    ),
+    "refuses an item from the day it is retired",
+  ],
+  [
+    "log: a quantity above the largest of the item",
+    "owner",
+    patch("stamp_log_entry()", "IF NEW.qty > it.max_qty THEN", "IF false THEN"),
+    "refuses a quantity above the largest",
+  ],
+  [
+    "log: the largest quantity is refused too",
+    "owner",
+    patch("stamp_log_entry()", "IF NEW.qty > it.max_qty THEN", "IF NEW.qty >= it.max_qty THEN"),
+    "refuses a quantity above the largest",
+  ],
+  [
+    "log: an item the menu does not offer",
+    "owner",
+    patch(
+      "stamp_log_entry()",
+      "IF NEW.service_id IS NOT NULL AND NOT EXISTS (",
+      "IF false AND NOT EXISTS (",
+    ),
+    "refuses a switch or an extra the menu in force does not offer",
+  ],
+  [
+    "log: the menu in force is the first and not the latest",
+    "owner",
+    patch(
+      "stamp_log_entry()",
+      "ORDER BY m.effective_from DESC LIMIT 1)",
+      "ORDER BY m.effective_from ASC LIMIT 1)",
+    ),
+    "refuses a switch or an extra the menu in force does not offer",
+  ],
+  [
+    "log: a whole day and a service both left",
+    "owner",
+    patch(
+      "stamp_log_entry()",
+      "      IF EXISTS (\n           SELECT 1 FROM log_entry x",
+      "      IF false AND EXISTS (\n           SELECT 1 FROM log_entry x",
+    ),
+    "refuses a whole day and one of its services both left",
+  ],
+  [
+    "log: a whole day and a service both left, one way round only",
+    "owner",
+    patch(
+      "stamp_log_entry()",
+      "AND (x.service_id IS NULL OR NEW.service_id IS NULL)",
+      "AND (x.service_id IS NULL)",
+    ),
+    "refuses a whole day and one of its services both left",
+  ],
+  [
+    "log: a whole day and a service both off, the kitchen",
+    "owner",
+    patch(
+      "stamp_log_entry()",
+      "IF NEW.action IN ('Leave', 'Supplier Off') THEN",
+      "IF NEW.action IN ('Leave') THEN",
+    ),
+    "refuses a whole day and one of its services both left",
+  ],
+  [
+    "log: an item of the wrong kind can be named",
+    "owner",
+    `ALTER TABLE log_entry DROP CONSTRAINT log_entry_item_id_item_kind_fkey`,
+    "holds the kind of an item",
+  ],
+  [
+    "log: a service that does not exist can be named",
+    "owner",
+    `ALTER TABLE log_entry DROP CONSTRAINT log_entry_service_id_fkey`,
+    "holds the kind of an item",
+  ],
+  [
+    "log: two whole-day leaves (a null service is taken to differ)",
+    "owner",
+    `DROP INDEX log_one_leave; CREATE UNIQUE INDEX log_one_leave ON log_entry (on_date, person_id, service_id) WHERE action = 'Leave'`,
+    "allows one leave, one switch",
+  ],
+  [
+    "log: two whole-day Supplier Offs (a null service is taken to differ)",
+    "owner",
+    `DROP INDEX log_one_off; CREATE UNIQUE INDEX log_one_off ON log_entry (on_date, service_id) WHERE action = 'Supplier Off'`,
+    "allows one leave, one switch",
+  ],
+  [
+    "log: a second switch in a service",
+    "owner",
+    `DROP INDEX log_one_switch`,
+    "allows one leave, one switch",
+  ],
+  [
+    "log: a second extra of an item in a service",
+    "owner",
+    `DROP INDEX log_one_extra`,
+    "allows one leave, one switch",
+  ],
+  [
+    "log: a switch needs no meal",
+    "owner",
+    `ALTER TABLE log_entry DROP CONSTRAINT log_entry_check3`,
+    "keeps the shape of each action",
+  ],
+  [
+    "log: the supplier writes more than a Supplier Off",
+    "owner",
+    `ALTER POLICY log_insert ON log_entry WITH CHECK (app_role() = 'admin' OR (app_role() = 'consumer' AND person_id = app_person() AND action <> 'Supplier Off') OR app_role() = 'supplier')`,
+    "lets a consumer log only for themselves and the supplier only a Supplier Off",
+  ],
+
+  // The menu and the prices: written whole, never added to.
+  [
+    "menu: an offer can be added to an old menu",
+    "owner",
+    `DROP TRIGGER menu_offer_same_transaction ON menu_offer`,
+    "takes the offers and days of a menu",
+  ],
+  [
+    "menu: a day can be added to an old menu",
+    "owner",
+    `DROP TRIGGER menu_day_same_transaction ON menu_day`,
+    "takes the offers and days of a menu",
+  ],
+  [
+    "menu: a price can be added to an old card",
+    "owner",
+    `DROP TRIGGER rate_price_same_transaction ON rate_price`,
+    "takes the prices of a card",
+  ],
+  [
+    "menu: the transaction rule asks only that the parent exists",
+    "owner",
+    patch(
+      "guard_same_transaction()",
+      "IF made IS DISTINCT FROM now() THEN",
+      "IF made IS NULL THEN",
+    ),
+    "takes the offers and days of a menu",
+  ],
+  [
+    "menu: offers can be edited",
+    "owner",
+    `DROP TRIGGER menu_offer_append_only ON menu_offer`,
+    "does not let the application role or the owner change",
+  ],
+  [
+    "menu: days can be edited",
+    "owner",
+    `DROP TRIGGER menu_day_append_only ON menu_day`,
+    "does not let the application role or the owner change",
+  ],
+  [
+    "menu: prices can be edited",
+    "owner",
+    `DROP TRIGGER rate_price_append_only ON rate_price`,
+    "does not let the application role or the owner change",
+  ],
+  [
+    "menu: the application role may edit an offer",
+    "owner",
+    asApp("GRANT UPDATE, DELETE ON menu_offer TO %I"),
+    "does not let the application role or the owner change",
+  ],
+  [
+    "menu: the application role may edit a day",
+    "owner",
+    asApp("GRANT UPDATE, DELETE ON menu_day TO %I"),
+    "does not let the application role or the owner change",
+  ],
+  [
+    "menu: the application role may edit a price",
+    "owner",
+    asApp("GRANT UPDATE, DELETE ON rate_price TO %I"),
+    "does not let the application role or the owner change",
+  ],
+  [
+    "menu: a meal can be served by a service that does not offer it",
+    "owner",
+    `ALTER TABLE menu_day DROP CONSTRAINT menu_day_menu_id_service_id_meal_id_fkey`,
+    "serves a meal only in a service that offers it",
+  ],
+  [
+    "menu: an add-on can be served as the meal of the day",
+    "owner",
+    `ALTER TABLE menu_day DROP CONSTRAINT menu_day_meal_id_meal_kind_fkey`,
+    "holds the kind of an item",
+  ],
+  [
+    "menu: a weekday out of range",
+    "owner",
+    dropChecks("menu_day"),
+    "serves a meal only in a service that offers it",
+  ],
+  [
+    "menu: two meals on one weekday",
+    "owner",
+    `ALTER TABLE menu_day DROP CONSTRAINT menu_day_pkey`,
+    "serves a meal only in a service that offers it",
+  ],
+  [
+    "menu: two prices for an item in every service (a null service is taken to differ)",
+    "owner",
+    `ALTER TABLE rate_price DROP CONSTRAINT rate_price_card_id_item_id_service_id_key; ALTER TABLE rate_price ADD UNIQUE (card_id, item_id, service_id)`,
+    "holds a price per item",
+  ],
+  [
+    "menu: consumers add offers to a menu made in the same transaction",
+    "owner",
+    `ALTER POLICY menu_offer_admin_insert ON menu_offer WITH CHECK (true)`,
+    "is written by the admin alone, even in the transaction",
+  ],
+  [
+    "menu: consumers add days to a menu made in the same transaction",
+    "owner",
+    `ALTER POLICY menu_day_admin_insert ON menu_day WITH CHECK (true)`,
+    "is written by the admin alone, even in the transaction",
+  ],
+  [
+    "menu: consumers add prices to a card made in the same transaction",
+    "owner",
+    `ALTER POLICY rate_price_admin_insert ON rate_price WITH CHECK (true)`,
+    "is written by the admin alone, even in the transaction",
+  ],
+  [
+    "menu: row security off on offers",
+    "owner",
+    `ALTER TABLE menu_offer DISABLE ROW LEVEL SECURITY`,
+    "shows nobody anything",
+  ],
+  [
+    "menu: the audit trail stops recording offers",
+    "owner",
+    `DROP TRIGGER menu_offer_audit ON menu_offer`,
+    "is in the trail, which a member and the supplier read",
+  ],
+  [
+    "menu: the audit trail stops recording days",
+    "owner",
+    `DROP TRIGGER menu_day_audit ON menu_day`,
+    "is in the trail, which a member and the supplier read",
+  ],
+  [
+    "menu: the audit trail stops recording prices",
+    "owner",
+    `DROP TRIGGER rate_price_audit ON rate_price`,
+    "is in the trail, which a member and the supplier read",
+  ],
+  [
+    "money: a kitchen without money accepts a price on an item",
+    "owner",
+    `DROP TRIGGER rate_price_guard_money ON rate_price`,
+    "refuses a price on an item",
+  ],
+
   // Placement.
   ["migrate: runner without the lock", "owner", `SELECT 1`, null], // control: a no-op defect must NOT be caught
 ];
@@ -604,6 +1154,7 @@ for (const [name, as, sql, expect] of picks) {
       "apps/api/test/workspace.db.test.ts",
       "apps/api/test/workspace.guards.test.ts",
       "apps/api/test/workspace.money.test.ts",
+      "apps/api/test/workspace.catalogue.test.ts",
       "--reporter=json",
       `--outputFile=${file}`,
     ],
@@ -616,9 +1167,13 @@ for (const [name, as, sql, expect] of picks) {
   const setupBroke = false;
   try {
     const j = JSON.parse(readFileSync(file, "utf8"));
-    for (const f of j.testResults)
+    for (const f of j.testResults) {
       for (const t of f.assertionResults)
         if (t.status === "failed") failed.push(t.fullName ?? t.title);
+      // A file that cannot even set itself up (the seed is refused by the defect) is caught by its message.
+      if (f.status === "failed" && !f.assertionResults.some((t) => t.status === "failed"))
+        failed.push(`(suite failed: ${String(f.message ?? "").slice(0, 300)})`);
+    }
   } catch {
     failed = [`(no report: ${(r.stderr || "").slice(-200)})`];
   }

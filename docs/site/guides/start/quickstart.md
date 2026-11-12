@@ -19,34 +19,43 @@ in **Start a kitchen**:
 | **Address**                | Letters, numbers and dashes. It becomes the link: `/w/willow-mess`. It is chosen once.                            |
 | **I am also the supplier** | Leave this ticked if you cook, or if you are the one who confirms payments. You can switch between the two roles. |
 
-You land on the dashboard. It tells you what is missing: **Add the menu to start counting meals**,
-**Add prices to start billing**, then **Add the people you feed**.
+Starting a kitchen offers a **starter** to begin from: a home lunch, a three-service mess, or a
+blank kitchen. A starter only fills in the next step for you (the services, the meals and a menu);
+it has no prices, and you can change everything. You land on the dashboard. It tells you what is
+missing: **Add what you serve**, then the menu, then **Price 4 items to start billing**, then **Add
+the people you feed**.
 
 > [!NOTE] Starting a kitchen asks one question: **Track money in this kitchen**. Leave it ticked to
 > set prices and bill people. Untick it and the kitchen only counts meals. You choose once, and it
 > cannot be changed later. See [A kitchen without money](/guides/admin/a-kitchen-without-money/).
 > Where the steps below talk about prices, a kitchen without money skips them.
 
-## 2. Add the menu, then the prices
+## 2. Say what you serve, then the menu, then the prices
 
-Open **Menu** and choose **New menu**. It asks which meal is served on each working day, and from
-which date. Everyone gets this meal unless they say otherwise.
+Open **Catalogue**. Add a **service** (a time of day you serve, such as Lunch) and the **items**:
+the meals, and the add-ons people may ask for on top. You choose the names and the units. A kitchen
+with one service never sees a service control. The full page is
+[What you serve](/guides/admin/what-you-serve/).
 
-Then open **Prices** and choose **New prices**.
+Open **Menu** and choose **New menu**. It asks which meal each service serves on each working day,
+and from which date, and which other items it offers. Everyone gets the day's meal unless they say
+otherwise.
 
-| Field                               | Meaning                                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------------------------ |
-| **Applies from**                    | The first day these prices are used. Earlier days keep the prices they had.                |
-| **Veg meal**, **Non-veg meal**      | The price of one meal.                                                                     |
-| **Extra chapati**, **Extra bhakri** | The price of one extra piece, beyond the default portion.                                  |
-| **Extras charged monthly**          | A flat amount for the things that are not counted one by one (papad, salad), once a month. |
+Then open **Prices** and choose **New prices**. It lists every item the menu offers.
+
+| Field            | Meaning                                                                     |
+| ---------------- | --------------------------------------------------------------------------- |
+| **Applies from** | The first day these prices are used. Earlier days keep the prices they had. |
+| **An item**      | The price of one plate of a meal, or of one piece (or cup) of an add-on.    |
+| **Monthly fee**  | A flat amount for things that are not counted one by one, once a month.     |
 
 > [!TIP] A menu or a set of prices is never edited. When either changes, add a new one with a new
 > start date. Past months keep what they were counted and billed at.
 
 ## 3. Add the people
 
-Open **People** and choose **Add a person**.
+Open **People** and choose **Add a person**. A new member takes every service; when the kitchen has
+more than one, a checklist on the person lets you narrow it.
 
 - **Name** and **Role**: _Member_ (someone you feed), _Supplier_ (the person who cooks and confirms
   payments) or _Admin_.
@@ -71,7 +80,7 @@ The defaults suit most kitchens:
 
 - meals Monday to Friday; only confirmed holidays cancel a meal;
 - a leave day costs nothing;
-- the monthly extras apply from the first meal;
+- the monthly fee applies from the first day with a meal;
 - you, the admin, close each month;
 - a member claims a payment and the supplier confirms it;
 - an exception can be added at any time; one added after its day is marked late.

@@ -21,13 +21,13 @@ busy.
 | **During the month**    | Members log exceptions. Claims are made and decided. Days that have already passed can still be added, marked late. |
 | **The month ends**      | The bill stops being a projection and becomes **actual**. Nothing is frozen yet.                                    |
 | **The catch-up window** | Until the month is closed, anyone can still add a late entry, and the supplier can still decide claims.             |
-| **The close**           | The admin closes the month (or the kitchen's rules close it by themselves). **Meals, leave and extras freeze.**     |
+| **The close**           | The admin closes the month (or the kitchen's rules close it by themselves). **Meals, leave and add-ons freeze.**    |
 | **After the close**     | Claims, decisions and settlements carry on. A change to a meal needs the admin and is flagged.                      |
 
 ## How long is the catch-up window?
 
 In a kitchen without money, closing is only a lock: it stops changes to a month's meals, leave and
-extras, and freezes no amount.
+add-ons, and freezes no amount.
 
 It is up to your kitchen, in **Rates & rules**, under **Month close**:
 

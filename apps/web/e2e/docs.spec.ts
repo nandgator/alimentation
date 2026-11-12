@@ -379,13 +379,13 @@ test.describe("the documentation sites", () => {
     await page.goto("/docs/concepts/billing-engine/");
     const block = page.locator("figure.code", { hasText: "EngineData" }).first();
     await expect(block.locator(".code-name")).toHaveText("packages/core/src/engine.ts");
-    await expect(block.locator(".code-range")).toHaveText("lines 30\u201350");
+    await expect(block.locator(".code-range")).toHaveText("lines 33\u201357");
     const first = block.locator(".line").first();
     const margin = await first.evaluate((el) => {
       const c = getComputedStyle(el, "::before");
       return { content: c.content, select: c.userSelect };
     });
-    expect(margin).toEqual({ content: '"30"', select: "none" });
+    expect(margin).toEqual({ content: '"33"', select: "none" });
     // Highlighted: a keyword is not the colour of the text around it.
     const colours = await block.evaluate((el) => ({
       text: getComputedStyle(el.querySelector("code")!).color,

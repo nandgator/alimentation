@@ -385,3 +385,107 @@ describe("a person in a copy of the kitchen", () => {
     expect(people.safeParse({ ...person, externalKey: 5 }).success).toBe(false);
   });
 });
+
+describe("the services a row names", () => {
+  const SERVICES = ["Lunch", "Dinner"];
+  const plan = (
+    items: PersonImportItem[],
+    existing = there(),
+    mode: "merge" | "overwrite" = "merge",
+  ) => planPeopleImport(entries(...items), mode, existing, SERVICES);
+  const base = { role: "member", activeFrom: "2026-10-01" };
+
+  it("reads a column called services, or service, with the names between bars, semicolons or commas", () => {
+    const out = parsePeopleCsv(
+      'name,role,activeFrom,services\nAsha,member,2026-10-01,Lunch|Dinner\nBo,member,2026-10-01,"Lunch, Dinner"\nCy,member,2026-10-01,\n',
+    );
+    expect(out.problems).toEqual([]);
+    expect(out.items.map((i) => i.item.services)).toEqual(["Lunch|Dinner", "Lunch, Dinner", ""]);
+    expect(parsePeopleCsv("name,role,service\nAsha,member,Lunch\n").items[0]?.item.services).toBe(
+      "Lunch",
+    );
+    expect(parsePeopleCsv("name,role\nAsha,member\n").items[0]?.item).not.toHaveProperty(
+      "services",
+    );
+  });
+
+  it("names the services of a new member as the kitchen spells them, in any case, each once", () => {
+    const out = plan([
+      { name: "Asha", ...base, services: " dinner | LUNCH | dinner " },
+      { name: "Bo", ...base, services: ["lunch"] },
+      { name: "Cy", ...base },
+      { name: "Di", ...base, services: "" },
+    ]);
+    expect(out.rows.map((r) => r.action)).toEqual(["create", "create", "create", "create"]);
+    expect(out.creates.map((c) => c.services)).toEqual([
+      ["Dinner", "Lunch"],
+      ["Lunch"],
+      null,
+      null,
+    ]);
+    expect(out.rows[0]?.diff).toContainEqual({
+      field: "services",
+      from: null,
+      to: "Dinner, Lunch",
+    });
+    expect(out.rows[2]?.diff.map((d) => d.field)).not.toContain("services");
+  });
+
+  it("refuses a name the kitchen does not have, services on a supplier, and services with no first date", () => {
+    const out = plan([
+      { name: "Asha", ...base, services: "Lunch|Supper" },
+      { name: "Bo", role: "supplier", services: "Lunch" },
+      { name: "Cy", role: "member", services: "Lunch" },
+    ]);
+    expect(out.rows.map((r) => r.action)).toEqual(["error", "error", "error"]);
+    expect(out.rows[0]?.message).toBe(
+      'No service called "Supper". This kitchen has: Lunch, Dinner.',
+    );
+    expect(out.rows[1]?.message).toBe("Only members take services.");
+    expect(out.rows[2]?.message).toMatch(/Give the first date/);
+    expect(out.creates).toEqual([]);
+    expect(
+      planPeopleImport(entries({ name: "Di", ...base, services: "Lunch" }), "merge", there())
+        .rows[0]?.message,
+    ).toBe('No service called "Lunch". This kitchen has no services yet.');
+  });
+
+  it("changes what a member takes only when the row names something different", () => {
+    const here = there({
+      externalKey: "A1",
+      name: "Asha",
+      activeFrom: "2026-10-01",
+      services: ["Lunch", "Dinner"],
+    });
+    const row = (services: PersonImportItem["services"]) =>
+      plan([{ externalKey: "A1", name: "Asha", ...base, services }], here);
+    const same = row("dinner|lunch");
+    expect(same.rows[0]?.action).toBe("unchanged");
+    expect(same.updates).toEqual([]);
+    const fewer = row("Dinner");
+    expect(fewer.rows[0]).toMatchObject({ action: "update" });
+    expect(fewer.rows[0]?.diff).toEqual([
+      { field: "services", from: "Lunch, Dinner", to: "Dinner" },
+    ]);
+    expect(fewer.updates).toEqual([{ id: "id-A1", sets: {}, services: ["Dinner"] }]);
+    // A blank cell, or no column, leaves them as they are, in both modes.
+    for (const mode of ["merge", "overwrite"] as const)
+      for (const services of ["", undefined])
+        expect(
+          plan([{ externalKey: "A1", name: "Asha", ...base, services }], here, mode).rows[0]
+            ?.action,
+        ).toBe("unchanged");
+  });
+
+  it("refuses services for a member who has no first date, even when the row names one", () => {
+    const here = there({ externalKey: "A1", name: "Asha", activeFrom: null });
+    const out = planPeopleImport(
+      entries({ externalKey: "A1", name: "Asha", role: "member", services: "Lunch" }),
+      "merge",
+      here,
+      SERVICES,
+    );
+    expect(out.rows[0]?.action).toBe("error");
+    expect(out.rows[0]?.message).toMatch(/Give the first date/);
+  });
+});

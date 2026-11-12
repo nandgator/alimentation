@@ -1,4 +1,5 @@
 import {
+  PEOPLE_CSV_COLUMNS,
   type PersonFieldChange,
   type PersonImportMode,
   type PersonImportResult,
@@ -6,10 +7,11 @@ import {
 } from "@alimentation/core";
 import { useState } from "react";
 import { postCsv } from "../../api.ts";
+import { liveOn } from "../../catalogue.ts";
 import { Chip, Dialog, Field, Problem, toast, useAction } from "../../components/ui.tsx";
 import { useWorkspace } from "./context.tsx";
 
-const EXAMPLE = "externalKey,name,role,contact,activeFrom,activeTo";
+const EXAMPLE = PEOPLE_CSV_COLUMNS.join(",");
 const ACTION_WORDS = {
   create: ["Add", "good"],
   update: ["Change", "warn"],
@@ -22,6 +24,7 @@ const FIELD_WORDS: Record<PersonFieldChange["field"], string> = {
   contact: "contact",
   activeFrom: "eating from",
   activeTo: "until",
+  services: "services",
 };
 
 /** Hands a text to the browser as a file. The mark at the front lets a spreadsheet read the letters right. */
@@ -55,6 +58,7 @@ export function ImportPeopleDialog({ open, onClose }: { open: boolean; onClose: 
     act.clear();
     onClose();
   };
+  const several = liveOn(ws.boot.services, ws.boot.today).length >= 2;
   const refused = preview?.summary.error ?? 0;
   const work = preview ? preview.summary.create + preview.summary.update : 0;
   return (
@@ -73,6 +77,13 @@ export function ImportPeopleDialog({ open, onClose }: { open: boolean; onClose: 
             <>
               The first line names the columns: <code>{EXAMPLE}</code>. Only name and role are
               needed. Role is member, supplier or admin.
+              {several ? (
+                <>
+                  {" "}
+                  To say which services a member takes, add a <code>services</code> column with
+                  their names between <code>|</code>, and the first date.
+                </>
+              ) : null}
             </>
           }
         >

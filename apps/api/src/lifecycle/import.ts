@@ -30,8 +30,14 @@ export const AUDITED = [
   "workspace",
   "person",
   "policy_version",
+  "service",
+  "catalogue_item",
+  "person_service",
   "menu",
+  "menu_offer",
+  "menu_day",
   "rate_card",
+  "rate_price",
   "holiday",
   "log_entry",
   "claim",
@@ -40,16 +46,6 @@ export const AUDITED = [
   "settlement",
   "month_close",
 ] as const;
-const WEEKDAYS = [
-  "menu_sun",
-  "menu_mon",
-  "menu_tue",
-  "menu_wed",
-  "menu_thu",
-  "menu_fri",
-  "menu_sat",
-] as const;
-
 /** Multi-row INSERT in chunks. Names are constants in this file; values are always parameters. */
 async function insertMany(
   tx: Tx,
@@ -84,6 +80,9 @@ async function insertMany(
 const sectionKeys = [
   "workspace",
   "policies",
+  "catalogue",
+  "services",
+  "enrolments",
   "menus",
   "rateCards",
   "holidays",
@@ -169,7 +168,9 @@ export async function importBundle(
       // written are taken as they stand, whatever the rules say about writing them today.
       for (const t of AUDITED) await tx.query(`ALTER TABLE ${t} DISABLE TRIGGER ${t}_audit`);
       await tx.query("ALTER TABLE log_entry DISABLE TRIGGER log_entry_stamp");
+      await tx.query("ALTER TABLE person_service DISABLE TRIGGER person_service_stamp");
 
+      const kindOf = new Map(bundle.catalogue.map((i) => [i.id, i.kind]));
       const enc = (t: string, c: string, id: string, v: string | null) => cipher.enc(t, c, id, v);
       const w = bundle.workspace;
       await tx.query(
@@ -212,41 +213,74 @@ export async function importBundle(
       );
       await insertMany(
         tx,
-        "menu",
-        ["id", "effective_from", ...WEEKDAYS, "note", "created_by"],
-        bundle.menus.map((m) => [
-          m.id,
-          m.effectiveFrom,
-          ...WEEKDAYS.map((_, i) => m.days[String(i)] ?? null),
-          m.note,
-          m.createdBy,
+        "service",
+        ["id", "name", "position", "archived_on", "created_by"],
+        bundle.services.map((x) => [x.id, x.name, x.position, x.archivedOn, x.createdBy]),
+      );
+      await insertMany(
+        tx,
+        "catalogue_item",
+        ["id", "kind", "name", "unit", "max_qty", "archived_on", "created_by"],
+        bundle.catalogue.map((i) => [
+          i.id,
+          i.kind,
+          i.name,
+          i.unit,
+          i.maxQty,
+          i.archivedOn,
+          i.createdBy,
         ]),
       );
       await insertMany(
         tx,
+        "person_service",
+        ["id", "person_id", "service_id", "active_from", "active_to"],
+        bundle.enrolments.map((e) => [e.id, e.personId, e.serviceId, e.activeFrom, e.activeTo]),
+      );
+      await insertMany(
+        tx,
+        "menu",
+        ["id", "effective_from", "note", "created_by"],
+        bundle.menus.map((m) => [m.id, m.effectiveFrom, m.note, m.createdBy]),
+      );
+      await insertMany(
+        tx,
+        "menu_offer",
+        ["menu_id", "service_id", "item_id"],
+        bundle.menus.flatMap((m) =>
+          Object.entries(m.offered).flatMap(([serviceId, ids]) =>
+            ids.map((itemId) => [m.id, serviceId, itemId]),
+          ),
+        ),
+      );
+      await insertMany(
+        tx,
+        "menu_day",
+        ["menu_id", "service_id", "weekday", "meal_id"],
+        bundle.menus.flatMap((m) =>
+          Object.entries(m.days).flatMap(([serviceId, week]) =>
+            Object.entries(week).map(([weekday, mealId]) => [
+              m.id,
+              serviceId,
+              Number(weekday),
+              mealId,
+            ]),
+          ),
+        ),
+      );
+      await insertMany(
+        tx,
         "rate_card",
-        [
-          "id",
-          "effective_from",
-          "veg",
-          "non_veg",
-          "extra_chapati",
-          "extra_bhakri",
-          "extras_per_month",
-          "note",
-          "created_by",
-        ],
-        bundle.rateCards.map((r) => [
-          r.id,
-          r.effectiveFrom,
-          r.veg,
-          r.nonVeg,
-          r.extraChapati,
-          r.extraBhakri,
-          r.extrasPerMonth,
-          r.note,
-          r.createdBy,
-        ]),
+        ["id", "effective_from", "monthly_fee", "note", "created_by"],
+        bundle.rateCards.map((r) => [r.id, r.effectiveFrom, r.monthlyFee, r.note, r.createdBy]),
+      );
+      await insertMany(
+        tx,
+        "rate_price",
+        ["card_id", "item_id", "service_id", "amount"],
+        bundle.rateCards.flatMap((r) =>
+          r.prices.map((l) => [r.id, l.itemId, l.serviceId, l.amount]),
+        ),
       );
       await insertMany(
         tx,
@@ -262,7 +296,10 @@ export async function importBundle(
           "on_date",
           "person_id",
           "all_consumers",
-          "change",
+          "action",
+          "service_id",
+          "item_id",
+          "item_kind",
           "qty",
           "note_enc",
           "logged_by",
@@ -274,7 +311,10 @@ export async function importBundle(
             e.date,
             e.personId,
             e.allConsumers,
-            e.change,
+            e.action,
+            e.serviceId,
+            e.itemId,
+            e.itemId === null ? null : kindOf.get(e.itemId),
             e.qty,
             await enc("log_entry", "note_enc", e.id, e.note),
             e.loggedBy,
@@ -428,6 +468,7 @@ export async function importBundle(
       );
 
       await tx.query("ALTER TABLE log_entry ENABLE TRIGGER log_entry_stamp");
+      await tx.query("ALTER TABLE person_service ENABLE TRIGGER person_service_stamp");
       for (const t of AUDITED) await tx.query(`ALTER TABLE ${t} ENABLE TRIGGER ${t}_audit`);
 
       // Prove it. Read the copy back into a bundle and compare it to the original, whole.

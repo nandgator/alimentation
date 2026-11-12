@@ -9,11 +9,13 @@ import {
   CreateAgentKey,
   CreateClaim,
   CreateHoliday,
+  CreateItem,
   CreateMenu,
   CreateOrganisation,
   CreatePerson,
   CreatePolicy,
   CreateRateCard,
+  CreateService,
   CreateSettlement,
   CreateWorkspace,
   DecideClaim,
@@ -33,10 +35,13 @@ import {
   OrganisationMember,
   PageQuery,
   ReverseClaim,
+  SetEnrolments,
   SetLimits,
   StatementsQuery,
   UpdateHoliday,
+  UpdateItem,
   UpdatePerson,
+  UpdateService,
 } from "./schemas.ts";
 
 /**
@@ -49,7 +54,7 @@ import {
  */
 
 type Json = Record<string, unknown>;
-type Method = "get" | "post" | "patch" | "delete";
+type Method = "get" | "post" | "put" | "patch" | "delete";
 
 export interface Operation {
   method: Method;
@@ -115,7 +120,8 @@ export const TAGS: { name: string; description: string }[] = [
   },
   {
     name: "People, prices and rules",
-    description: "Who is in the kitchen, what a meal costs, the rules, the holidays.",
+    description:
+      "Who is in the kitchen, what it serves and when, what each thing costs, the rules, the holidays.",
   },
   { name: "The log", description: "Leaves, switches, extras and days the supplier is off." },
   {
@@ -237,7 +243,7 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
     status: 422,
     code: "invalid",
     meaning:
-      "The request is malformed or a rule refuses it. `issues` lists each rule that failed, with a `code` such as `NOT_WORKING_DAY`, `MONTH_CLOSED` or `CUTOFF_PASSED`, and a `severity`.",
+      "The request is malformed or a rule refuses it. `issues` lists each rule that failed, with a `code` (such as `NOT_WORKING_DAY`, `MONTH_CLOSED`, `CUTOFF_PASSED`, `NOT_ENROLLED`, `ITEM_NOT_OFFERED` or `UNPRICED_ITEM`; all are listed under Errors) and a `severity`.",
   },
   {
     status: 422,
@@ -307,6 +313,8 @@ const AGENT_ACCESS: Record<string, AgentScope> = {
   "GET /api/w/:slug/ledger": "read",
   "GET /api/w/:slug/history": "read",
   "GET /api/w/:slug/people/:id/role": "read",
+  "GET /api/w/:slug/catalogue": "read",
+  "GET /api/w/:slug/services": "read",
   "GET /api/w/:slug/menus": "read",
   "GET /api/w/:slug/rate-cards": "read",
   "GET /api/w/:slug/policies": "read",
@@ -335,6 +343,11 @@ export const PERSON_ONLY = new Set([
   "POST /api/w/:slug/people/import",
   "PATCH /api/w/:slug/people/:id",
   "POST /api/w/:slug/people/:id/invite",
+  "PUT /api/w/:slug/people/:id/services",
+  "POST /api/w/:slug/catalogue",
+  "PATCH /api/w/:slug/catalogue/:id",
+  "POST /api/w/:slug/services",
+  "PATCH /api/w/:slug/services/:id",
   "POST /api/w/:slug/menus",
   "POST /api/w/:slug/rate-cards",
   "POST /api/w/:slug/policies",
@@ -1005,7 +1018,7 @@ export const OPERATIONS: Operation[] = [
     who: "Any role",
     kitchen: true,
     description:
-      "The kitchen (and whether it tracks money), who you are and your roles, today, the months, the rules in force, the current menu and (where the kitchen tracks money) the current rate card, holidays, the people you may see, this month’s statements, set-up hints, how many claims await a decision, and (for the admin) the usage meter. A kitchen without money sends counts only: no rate card, no pending claims, no money rules and no amounts.",
+      "The kitchen (and whether it tracks money), who you are and your roles, today, the months, the rules in force, what it serves (`catalogue`, with retired items, and `services`), which services each member takes (`enrolments`: all of them for the admin and the supplier, only your own for a member), the current menu (which has no prices) and, where the kitchen tracks money, the current rate card, holidays, the people you may see, this month’s statements, set-up hints (such as “Add what you serve” and “Price 3 items to start billing: …”), how many claims await a decision, and (for the admin) the usage meter. A kitchen without money sends counts only: no rate card, no pending claims, no money rules and no amounts.",
     ok: {
       status: 200,
       description: "The start of a screen.",
@@ -1020,7 +1033,7 @@ export const OPERATIONS: Operation[] = [
     who: "Any role",
     kitchen: true,
     description:
-      "For up to 36 months. A member gets only their own; asking for another’s is 404. A kitchen without money answers with counts only (meals, leaves, extras as numbers) and no amounts.",
+      "For up to 36 months. A member gets only their own; asking for another’s is 404. Each has `counts` (`meals` as servings, `leave` as service slots, `items` by meal and `addOns` by add-on, keyed by item id) and, for a kitchen that tracks money, the amounts and a `lines` list with one line per item. A kitchen without money answers with counts only and no amounts.",
     query: StatementsQuery,
     ok: {
       status: 200,
@@ -1036,7 +1049,13 @@ export const OPERATIONS: Operation[] = [
     who: "Any role",
     kitchen: true,
     query: LedgerQuery,
-    ok: { status: 200, description: "The ledger.", schema: free("A line for each day.") },
+    description:
+      "One row per date and service the person is served: its `status`, the `mealId`, the `addOns` asked for and, for a kitchen that tracks money, the prices and `rowTotal`. A working day the person is not active on is a single row with no service (`status` `Inactive`). A kitchen without money sends the same rows with no prices.",
+    ok: {
+      status: 200,
+      description: "The ledger.",
+      schema: free("A row for each date and service."),
+    },
   },
   {
     method: "get",
@@ -1102,10 +1121,11 @@ export const OPERATIONS: Operation[] = [
     csvBody: true,
     query: ImportPeopleQuery,
     description:
-      "Many people at once, as JSON `rows` or as a `text/csv` body whose first line names the columns `externalKey`, `name`, `role`, `contact`, `activeFrom`, `activeTo` (`name` and `role` are needed; `role` is `consumer` (or `member`), `supplier` or `admin`). For a `text/csv` body, give `mode` and optionally `dryRun` in the query; the JSON body has them inside. At most 1000 rows and 1 MB.\n\n" +
+      "Many people at once, as JSON `rows` or as a `text/csv` body whose first line names the columns `externalKey`, `name`, `role`, `contact`, `activeFrom`, `activeTo` and (optionally) `services` (`name` and `role` are needed; `role` is `consumer` (or `member`), `supplier` or `admin`). For a `text/csv` body, give `mode` and optionally `dryRun` in the query; the JSON body has them inside. At most 1000 rows and 1 MB.\n\n" +
       "A row with an `externalKey` (the kitchen’s own code: letters, digits and `. _ : / # -`, at most 64 characters, never a name, email or phone number) is matched to the person who has that key: **added** if nobody does, **changed** if somebody does. A row without one is always added. People who are not in the file are never removed or disabled. A role cannot be changed by an import, so a key that belongs to a person of another role is an error row. A key may be given once in a file.\n\n" +
       "`merge` sets the columns a row gives and leaves a blank cell alone. `overwrite` sets every column the row gives, so a blank `contact`, `activeFrom` or `activeTo` clears it; a column the file does not have at all is left alone by both. Name and role are always required.\n\n" +
       "All or nothing, in one transaction: if any row is an error, or the file would add more people than the kitchen’s limit leaves room for (`quota_exceeded`, with nothing written), nothing is written and `committed` is false. With `dryRun` nothing is ever written and each row says what would happen: `create`, `update`, `unchanged` or `error`, with the fields that change. A committed import that changed something adds one line to the audit trail (`person_import`) with the mode, the counts and a hash of the file, never the file.\n\n" +
+      "`services` says which services a member takes, by the kitchen’s own names with `|` between them (`Lunch|Dinner`), or as a list in a JSON row. A new member whose cell is blank or whose column is missing takes every service from their `activeFrom` (a member with no `activeFrom` takes none yet); one who is named takes just those. For a member already there, a row that names services makes them take exactly those from today (or from their `activeFrom` if later), ending the others the day before, and a blank cell leaves them as they are. A name the kitchen does not have, or services on a supplier or admin, is an error row.\n\n" +
       "The file the app’s Export CSV writes is read back by this route as it was.",
     body: ImportPeople,
     ok: {
@@ -1214,6 +1234,129 @@ export const OPERATIONS: Operation[] = [
     },
   },
   {
+    method: "put",
+    path: "/api/w/:slug/people/:id/services",
+    tag: "People, prices and rules",
+    summary: "Set the services a member takes",
+    who: "Admin",
+    kitchen: true,
+    description:
+      "The whole list, replacing the last: for each service the member takes, from when and until when (both days included; `activeTo` null for as long as they are here). A member takes a service once at a time, so two rows for one service may not overlap. Rows that stay as they were are not touched, so a month already closed does not refuse a change that only reaches later days; a row added, ended or moved is judged like a log entry in the months it changes. New members start in every service. Only members take services.",
+    params: { id: ID },
+    body: SetEnrolments,
+    ok: { status: 204, description: "Set." },
+    errors: [409],
+  },
+  {
+    method: "get",
+    path: "/api/w/:slug/catalogue",
+    tag: "People, prices and rules",
+    summary: "What the kitchen serves",
+    who: "Any role",
+    kitchen: true,
+    description:
+      "Every meal and add-on the kitchen has ever had, retired ones included (`archivedOn` is the date from which one is not offered, so history can still name it). `kind` is `meal` or `addon`; `unit` is what a count is of; `maxQty` is the most of it one entry can ask for. A kitchen that tracks money adds `prices` to each item: the prices in force today, `serviceId` null for the price in every service. A kitchen that does not leaves `prices` out.",
+    ok: {
+      status: 200,
+      description: "The items.",
+      schema: {
+        type: "array",
+        items: object(
+          {
+            id: uuid(),
+            kind: { enum: ["meal", "addon"] },
+            name: string(),
+            unit: string(),
+            maxQty: { type: "integer" },
+            archivedOn: { type: ["string", "null"], format: "date" },
+            prices: {
+              type: "array",
+              description: "Only where the kitchen tracks money.",
+              items: object({
+                serviceId: { type: ["string", "null"], format: "uuid" },
+                amount: { type: "integer", description: "Paise." },
+              }),
+            },
+          },
+          ["id", "kind", "name", "unit", "maxQty", "archivedOn"],
+        ),
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/catalogue",
+    tag: "People, prices and rules",
+    summary: "Add something the kitchen serves",
+    who: "Admin",
+    kitchen: true,
+    description:
+      "A meal (what a service serves on a day, and what a member may switch to) or an add-on (asked for as an extra, in a quantity). The name is the kitchen’s own and may be renamed; the kind, the unit and the largest quantity never change, so add a new item rather than repurposing one. Names are unique ignoring case, retired ones included (`NAME_TAKEN`). At most 60 items (`TOO_MANY`). An item has no price: prices are on a rate card, and only a kitchen that tracks money has them.",
+    body: CreateItem,
+    ok: { status: 201, description: "Added.", schema: IdBody },
+  },
+  {
+    method: "patch",
+    path: "/api/w/:slug/catalogue/:id",
+    tag: "People, prices and rules",
+    summary: "Rename an item, or retire it",
+    who: "Admin",
+    kitchen: true,
+    description:
+      "A rename shows in history as an event, and past entries show the new name; money depends on ids only, so it cannot change a bill. `archived: true` retires the item from today (or from `archiveOn`), once and for good: it is not offered from then on, and the rows that name it keep naming it. Retiring is refused while a menu in force on or after that date still offers it (`ITEM_IN_USE`).",
+    params: { id: ID },
+    body: UpdateItem,
+    ok: { status: 204, description: "Changed." },
+  },
+  {
+    method: "get",
+    path: "/api/w/:slug/services",
+    tag: "People, prices and rules",
+    summary: "The services the kitchen runs",
+    who: "Any role",
+    kitchen: true,
+    description:
+      "The times of day the kitchen serves (lunch, dinner), in order, retired ones included. A kitchen made through the API starts with none, and a kitchen with only one hides the idea from its members.",
+    ok: {
+      status: 200,
+      description: "The services.",
+      schema: {
+        type: "array",
+        items: object({
+          id: uuid(),
+          name: string(),
+          position: { type: "integer" },
+          archivedOn: { type: ["string", "null"], format: "date" },
+        }),
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/services",
+    tag: "People, prices and rules",
+    summary: "Add a service",
+    who: "Admin",
+    kitchen: true,
+    description:
+      "Members already in the kitchen start taking it from the first of this month (or from when they began, if later); change who takes it with `PUT /people/{id}/services`. At most 6 (`TOO_MANY`); names are unique ignoring case, retired ones included (`NAME_TAKEN`).",
+    body: CreateService,
+    ok: { status: 201, description: "Added.", schema: IdBody },
+  },
+  {
+    method: "patch",
+    path: "/api/w/:slug/services/:id",
+    tag: "People, prices and rules",
+    summary: "Rename a service, or retire it",
+    who: "Admin",
+    kitchen: true,
+    description:
+      "`archived: true` retires the service from today (or from `archiveOn`), once. Refused while a menu in force on or after that date still serves it (`ITEM_IN_USE`).",
+    params: { id: ID },
+    body: UpdateService,
+    ok: { status: 204, description: "Changed." },
+  },
+  {
     method: "get",
     path: "/api/w/:slug/rate-cards",
     tag: "People, prices and rules",
@@ -1222,7 +1365,7 @@ export const OPERATIONS: Operation[] = [
     kitchen: true,
     money: true,
     description:
-      "Prices only, oldest first. What is served is on the menu (`/menus`). A kitchen that does not track money has no prices and answers 404 `money_not_tracked`.",
+      "Prices only, oldest first: for each item its price (`serviceId` null for the price in every service, or a different price in one service), and the flat `monthlyFee`. What is served is on the menu (`/menus`). A kitchen that does not track money has no prices and answers 404 `money_not_tracked`.",
     ok: {
       status: 200,
       description: "The rate cards.",
@@ -1238,7 +1381,7 @@ export const OPERATIONS: Operation[] = [
     kitchen: true,
     money: true,
     description:
-      "Money is in paise. Prices only: what is served is a menu of its own. Refused if it repeats a start date or starts where the rules do not allow. A kitchen needs both a menu and prices before it is billed.",
+      "Money is in paise. Prices only: what is served is a menu of its own. `prices` has a line for each item, with an optional `serviceId` for a different price in one service; the price in force for an item in a service is the exact `(item, service)` line, else the item’s line with no service. `monthlyFee` is the flat fee the rules’ `monthlyFee` rule charges. Refused if it repeats a start date, starts where the rules do not allow, names an item or service that does not exist, prices the same thing twice, or leaves unpriced an item that a menu in force during its period offers (`UNPRICED_ITEM`, which names them). A price sent to a kitchen that does not track money is 404 `money_not_tracked`.",
     body: CreateRateCard,
     ok: { status: 201, description: "Added.", schema: WarningsBody },
   },
@@ -1250,11 +1393,14 @@ export const OPERATIONS: Operation[] = [
     who: "Any role",
     kitchen: true,
     description:
-      "What is served on each weekday, by the date it starts, oldest first. Every kitchen has a menu, whether or not it tracks money.",
+      'What is served, by the date it starts, oldest first: for each service (by id) the meal on each weekday (`days`, keyed `"0"` to `"6"` from Sunday; a weekday with no cell is not served in that service) and the items it offers (`offered`). There are no prices on it. Every kitchen has a menu, whether or not it tracks money.',
     ok: {
       status: 200,
       description: "The menus.",
-      schema: { type: "array", items: free("A menu: `effectiveFrom`, `days` and `note`.") },
+      schema: {
+        type: "array",
+        items: free("A menu: `effectiveFrom`, `days`, `offered` and `note`."),
+      },
     },
   },
   {
@@ -1265,7 +1411,7 @@ export const OPERATIONS: Operation[] = [
     who: "Admin",
     kitchen: true,
     description:
-      'A meal (`Veg` or `Non Veg`) for each working weekday, keyed `"0"` to `"6"` from Sunday. Refused if it leaves a working day without a meal, repeats a start date, or starts in a month that has been closed.',
+      'For each service: the meal for each weekday it is served (`days`, keyed `"0"` to `"6"` from Sunday, the meal an item id) and the items it offers (`offered`: the meals one may switch to and the add-ons one may ask for; the day\'s meal must be among them). Every working weekday must be served by at least one service (`SERVICE_NOT_SERVED`). Refused if it names a service or item that does not exist (`UNKNOWN_SERVICE`, `UNKNOWN_ITEM`), a retired one (`ITEM_ARCHIVED`), a day meal that is not a meal (`ITEM_KIND`) or not offered (`ITEM_NOT_OFFERED`), repeats a start date, starts in a month that has been closed (`BACKDATED_MENU`), or would leave an entry already logged in its period invalid (`MENU_ORPHANS_LOG`).',
     body: CreateMenu,
     ok: { status: 201, description: "Added.", schema: WarningsBody },
   },
@@ -1439,7 +1585,7 @@ export const OPERATIONS: Operation[] = [
     who: "A member for themselves; the supplier for `Supplier Off` only; the admin for anyone",
     kitchen: true,
     description:
-      "`change` is one of `Leave`, `Switch to Veg`, `Switch to Non Veg`, `Extra Chapati`, `Extra Bhakri`, `Supplier Off`.",
+      "`action` is one of `Leave`, `Switch`, `Extra` and `Supplier Off`; what they apply to is the kitchen’s own catalogue and services. `Leave` and `Supplier Off` are for the whole day (`serviceId` null) or for one service; a `Supplier Off` is for everyone (`allConsumers` true, `personId` null). `Switch` names the service and a meal that service offers (`itemId`); `Extra` names the service and an add-on it offers, with `qty` from 1 to the item’s `maxQty`. One Switch per person, day and service, and one Extra per item. A member must take the service on that date (`NOT_ENROLLED`), the service must be served that weekday (`SERVICE_NOT_SERVED`), a whole-day entry and a single-service one of the same action cannot both stand (`OVERLAPPING_SCOPE`). Which combinations a person has on a date is what the menu, the catalogue and their enrolments allow.",
     body: LogBody,
     ok: { status: 201, description: "Written.", schema: WarningsBody },
   },
@@ -1984,6 +2130,84 @@ function operationObject(op: Operation): Json {
   };
 }
 
+/** The rule codes an `invalid` answer can carry in `issues`, with what each means. */
+export const ISSUE_CODES: [string, string][] = [
+  ["NOT_A_DATE", "A date is missing or not a real date."],
+  ["NOT_WORKING_DAY", "That is not a working day under the rules in force."],
+  [
+    "SHAPE",
+    "The entry is not the shape its action takes: who it is for, which service, which item.",
+  ],
+  ["UNKNOWN_CHANGE", "The action is not one of Leave, Switch, Extra and Supplier Off."],
+  ["UNKNOWN_SERVICE", "No such service."],
+  ["UNKNOWN_ITEM", "No such item."],
+  ["ITEM_KIND", "A switch must be to a meal and an extra must be an add-on."],
+  ["ITEM_ARCHIVED", "The item is retired from that date."],
+  [
+    "ITEM_NOT_OFFERED",
+    "The service does not offer that item on that day (it is not on the menu in force).",
+  ],
+  [
+    "ITEM_IN_USE",
+    "A menu in force on or after the date still offers or serves it, so it cannot be retired yet.",
+  ],
+  [
+    "SERVICE_NOT_SERVED",
+    "The service is not served on that weekday, or a working weekday has no service at all.",
+  ],
+  ["NOT_ENROLLED", "The person does not take that service on that date."],
+  [
+    "OVERLAPPING_SCOPE",
+    "A whole-day entry and a single-service one cannot both be logged for the same day.",
+  ],
+  ["MENU_ORPHANS_LOG", "The menu would leave an entry already logged in its period invalid."],
+  [
+    "UNPRICED_ITEM",
+    "A kitchen that tracks money has an item on a menu with no price on the rate card. The message names them.",
+  ],
+  ["NAME_TAKEN", "A service or item already has that name, ignoring case; retired ones count."],
+  ["TOO_MANY", "The kitchen already has as many services (6) or items (60) as it may."],
+  ["QTY_REQUIRED", "An extra needs a quantity."],
+  ["QTY_RANGE", "The quantity is not a whole number from 1 to the item’s largest."],
+  ["QTY_NOT_ALLOWED", "Only an extra has a quantity."],
+  ["FOR_SELF_ONLY", "A member can log only for themselves."],
+  [
+    "ROLE_CANNOT",
+    "The role cannot do this: only the supplier can mark the kitchen off, only the admin changes what is served.",
+  ],
+  ["UNKNOWN_PERSON", "No such person."],
+  ["NOT_A_CONSUMER", "Only members are billed and take services."],
+  ["INACTIVE_ON_DATE", "The person is not billed on that date."],
+  ["MONTH_CLOSED", "The month is closed for that person."],
+  ["CUTOFF_PASSED", "The cut-off for that day has passed."],
+  [
+    "DUPLICATE",
+    "It is already there: the same entry, a menu or rate card on the same start date, or two enrolments for one service on the same days.",
+  ],
+  ["BACKDATED_MENU", "A new menu cannot start in a month that has closed."],
+  ["BACKDATED_RATE_CARD", "New rates cannot start in a month that has begun or closed."],
+  [
+    "AMOUNT",
+    "An amount is not valid: a price or fee must be whole paise, zero or more; a payment more than zero.",
+  ],
+  ["METHOD", "Choose how you paid."],
+  ["MONTH_RANGE", "The month is outside the months billed to the person."],
+  ["PAID_IN_FUTURE", "The payment date is in the future."],
+  ["CLAIMS_DISABLED", "The kitchen records payments directly, so a member cannot claim."],
+  ["NO_SUCH_CLAIM", "No such claim."],
+  ["ALREADY_DECIDED", "The claim is decided and cannot change."],
+  ["REASON_REQUIRED", "A reason is required."],
+  ["NOT_DECIDED", "There is no decision to reverse."],
+  ["ALREADY_VOID", "The decision was already reversed."],
+  ["ONLY_AUTHOR", "Only the person who made it can change it."],
+  ["LATE_ENTRY", "Warning. The day has passed, so the entry is marked late."],
+  ["HOLIDAY", "Warning. The day is a holiday, so no meal is billed anyway."],
+  [
+    "CHANGES_AFTER_CLOSE",
+    "Warning. The month is closed; the bill stays as closed and the change is flagged.",
+  ],
+];
+
 const INTRO = `
 The web app is a client of this API and uses nothing else. Every route is JSON over HTTPS.
 
@@ -2033,6 +2257,14 @@ Every error has one shape, and a \`code\` that says which it is:
 | Status | \`code\` | Meaning |
 | --- | --- | --- |
 ${ERROR_CODES.map((e) => `| ${e.status} | \`${e.code}\` | ${e.meaning.replace(/\|/g, "\\|")} |`).join("\n")}
+
+### Rule codes in \`issues\`
+
+A \`422 invalid\` carries the rules that failed as \`issues\`, each with one of these \`code\`s:
+
+| \`code\` | Meaning |
+| --- | --- |
+${ISSUE_CODES.map(([c, m]) => `| \`${c}\` | ${m} |`).join("\n")}
 
 Warnings (\`severity: "warning"\`) do not fail a request. A write that succeeds returns them: \`POST /log\` returns \`{ id, warnings }\`.
 

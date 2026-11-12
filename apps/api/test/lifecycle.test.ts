@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import {
   assembleBundle,
   type Bundle,
+  buildStatements,
   canonicalJson,
   parseBundle,
+  prepare,
   rupees,
+  unpricedItems,
 } from "@alimentation/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FieldCipher } from "../src/crypto/fields.ts";
@@ -12,9 +15,11 @@ import { Keyring, loadWorkspaceKeys, newWorkspaceKeys } from "../src/crypto/keys
 import { nodeDb } from "../src/db/node.ts";
 import { exportWorkspace, readBundleBody } from "../src/lifecycle/bundleio.ts";
 import { importBundle } from "../src/lifecycle/import.ts";
+import { loadEngineData } from "../src/workspace/load.ts";
 import { WorkspaceService } from "../src/workspace/service.ts";
+import { enrolEveryone } from "./support/catalogue.ts";
 import { type Fixture, makeFixture, moneyStatements } from "./support/fixture.ts";
-import { newWorkspace } from "./support/pg.ts";
+import { asActor, dbError, newWorkspace } from "./support/pg.ts";
 import { at, seedSpec } from "./support/spec.ts";
 
 const members = (ids: string[]) =>
@@ -75,7 +80,7 @@ async function richSource(): Promise<{ fx: Fixture; jovial: string; smruti: stri
     version: 1,
     workingDays: [1, 2, 3, 4, 5],
     holidays: { count: "confirmed" },
-    extras: { minMeals: 1 },
+    monthlyFee: { minDays: 1 },
     leave: { chargeBps: 2500 },
     monthClose: { mode: "manual", afterClose: "flag" },
     exceptionCutoff: null,
@@ -134,7 +139,13 @@ describe("[P3] a workspace can be exported and imported without losing a paisa",
       settlements: 2,
       closes: 1,
       policies: 1,
+      catalogue: 4,
+      services: 1,
+      enrolments: 2,
+      menus: 1,
+      rateCards: 1,
     });
+    expect(bundle.rateCards[0]?.prices).toHaveLength(4);
     expect(bundle.manifest.counts.audit).toBeGreaterThan(20);
     expect(bundle.people.map((p) => p.name).sort()).toEqual(
       ["Jovial", "Owner", "Smruti Renamed", "Owner"].sort(),
@@ -196,6 +207,30 @@ describe("[P3] a workspace can be exported and imported without losing a paisa",
     await expect(src.cipher.dec("person", "name_enc", ids.smruti, blob)).rejects.toThrow(); // the target's key is its own
   });
 
+  it("keeps every id: items, services, enrolments, menus, rate cards and the entries that name them", async () => {
+    const q = async (sql: string) =>
+      (await target.ws.owner.query(sql)).rows.map((r) => r.id).sort();
+    expect(await q("SELECT id FROM catalogue_item")).toEqual(
+      bundle.catalogue.map((i) => i.id).sort(),
+    );
+    expect(await q("SELECT id FROM service")).toEqual(bundle.services.map((x) => x.id).sort());
+    expect(await q("SELECT id FROM person_service")).toEqual(
+      bundle.enrolments.map((e) => e.id).sort(),
+    );
+    expect(await q("SELECT id FROM menu")).toEqual(bundle.menus.map((m) => m.id).sort());
+    expect(await q("SELECT id FROM rate_card")).toEqual(bundle.rateCards.map((c) => c.id).sort());
+    const named = await target.ws.owner.query(
+      `SELECT count(*)::int AS n FROM log_entry l JOIN catalogue_item i ON i.id = l.item_id AND i.kind = l.item_kind`,
+    );
+    expect(named.rows[0]!.n).toBe(bundle.log.filter((e) => e.itemId !== null).length);
+    expect(
+      (await target.ws.owner.query("SELECT count(*)::int AS n FROM rate_price")).rows[0]!.n,
+    ).toBe(4);
+    expect(
+      (await target.ws.owner.query("SELECT count(*)::int AS n FROM menu_day")).rows[0]!.n,
+    ).toBe(5);
+  });
+
   it("serves the imported workspace: same statements, same privacy, rules still enforced", async () => {
     const svc = new WorkspaceService({
       db: nodeDb(target.ws.appUrl, { max: 2 }),
@@ -231,15 +266,14 @@ describe("[P3] a workspace can be exported and imported without losing a paisa",
       "Jovial",
     ]);
     // The closed month is still closed: a consumer cannot edit it.
-    await expect(
-      svc.addLog(consumer, {
-        date: "2026-10-14",
-        personId: ids.jovial,
-        allConsumers: false,
-        change: "Leave",
-        qty: null,
-      }),
-    ).rejects.toMatchObject({ status: 422 });
+    const leave = asActor(target.ws.app, consumer, (c) =>
+      c.query(
+        `INSERT INTO log_entry (on_date, person_id, all_consumers, action, logged_by)
+         VALUES ('2026-10-14', $1, false, 'Leave', $1)`,
+        [ids.jovial],
+      ),
+    );
+    expect((await dbError(leave)).message).toMatch(/month is closed/);
     // And the audit trail goes on from where it was, with no duplicate of the imported rows.
     const before = (await svc.audit(admin, { limit: 500 })).length;
     expect(before).toBe(bundle.audit.length);
@@ -316,7 +350,9 @@ describe("[P3] an import that is not exact is not kept", () => {
 
   it("rolls back when the copy would differ from the original in any other way", async () => {
     const body = withoutManifest(JSON.parse(JSON.stringify(bundle)));
-    body.rateCards[0].veg += 100; // engine answers now differ from the figures it claims
+    const veg = body.catalogue.find((i: { name: string }) => i.name === "Veg").id;
+    // engine answers now differ from the figures it claims
+    body.rateCards[0].prices.find((l: { itemId: string }) => l.itemId === veg).amount += 100;
     const { report, left } = await attempt(await assembleBundle(body));
     expect(report.ok).toBe(false);
     expect(left).toBe(0);
@@ -350,13 +386,18 @@ describe("[P3] a large workspace moves in reasonable time", () => {
     const fx = await makeFixture();
     const t = await freshTarget();
     try {
-      const { jovial } = await seedSpec(fx);
+      const { ids } = await seedSpec(fx);
+      // Ten more people, each asking for both add-ons on every working day from June: thousands of rows.
+      for (let n = 1; n <= 10; n++) await fx.addConsumer(`Person ${n}`, "2026-06-01");
+      await enrolEveryone(fx.ws.owner, ids.lunch);
       await fx.ws.owner.query(
-        `INSERT INTO log_entry (on_date, person_id, change, qty, logged_by)
-         SELECT d::date, $1, 'Extra Chapati', 1 + (g % 3), $1
-           FROM generate_series('2026-10-01'::date, '2026-10-30'::date, '1 day') d, generate_series(1, 120) g
-          WHERE extract(dow FROM d) BETWEEN 1 AND 5 AND d::date NOT IN ('2026-10-02', '2026-10-20')`,
-        [jovial.personId],
+        `INSERT INTO log_entry (on_date, person_id, action, service_id, item_id, item_kind, qty, logged_by)
+         SELECT d::date, p.id, 'Extra', $1, i.id, 'addon', 1 + (extract(day FROM d)::int % 3), p.id
+           FROM generate_series('2026-06-01'::date, '2026-10-30'::date, '1 day') d,
+                person p, catalogue_item i
+          WHERE p.name_enc IS NOT NULL AND p.role = 'consumer' AND p.active_from = '2026-06-01'
+            AND i.kind = 'addon' AND is_working_day(d::date)`,
+        [ids.lunch],
       );
       const owner = nodeDb(fx.ws.ownerUrl, { max: 2 });
       const bundle = await exportWorkspace(owner, fx.cipher, {
@@ -374,6 +415,151 @@ describe("[P3] a large workspace moves in reasonable time", () => {
     } finally {
       await t.owner.close();
       await t.ws.destroy();
+      await fx.close();
+    }
+  }, 60_000);
+});
+
+describe("[P3] a kitchen without money moves into one with money, and not the other way", () => {
+  it("brings its catalogue, services, enrolments and menu, with no prices; then bills once they are priced", async () => {
+    const fx = await makeFixture({ moneyEnabled: false });
+    const t = await freshTarget();
+    try {
+      const { ids, jovial, smruti } = await seedSpec(fx);
+      const owner = nodeDb(fx.ws.ownerUrl, { max: 2 });
+      const bundle = await exportWorkspace(owner, fx.cipher, {
+        exportedAt: when,
+        members: [],
+        today: "2026-11-15",
+      });
+      await owner.close();
+      expect(bundle.workspace.moneyEnabled).toBe(false);
+      expect(bundle.rateCards).toEqual([]);
+      expect(bundle.expected.every((e) => e.money === null && e.meals >= 0)).toBe(true);
+      expect(
+        bundle.expected.find((e) => e.personId === jovial.personId && e.month === "2026-10")?.items,
+      ).toEqual({ [ids.veg]: 12, [ids.nonVeg]: 8 });
+
+      const r = await importBundle(t.owner, t.cipher, bundle, {
+        dryRun: false,
+        moneyEnabled: true,
+      });
+      expect(r, r.problems.join("; ")).toMatchObject({ ok: true, problems: [], mismatches: [] });
+
+      const count = async (table: string) =>
+        Number((await t.ws.owner.query(`SELECT count(*) AS n FROM ${table}`)).rows[0]!.n);
+      expect(await count("catalogue_item")).toBe(4);
+      expect(await count("service")).toBe(1);
+      expect(await count("person_service")).toBe(2);
+      expect(await count("menu_offer")).toBe(4);
+      expect(await count("menu_day")).toBe(5);
+      expect(await count("rate_card")).toBe(0);
+      expect(await count("rate_price")).toBe(0);
+      expect(
+        (await t.ws.owner.query("SELECT money_enabled FROM workspace")).rows[0]!.money_enabled,
+      ).toBe(true);
+
+      // Setup says which items to price, and names exactly the four.
+      const read = () => t.owner.tx((tx) => loadEngineData(tx, t.cipher, "2026-11-15"));
+      const before = await read();
+      expect(
+        unpricedItems(before)
+          .map((i) => i.name)
+          .sort(),
+      ).toEqual(["Bhakri", "Chapati", "Non Veg", "Veg"].sort());
+
+      // Price them as the admin would, in the way a card is written, and the figures are the spec's.
+      await t.ws.owner.query(
+        `INSERT INTO rate_card (id, effective_from, monthly_fee) VALUES ($1, '2026-04-01', 4000)`,
+        [randomUUID()],
+      );
+      const card = (await t.ws.owner.query("SELECT id FROM rate_card")).rows[0]!.id;
+      for (const [name, amount] of [
+        ["Veg", 15000],
+        ["Non Veg", 17000],
+        ["Chapati", 1500],
+        ["Bhakri", 3000],
+      ] as const)
+        await t.ws.owner.query(
+          `INSERT INTO rate_price (card_id, item_id, amount) SELECT $1, id, $3 FROM catalogue_item WHERE name = $2`,
+          [card, name, amount],
+        );
+      const after = await read();
+      expect(unpricedItems(after)).toEqual([]);
+      const money = buildStatements(
+        prepare(after),
+        [jovial.personId, smruti.personId],
+        ["2026-10"],
+      );
+      expect(money.map((s) => s.liveTotal).sort()).toEqual([rupees(3030), rupees(3260)].sort());
+    } finally {
+      await t.owner.close();
+      await t.ws.destroy();
+      await fx.close();
+    }
+  }, 60_000);
+
+  it("refuses a kitchen with money going into one without, and leaves the target empty", async () => {
+    const fx = await makeFixture();
+    const t = await freshTarget();
+    try {
+      await seedSpec(fx);
+      const owner = nodeDb(fx.ws.ownerUrl, { max: 2 });
+      const bundle = await exportWorkspace(owner, fx.cipher, {
+        exportedAt: when,
+        members: [],
+        today: "2026-11-15",
+      });
+      await owner.close();
+      expect(bundle.workspace.moneyEnabled).toBe(true);
+      const r = await importBundle(t.owner, t.cipher, bundle, {
+        dryRun: false,
+        moneyEnabled: false,
+      });
+      expect(r).toMatchObject({ ok: false, code: "money_bundle_into_meals_only" });
+      const left = await t.ws.owner.query(
+        "SELECT (SELECT count(*) FROM person) + (SELECT count(*) FROM workspace) + (SELECT count(*) FROM catalogue_item) AS n",
+      );
+      expect(Number(left.rows[0]!.n)).toBe(0);
+    } finally {
+      await t.owner.close();
+      await t.ws.destroy();
+      await fx.close();
+    }
+  }, 60_000);
+
+  it("refuses a bundle in which an id was swapped, even when its checksum was made again", async () => {
+    const fx = await makeFixture();
+    try {
+      await seedSpec(fx);
+      const owner = nodeDb(fx.ws.ownerUrl, { max: 2 });
+      const bundle = await exportWorkspace(owner, fx.cipher, {
+        exportedAt: when,
+        members: [],
+        today: "2026-11-15",
+      });
+      await owner.close();
+      const body = withoutManifest(JSON.parse(JSON.stringify(bundle)));
+      const meals = body.catalogue.filter((i: { kind: string }) => i.kind === "meal");
+      // The menu says non-veg on a day it said veg: the figures claimed no longer follow from it.
+      const [a, b] = meals.map((i: { id: string }) => i.id);
+      const lunch = body.services[0].id;
+      body.menus[0].days[lunch][1] = body.menus[0].days[lunch][1] === a ? b : a;
+      const t = await freshTarget();
+      try {
+        const r = await importBundle(t.owner, t.cipher, await assembleBundle(body), {
+          dryRun: false,
+        });
+        expect(r.ok).toBe(false);
+        expect(r.mismatches.length).toBeGreaterThan(0);
+        expect(r.mismatches.some((m) => m.field === "items")).toBe(true);
+        const left = await t.ws.owner.query("SELECT count(*) AS n FROM catalogue_item");
+        expect(Number(left.rows[0]!.n)).toBe(0);
+      } finally {
+        await t.owner.close();
+        await t.ws.destroy();
+      }
+    } finally {
       await fx.close();
     }
   }, 60_000);

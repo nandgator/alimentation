@@ -58,8 +58,7 @@ describe("keys for AI agents", () => {
   const leave = (date: string) => ({
     date,
     personId: k.ids.jovial,
-    change: "Leave",
-    qty: null,
+    action: "Leave",
   });
 
   it("is made by a person for the role they are using, shown once, and kept only as a hash", async () => {
@@ -279,8 +278,7 @@ describe("what an agent does is on the record", () => {
     const logged = await agent("POST", `${w}/log`, {
       date: "2026-10-28",
       personId: k.ids.jovial,
-      change: "Leave",
-      qty: null,
+      action: "Leave",
     });
     expect(logged.status, JSON.stringify(logged.json)).toBe(201);
     const claimed = await agent("POST", `${w}/claims`, {
@@ -294,8 +292,7 @@ describe("what an agent does is on the record", () => {
     const own = await k.jovial.post(`${w}/log`, {
       date: "2026-10-29",
       personId: k.ids.jovial,
-      change: "Leave",
-      qty: null,
+      action: "Leave",
     });
     expect(own.status).toBe(201);
 
@@ -525,15 +522,17 @@ describe("the MCP server", () => {
         expect(Object.keys(t.inputSchema.properties), `${t.name}: ${r}`).toContain(r);
     }
     const post = (await tools(logs)).find((t) => t.name === "post_log")!;
+    // An entry is said in names, which the server turns into ids: no ids to look up, no flag for everyone.
     expect(Object.keys(post.inputSchema.properties).sort()).toEqual([
-      "allConsumers",
-      "change",
+      "action",
       "date",
+      "item",
       "note",
       "personId",
       "qty",
+      "service",
     ]);
-    expect(post.inputSchema.required.sort()).toEqual(["change", "date", "personId"]);
+    expect(post.inputSchema.required.sort()).toEqual(["action", "date"]);
     const del = (await tools(logs)).find((t) => t.name === "delete_log_id")!;
     expect(del.inputSchema.required).toEqual(["id"]);
   });
@@ -565,7 +564,7 @@ describe("the MCP server", () => {
     const added = (
       await call(logs, "tools/call", {
         name: "post_log",
-        arguments: { date: "2026-10-28", personId: k.ids.jovial, change: "Leave", qty: null },
+        arguments: { date: "2026-10-28", personId: k.ids.jovial, action: "Leave" },
       })
     ).json.result;
     expect(added.isError).toBe(false);
@@ -578,6 +577,115 @@ describe("the MCP server", () => {
     const removed = (await call(logs, "tools/call", { name: "delete_log_id", arguments: { id } }))
       .json.result;
     expect(removed.isError).toBe(false);
+  });
+
+  it("says a service and an item by name, in any case, and turns them into ids", async () => {
+    const text = (r: { json: { result: { content: { text: string }[] } } }) =>
+      JSON.parse(r.json.result.content[0]!.text);
+    const day = { date: "2026-10-28", personId: k.ids.jovial };
+    // The only service is taken when none is named; "bhakri" is the add-on whatever its case.
+    const checked = await call(logs, "tools/call", {
+      name: "post_log_check",
+      arguments: { ...day, action: "extra", item: "bhakri", qty: 1 },
+    });
+    expect(checked.json.result.isError).toBe(false);
+    expect(text(checked)).toEqual({ issues: [] });
+
+    // Written by name, it is the same entry as one written by ids, and History names it.
+    const lunch = k.catalogue.lunch;
+    const made = await call(logs, "tools/call", {
+      name: "post_log",
+      arguments: { date: "2026-10-27", action: "Extra", service: "LUNCH", item: "Chapati", qty: 2 },
+    });
+    expect(made.json.result.isError, JSON.stringify(made.json)).toBe(false);
+    const row = (
+      await p.runtime.deps.directory.bySlug("mcp-kitchen").then(async (h) => {
+        const db = new pg.Pool({ connectionString: h!.dsns.owner, max: 1 });
+        try {
+          return await db.query(
+            "SELECT service_id, item_id, qty, person_id FROM log_entry WHERE id = $1",
+            [text(made).id],
+          );
+        } finally {
+          await db.end();
+        }
+      })
+    ).rows[0];
+    expect(row).toMatchObject({
+      service_id: lunch,
+      item_id: k.catalogue.chapati,
+      qty: 2,
+      person_id: k.ids.jovial,
+    });
+    const history = (await k.jovial.get(`${w}/history`)).json.events.map(
+      (e: { text: string }) => e.text,
+    );
+    expect(history.some((t: string) => /logged Extra Chapati ×2 on 27-Oct-2026/.test(t))).toBe(
+      true,
+    );
+    await call(logs, "tools/call", { name: "delete_log_id", arguments: { id: text(made).id } });
+  });
+
+  it("answers an unknown or ambiguous name with the names to choose from, and writes nothing", async () => {
+    const say = async (args: Record<string, unknown>) => {
+      const r = (
+        await call(logs, "tools/call", {
+          name: "post_log",
+          arguments: { date: "2026-10-28", ...args },
+        })
+      ).json.result;
+      return { isError: r.isError as boolean, text: r.content[0].text as string };
+    };
+    const unknown = await say({ action: "Extra", item: "Pizza", qty: 1 });
+    expect(unknown.isError).toBe(true);
+    expect(unknown.text).toContain("There is no item called “Pizza”");
+    expect(unknown.text).toMatch(/“Bhakri”.*“Chapati”|“Chapati”.*“Bhakri”/);
+    // "ha" is inside both add-ons.
+    const ambiguous = await say({ action: "Extra", item: "ha", qty: 1 });
+    expect(ambiguous.isError).toBe(true);
+    expect(ambiguous.text).toContain("could be more than one item");
+    expect(ambiguous.text).toContain("“Bhakri”");
+    expect(ambiguous.text).toContain("“Chapati”");
+    const service = await say({ action: "Leave", service: "Dinner" });
+    expect(service.isError).toBe(true);
+    expect(service.text).toContain("There is no service called “Dinner”. The choices are “Lunch”");
+    // A meal named for an extra gets the kitchen's own refusal, not a guess.
+    const kind = await say({ action: "Extra", item: "Veg", qty: 1 });
+    expect(kind.isError).toBe(true);
+    expect(JSON.parse(kind.text).error.issues.map((i: { code: string }) => i.code)).toContain(
+      "ITEM_KIND",
+    );
+    const none = await say({ action: "Dance" });
+    expect(none.isError).toBe(true);
+    expect(none.text).toContain("The action must be one of");
+    const mine = (await k.jovial.get(`${w}/log?from=2026-10-28&to=2026-10-28`)).json;
+    expect(mine.filter((e: { itemId: string | null }) => e.itemId !== null)).toEqual([]);
+  });
+
+  it("reads what the kitchen serves as a tool, and offers no tool that changes it", async () => {
+    const names = (await tools(readOnly)).map((t) => t.name);
+    expect(names).toEqual(expect.arrayContaining(["get_catalogue", "get_services"]));
+    for (const n of [
+      "post_catalogue",
+      "patch_catalogue_id",
+      "post_services",
+      "put_people_id_services",
+    ])
+      expect(names, n).not.toContain(n);
+    const got = (await call(readOnly, "tools/call", { name: "get_catalogue", arguments: {} })).json
+      .result;
+    expect(got.isError).toBe(false);
+    expect(JSON.parse(got.content[0].text)).toEqual((await k.jovial.get(`${w}/catalogue`)).json);
+    for (const route of [
+      "POST /api/w/:slug/catalogue",
+      "PATCH /api/w/:slug/catalogue/:id",
+      "POST /api/w/:slug/services",
+      "PATCH /api/w/:slug/services/:id",
+      "PUT /api/w/:slug/people/:id/services",
+    ])
+      expect(PERSON_ONLY.has(route), route).toBe(true);
+    expect(agentScopeOf({ method: "get", path: "/api/w/:slug/catalogue" })).toBe("read");
+    expect(agentScopeOf({ method: "get", path: "/api/w/:slug/services" })).toBe("read");
   });
 
   it("gives every tool a title beside its generated name, and leaves the names as they were", async () => {
@@ -624,7 +732,9 @@ describe("the MCP server", () => {
       title: expect.any(String),
       arguments: [
         { name: "date", required: true },
-        { name: "change", required: false },
+        { name: "action", required: false },
+        { name: "service", required: false },
+        { name: "item", required: false },
       ],
     });
     // Every tool a prompt asks for is a tool this server really has.
@@ -640,7 +750,7 @@ describe("the MCP server", () => {
     const got = (
       await call(logs, "prompts/get", {
         name: "log-my-meals",
-        arguments: { date: "2026-10-28", change: "Leave" },
+        arguments: { date: "2026-10-28", action: "Leave" },
       })
     ).json.result;
     expect(got.messages).toHaveLength(1);
@@ -659,7 +769,7 @@ describe("the MCP server", () => {
     const missing = await call(logs, "prompts/get", { name: "log-my-meals", arguments: {} });
     expect(missing.json.error.code).toBe(-32602);
     expect(missing.json.error.message).toContain("date");
-    for (const args of [{ date: "28-10-2026" }, { date: "2026-10-28", change: "Dance" }])
+    for (const args of [{ date: "28-10-2026" }, { date: "2026-10-28", action: "Dance" }])
       expect(
         (await call(logs, "prompts/get", { name: "log-my-meals", arguments: args })).json.error
           .code,
@@ -708,6 +818,7 @@ describe("the MCP server", () => {
     }[];
     expect(listed.map((r) => r.uri)).toEqual([
       "alimentation://kitchen/guide",
+      "alimentation://kitchen/catalogue",
       "alimentation://kitchen/menu",
       "alimentation://kitchen/prices",
       "alimentation://kitchen/holidays",
@@ -726,7 +837,18 @@ describe("the MCP server", () => {
 
     const menu = (await call(readOnly, "resources/read", { uri: "alimentation://kitchen/menu" }))
       .json.result.contents[0];
-    expect(JSON.parse(menu.text)).toEqual((await k.jovial.get(`${w}/menus`)).json);
+    // The services come with the menus, so that the ids in a menu can be read.
+    expect(JSON.parse(menu.text)).toEqual({
+      services: (await k.jovial.get(`${w}/services`)).json,
+      menus: (await k.jovial.get(`${w}/menus`)).json,
+    });
+    const served = (
+      await call(readOnly, "resources/read", { uri: "alimentation://kitchen/catalogue" })
+    ).json.result.contents[0];
+    expect(JSON.parse(served.text)).toEqual({
+      services: (await k.jovial.get(`${w}/services`)).json,
+      items: (await k.jovial.get(`${w}/catalogue`)).json,
+    });
     const prices = (
       await call(readOnly, "resources/read", { uri: "alimentation://kitchen/prices" })
     ).json.result.contents[0];
@@ -753,10 +875,17 @@ describe("the MCP server", () => {
     const before = await today();
     await call(readOnly, "resources/list");
     expect(await today()).toBe(before);
+    // The guide is written in the kitchen's own words, so it reads what the kitchen serves: one request.
     await call(readOnly, "resources/read", { uri: "alimentation://kitchen/guide" });
-    expect(await today()).toBe(before);
-    await call(readOnly, "resources/read", { uri: "alimentation://kitchen/menu" });
     expect(await today()).toBe(before + 1);
+    // The menu is read with the services its ids name: two requests, each counted.
+    await call(readOnly, "resources/read", { uri: "alimentation://kitchen/menu" });
+    expect(await today()).toBe(before + 3);
+    // Prompts are written in the kitchen's words too, and an unknown one costs nothing.
+    await call(readOnly, "prompts/list");
+    expect(await today()).toBe(before + 4);
+    await call(readOnly, "prompts/get", { name: "no-such-prompt" });
+    expect(await today()).toBe(before + 4);
   });
 
   it("does not read what the key may not: an unknown address, another kitchen’s, an ended key", async () => {
@@ -841,12 +970,34 @@ describe("the MCP server", () => {
       expect(day >= boot.today).toBe(true);
     }
 
-    const c = (await complete(logs, promptRef("log-my-meals"), "change")).result.completion;
+    const c = (await complete(logs, promptRef("log-my-meals"), "action")).result.completion;
     expect(c.values).toContain("Leave");
     expect(c.values).not.toContain("Supplier Off");
     expect(
-      (await complete(logs, promptRef("log-my-meals"), "change", "sw")).result.completion.values,
-    ).toEqual(["Switch to Veg", "Switch to Non Veg"]);
+      (await complete(logs, promptRef("log-my-meals"), "action", "sw")).result.completion.values,
+    ).toEqual(["Switch"]);
+    // The kitchen's own services and items, narrowed by what has been typed and by the action chosen.
+    const sv = (await complete(logs, promptRef("log-my-meals"), "service")).result.completion;
+    expect(sv).toEqual({ values: ["Lunch"], total: 1, hasMore: false });
+    expect(
+      (await complete(logs, promptRef("log-my-meals"), "service", "lu")).result.completion.values,
+    ).toEqual(["Lunch"]);
+    expect(
+      (await complete(logs, promptRef("log-my-meals"), "service", "x")).result.completion.values,
+    ).toEqual([]);
+    const itemsFor = async (action: string | undefined, typed = "") =>
+      (
+        await call(logs, "completion/complete", {
+          ref: promptRef("log-my-meals"),
+          argument: { name: "item", value: typed },
+          ...(action ? { context: { arguments: { action } } } : {}),
+        })
+      ).json.result.completion.values as string[];
+    expect(await itemsFor("Switch")).toEqual(["Non Veg", "Veg"]);
+    expect(await itemsFor("Extra")).toEqual(["Bhakri", "Chapati"]);
+    expect(await itemsFor("Extra", "ch")).toEqual(["Chapati"]);
+    expect(await itemsFor("Leave")).toEqual([]);
+    expect((await itemsFor(undefined)).sort()).toEqual(["Bhakri", "Chapati", "Non Veg", "Veg"]);
 
     const claims = (await k.jovial.post(`${w}/agents`, { name: "Payer 3", scopes: ["claims"] }))
       .json.token as string;
@@ -882,7 +1033,7 @@ describe("the MCP server", () => {
     const bad = (
       await call(logs, "tools/call", {
         name: "post_log",
-        arguments: { date: "2026-10-25", personId: k.ids.jovial, change: "Leave", qty: null },
+        arguments: { date: "2026-10-25", personId: k.ids.jovial, action: "Leave" },
       })
     ).json.result;
     expect(bad.isError).toBe(true);
@@ -892,7 +1043,7 @@ describe("the MCP server", () => {
       await call(logs, "tools/call", { name: "post_log", arguments: { date: "2026-10-28" } })
     ).json;
     expect(missing.error.code).toBe(-32602);
-    expect(missing.error.message).toMatch(/personId/);
+    expect(missing.error.message).toMatch(/action/);
     // A tool this key does not have is not there to be called, whatever its name.
     for (const name of ["post_claims", "post_people", "post_wipe", "nothing_at_all"]) {
       const r = (await call(logs, "tools/call", { name, arguments: {} })).json;

@@ -1,32 +1,25 @@
 import { describe, expect, it } from "vitest";
+import { closeSnapshot, ledgerRows, monthRange, rupees } from "../src/index.ts";
 import {
-  checkLogEntry,
-  closeSnapshot,
-  type Issue,
-  ledgerDay,
-  monthRange,
-  rupees,
-} from "../src/index.ts";
-import { entry, JOVIAL, policyWith, prep, SMRUTI } from "./fixtures.ts";
+  CHAPATI,
+  extraOf,
+  JOVIAL,
+  leaveOf,
+  policyWith,
+  prep,
+  SMRUTI,
+  switchOf,
+  VEG,
+} from "./fixtures.ts";
 
 describe("a leave day is priced after the switches made before it", () => {
   it("uses Veg when a Switch to Veg comes before the leave on a Non Veg day", () => {
     const half = [policyWith({ leave: { chargeBps: 5000 } })];
     const log = [
-      entry({
-        date: "2026-10-07",
-        personId: "jovial",
-        change: "Switch to Veg",
-        loggedAt: "2026-10-01T10:01:00Z",
-      }),
-      entry({
-        date: "2026-10-07",
-        personId: "jovial",
-        change: "Leave",
-        loggedAt: "2026-10-01T10:02:00Z",
-      }),
+      switchOf("2026-10-07", "jovial", VEG, { loggedAt: "2026-10-01T10:01:00Z" }),
+      leaveOf("2026-10-07", "jovial", { loggedAt: "2026-10-01T10:02:00Z" }),
     ];
-    expect(ledgerDay(prep({ policies: half, log }), JOVIAL, "2026-10-07")!.leaveAmount).toBe(
+    expect(ledgerRows(prep({ policies: half, log }), JOVIAL, "2026-10-07")[0]!.leaveAmount).toBe(
       rupees(75),
     );
   });
@@ -34,24 +27,14 @@ describe("a leave day is priced after the switches made before it", () => {
   it("ignores extras on a leave day, and ignores an extra that comes before a switch", () => {
     const half = [policyWith({ leave: { chargeBps: 5000 } })];
     const log = [
-      entry({
-        date: "2026-10-06",
-        personId: "jovial",
-        change: "Extra Chapati",
-        qty: 3,
-        loggedAt: "2026-10-01T10:01:00Z",
-      }),
-      entry({
-        date: "2026-10-06",
-        personId: "jovial",
-        change: "Leave",
-        loggedAt: "2026-10-01T10:02:00Z",
-      }),
+      extraOf("2026-10-06", "jovial", CHAPATI, 3, { loggedAt: "2026-10-01T10:01:00Z" }),
+      leaveOf("2026-10-06", "jovial", { loggedAt: "2026-10-01T10:02:00Z" }),
     ];
-    // Tuesday is Veg at 150: half is 75, and the Non Veg price must not leak in from the extras entry.
-    expect(ledgerDay(prep({ policies: half, log }), JOVIAL, "2026-10-06")!.leaveAmount).toBe(
-      rupees(75),
-    );
+    // Tuesday is Veg at 150: half is 75, and no add-on price may leak in from the extras entry.
+    const row = ledgerRows(prep({ policies: half, log }), JOVIAL, "2026-10-06")[0]!;
+    expect(row.leaveAmount).toBe(rupees(75));
+    expect(row.addOnAmount).toBe(0);
+    expect(row.addOns).toEqual([]);
   });
 });
 
@@ -76,21 +59,5 @@ describe("the month picker with consumers who have no start date", () => {
 describe("closing, at the edges", () => {
   it("says which person is unknown", () => {
     expect(() => closeSnapshot(prep(), "nobody", "2026-10")).toThrowError(/unknown person nobody/);
-  });
-});
-
-describe("an entry with no person that is not Supplier Off is only a shape error", () => {
-  it("does not also report a closed month", () => {
-    const policies = [
-      policyWith({ monthClose: { mode: "auto", afterDays: 0, afterClose: "block" } }),
-    ];
-    const p = prep({ policies, today: "2026-12-15" });
-    const issues: Issue[] = checkLogEntry(
-      p,
-      { personId: "admin", role: "admin" },
-      { date: "2026-10-14", personId: null, allConsumers: false, change: "Leave", qty: null },
-      { date: "2026-12-15", time: "09:00" },
-    );
-    expect(issues.filter((i) => i.severity === "error").map((i) => i.code)).toEqual(["SHAPE"]);
   });
 });

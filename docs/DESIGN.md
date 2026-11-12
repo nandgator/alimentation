@@ -18,7 +18,7 @@ limit. `docs/PROMISES.md` is the ledger; CI fails if a promise has no test that 
 | --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P1  | Nobody can crowd you out.                            | One database per workspace. Per-workspace request budget, row caps, statement timeouts. Admission control stops signups before the free tiers are over-subscribed. | The stateless API layer is shared. On the free Cloudflare plan the daily request cap is account-wide (section 3), so fairness is enforced by budgets, not guaranteed by the platform.                                                                                                        |
 | P2  | Free until you outgrow it, and we say so in advance. | A usage meter with three thresholds (70, 90, 100 percent) and a 14 day grace period at 100. Reads and export are never blocked.                                    | Thresholds are ours. The host's own limits (Neon, Cloudflare) can change without notice.                                                                                                                                                                                                     |
-| P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa (to the meal, for a kitchen without money), then cutover. The old copy stays read-only for 7 days.                         | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email. A kitchen that tracks money is never moved into one that does not, because that would drop its money (section 5.16).               |
+| P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa (to the meal and the item, for a kitchen without money), then cutover. The old copy stays read-only for 7 days.            | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email. A kitchen that tracks money is never moved into one that does not, because that would drop its money (section 5.16).               |
 | P4  | Leave, and everything goes.                          | Rows deleted, workspace key destroyed, database removed, receipt issued. The key is destroyed first, so the encrypted fields are unreadable at once.               | Neon keeps a deleted project recoverable for 7 days, then removes it; its plain-text ledger is readable there until then, only the encrypted fields are not. Copies you exported are yours. Law may require some logs to be kept (section 9).                                                |
 | P5  | Your people's details are never readable in logs.    | Names, contacts and free-text notes are encrypted in the application before they reach the database. Logs carry only pseudonymous ids.                             | Amounts, dates and ids are not encrypted. Without the key they cannot be tied to a person. A person's optional key (a code the kitchen chose, section 5.14) is also kept readable. The operator holds the keys: this is not a promise against whoever runs the infrastructure (section 5.6). |
 | P6  | Your data is yours to take, at any time.             | Full export in an open, versioned format. Works when over limit and after cancelling.                                                                              | Plain JSON over TLS. Keep it as carefully as you would a ledger.                                                                                                                                                                                                                             |
@@ -135,9 +135,9 @@ the service worker caches it, so a normal session costs two or three API request
         |                                  |
         v                                  v
  Control database (one)               Workspace database (one per workspace)
-   accounts, workspaces, members,       people, rate cards, holidays, log,
-   invites, wrapped keys, usage,        claims, decisions, settlements,
-   platform events, wipe receipts       month closes, audit, policy versions
+   accounts, workspaces, members,       people, catalogue, services, menus,
+   invites, wrapped keys, usage,        rate cards, holidays, log, claims, decisions,
+   platform events, wipe receipts       settlements, month closes, audit, policy versions
 ```
 
 ### 5.1 One workspace, one database (ADR-01)
@@ -193,12 +193,14 @@ measure first (section 3, item 2).
 
 ### 5.4 Rules engine (ADR-03)
 
-The billing logic is a pure TypeScript package with no I/O:
-`(policy, menus, rate cards, holidays, log, claims, decisions, settlements, closes, today)` in,
-ledger and statements out. A kitchen that does not track money (section 5.16) has no rate cards,
-claims, decisions or settlements, and the engine counts for it and never prices. It runs on the
-server, in the browser (for the offline "projected" view and the log form's live hint), and inside
-the migration verifier, so all three always agree. Amounts are integers in paise.
+The billing logic is a pure TypeScript package with no I/O: the policy, catalogue, services,
+enrolments, menus, rate cards, holidays, log, claims, decisions, settlements, closes and today in,
+ledger rows and statements out. The engine is food-agnostic: it knows two kinds of item (meal and
+add-on) and four log actions, and reads every name, unit and price from the kitchen's data (section
+5.17). A kitchen that does not track money (section 5.16) has no rate cards, claims, decisions or
+settlements, and the engine counts for it and never prices. It runs on the server, in the browser
+(for the offline "projected" view and the log form's live hint), and inside the migration verifier,
+so all three always agree. Amounts are integers in paise.
 
 The spec suggested SQL views. A TypeScript engine was chosen because per-workspace rules (section
 5.5) are far easier to express and test there, and because the migration check needs to recompute
@@ -210,17 +212,17 @@ Rules are a typed, versioned, date-effective policy document, validated by a sch
 never edited (like menus and rate cards). The engine evaluates a month under the policy in force on
 its first day.
 
-| Rule                    | Options                                                                                   | Default               |
-| ----------------------- | ----------------------------------------------------------------------------------------- | --------------------- |
-| Working days            | any subset of Mon to Sun; each needs a meal on the menu                                   | Mon to Fri            |
-| Holidays                | only confirmed ones count, or all                                                         | confirmed only        |
-| Monthly extras\*        | flat amount charged when at least N meals were eaten                                      | 40 rupees when N is 1 |
-| Leave\*                 | no charge, or a fixed fraction of the meal charged                                        | no charge             |
-| Month close             | `manual`, or `auto` N days after month end                                                | manual                |
-| Edits after close       | `flag` (show "changed after close"), `block` (refuse), or `reprice` (billed follows live) | flag                  |
-| Exception cut-off       | none, or must be logged N days before at HH:MM                                            | none                  |
-| Payments\*              | `claim_confirm` (consumer claims, supplier decides) or `direct` (supplier records)        | claim_confirm         |
-| Rate card back-dating\* | `none`, `current_month`, `unrestricted`                                                   | current_month         |
+| Rule                    | Options                                                                                   | Default        |
+| ----------------------- | ----------------------------------------------------------------------------------------- | -------------- |
+| Working days            | any subset of Mon to Sun; each needs a service serving it                                 | Mon to Fri     |
+| Holidays                | only confirmed ones count, or all                                                         | confirmed only |
+| Monthly fee\*           | the rate card's flat fee, charged when meals were eaten on at least N days                | N is 1         |
+| Leave\*                 | no charge, or a fixed fraction of the meal charged                                        | no charge      |
+| Month close             | `manual`, or `auto` N days after month end                                                | manual         |
+| Edits after close       | `flag` (show "changed after close"), `block` (refuse), or `reprice` (billed follows live) | flag           |
+| Exception cut-off       | none, or must be logged N days before at HH:MM                                            | none           |
+| Payments\*              | `claim_confirm` (consumer claims, supplier decides) or `direct` (supplier records)        | claim_confirm  |
+| Rate card back-dating\* | `none`, `current_month`, `unrestricted`                                                   | current_month  |
 
 \* A rule about money. A kitchen that does not track money (section 5.16) is not shown these four,
 cannot set them, and keeps them at the values in the last column.
@@ -230,10 +232,11 @@ approximated.
 
 Ambiguities in the spec, resolved here:
 
-- The "supplier's handwritten check" (22 days, 8 Non Veg, 14 Veg, 3,500 rupees) is arithmetically
-  correct but cannot come from October 2026, where Wednesdays and Fridays are 9 of 22 weekdays. It
-  is tested as a statement-composition case with those counts as inputs, and October 2026 is tested
-  from the calendar (20 working days, 8 Non Veg, 12 Veg).
+- The "supplier's handwritten check" (22 days, 8 of the dearer meal and 14 of the other, 3,500
+  rupees on the seed kitchen's prices) is arithmetically correct but cannot come from October 2026,
+  where Wednesdays and Fridays are 9 of 22 weekdays. It is tested as a statement-composition case
+  with those counts as inputs, and October 2026 is tested from the calendar (20 working days, 8 and
+  12).
 - "Changed after close" is `live_total - billed` while a month is closed. Under the `block` rule the
   edit is refused, so the difference can only arise from holiday edits and rate-card inserts, which
   the back-dating rule limits.
@@ -386,10 +389,12 @@ Decisions that are easy to miss:
   in constant time; the body is size-limited as it arrives, not by trusting the header).
 - **Free-tier caps lift on a database move** (people, rows, bytes) because the storage is theirs;
   the request budget stays because this instance still serves it.
-- **Money is never dropped.** The bundle says whether its kitchen tracks money and carries the menu
-  as a section of its own (section 5.16). A kitchen without money may arrive as a new kitchen that
-  tracks money (it has no prices yet), or as another without; a kitchen that tracks money may only
-  arrive as one that does, and the other way round is refused with `money_bundle_into_meals_only`.
+- **Money is never dropped.** The bundle says whether its kitchen tracks money and carries the
+  catalogue, services, enrolments and menus as sections of their own (sections 5.16 and 5.17). A
+  kitchen without money may arrive as a new kitchen that tracks money (it has its catalogue and menu
+  and no prices yet, and says which items to price), or as another without; a kitchen that tracks
+  money may only arrive as one that does, and the other way round is refused with
+  `money_bundle_into_meals_only`.
 - Not built: sealing the bundle to the target's public key. Transport is HTTPS with a bearer token;
   the bundle is not otherwise encrypted in transit.
 
@@ -643,7 +648,7 @@ expires (60 seconds).
 Some kitchens only need to know who ate. Pricing them, billing them and asking them to claim
 payments is work and a burden of records they never wanted. A kitchen can therefore be made
 **without money**: it counts meals and keeps everything else a kitchen keeps (people and roles,
-holidays, working days, leave and exception logging with its cut-off, Supplier Off, extras as
+holidays, working days, leave and exception logging with its cut-off, Supplier Off, add-ons as
 counts, the Daily and Dashboard screens as meal counts, history and audit, export, move, agent keys
 with the `read` and `log` scopes, a month close as a plain lock of the month, invitations). It does
 not have prices, bills, claims, decisions, reversals, settlements, balances, the money rules, or the
@@ -657,37 +662,148 @@ what a new kitchen may be: with `0` every new kitchen is meals only, asking for 
 (`money_not_allowed`), and a kitchen that tracks money cannot be received either. It does not change
 kitchens already there, and it is the same on shared and dedicated instances.
 
-**The menu is split from the prices.** `menu` is its own dated, append-only table (an effective
-date, a meal for each weekday, a note, who and when, an audit trigger and row-level security exactly
-like `rate_card`, written by the admin alone) and `rate_card` holds prices and exists only for a
+**What is served is split from what it costs.** The catalogue, the services, the enrolments and the
+menu (`menu`, `menu_offer`, `menu_day`) carry no price column and exist in every kitchen. The menu
+is its own dated, append-only record (an effective date, what each service serves on each weekday, a
+note, who and when, an audit trigger and row-level security exactly like `rate_card`, written by the
+admin alone). Prices live only in `rate_price` and `rate_card.monthly_fee`, which exist only for a
 kitchen with money. The engine reads what is served from the menu and what it costs from the rate
-card. The working days in the rules decide which weekdays must have a meal on a menu
-(`NO_MENU_FOR_WORKING_DAY`, now a check of the menu). A kitchen that tracks money needs both before
-it is billed. For a kitchen without money, the engine's statements are counts (meals, Veg, Non Veg,
-leave, extra chapatis and bhakris) and a month is either locked or open.
+card. The working days in the rules decide which weekdays must be served by at least one service (a
+check of the menu). A kitchen that tracks money needs both, and a price for every item the menu
+offers, before it is billed. For a kitchen without money, the engine's statements are counts (meals,
+leave, and each item by its own name) and a month is either locked or open (section 5.17).
 
 **Enforced in layers, and the database is the authority.**
 
-| Layer    | What it does                                                                                                                                                                                                                                                                                                                              |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Database | `guard_money` refuses every insert, update and delete on `rate_card`, `claim`, `claim_decision`, `claim_reversal` and `settlement`; `guard_close` refuses a billed amount on `month_close`, and makes a person's close in a kitchen with money carry one; `system_close_month` writes a close with no amount for a kitchen without money. |
-| API      | A route about money answers 404 `money_not_tracked` ("This kitchen does not track money."). Statements, ledger, `/bootstrap`, `/policies`, `/export` and the totals a head office reads leave out money. A key cannot be made with the `claims` scope (422).                                                                              |
-| Agents   | The MCP server lists no tool made from a money route, no prompt that needs money, and no prices resource. The menu resource is the menu; the ledger resource is counts.                                                                                                                                                                   |
-| App      | The screens list leaves out Payments, Prices and Settlements; Dashboard, Daily, Month close, the head office pages and the kitchens list show counts, not money.                                                                                                                                                                          |
+| Layer    | What it does                                                                                                                                                                                                                                                                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database | `guard_money` refuses every insert, update and delete on `rate_card`, `rate_price`, `claim`, `claim_decision`, `claim_reversal` and `settlement`; `guard_close` refuses a billed amount on `month_close`, and makes a person's close in a kitchen with money carry one; `system_close_month` writes a close with no amount for a kitchen without money. |
+| API      | A route about money answers 404 `money_not_tracked` ("This kitchen does not track money."). Statements, ledger, `/bootstrap`, `/policies`, `/export` and the totals a head office reads leave out money. A key cannot be made with the `claims` scope (422).                                                                                            |
+| Agents   | The MCP server lists no tool made from a money route, no prompt that needs money, and no prices resource. The menu resource is the menu; the ledger resource is counts.                                                                                                                                                                                 |
+| App      | The screens list leaves out Payments, Prices and Settlements; Dashboard, Daily, Month close, the head office pages and the kitchens list show counts, not money.                                                                                                                                                                                        |
 
-**Moves.** A bundle carries `workspace.moneyEnabled`, the menus as a section of their own, prices
-only for a kitchen with money, closes whose amount is null where they only lock, and expected totals
-that are meals always and money only where there are prices. Verification therefore counts meals for
-a kitchen without money and money to the paisa for one with. A meals-only bundle imports into a new
-kitchen with money (a database move keeps the kitchen as it was; moving to an instance of your own
-may ask for it) and the new kitchen has no prices yet and says "Add prices to start billing". A
-month that was locked with no amount stays locked there and freezes nothing. A bundle that tracks
-money into a kitchen without is refused. The digest of the copy is checked against the original's
-except where the kitchen became one that tracks money, which is the one setting that differs; every
-section is still compared.
+**Moves.** A bundle carries `workspace.moneyEnabled`, the catalogue, services, enrolments and menus
+as sections of their own, prices only for a kitchen with money, closes whose amount is null where
+they only lock, and expected totals that are meals always and money only where there are prices.
+Verification therefore counts meals for a kitchen without money and money to the paisa for one with.
+A meals-only bundle imports into a new kitchen with money (a database move keeps the kitchen as it
+was; moving to an instance of your own may ask for it) and the new kitchen has no prices yet and
+says "Price N items to start billing", naming them. A month that was locked with no amount stays
+locked there and freezes nothing. A bundle that tracks money into a kitchen without is refused. The
+digest of the copy is checked against the original's except where the kitchen became one that tracks
+money, which is the one setting that differs; every section is still compared.
 
 Not built, on purpose: changing the setting later. A kitchen that wants the other kind makes a new
 one and moves its meals in.
+
+### 5.17 Catalogue and services (ADR-18)
+
+A kitchen declares what it serves and when, as data with stable ids. Names, units and prices are
+free-form per kitchen. Only behaviour is fixed in code: two item kinds (`meal` and `addon`) and four
+log actions (Leave, Switch, Extra, Supplier Off). No dish is named in the engine, the database, the
+API, the MCP server or the app. The kitchen the rules were first written for is the **seed**
+(`homeKitchenSeed()` in `packages/core/test/seed.ts`), which reproduces `SPEC.md` section 11 to the
+paisa, and the first **starter** a new kitchen can begin from (`apps/web/src/starters.ts`).
+
+| Question                           | Decision                                                                                                                                                                                                                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fixed list or free-form names      | Free-form names on immutable ids. An item's `kind`, `unit` and `max_qty` cannot change; its name can, and the rename is audited.                                                                                                                                                                         |
+| Service days and prices            | A service runs on a weekday only if the menu has a cell for it; `policy.workingDays` stays the kitchen's outer envelope. Prices are per item, with an optional `(item, service)` override. One-service kitchens never see the override.                                                                  |
+| Leave and Supplier Off scope       | The whole day by default (`service_id` null), or one service.                                                                                                                                                                                                                                            |
+| Switch and Extra scope             | Always one service, because they change one plate. One Switch per person, day and service; one Extra per item.                                                                                                                                                                                           |
+| Whole-day and service on one day   | A whole-day Leave beside a service Leave (or Supplier Off likewise) is refused, by a trigger and by `validate.ts` (`OVERLAPPING_SCOPE`). An index cannot see null against non-null.                                                                                                                      |
+| Monthly fee                        | Counts days with at least one Meal row: `policy.monthlyFee.minDays` replaces the old count of meals. Three services must not reach the threshold three times faster. For one service it is the same rule.                                                                                                |
+| Bill display                       | Statement lines are per item, with the monthly fee on its own line. Daily is one row per day, expanding to per-service sub-rows only with two or more services.                                                                                                                                          |
+| History after a rename or a retire | Rows hold ids and nothing is deleted; past sentences show the current name. Retiring sets `archived_on` once and hides the item from pickers, and is refused while a menu in force on or after that date offers it (`ITEM_IN_USE`). Name uniqueness includes retired items. "New food means a new item." |
+| Money-off                          | The catalogue, services, enrolments, menu and offers carry no price column and exist in every kitchen. Prices live only in `rate_price` and `rate_card.monthly_fee`, behind `guard_money` and the 404 `money_not_tracked`. A kitchen without money keeps its full catalogue and counts.                  |
+| Policy versions                    | A policy document holds no item or service ids; only dated menu and rate-card records name them, so a policy cannot dangle.                                                                                                                                                                              |
+| Dated enrolment                    | `person_service` says which services a consumer takes and from when; a new consumer takes every service. Without it a lunch-only member would log about 22 leaves a month, and an undated list would silently reprice open months.                                                                       |
+| Setup and starters                 | A kitchen made through the API alone starts empty and its setup hints say what to add. The starters (a home lunch, a three-service mess, a blank one) live in the web app only and are applied through ordinary calls, so the engine and the database stay free of any one kitchen's food.               |
+
+**Schema** (migration `0001`, edited in place). `service` and `catalogue_item` (caps of 6 and 60 in
+`limits.ts`, names unique case-insensitively, never deleted, `archived_on` settable once);
+`person_service` (dated, no overlap per person and service, a change touching a closed month refused
+as a log entry is); `menu`, `menu_offer` and `menu_day` (what a service offers, and what it serves
+on a weekday, by composite foreign key to the offer); `rate_card` with `monthly_fee` and
+`rate_price` (item, optional service, amount; unique with nulls equal). Menus, rate cards and their
+children are append-only and a child is inserted only in its parent's transaction. `log_entry` holds
+`action`, `service_id`, `item_id` and `item_kind` (a composite foreign key to the catalogue, so a
+Switch can only name a meal and an Extra only an add-on) and `qty`. `stamp_log_entry` refuses a
+retired item, a `qty` above the item's `max_qty`, a person not enrolled on that date, an item the
+menu in force does not offer, and a whole-day entry beside a service one. RLS changes only where a
+policy named the old `change` column, and the privacy rule stays keyed on `person_id`;
+`person_service` is readable by the admin, by the supplier and, for a consumer, by their own rows.
+
+**Engine.** One `LedgerRow` for each (person, date, service); a service gets a row only if the
+person is enrolled that date and the menu has a cell for that weekday. Precedence per row is
+Holiday, Supplier Off (the whole day or that service), Leave, then Meal; a Meal row is the menu's
+meal replaced by the latest Switch for that service, and a Switch or Extra never leaks to another
+service. Prices are looked up as the exact `(item, service)` line, then `(item, any)`, else
+`NO_PRICE`; the meals-only path never reads a card. The leave charge is `chargeBps` of the price of
+the meal after switches, rounded for each row. A statement has counts (`meals` as servings, `leave`
+as service slots, `items` and `addOns` by item id), the four amounts and `lines` per item. The fee
+is charged when the distinct dates with a Meal row reach `monthlyFee.minDays`, on the card in force
+on the 1st (or on the first Meal date if the first card starts mid-month); the Actual variant counts
+Actual dates only. A pure `logChoices` lists the legal entries for a person and date and is what the
+log form, the MCP help and the CSV importer start from.
+
+**Validation.** `validate.ts` has the codes `UNKNOWN_SERVICE`, `UNKNOWN_ITEM`, `ITEM_KIND`,
+`ITEM_ARCHIVED`, `ITEM_NOT_OFFERED`, `SERVICE_NOT_SERVED`, `NOT_ENROLLED`, `OVERLAPPING_SCOPE`,
+`MENU_ORPHANS_LOG`, `ITEM_IN_USE`, `UNPRICED_ITEM` (money kitchens only) and `NAME_TAKEN`, with
+`checkMenu`, `checkRateCard`, `checkCatalogueItem`, `checkService` and `checkEnrolment`. The cut-off
+stays kitchen-wide.
+
+**API and MCP.** Routes: `GET/POST /catalogue`, `PATCH /catalogue/:id` (`name`, `archived`),
+`GET/POST /services`, `PATCH /services/:id`, `PUT /people/:id/services` (replace the list).
+`POST /menus`, `POST /rate-cards`, `POST /log` and `/log/check` take the new bodies, and
+`/bootstrap` adds the catalogue, services, enrolments and the price-free menu. A price sent to a
+kitchen without money gets 404 `money_not_tracked`. Setup hints name what is missing ("Add what you
+serve", "Price 3 items to start billing: ..."). The people CSV has a `services` column. The log tool
+takes `{date, action, service?, item?, qty?}`; `service` and `item` accept a name or an id, resolved
+case-insensitively, and an unknown or ambiguous name is an error that lists the candidates. A
+`catalogue` resource and a `get_catalogue` tool show prices only for a kitchen with money; the help
+text, the prompts and the completions are generated from the kitchen's catalogue, role-filtered, and
+a key that cannot see the catalogue gets an empty list.
+
+**Bundle.** The same format string, edited in place. New sections `catalogue`, `services` and
+`enrolments` are counted and digested; menus, rate cards, people and log entries carry ids that are
+kept on import; `expected[]` gains `items` (meal rows by item) beside `meals` and `money`, so an
+item mix-up fails verification even with no prices; `parseBundle` checks references and kinds. A
+meals-only bundle imports into a money kitchen with its catalogue, services and menu intact and no
+prices, and setup then lists exactly the items to price. Money into meals-only is still refused, and
+import still needs an empty target.
+
+**Web.** A Catalogue page (admin, any kitchen) for services and items; Menu (a weekday-by-service
+grid with an "offered" list) and Prices (generated from the offered items, a monthly-fee field, a
+per-line "Different price in a service") as separate screens; a log form built from `logChoices`,
+with the service picker shown only for two or more services and Leave defaulting to "Whole day"; a
+service checklist with from-dates on People; Daily and Dashboard columns from the catalogue.
+
+**Tests.** The golden master was captured from the engine before the change (the seed plus about 300
+seeded random scenarios) and the new engine reproduces it by item-id mapping. A three-service
+fixture with awkward prices is worked by hand to kill the mutants that matter (override and default
+swapped, a whole-day Leave applied to one service, a Switch leaking into another service, a Supplier
+Off zeroing every service, leave rounded per day, the fee counting servings, an unenrolled service
+billed, the `maxQty` and date boundaries). Properties: renaming or retiring leaves ledgers and
+statements identical, input order is irrelevant, the item counts of meals sum to the servings, and a
+meals-only run counts what the money run counts. Postgres tests cover each check, index and trigger,
+RLS per role and `guard_money` on `rate_price`.
+
+**Decisions the owner could still reverse.** The fee counts days, and is one kitchen-wide amount.
+One Switch per serving and one Extra row per item per serving. Past history shows the current item
+name. Menu and rate card are single dated records across services. The per-service price override.
+Whole-day leave as the default scope. Kitchen-wide working days and cut-off (a per-service cut-off
+would reference service ids). Dated enrolment, defaulting to every service. Archive, never delete.
+Starters in the web client only.
+
+**ADR-18: per-kitchen catalogue and services.** _Context._ Two dishes, two extras and the log-change
+strings were hard-coded, and a kitchen could serve only once a day. _Decision._ Replace them with
+per-kitchen catalogue items (kinds meal and addon), services, dated enrolment, and a menu and rate
+card keyed by id. Fix only the behaviours. Rename is audited and nothing is deleted. The fee counts
+days. Migration `0001` is edited in place. _Consequences._ The engine is food-agnostic; the original
+kitchen is a seed that reproduces the reference cases to the paisa; a kitchen without money keeps
+its full catalogue and counts; a bundle moves from meals-only to money without loss. The cost is a
+wide change, held in check by the golden master.
 
 ## 6. Technology
 
@@ -732,11 +848,11 @@ Considered and set aside:
 
 | Claim                                                           | Verified how, where                                                                                                                               |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Spec rules and reference numbers                                | Unit and property tests in `packages/core`; mutation score 99.8 percent (`docs/DRIFT.md`)                                                         |
+| Spec rules and reference numbers                                | Unit and property tests in `packages/core`; mutation score 96.2 percent (`docs/DRIFT.md`)                                                         |
 | Cross-person and cross-workspace isolation                      | Database and HTTP tests on Postgres 18: two workspaces, several consumers, with and without a role set                                            |
 | Append-only decisions, settlements, rate cards, menus, receipts | Tests that attempt the update and delete as the application role, and (for receipts) as the owner                                                 |
 | A kitchen without money holds no money                          | Database tests for every refused write, as the application and as the owner; HTTP tests for each money route; MCP tests; bundle round trips       |
-| Guards are not dead code                                        | Each database guard removed in turn; its test must fail (`bun run drift:db`: 96 defects and a control, 0 missed)                                  |
+| Guards are not dead code                                        | Each database guard removed in turn; its test must fail (`bun run drift:db`: 180 defects and a control, 0 missed)                                 |
 | No personal data in logs                                        | A full flow with `log_statement=all`; the server log is searched for every sentinel. CI requires the log to be readable, so it cannot be skipped  |
 | Wipe leaves nothing                                             | The database server's catalog and the control database are listed before and after; keys, receipt, interrupted and restored cases                 |
 | Move reconciles to the paisa                                    | Two real databases and two instances; a failure injected at each stage leaves the source as it was                                                |

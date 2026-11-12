@@ -72,11 +72,16 @@ export interface PersonImportItem {
   contact?: string | null;
   activeFrom?: string | null;
   activeTo?: string | null;
+  /**
+   * The services a member takes, by the kitchen's own names: a list, or one cell with the names between `|`.
+   * Left out or blank, a new member takes every service and an existing one is left as they are.
+   */
+  services?: string | readonly string[] | null;
 }
 
 export type PersonImportMode = "merge" | "overwrite";
 export type PersonImportAction = "create" | "update" | "unchanged" | "error";
-export type PersonField = "role" | "name" | "contact" | "activeFrom" | "activeTo";
+export type PersonField = "role" | "name" | "contact" | "activeFrom" | "activeTo" | "services";
 
 export interface PersonFieldChange {
   field: PersonField;
@@ -117,6 +122,8 @@ export interface ExistingPerson {
   contact: string | null;
   activeFrom: string | null;
   activeTo: string | null;
+  /** The names of the services they take today, as the kitchen spells them. */
+  services?: readonly string[];
 }
 
 export interface NewPerson {
@@ -126,12 +133,16 @@ export interface NewPerson {
   contact: string | null;
   activeFrom: string | null;
   activeTo: string | null;
+  /** The services named, as the kitchen spells them; null for every service. */
+  services: string[] | null;
   /** The row of the answer to fill in with the new person's id. */
   result: PersonImportRow;
 }
 export interface PersonUpdate {
   id: string;
   sets: Partial<Record<"name" | "contact" | "activeFrom" | "activeTo", string | null>>;
+  /** The services they are to take from now on, as the kitchen spells them. Left out: as they are. */
+  services?: string[];
 }
 
 const ROLE_WORDS: Record<string, Role> = {
@@ -143,6 +154,21 @@ const ROLE_WORDS: Record<string, Role> = {
 
 const clean = (v: string | null | undefined): string => (v ?? "").trim();
 
+/** The names in a `services` cell or list, each once, in the order written; empty when none is given. */
+export function serviceCell(v: PersonImportItem["services"]): string[] {
+  const parts = v == null ? [] : typeof v === "string" ? v.split(/[|;,]/) : v;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of parts) {
+    const name = raw.trim();
+    if (name && !seen.has(name.toLowerCase())) {
+      seen.add(name.toLowerCase());
+      out.push(name);
+    }
+  }
+  return out;
+}
+
 /**
  * What would happen to each row, given the people already there who have the keys the rows name. The
  * rows come back in order, with the writes that follow from them. Nothing is written for a row that is
@@ -152,6 +178,8 @@ export function planPeopleImport(
   entries: { row: number; item: PersonImportItem }[],
   mode: PersonImportMode,
   existing: ReadonlyMap<string, ExistingPerson>,
+  /** The names of the kitchen's services that can be taken, in its order. */
+  serviceNames: readonly string[] = [],
 ): { rows: PersonImportRow[]; creates: NewPerson[]; updates: PersonUpdate[] } {
   const rows: PersonImportRow[] = [];
   const creates: NewPerson[] = [];
@@ -204,6 +232,33 @@ export function planPeopleImport(
       );
       continue;
     }
+    // The services a row names, as the kitchen spells them; blank is "every service" for a new member and "as they are" for one already here.
+    let services: string[] | null = null;
+    const named = serviceCell(item.services);
+    if (named.length > 0) {
+      if (role !== "consumer") {
+        refuse("Only members take services.");
+        continue;
+      }
+      const spelled: string[] = [];
+      const unknown: string[] = [];
+      for (const n of named) {
+        const hit = serviceNames.find((x) => x.toLowerCase() === n.toLowerCase());
+        if (hit === undefined) unknown.push(n);
+        else spelled.push(hit);
+      }
+      if (unknown.length > 0) {
+        refuse(
+          `No service called ${unknown.map((n) => `"${n}"`).join(", ")}. ${
+            serviceNames.length > 0
+              ? `This kitchen has: ${serviceNames.join(", ")}.`
+              : "This kitchen has no services yet."
+          }`,
+        );
+        continue;
+      }
+      services = spelled;
+    }
     const given = {
       contact: item.contact !== undefined,
       activeFrom: item.activeFrom !== undefined,
@@ -222,6 +277,10 @@ export function planPeopleImport(
         refuse(badFields);
         continue;
       }
+      if (services !== null && want.activeFrom === null) {
+        refuse("Give the first date as well, to say from when they take these services.");
+        continue;
+      }
       const diff: PersonFieldChange[] = [{ field: "role", from: null, to: role }];
       for (const field of ["name", "contact", "activeFrom", "activeTo"] as const)
         if (want[field] !== null) diff.push({ field, from: null, to: want[field] });
@@ -230,7 +289,8 @@ export function planPeopleImport(
       result.message = key
         ? "Will be added: nobody has this key yet."
         : "Will be added. It has no key, so the same file would add it again.";
-      creates.push({ externalKey: key || null, role, result, ...want });
+      if (services !== null) diff.push({ field: "services", from: null, to: services.join(", ") });
+      creates.push({ externalKey: key || null, role, result, services, ...want });
       continue;
     }
 
@@ -255,6 +315,10 @@ export function planPeopleImport(
       refuse(stillBad);
       continue;
     }
+    if (services !== null && next.activeFrom === null) {
+      refuse("Give the first date as well, to say from when they take these services.");
+      continue;
+    }
     const diff: PersonFieldChange[] = [];
     const sets: PersonUpdate["sets"] = {};
     for (const field of ["name", "contact", "activeFrom", "activeTo"] as const) {
@@ -263,6 +327,22 @@ export function planPeopleImport(
       diff.push({ field, from, to: next[field] });
       sets[field] = next[field];
     }
+    // Services are compared as sets, by the name the kitchen spells; a row that names none leaves them alone.
+    let takes: string[] | undefined;
+    if (services !== null) {
+      const now = found.services ?? [];
+      const same =
+        now.length === services.length &&
+        services.every((n) => now.some((x) => x.toLowerCase() === n.toLowerCase()));
+      if (!same) {
+        diff.push({
+          field: "services",
+          from: now.length > 0 ? now.join(", ") : null,
+          to: services.join(", "),
+        });
+        takes = services;
+      }
+    }
     result.diff = diff;
     if (diff.length === 0) {
       result.action = "unchanged";
@@ -270,7 +350,7 @@ export function planPeopleImport(
     } else {
       result.action = "update";
       result.message = `Will change ${diff.map((d) => d.field).join(", ")}.`;
-      updates.push({ id: found.id, sets });
+      updates.push(takes ? { id: found.id, sets, services: takes } : { id: found.id, sets });
     }
   }
   return { rows, creates, updates };
@@ -291,6 +371,8 @@ const COLUMN_OF: Record<string, keyof PersonImportItem> = {
   activeto: "activeTo",
   until: "activeTo",
   to: "activeTo",
+  services: "services",
+  service: "services",
 };
 
 /** The columns of a file of people, in the order the app writes them. */

@@ -19,7 +19,8 @@
       "!db",
       "!imports",
       "!content-local",
-      "!src/import/songcheck/fixtures"
+      "!src/import/songcheck/fixtures",
+      "!packages/core/test/golden/golden.json"
     ]
   },
   "formatter": {

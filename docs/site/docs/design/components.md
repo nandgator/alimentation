@@ -48,7 +48,7 @@ only behind a flag, the list is the browser's own.
 
 <div class="demo">
 <div class="field"><label for="demo-name">Name</label><input id="demo-name" type="text" autocomplete="off" value="Anita"><span class="hint">As you want it to show on the bill.</span></div>
-<div class="field"><label for="demo-day">Menu for Monday</label><select id="demo-day"><option>Veg</option><option>Non Veg</option></select></div>
+<div class="field"><label for="demo-day">Menu for Monday</label><select id="demo-day"><option>Thali</option><option>Khichdi</option></select></div>
 </div>
 
 A hint says what the field is for or what shape it takes; an error says what is wrong and what to do

@@ -31,7 +31,7 @@ can have five at once in one kitchen.
 | Scope    | What it lets the agent do                                                                                                       |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `read`   | Everything the role can read: the kitchen, menus, statements, the day ledger, the log, claims, settlements and its own History. |
-| `log`    | Add an entry (a leave, an extra, a day off) and withdraw one, under the rules that apply to the person.                         |
+| `log`    | Add an entry (a leave, a switch, an extra, a day off) and withdraw one, under the rules that apply to the person.               |
 | `claims` | Say that a payment was made, and withdraw such a claim.                                                                         |
 
 `read` is always there. The three are the whole list: there is nothing wider to ask for.
@@ -78,39 +78,48 @@ the key as `Authorization: Bearer alk_…`. It has no session and no stream, so 
 are 405.
 
 - **`tools/list`** returns one tool for each route the key's scopes open, named for the route
-  (`get_bootstrap`, `get_statements`, `post_log_check`, `post_log`, `delete_log_id`, `post_claims`),
-  with a short human `title` beside the name, and an input schema made from the same schemas the
-  route itself reads. It offers none for what stays with a person, so a model is never shown a tool
-  that would be refused, and none for a route about money (`get_rate_cards`, `get_claims`,
-  `get_settlements`, `post_claims` and the rest) in a kitchen that does not track money.
+  (`get_bootstrap`, `get_catalogue`, `get_services`, `get_menus`, `get_statements`,
+  `post_log_check`, `post_log`, `delete_log_id`, `post_claims`), with a short human `title` beside
+  the name, and an input schema made from the same schemas the route itself reads. It offers none
+  for what stays with a person, so a model is never shown a tool that would be refused, and none for
+  a route about money (`get_rate_cards`, `get_claims`, `get_settlements`, `post_claims` and the
+  rest) in a kitchen that does not track money.
+- **Naming what to log.** The log tools take `{date, action, service?, item?, qty?}`. `service` and
+  `item` accept the kitchen's own name or an id, matched without regard to case; a name that is
+  unknown, or fits more than one, is answered with the names to choose from. The guide resource, the
+  help text of the tools and the prompts are written from the kitchen's own catalogue, so they use
+  its words and name no dish it does not serve.
 - **`tools/call`** is an ordinary request to the kitchen with the same key. It is checked, counted
   against the kitchen's day and recorded exactly as it would be through the API, and the answer is
   what the kitchen said: the JSON, or its error in its own words, with `isError` set.
 - **`prompts/list`** and **`prompts/get`** give a few starting points for common jobs, as messages
-  to the assistant: `log-my-meals` (`date`, `change`), `whats-my-balance` (`month`),
-  `month-end-summary` (`month`), `am-i-square-for-the-month` (`month`) and `mark-payment-made`
-  (`amount`, `method`, `month`). A prompt is listed only when the key's scopes can do everything it
-  asks for, so a key with only `read` is shown the three that read, and `log-my-meals` and
-  `mark-payment-made` need `log` and `claims`. Each tells the assistant, in plain words, which tools
-  to call, to read before it writes, to show the person what it will do and ask before any write,
-  and, for the ones about money, that money is in paise. A missing or unusable argument is answered
-  `-32602` with what is missing. In a kitchen without money only `log-my-meals` is listed: the four
-  that talk of balances and payments need money, and are refused with `-32602` if asked for.
+  to the assistant: `log-my-meals` (`date`, `action`, `service`, `item`), `whats-my-balance`
+  (`month`), `month-end-summary` (`month`), `am-i-square-for-the-month` (`month`) and
+  `mark-payment-made` (`amount`, `method`, `month`). A prompt is listed only when the key's scopes
+  can do everything it asks for, so a key with only `read` is shown the three that read, and
+  `log-my-meals` and `mark-payment-made` need `log` and `claims`. Each tells the assistant, in plain
+  words, which tools to call, to read before it writes, to show the person what it will do and ask
+  before any write, and, for the ones about money, that money is in paise. A missing or unusable
+  argument is answered `-32602` with what is missing. In a kitchen without money only `log-my-meals`
+  is listed: the four that talk of balances and payments need money, and are refused with `-32602`
+  if asked for.
 - **`resources/list`**, **`resources/templates/list`** and **`resources/read`** offer
   `alimentation://kitchen/guide` (the units, the rules and how to use the tools, as plain text),
-  `alimentation://kitchen/menu` (the menus), `alimentation://kitchen/prices` (the rate cards, only
-  where the kitchen tracks money), `alimentation://kitchen/holidays`, and the template
-  `alimentation://kitchen/ledger/{month}` (the day ledger of the person the key acts as: counts,
-  with no amounts, in a kitchen without money). Each is read by making the same request a tool
-  would, with the same key, so it is checked, counted against the kitchen's day and refused exactly
-  as that request would be; the guide is text and costs nothing. An address there is no resource
-  for, including one that names another kitchen, is `-32002`. The address has no kitchen in it: a
-  key is for one.
+  `alimentation://kitchen/catalogue` (the services and every meal and add-on, with the prices in
+  force only where the kitchen tracks money), `alimentation://kitchen/menu` (the services and every
+  menu), `alimentation://kitchen/prices` (the rate cards, only where the kitchen tracks money),
+  `alimentation://kitchen/holidays`, and the template `alimentation://kitchen/ledger/{month}` (the
+  day ledger of the person the key acts as: counts, with no amounts, in a kitchen without money).
+  Each is read by making the same request a tool would, with the same key, so it is checked, counted
+  against the kitchen's day and refused exactly as that request would be; the guide is text and
+  costs nothing. An address there is no resource for, including one that names another kitchen, is
+  `-32002`. The address has no kitchen in it: a key is for one.
 - **`completion/complete`** suggests values for a prompt's arguments (or the ledger template's
   month): `month` (the last twelve), `date` (upcoming working days, without the kitchen's holidays),
-  `change` (the log changes the key's role may write) and `method`. At most 100 values come back,
-  with `total` and `hasMore`. Suggesting `date` reads the kitchen once, which counts like any
-  request.
+  `action` (the log actions the key's role may write), `service` and `item` (the kitchen's own
+  names, from its catalogue; only meals for a switch, only add-ons for an extra, and nothing for a
+  supplier, who logs only a day off) and `method`. At most 100 values come back, with `total` and
+  `hasMore`. Suggesting `date` reads the kitchen once, which counts like any request.
 - **`initialize`** says which kitchen the key is for, as which role and with which scopes, and where
   to start (`get_bootstrap`). Its capabilities are `tools`, `prompts`, `resources` and
   `completions`.

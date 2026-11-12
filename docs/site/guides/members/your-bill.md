@@ -25,15 +25,15 @@ from earlier months) and your **Status**.
 
 ## Daily
 
-**Daily** lists each working day with the meal, any extras and the cost. Days that have not happened
-yet are greyed. If a day is wrong, say so under
-[telling the kitchen](/guides/members/telling-the-kitchen/).
+**Daily** lists each working day with the meal, any add-ons and the cost (a line for each service,
+if the kitchen has more than one). Days that have not happened yet are greyed. If a day is wrong,
+say so under [telling the kitchen](/guides/members/telling-the-kitchen/).
 
 ## Why a bill moves
 
 Your bill changes when:
 
-- you log an exception (leave, a switch, extras);
+- you log an exception (leave, a switch, an extra);
 - the supplier marks the kitchen off for a day;
 - the admin adds or changes a holiday;
 - the kitchen's prices change from a date.

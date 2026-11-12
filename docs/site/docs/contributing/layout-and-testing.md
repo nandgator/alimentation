@@ -76,14 +76,14 @@ $ bun run drift:db         # breaks each database guard on purpose
 
 ## What each layer proves
 
-| Layer                | Where                                                  | What it is for                                                                                                          |
-| -------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Rules and billing    | `packages/core/test`                                   | Reference cases written by hand, property tests, boundary dates, and the bundle format. No database.                    |
-| Service and database | `apps/api/test`                                        | The service on a real Postgres: row-level security, immutability, caps, the lifecycle, the HTTP surface.                |
-| Web units            | `apps/web/src/**/*.test.ts`                            | Formatting, the section registry, the sample month, the documentation build, the design checker.                        |
-| API reference        | `apps/api/test/openapi.test.ts`, `apps/reference/test` | The reference lists every route and error code the server has, and the site it is served from is read only.             |
-| The app in a browser | `apps/web/e2e`                                         | A kitchen from its first day to its last, on a desktop and a phone, with accessibility and layout checks at each stage. |
-| Deployment           | `scripts/smoke-compose.sh`, `smoke-worker.sh`          | The image that ships starts and serves; the Worker bundle runs in the Workers runtime.                                  |
+| Layer                | Where                                                  | What it is for                                                                                                                                                                           |
+| -------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rules and billing    | `packages/core/test`                                   | Reference cases on the seed kitchen (`seed.ts`), a golden master of the engine (`golden/`), a three-service fixture, property tests, boundary dates, and the bundle format. No database. |
+| Service and database | `apps/api/test`                                        | The service on a real Postgres: row-level security, immutability, caps, the lifecycle, the HTTP surface.                                                                                 |
+| Web units            | `apps/web/src/**/*.test.ts`                            | Formatting, the section registry, the sample month, the documentation build, the design checker.                                                                                         |
+| API reference        | `apps/api/test/openapi.test.ts`, `apps/reference/test` | The reference lists every route and error code the server has, and the site it is served from is read only.                                                                              |
+| The app in a browser | `apps/web/e2e`                                         | A kitchen from its first day to its last, on a desktop and a phone, with accessibility and layout checks at each stage.                                                                  |
+| Deployment           | `scripts/smoke-compose.sh`, `smoke-worker.sh`          | The image that ships starts and serves; the Worker bundle runs in the Workers runtime.                                                                                                   |
 
 ### Tests that make promises
 
@@ -161,7 +161,7 @@ the file, and the build fails if the file or the lines are no longer there, so t
 something the code stopped saying.
 
 ````md
-```ts file=packages/core/src/engine.ts#L30-L50
+```ts file=packages/core/src/engine.ts#L33-L57
 
 ```
 ````

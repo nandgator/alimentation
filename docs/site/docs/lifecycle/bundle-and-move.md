@@ -22,42 +22,49 @@ The format is `alimentation.workspace.v1`, defined by `BundleSchema` in
 `packages/core/src/bundle.ts`. Every object is `.strict()`: an unknown field is refused, not
 ignored.
 
-| Part                                              | Holds                                                                                                                                                                                               |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `workspace`                                       | Name, time zone, currency, and `moneyEnabled`: whether the kitchen tracks money.                                                                                                                    |
-| `policies`                                        | Every version of the kitchen's rules, with the date each takes effect.                                                                                                                              |
-| `menus`                                           | Every menu: a meal for each weekday, from a date. Every kitchen has them.                                                                                                                           |
-| `rateCards`                                       | Every set of prices. Empty for a kitchen without money.                                                                                                                                             |
-| `holidays`                                        | Every holiday and whether it is confirmed.                                                                                                                                                          |
-| `people`                                          | Role, name, contact, key (optional), status and billing dates. Names and contacts are **plain text**.                                                                                               |
-| `log`                                             | Every entry, with who logged it and when the database stamped it.                                                                                                                                   |
-| `claims`, `decisions`, `reversals`, `settlements` | The money, in integer paise, with who and when. Empty for a kitchen without money.                                                                                                                  |
-| `closes`                                          | The months locked for a person, with the amount frozen (`billed`), which is `null` for a lock that froze none.                                                                                      |
-| `audit`                                           | The whole audit trail. Personal columns are written as `{ "$plain": "…" }` so the receiving end can encrypt them afresh.                                                                            |
-| `members`                                         | Who signs in as whom, by verified email, so logins can be re-bound at the other end.                                                                                                                |
-| `expected`                                        | Every consumer's month up to the export date: the `meals` always, and `money` (live total, billed, paid, balance, open queries, status) where the kitchen tracks money and has prices, else `null`. |
-| `manifest`                                        | Row counts per part, and a SHA-256 of everything else.                                                                                                                                              |
+| Part                                              | Holds                                                                                                                                                                                                                            |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace`                                       | Name, time zone, currency, and `moneyEnabled`: whether the kitchen tracks money.                                                                                                                                                 |
+| `policies`                                        | Every version of the kitchen's rules, with the date each takes effect.                                                                                                                                                           |
+| `catalogue`, `services`, `enrolments`             | What the kitchen serves (meals and add-ons, with name, unit, largest quantity and any retirement date), its services, and which services each member takes from when. No prices. Every kitchen has them.                         |
+| `menus`                                           | Every menu: per service, a meal for each weekday and the items it offers, from a date. No prices. Every kitchen has them.                                                                                                        |
+| `rateCards`                                       | Every set of prices (a price per item, optionally per service) and the monthly fee. Empty for a kitchen without money.                                                                                                           |
+| `holidays`                                        | Every holiday and whether it is confirmed.                                                                                                                                                                                       |
+| `people`                                          | Role, name, contact, key (optional), status and billing dates, with their ids. Names and contacts are **plain text**.                                                                                                            |
+| `log`                                             | Every entry (its action, service, item and quantity), with who logged it and when the database stamped it.                                                                                                                       |
+| `claims`, `decisions`, `reversals`, `settlements` | The money, in integer paise, with who and when. Empty for a kitchen without money.                                                                                                                                               |
+| `closes`                                          | The months locked for a person, with the amount frozen (`billed`), which is `null` for a lock that froze none.                                                                                                                   |
+| `audit`                                           | The whole audit trail. Personal columns are written as `{ "$plain": "…" }` so the receiving end can encrypt them afresh.                                                                                                         |
+| `members`                                         | Who signs in as whom, by verified email, so logins can be re-bound at the other end.                                                                                                                                             |
+| `expected`                                        | Every consumer's month up to the export date: the `meals` and the meal rows by `items` always, and `money` (live total, billed, paid, balance, open queries, status) where the kitchen tracks money and has prices, else `null`. |
+| `manifest`                                        | Row counts per part, and a SHA-256 of everything else.                                                                                                                                                                           |
 
-Because personal fields are plain text, a bundle is the ledger itself. Treat the file like a ledger.
+Menus, rate cards, people and log entries keep their ids on import, so everything that points at an
+item, a service or a person still does. Because personal fields are plain text, a bundle is the
+ledger itself. Treat the file like a ledger.
 
 ### Counts and checksum
 
 The manifest is computed, never supplied: `assembleBundle` counts every part and hashes the
 canonical JSON of the rest (keys sorted, no whitespace). `parseBundle` checks the shape, then each
-count, then the checksum. A bundle that fails any check is **refused, never repaired**, and the
-messages say which: _"the checksum does not match: the bundle was altered after it was made"_.
+count, then the checksum, then that every reference lands on something in the bundle and on an item
+of the right kind (a switch names a meal, an extra an add-on, an enrolment a member). A bundle that
+fails any check is **refused, never repaired**, and the messages say which: _"the checksum does not
+match: the bundle was altered after it was made"_.
 
 ### A kitchen without money
 
 A bundle of a kitchen with `moneyEnabled: false` holds no rate cards, claims, decisions, reversals
-or settlements, and no close with an amount; `parseBundle` refuses one that does. Its `expected`
-carries meals only, and verification counts meals, not money.
+or settlements, and no close with an amount; `parseBundle` refuses one that does. It does hold the
+catalogue, services, enrolments and menus, which have no prices. Its `expected` carries meals and
+the count of each item, and verification counts those, not money. Counting items means a mix-up
+between two dishes fails verification even when nothing has a price.
 
 `moneyBundleProblem` is the one rule about what may go where: a bundle that tracks money is never
 imported into a kitchen that does not (`money_bundle_into_meals_only`), because that would drop its
-money. A bundle without money may be imported as a kitchen that tracks money, or as one without. The
-rest is the same for both. In `importBundle` the target is `opts.moneyEnabled`, which, left out, is
-the bundle's own.
+money. A bundle without money may be imported as a kitchen that tracks money, or as one without;
+either way its catalogue, services, enrolments and menus arrive intact. The rest is the same for
+both. In `importBundle` the target is `opts.moneyEnabled`, which, left out, is the bundle's own.
 
 ### Rules this release does not know
 
@@ -80,17 +87,17 @@ is kept unless the copy proves itself:
 
 - the bundle's counts and checksum hold, and every rule in it is understood;
 - the copy, read back and sealed again, has the very same digest as the original;
-- every consumer's month, recomputed with the engine, equals `expected`: the meals, and, where the
-  original had money, every figure to the paisa. Any difference is a `TotalMismatch` (`meals`,
-  `money`, `liveTotal`, `billed`, `paid`, `balance`, `openQueries`, `status`, or a month `missing`
-  or `unexpected`), and the whole thing rolls back.
+- every consumer's month, recomputed with the engine, equals `expected`: the meals and the count of
+  each item, and, where the original had money, every figure to the paisa. Any difference is a
+  `TotalMismatch` (`meals`, `items`, `money`, `liveTotal`, `billed`, `paid`, `balance`,
+  `openQueries`, `status`, or a month `missing` or `unexpected`), and the whole thing rolls back.
 
 The one case where the digest cannot be the original's is a kitchen without money that becomes a
 kitchen that tracks money: the setting is part of the bundle, and it is the one thing that differs.
 Every part is still compared on its own, and the copy has no rate cards, so its `expected` is meals
-only and matches. It then says **Add prices to start billing**; a month that was locked with no
-amount stays locked and freezes nothing (`billed` is `null`, the month bills its live total, and
-nothing counts as changed after the close).
+and items only and matches. Setup then says **Price N items to start billing** and lists exactly the
+items that have no price; a month that was locked with no amount stays locked and freezes nothing
+(`billed` is `null`, the month bills its live total, and nothing counts as changed after the close).
 
 The audit trail is imported **as it was**, not made again: the audit and stamp triggers are switched
 off for the import, so rows that were valid when written are taken as they stand, whatever the rules

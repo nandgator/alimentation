@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { seedHome } from "./seed.ts";
 import {
   expectAccessible,
   expectNoSidewaysScroll,
@@ -7,9 +8,6 @@ import {
   signIn,
   watchPage,
 } from "./support.ts";
-
-const MENU = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" };
-const rupees = (n: number) => n * 100;
 
 /** A request as the person who is signed in, from the page, the way the app itself makes one. */
 async function send(page: Page, path: string, body: unknown) {
@@ -46,21 +44,7 @@ test("a person in several kitchens sees each one with its figures, and the figur
   expect((await send(page, "/api/workspaces", { slug: south, name: "South Mess" })).status).toBe(
     201,
   );
-  expect(
-    (await send(page, `/api/w/${north}/menus`, { effectiveFrom: "2026-01-01", menu: MENU })).status,
-  ).toBe(201);
-  expect(
-    (
-      await send(page, `/api/w/${north}/rate-cards`, {
-        effectiveFrom: "2026-01-01",
-        veg: rupees(150),
-        nonVeg: rupees(170),
-        extraChapati: rupees(15),
-        extraBhakri: rupees(30),
-        extrasPerMonth: rupees(40),
-      })
-    ).status,
-  ).toBe(201);
+  await seedHome(page.request, north, { from: "2026-01-01" });
   expect(
     (
       await send(page, `/api/w/${north}/people`, {
@@ -143,21 +127,7 @@ test("prices, rules and holidays copy from one kitchen to another, after showing
   const now = new Date();
   const later = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-28`;
   const boot = await read<{ policy: unknown }>(page, `/api/w/${north}/bootstrap`);
-  expect(
-    (await send(page, `/api/w/${north}/menus`, { effectiveFrom: "2026-01-01", menu: MENU })).status,
-  ).toBe(201);
-  expect(
-    (
-      await send(page, `/api/w/${north}/rate-cards`, {
-        effectiveFrom: "2026-01-01",
-        veg: rupees(150),
-        nonVeg: rupees(170),
-        extraChapati: rupees(15),
-        extraBhakri: rupees(30),
-        extrasPerMonth: rupees(40),
-      })
-    ).status,
-  ).toBe(201);
+  await seedHome(page.request, north, { from: "2026-01-01" });
   expect(
     (
       await send(page, `/api/w/${north}/policies`, {
@@ -181,14 +151,16 @@ test("prices, rules and holidays copy from one kitchen to another, after showing
   await section.getByLabel("Copy from").selectOption({ label: "North Copy Mess" });
   await section.getByLabel("South Copy Mess").check();
   await section.getByRole("button", { name: "See what would be added" }).click();
-  await expect(section).toContainText("Will add 1 menu, 1 price list, 1 set of rules, 1 holiday.");
+  await expect(section).toContainText(
+    "Will add 1 service, 4 items, 1 menu, 1 price list, 1 set of rules, 1 holiday.",
+  );
   await expectAccessible(page, "copy a setup");
   await shot(page, info, "copy-setup");
   // Looking changes nothing.
   expect((await read<unknown[]>(page, `/api/w/${south}/rate-cards`)).length).toBe(0);
 
   await section.getByRole("button", { name: "Copy to 1 kitchen" }).click();
-  await expect(section).toContainText("Added 4");
+  await expect(section).toContainText("Added 9");
   expect((await read<unknown[]>(page, `/api/w/${south}/rate-cards`)).length).toBe(1);
   expect((await read<unknown[]>(page, `/api/w/${south}/menus`)).length).toBe(1);
   expect((await read<unknown[]>(page, `/api/w/${south}/policies`)).length).toBe(1);
@@ -213,21 +185,7 @@ test("a head office sees its kitchens added up, and a kitchen can join, and stop
     [south, "South Hall"],
   ] as const)
     expect((await send(page, "/api/workspaces", { slug, name })).status).toBe(201);
-  expect(
-    (await send(page, `/api/w/${north}/menus`, { effectiveFrom: "2026-01-01", menu: MENU })).status,
-  ).toBe(201);
-  expect(
-    (
-      await send(page, `/api/w/${north}/rate-cards`, {
-        effectiveFrom: "2026-01-01",
-        veg: rupees(150),
-        nonVeg: rupees(170),
-        extraChapati: rupees(15),
-        extraBhakri: rupees(30),
-        extrasPerMonth: rupees(40),
-      })
-    ).status,
-  ).toBe(201);
+  await seedHome(page.request, north, { from: "2026-01-01" });
   expect(
     (
       await send(page, `/api/w/${north}/people`, {

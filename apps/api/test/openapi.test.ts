@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.ts";
-import { buildOpenApi, ERROR_CODES, OPERATIONS, TAGS } from "../src/openapi.ts";
+import { buildOpenApi, ERROR_CODES, ISSUE_CODES, OPERATIONS, TAGS } from "../src/openapi.ts";
 
 /**
  * The API reference is built from `OPERATIONS`, and the server is built from `buildApp`. These
@@ -51,6 +51,47 @@ describe("the API reference", () => {
     const extra = [...documented].filter((s) => !sent.has(s));
     // Sent by code that builds the code, rather than by writing it out whole.
     expect(extra.sort()).toEqual(["400 sign_in_failed", "500 internal"]);
+  });
+
+  it("lists every rule code a refusal can carry in its issues, and nothing the rules never send", () => {
+    const rules = readFileSync(
+      join(import.meta.dirname, "..", "..", "..", "packages", "core", "src", "validate.ts"),
+      "utf8",
+    );
+    const union = rules.slice(
+      rules.indexOf("export type IssueCode"),
+      rules.indexOf("export interface Issue "),
+    );
+    const codes = [...union.matchAll(/\| "([A-Z_]+)"/g)].map((m) => m[1]).sort();
+    expect(codes.length).toBeGreaterThan(30);
+    expect(ISSUE_CODES.map(([c]) => c).sort()).toEqual(codes);
+    const doc = (buildOpenApi({ version: "0.0.0" }) as { info: { description: string } }).info
+      .description;
+    for (const c of codes) expect(doc, c).toContain(`\`${c}\``);
+  });
+
+  it("lists the routes for what a kitchen serves, with who may call them", () => {
+    const by = Object.fromEntries(
+      OPERATIONS.map((o) => [`${o.method.toUpperCase()} ${o.path}`, o]),
+    );
+    for (const route of [
+      "GET /api/w/:slug/catalogue",
+      "POST /api/w/:slug/catalogue",
+      "PATCH /api/w/:slug/catalogue/:id",
+      "GET /api/w/:slug/services",
+      "POST /api/w/:slug/services",
+      "PATCH /api/w/:slug/services/:id",
+      "PUT /api/w/:slug/people/:id/services",
+    ]) {
+      expect(by[route], route).toBeDefined();
+      expect(by[route]?.kitchen, route).toBe(true);
+    }
+    // Prices are the only money in them, and they are on the rate card.
+    expect(
+      OPERATIONS.filter((o) => o.money)
+        .map((o) => `${o.method} ${o.path}`)
+        .sort(),
+    ).not.toContain("get /api/w/:slug/catalogue");
   });
 
   it("describes the document with every tag declared, every id unique and every part of a path named", () => {

@@ -14,22 +14,23 @@ amount in rupees.
 ## What stays the same
 
 - **You are counted for the day's meal unless you say otherwise.** Tell the kitchen about a leave, a
-  switch between veg and non-veg, or extras in **My log**, in the same way, with the same cut-off if
-  your kitchen has one. An entry that comes after its day is marked late for everyone to see.
-- **Daily** shows your month, day by day: the meal, any extras, and whether the day was a leave, a
+  switch to another meal, or extras in **My log**, in the same way, with the same cut-off if your
+  kitchen has one. An entry that comes after its day is marked late for everyone to see.
+- **Daily** shows your month, day by day: the meal, any add-ons, and whether the day was a leave, a
   holiday or a day the kitchen was off.
 - **History** says, in words, what was done to your records and when.
-- The **Dashboard** shows your meals, leave days and extras for the month, and how many meals you
+- The **Dashboard** shows your meals, leave days and add-ons for the month, and how many meals you
   had in each of the last few months.
 
 ## Extras are counted
 
-If you add two extra bhakris, the kitchen counts two. It does not put a price on them.
+If you ask for two of an add-on, the kitchen counts two. It does not put a price on them.
 
 ## When a month is closed
 
-Closing a month locks it: after that you cannot change your meals, leave or extras for it. The admin
-can reopen it if something has to change, and that is recorded. Nothing is billed when it closes.
+Closing a month locks it: after that you cannot change your meals, leave or add-ons for it. The
+admin can reopen it if something has to change, and that is recorded. Nothing is billed when it
+closes.
 
 ## Is it fair?
 

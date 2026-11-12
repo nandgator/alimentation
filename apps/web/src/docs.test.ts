@@ -412,20 +412,20 @@ describe("code and diagrams in the pages", () => {
   });
 
   it("shows lines of a real file, as they are in it and numbered as in it", () => {
-    const { html } = build(fence("ts file=packages/core/src/engine.ts#L30-L50"));
+    const { html } = build(fence("ts file=packages/core/src/engine.ts#L33-L57"));
     expect(html).toContain('<span class="code-name">packages/core/src/engine.ts</span>');
-    expect(html).toContain('<span class="code-range">lines 30\u201350</span>');
-    expect(html).toContain('data-n="30"');
+    expect(html).toContain('<span class="code-range">lines 33\u201357</span>');
+    expect(html).toContain('data-n="33"');
     // The page names a line range, so a reformat that moves the code must fail here, not in a browser.
-    expect(html).toMatch(/data-n="30">.*export.*interface.*EngineData/s);
-    expect(html).toContain('data-n="50"');
-    expect(html).not.toContain('data-n="51"');
+    expect(html).toMatch(/data-n="33">.*export.*interface.*EngineData/s);
+    expect(html).toContain('data-n="57"');
+    expect(html).not.toContain('data-n="58"');
     const shown = [
       ...html.matchAll(
         /<span class="line" data-n="(\d+)">(.*?)<\/span>(?=\n<span class="line"|<\/code>)/gs,
       ),
     ];
-    expect(shown).toHaveLength(21);
+    expect(shown).toHaveLength(25);
     for (const [, n, markup] of shown) {
       const text = markup!
         .replace(/<[^>]+>/g, "")
@@ -595,7 +595,7 @@ describe("code and diagrams in the pages", () => {
   it("has the diagram and the file excerpt in the pages that were written for them", () => {
     expect(read("docs/overview/architecture.md")).toMatch(/```mermaid title="[^"]+"/);
     expect(read("docs/concepts/billing-engine.md")).toContain(
-      "file=packages/core/src/engine.ts#L30-L50",
+      "file=packages/core/src/engine.ts#L33-L57",
     );
   });
 });
@@ -700,7 +700,7 @@ describe("documentation for language models", () => {
     expect(full).not.toMatch(/^title: /m);
     expect(full).not.toMatch(/^description: /m);
     // The billing page shows lines of the engine by naming them; here they are.
-    expect(full).toContain("// packages/core/src/engine.ts, lines 30 to 50");
+    expect(full).toContain("// packages/core/src/engine.ts, lines 33 to 57");
     expect(full).toContain("export interface EngineData");
   });
 
@@ -730,7 +730,7 @@ describe("what the documentation says is still what the app does", () => {
     expect(rules).toMatch(/Holidays that cancel a meal\*\*\s+\|[^|]+\|\s*Only confirmed/);
     expect(DEFAULT_POLICY.leave.chargeBps).toBe(0);
     expect(rules).toMatch(/Charge on a leave day\*\*\s+\|[^|]+\|\s*0 percent/);
-    expect(DEFAULT_POLICY.extras).toEqual({ minMeals: 1 });
+    expect(DEFAULT_POLICY.monthlyFee).toEqual({ minDays: 1 });
     expect(DEFAULT_POLICY.payments).toBe("claim_confirm");
     expect(DEFAULT_POLICY.monthClose).toEqual({ mode: "manual", afterClose: "flag" });
     expect(rules).toMatch(/Month close\*\*\s+\|[^|]+\|\s*Closed by the admin/);

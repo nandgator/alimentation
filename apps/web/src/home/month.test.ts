@@ -63,9 +63,9 @@ describe("the home page’s sample calendar", () => {
 
   it("bills the default meals when nothing is marked: 14 veg at 120, 9 non-veg at 150, 30 of extras", () => {
     const { statement } = board({}, TODAY, "2027-03");
-    expect(statement.counts).toMatchObject({ meals: 23, veg: 14, nonVeg: 9, leave: 0 });
+    expect(statement.counts).toMatchObject({ meals: 23, items: { veg: 14, nonveg: 9 }, leave: 0 });
     expect(statement.mealsAmount).toBe(303000);
-    expect(statement.extrasAmount).toBe(3000);
+    expect(statement.feeAmount).toBe(3000);
     expect(statement.liveTotal).toBe(306000);
     expect(statement.basis).toBe("Projected");
     // Frozen so far: the eight working days from 1 to 10 March, 5 veg and 3 non-veg, and the extras.
@@ -95,7 +95,7 @@ describe("the home page’s sample calendar", () => {
     expect(statement.actualToDate).toBe(108000 - 15000 + 2000);
     expect(days.get("2027-03-05")!.status).toBe("Leave");
     expect(days.get("2027-03-05")!.basis).toBe("Actual");
-    expect(days.get("2027-03-16")!.meal).toBe("Non Veg");
+    expect(days.get("2027-03-16")!.mealId).toBe("nonveg");
     expect(days.get("2027-03-16")!.basis).toBe("Projected");
   });
 

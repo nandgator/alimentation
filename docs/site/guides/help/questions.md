@@ -10,6 +10,12 @@ description: Short answers to the questions people ask first.
 No. Everyone is billed for the day's meal unless they say otherwise. You log only exceptions: leave,
 a switched dish, extras.
 
+## Can I rename a dish, or take one off the menu?
+
+Yes, in **Catalogue**. A new name shows on old bills and in History too, and no amount changes. A
+retired item stops being offered from its date. Nothing is deleted. See
+[What you serve](/guides/admin/what-you-serve/).
+
 ## Why is my bill in italics?
 
 Because it is a **projection**. The month has not ended, so the days still to come are counted at

@@ -1,6 +1,6 @@
 import {
   LIMIT_MAXIMA,
-  LOG_CHANGES,
+  LOG_ACTIONS,
   PAY_METHODS,
   type Role,
   SETTLEMENT_TYPES,
@@ -103,6 +103,8 @@ const PersonRow = z
     contact: z.string().max(2000).nullish(),
     activeFrom: z.string().max(40).nullish(),
     activeTo: z.string().max(40).nullish(),
+    /** Service names for a member: one text with the names between `|`, or a list. Blank: every service. */
+    services: z.union([z.string().max(2000), z.array(z.string().max(100)).max(20)]).nullish(),
   })
   .strict();
 
@@ -121,21 +123,71 @@ export const ImportPeopleQuery = z.object({
 
 export const InvitePerson = z.object({ email: z.string().email() });
 
-/** Prices only. What is served is a menu of its own. */
+const Id = z.string().uuid();
+/** A weekday, 0 (Sunday) to 6, as the key of a JSON object. */
+const WeekdayKey = z.string().regex(/^[0-6]$/);
+
+/** A new service, such as lunch or dinner. Its name is the kitchen's own and can be changed; it is never deleted. */
+export const CreateService = z.object({ name: z.string().min(1).max(40) });
+
+/** Rename a service, or retire it (once) from a date: `archived: true` means from today. */
+export const UpdateService = z.object({
+  name: z.string().min(1).max(40).optional(),
+  archived: z.literal(true).optional(),
+  archiveOn: IsoDate.optional(),
+});
+
+/** A new thing the kitchen serves: a meal, or an add-on counted in some unit. Kind, unit and largest quantity are fixed. */
+export const CreateItem = z.object({
+  kind: z.enum(["meal", "addon"]),
+  name: z.string().min(1).max(60),
+  unit: z.string().min(1).max(20),
+  maxQty: z.number().int().min(1).max(99).default(20),
+});
+
+/** Rename an item, or retire it (once) from a date: `archived: true` means from today. */
+export const UpdateItem = z.object({
+  name: z.string().min(1).max(60).optional(),
+  archived: z.literal(true).optional(),
+  archiveOn: IsoDate.optional(),
+});
+
+/** Which services a member takes, from when to when (both days included): the whole list, replacing the last. */
+export const SetEnrolments = z.object({
+  services: z
+    .array(
+      z.object({
+        serviceId: Id,
+        activeFrom: IsoDate,
+        activeTo: IsoDate.nullish().transform((v) => v ?? null),
+      }),
+    )
+    .max(100),
+});
+
+/** One price: an item's, in every service (`serviceId` null) or in one. */
+const PriceLineBody = z.object({
+  itemId: Id,
+  serviceId: Id.nullable().default(null),
+  amount: Money,
+});
+
+/** Prices only, dated. What is served is a menu of its own. */
 export const CreateRateCard = z.object({
   effectiveFrom: IsoDate,
-  veg: Money,
-  nonVeg: Money,
-  extraChapati: Money,
-  extraBhakri: Money,
-  extrasPerMonth: Money,
+  prices: z.array(PriceLineBody).max(1000),
+  monthlyFee: Money.default(0),
   note: z.string().max(500).nullish(),
 });
 
-/** What is served, a meal for each working weekday, from a date. */
+/**
+ * What is served, from a date: for each service, the meal on each weekday (a weekday left out is not served in
+ * that service) and the items it offers (the meals one may switch to, and the add-ons).
+ */
 export const CreateMenu = z.object({
   effectiveFrom: IsoDate,
-  menu: z.record(z.string().regex(/^[0-6]$/), z.enum(["Veg", "Non Veg"])),
+  days: z.record(Id, z.record(WeekdayKey, Id)),
+  offered: z.record(Id, z.array(Id).max(100)).default({}),
   note: z.string().max(500).nullish(),
 });
 
@@ -185,7 +237,11 @@ export const LogBody = z.object({
   date: IsoDate,
   personId: z.string().uuid().nullable(),
   allConsumers: z.boolean().default(false),
-  change: z.enum(LOG_CHANGES),
+  action: z.enum(LOG_ACTIONS),
+  /** Null: the whole day (Leave and Supplier Off). Switch and Extra name the service. */
+  serviceId: Id.nullable().default(null),
+  /** The meal switched to, or the add-on asked for. Null for Leave and Supplier Off. */
+  itemId: Id.nullable().default(null),
   qty: z.number().int().nullable().default(null),
   note: z.string().max(500).nullish(),
 });

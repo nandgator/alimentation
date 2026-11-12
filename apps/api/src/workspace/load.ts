@@ -1,11 +1,12 @@
 import {
+  type CatalogueItem,
   type Claim,
   type Decision,
   dueAutoCloses,
   type EngineData,
+  type Enrolment,
   type Holiday,
   type LogEntry,
-  type MealType,
   type MenuVersion,
   type MonthClose,
   type Person,
@@ -13,6 +14,7 @@ import {
   prepare,
   type RateCard,
   type Role,
+  type Service,
   type Settlement,
 } from "@alimentation/core";
 import type { FieldCipher } from "../crypto/fields.ts";
@@ -30,35 +32,116 @@ import type { Tx } from "../db/driver.ts";
 type R = Record<string, any>;
 
 const month = (d: string) => d.slice(0, 7);
-const WEEKDAY_COLUMNS = [
-  "menu_sun",
-  "menu_mon",
-  "menu_tue",
-  "menu_wed",
-  "menu_thu",
-  "menu_fri",
-  "menu_sat",
-] as const;
+const byId = <T extends { id: string }>(a: T, b: T): number =>
+  a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
-export function rateCardFromRow(r: R): RateCard {
+export const catalogueItemFromRow = (r: R): CatalogueItem => ({
+  id: r.id,
+  kind: r.kind,
+  name: r.name,
+  unit: r.unit,
+  maxQty: r.max_qty,
+  archivedOn: r.archived_on ?? null,
+});
+
+export const serviceFromRow = (r: R): Service => ({
+  id: r.id,
+  name: r.name,
+  position: r.position,
+  archivedOn: r.archived_on ?? null,
+});
+
+export const enrolmentFromRow = (r: R): Enrolment => ({
+  personId: r.person_id,
+  serviceId: r.service_id,
+  activeFrom: r.active_from,
+  activeTo: r.active_to ?? null,
+});
+
+/** A rate card and its price lines, in a stable order: the same rows give the same card wherever they sit. */
+export function rateCardFromRows(r: R, prices: R[]): RateCard {
   return {
     id: r.id,
     effectiveFrom: r.effective_from,
-    veg: r.veg,
-    nonVeg: r.non_veg,
-    extraChapati: r.extra_chapati,
-    extraBhakri: r.extra_bhakri,
-    extrasPerMonth: r.extras_per_month,
+    prices: prices
+      .filter((l) => l.card_id === r.id)
+      .map((l) => ({
+        itemId: l.item_id as string,
+        serviceId: (l.service_id as string | null) ?? null,
+        amount: l.amount as number,
+      }))
+      .sort((a, b) => (a.itemId + (a.serviceId ?? "") < b.itemId + (b.serviceId ?? "") ? -1 : 1)),
+    monthlyFee: r.monthly_fee,
     note: r.note ?? null,
   };
 }
 
-export function menuFromRow(r: R): MenuVersion {
-  const days: MenuVersion["days"] = {};
-  WEEKDAY_COLUMNS.forEach((c, i) => {
-    if (r[c]) days[i as 0] = r[c] as MealType;
-  });
-  return { id: r.id, effectiveFrom: r.effective_from, days, note: r.note ?? null };
+/** A menu with what each service offers and the meal it serves on each weekday. */
+export function menuFromRows(r: R, offers: R[], days: R[]): MenuVersion {
+  const offered: Record<string, string[]> = {};
+  for (const o of offers.filter((x) => x.menu_id === r.id)) {
+    const list = offered[o.service_id] ?? [];
+    list.push(o.item_id);
+    offered[o.service_id] = list;
+  }
+  for (const ids of Object.values(offered)) ids.sort();
+  const served: Record<string, Record<number, string>> = {};
+  for (const d of days.filter((x) => x.menu_id === r.id)) {
+    const week = served[d.service_id] ?? {};
+    week[d.weekday] = d.meal_id;
+    served[d.service_id] = week;
+  }
+  return {
+    id: r.id,
+    effectiveFrom: r.effective_from,
+    days: served,
+    offered,
+    note: r.note ?? null,
+  };
+}
+
+export const loadCatalogue = async (tx: Tx): Promise<CatalogueItem[]> =>
+  (await tx.query<R>("SELECT id, kind, name, unit, max_qty, archived_on FROM catalogue_item"))
+    .map(catalogueItemFromRow)
+    .sort(byId);
+
+export const loadServices = async (tx: Tx): Promise<Service[]> =>
+  (await tx.query<R>("SELECT id, name, position, archived_on FROM service"))
+    .map(serviceFromRow)
+    .sort((a, b) => a.position - b.position || byId(a, b));
+
+export async function loadEnrolments(tx: Tx): Promise<Enrolment[]> {
+  const rows = await tx.query<R>(
+    "SELECT person_id, service_id, active_from, active_to FROM person_service",
+  );
+  return rows
+    .map(enrolmentFromRow)
+    .sort((a, b) =>
+      `${a.personId}|${a.serviceId}|${a.activeFrom}` <
+      `${b.personId}|${b.serviceId}|${b.activeFrom}`
+        ? -1
+        : 1,
+    );
+}
+
+export async function loadMenus(tx: Tx): Promise<MenuVersion[]> {
+  const [menus, offers, days] = await Promise.all([
+    tx.query<R>("SELECT id, effective_from, note FROM menu ORDER BY effective_from"),
+    tx.query<R>("SELECT menu_id, service_id, item_id FROM menu_offer"),
+    tx.query<R>("SELECT menu_id, service_id, weekday, meal_id FROM menu_day"),
+  ]);
+  return menus.map((m) => menuFromRows(m, offers, days));
+}
+
+/** Rate cards with their prices. A kitchen without money has none, and its prices table is never read. */
+export async function loadRateCards(tx: Tx): Promise<RateCard[]> {
+  const [cards, prices] = await Promise.all([
+    tx.query<R>(
+      "SELECT id, effective_from, monthly_fee, note FROM rate_card ORDER BY effective_from",
+    ),
+    tx.query<R>("SELECT card_id, item_id, service_id, amount FROM rate_price"),
+  ]);
+  return cards.map((c) => rateCardFromRows(c, prices));
 }
 
 export async function loadEngineData(
@@ -71,36 +154,52 @@ export async function loadEngineData(
   const [flag] = await tx.query<R>("SELECT money_enabled() AS on");
   const moneyEnabled = flag?.on !== false;
   const none = Promise.resolve<R[]>([]);
-  const [people, policies, menus, cards, holidays, log, claims, decisions, settlements, closes] =
-    await Promise.all([
-      tx.query<R>("SELECT id, role, name_enc, active_from, active_to FROM person"),
-      tx.query<R>("SELECT effective_from, doc FROM policy_version"),
-      tx.query<R>("SELECT * FROM menu"),
-      moneyEnabled ? tx.query<R>("SELECT * FROM rate_card") : none,
-      tx.query<R>("SELECT id, name, on_date, location, confirmed FROM holiday"),
-      tx.query<R>(
-        "SELECT id, on_date, person_id, all_consumers, change, qty, logged_by, logged_at FROM log_entry",
-      ),
-      moneyEnabled
-        ? tx.query<R>(
-            "SELECT id, consumer_id, paid_at, for_month, amount, method, created_at FROM claim",
-          )
-        : none,
-      moneyEnabled
-        ? tx.query<R>(
-            `SELECT d.claim_id, d.decision, d.decided_by, d.decided_at, (r.claim_id IS NOT NULL) AS voided
+  const [
+    people,
+    policies,
+    catalogue,
+    services,
+    enrolments,
+    menus,
+    cards,
+    holidays,
+    log,
+    claims,
+    decisions,
+    settlements,
+    closes,
+  ] = await Promise.all([
+    tx.query<R>("SELECT id, role, name_enc, active_from, active_to FROM person"),
+    tx.query<R>("SELECT effective_from, doc FROM policy_version"),
+    loadCatalogue(tx),
+    loadServices(tx),
+    loadEnrolments(tx),
+    loadMenus(tx),
+    moneyEnabled ? loadRateCards(tx) : Promise.resolve<RateCard[]>([]),
+    tx.query<R>("SELECT id, name, on_date, location, confirmed FROM holiday"),
+    tx.query<R>(
+      "SELECT id, on_date, person_id, all_consumers, action, service_id, item_id, qty, logged_by, logged_at FROM log_entry",
+    ),
+    moneyEnabled
+      ? tx.query<R>(
+          "SELECT id, consumer_id, paid_at, for_month, amount, method, created_at FROM claim",
+        )
+      : none,
+    moneyEnabled
+      ? tx.query<R>(
+          `SELECT d.claim_id, d.decision, d.decided_by, d.decided_at, (r.claim_id IS NOT NULL) AS voided
          FROM claim_decision d LEFT JOIN claim_reversal r ON r.claim_id = d.claim_id`,
-          )
-        : none,
-      moneyEnabled
-        ? tx.query<R>(
-            "SELECT id, on_date, consumer_id, for_month, type, amount, recorded_by, created_at FROM settlement",
-          )
-        : none,
-      tx.query<R>(
-        "SELECT for_month, consumer_id, meals, billed, closed_on, closed_by FROM month_close",
-      ),
-    ]);
+        )
+      : none,
+    moneyEnabled
+      ? tx.query<R>(
+          "SELECT id, on_date, consumer_id, for_month, type, amount, recorded_by, created_at FROM settlement",
+        )
+      : none,
+    tx.query<R>(
+      "SELECT for_month, consumer_id, meals, billed, closed_on, closed_by FROM month_close",
+    ),
+  ]);
 
   const names = await Promise.all(
     people.map((p) => cipher.dec("person", "name_enc", p.id, p.name_enc)),
@@ -110,8 +209,11 @@ export async function loadEngineData(
     today,
     moneyEnabled,
     policies: policies.map((p): PolicyVersion => ({ effectiveFrom: p.effective_from, doc: p.doc })),
-    menus: menus.map(menuFromRow),
-    rateCards: cards.map(rateCardFromRow),
+    catalogue,
+    services,
+    enrolments,
+    menus,
+    rateCards: cards,
     holidays: holidays.map(
       (h): Holiday => ({
         id: h.id,
@@ -142,7 +244,9 @@ export async function loadEngineData(
         date: e.on_date,
         personId: e.person_id ?? null,
         allConsumers: e.all_consumers,
-        change: e.change,
+        action: e.action,
+        serviceId: e.service_id ?? null,
+        itemId: e.item_id ?? null,
         qty: e.qty ?? null,
         note: null,
         loggedBy: e.logged_by,

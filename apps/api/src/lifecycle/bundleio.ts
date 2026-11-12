@@ -8,7 +8,7 @@ import {
 } from "@alimentation/core";
 import type { FieldCipher } from "../crypto/fields.ts";
 import type { Tx } from "../db/driver.ts";
-import { loadEngineData } from "../workspace/load.ts";
+import { loadEngineData, menuFromRows, rateCardFromRows } from "../workspace/load.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
 type R = Record<string, any>;
@@ -19,15 +19,6 @@ export interface BundleMember {
   email: string;
 }
 
-const WEEKDAYS = [
-  "menu_sun",
-  "menu_mon",
-  "menu_tue",
-  "menu_wed",
-  "menu_thu",
-  "menu_fri",
-  "menu_sat",
-] as const;
 const byKey = <T>(rows: T[], key: (r: T) => string): T[] =>
   [...rows].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
 
@@ -51,8 +42,14 @@ export async function readBundleBody(
   const none = Promise.resolve<R[]>([]);
   const [
     policies,
+    catalogue,
+    services,
+    enrolments,
     menus,
+    offers,
+    days,
     cards,
+    prices,
     holidays,
     people,
     log,
@@ -64,14 +61,24 @@ export async function readBundleBody(
     audit,
   ] = await Promise.all([
     tx.query<R>("SELECT effective_from, doc, created_by FROM policy_version"),
-    tx.query<R>("SELECT * FROM menu"),
-    money ? tx.query<R>("SELECT * FROM rate_card") : none,
+    tx.query<R>(
+      "SELECT id, kind, name, unit, max_qty, archived_on, created_by FROM catalogue_item",
+    ),
+    tx.query<R>("SELECT id, name, position, archived_on, created_by FROM service"),
+    tx.query<R>("SELECT id, person_id, service_id, active_from, active_to FROM person_service"),
+    tx.query<R>("SELECT id, effective_from, note, created_by FROM menu"),
+    tx.query<R>("SELECT menu_id, service_id, item_id FROM menu_offer"),
+    tx.query<R>("SELECT menu_id, service_id, weekday, meal_id FROM menu_day"),
+    money
+      ? tx.query<R>("SELECT id, effective_from, monthly_fee, note, created_by FROM rate_card")
+      : none,
+    money ? tx.query<R>("SELECT card_id, item_id, service_id, amount FROM rate_price") : none,
     tx.query<R>("SELECT id, name, on_date, location, confirmed, created_by FROM holiday"),
     tx.query<R>(
       "SELECT id, role, name_enc, contact_enc, external_key, status, active_from, active_to, created_at FROM person",
     ),
     tx.query<R>(
-      "SELECT id, on_date, person_id, all_consumers, change, qty, note_enc, logged_by, logged_at FROM log_entry",
+      "SELECT id, on_date, person_id, all_consumers, action, service_id, item_id, qty, note_enc, logged_by, logged_at FROM log_entry",
     ),
     money
       ? tx.query<R>(
@@ -149,30 +156,66 @@ export async function readBundleBody(
       })),
       (p) => p.effectiveFrom,
     ),
-    menus: byKey(
-      menus.map((m) => ({
-        id: m.id as string,
-        effectiveFrom: m.effective_from as string,
-        days: Object.fromEntries(
-          WEEKDAYS.flatMap((col, i) => (m[col] ? [[String(i), m[col] as "Veg" | "Non Veg"]] : [])),
-        ),
-        note: m.note ?? null,
-        createdBy: m.created_by ?? null,
+    catalogue: byKey(
+      catalogue.map((i) => ({
+        id: i.id as string,
+        kind: i.kind as "meal" | "addon",
+        name: i.name as string,
+        unit: i.unit as string,
+        maxQty: i.max_qty as number,
+        archivedOn: (i.archived_on as string | null) ?? null,
+        createdBy: (i.created_by as string | null) ?? null,
       })),
+      (i) => i.id,
+    ),
+    services: byKey(
+      services.map((x) => ({
+        id: x.id as string,
+        name: x.name as string,
+        position: x.position as number,
+        archivedOn: (x.archived_on as string | null) ?? null,
+        createdBy: (x.created_by as string | null) ?? null,
+      })),
+      (x) => x.id,
+    ),
+    enrolments: byKey(
+      enrolments.map((e) => ({
+        id: e.id as string,
+        personId: e.person_id as string,
+        serviceId: e.service_id as string,
+        activeFrom: e.active_from as string,
+        activeTo: (e.active_to as string | null) ?? null,
+      })),
+      (e) => e.id,
+    ),
+    menus: byKey(
+      menus.map((m) => {
+        const { id, effectiveFrom, days: served, offered, note } = menuFromRows(m, offers, days);
+        return {
+          id,
+          effectiveFrom,
+          days: Object.fromEntries(
+            Object.entries(served).map(([sv, week]) => [sv, { ...week } as Record<string, string>]),
+          ),
+          offered: Object.fromEntries(Object.entries(offered).map(([sv, ids]) => [sv, [...ids]])),
+          note,
+          createdBy: (m.created_by as string | null) ?? null,
+        };
+      }),
       (m) => m.effectiveFrom,
     ),
     rateCards: byKey(
-      cards.map((c) => ({
-        id: c.id as string,
-        effectiveFrom: c.effective_from as string,
-        veg: c.veg,
-        nonVeg: c.non_veg,
-        extraChapati: c.extra_chapati,
-        extraBhakri: c.extra_bhakri,
-        extrasPerMonth: c.extras_per_month,
-        note: c.note ?? null,
-        createdBy: c.created_by ?? null,
-      })),
+      cards.map((c) => {
+        const { id, effectiveFrom, prices: lines, monthlyFee, note } = rateCardFromRows(c, prices);
+        return {
+          id,
+          effectiveFrom,
+          prices: lines.map((l) => ({ ...l })),
+          monthlyFee,
+          note,
+          createdBy: (c.created_by as string | null) ?? null,
+        };
+      }),
       (c) => c.effectiveFrom,
     ),
     holidays: byKey(
@@ -194,7 +237,9 @@ export async function readBundleBody(
           date: e.on_date as string,
           personId: e.person_id ?? null,
           allConsumers: e.all_consumers,
-          change: e.change,
+          action: e.action,
+          serviceId: e.service_id ?? null,
+          itemId: e.item_id ?? null,
           qty: e.qty ?? null,
           note: await dec("log_entry", "note_enc", e.id, e.note_enc),
           loggedBy: e.logged_by,

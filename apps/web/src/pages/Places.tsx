@@ -7,6 +7,7 @@ import { Chip, Field, Form, Problem, Tile, toast, useAction } from "../component
 import { money } from "../format.ts";
 import { figuresOf, isRunning, type KitchenFigures, totalsOf } from "../kitchens.ts";
 import { useSession } from "../session.tsx";
+import { applyStarter, STARTERS } from "../starters.ts";
 
 // Needed only by someone who runs several kitchens, so everyone else does not download it.
 const ManyKitchens = lazy(() =>
@@ -126,6 +127,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
   // Whether the kitchen puts a price on its meals. Chosen here and never changed, so it is asked here.
   const moneyAllowed = me?.moneyAllowed !== false;
   const [track, setTrack] = useState(true);
+  const [starter, setStarter] = useState<string>(STARTERS[0]?.id ?? "blank");
   const act = useAction();
   return (
     <section className="card stack" aria-labelledby="new-h">
@@ -160,6 +162,25 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
                 alsoSupplier: supplier,
                 moneyEnabled: moneyAllowed ? track : false,
               });
+              // The starter is set up with the same calls as by hand. If one fails the kitchen is still made.
+              const chosen = STARTERS.find((x) => x.id === starter);
+              if (chosen) {
+                const base = `/api/w/${made.slug}`;
+                await applyStarter(
+                  {
+                    get: (path) => getJson(path),
+                    post: (path, body) => postJson(path, body),
+                    patch: (path, body) => api.patch(path, body),
+                  },
+                  base,
+                  chosen,
+                ).catch(() =>
+                  toast(
+                    "The kitchen is made, but its starting menu could not be added. Add it under Catalogue.",
+                    "bad",
+                  ),
+                );
+              }
               await refresh();
               go(`/w/${made.slug}`);
             })
@@ -203,6 +224,23 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
             />
             <span>I also cook for them (add me as the supplier too)</span>
           </label>
+          <fieldset className="choices stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
+            <legend>Start from</legend>
+            {STARTERS.map((x) => (
+              <label key={x.id} className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
+                <input
+                  type="radio"
+                  name="starter"
+                  checked={starter === x.id}
+                  onChange={() => setStarter(x.id)}
+                />
+                <span>
+                  <strong>{x.title}</strong>
+                  <span className="muted small"> {x.about}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
           {moneyAllowed ? (
             <fieldset className="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
               <legend>Prices and bills</legend>

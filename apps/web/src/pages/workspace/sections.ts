@@ -13,6 +13,7 @@ export type SectionKey =
   | "payments"
   | "history"
   | "people"
+  | "catalogue"
   | "menu"
   | "prices"
   | "rates"
@@ -66,6 +67,13 @@ export const SECTIONS: readonly Section[] = [
     roles: ["supplier", "consumer"],
   },
   { key: "people", path: "/people", label: "People", group: "kitchen", roles: ADMIN },
+  {
+    key: "catalogue",
+    path: "/catalogue",
+    label: "Catalogue",
+    group: "kitchen",
+    roles: ADMIN,
+  },
   { key: "menu", path: "/menu", label: "Menu", group: "kitchen", roles: ADMIN },
   { key: "prices", path: "/prices", label: "Prices", group: "kitchen", roles: ADMIN, money: true },
   {

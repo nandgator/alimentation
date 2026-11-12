@@ -1,4 +1,11 @@
-import type { BootstrapDto, IsoDate, MenuVersion, RateCard } from "@alimentation/core";
+import type {
+  BootstrapDto,
+  CatalogueItem,
+  IsoDate,
+  MenuVersion,
+  RateCard,
+  Service,
+} from "@alimentation/core";
 import { must } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../api.ts";
@@ -22,7 +29,9 @@ async function snapshot(slug: string): Promise<Snapshot> {
   const base = `/api/w/${slug}`;
   const boot = await api.get<BootstrapDto>(`${base}/bootstrap`);
   const money = boot.data.workspace.moneyEnabled;
-  const [menus, rateCards, policies] = await Promise.all([
+  const [catalogue, services, menus, rateCards, policies] = await Promise.all([
+    getJson<CatalogueItem[]>(`${base}/catalogue`),
+    getJson<Service[]>(`${base}/services`),
     getJson<MenuVersion[]>(`${base}/menus`),
     money ? getJson<RateCard[]>(`${base}/rate-cards`) : Promise.resolve([] as RateCard[]),
     getJson<{ effectiveFrom: IsoDate; doc: unknown }[]>(`${base}/policies`),
@@ -30,6 +39,8 @@ async function snapshot(slug: string): Promise<Snapshot> {
   return {
     today: boot.data.today,
     moneyEnabled: money,
+    catalogue,
+    services,
     menus,
     rateCards,
     policies,
@@ -41,12 +52,16 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
 
 function Summary({ plan }: { plan: Plan }) {
   const kinds = {
+    service: plan.steps.filter((s) => s.kind === "service").length,
+    item: plan.steps.filter((s) => s.kind === "item").length,
     menu: plan.steps.filter((s) => s.kind === "menu").length,
     rules: plan.steps.filter((s) => s.kind === "rules").length,
     prices: plan.steps.filter((s) => s.kind === "prices").length,
     holiday: plan.steps.filter((s) => s.kind === "holiday").length,
   };
   const parts = [
+    kinds.service ? count(kinds.service, "service") : "",
+    kinds.item ? count(kinds.item, "item") : "",
     kinds.menu ? count(kinds.menu, "menu") : "",
     kinds.prices ? count(kinds.prices, "price list") : "",
     kinds.rules ? count(kinds.rules, "set of rules", "sets of rules") : "",
@@ -170,7 +185,7 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
           <legend>What to copy</legend>
           {(
             [
-              ["menu", "Menu (what is served each day)"],
+              ["menu", "Menu (what is served each day, with its services and items)"],
               ["prices", "Prices (the rate cards), between kitchens that track money"],
               ["rules", "Rules (working days, leave and the rest)"],
               ["holidays", "Holidays from this month on"],
@@ -221,6 +236,7 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
                       (path, body) => postJson(path, body),
                       `/api/w/${k.slug}`,
                       plan.steps,
+                      (path) => getJson(path),
                     );
                 }
                 setDone(results);

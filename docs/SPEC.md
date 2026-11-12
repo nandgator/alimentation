@@ -18,86 +18,133 @@ Smruti, and more later).
 
 ## 2. Roles
 
-| Role     | Who               | Can see                                                                          | Can do                                                                   |
-| -------- | ----------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Admin    | Owner             | Everything                                                                       | Rates, menu, people, holidays, settlements, month close, resolve queries |
-| Supplier | Maple             | All consumers' bills, meals, payments, claims; total receivable                  | Log "Supplier Off" days; confirm/dispute payment claims                  |
-| Consumer | Jovial, Smruti, … | **Only their own** bill, daily meals, payments, claim status; current rates/menu | Log their own exceptions; submit payment claims                          |
+| Role     | Who               | Can see                                                                          | Can do                                                                               |
+| -------- | ----------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Admin    | Owner             | Everything                                                                       | Catalogue, menu, prices, people, holidays, settlements, month close, resolve queries |
+| Supplier | Maple             | All consumers' bills, meals, payments, claims; total receivable                  | Log "Supplier Off" days; confirm/dispute payment claims                              |
+| Consumer | Jovial, Smruti, … | **Only their own** bill, daily meals, payments, claim status; current rates/menu | Log their own exceptions; submit payment claims                                      |
 
 Hard privacy rule: a consumer must never be able to read another consumer's rows, through the UI
 **or the API**. Enforce it in the database (Row Level Security), not just in the UI.
 
 ## 3. Billing rules (domain logic)
 
-### 3.1 Menu and rate card (effective-dated, never retroactive)
+A kitchen says what it serves, as data. Nothing in the rules below knows a dish by name; **Veg**,
+**Non Veg**, **Chapati** and **Bhakri** appear only in the worked example (§3.9, §10, §11), which is
+one kitchen's catalogue like any other. Only the behaviour is fixed: two kinds of item and four log
+actions.
 
-What is served and what it costs are two records, each dated and each append-only.
+### 3.1 Catalogue, services, menu and rate card
 
-A **menu** row has `effective_from, menu{mon..sun}, note`. Every working day needs a meal on the
-menu. A **rate card** row has
-`effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month, note`, and only a
-kitchen that tracks money (§3.8) has rate cards. A kitchen that tracks money needs both before it is
-billed.
+**Catalogue.** The kitchen lists what it serves as _items_, each with a stable id, a free-form name
+and unit (for example "plate", "piece", "cup"), and one of two fixed kinds:
+
+- a **meal**: what a service serves on a weekday (a plate of something);
+- an **add-on**: something asked for beyond the meal, in a quantity (`max_qty` per entry, 1 to 99,
+  20 by default).
+
+An item's kind, unit and `max_qty` never change. Its name can, and the rename is audited. Items are
+never deleted: **retiring** one sets `archived_on` once, hides it from pickers from that date, and
+is refused while a menu in force on or after that date still offers it. Names are unique
+(case-insensitively), retired ones included. History shows an item's current name.
+
+**Services.** A _service_ is a time of day the kitchen serves (Lunch, Dinner). A kitchen has one or
+more, up to 6; items are at most 60. A service is renamed or retired in the same way as an item. A
+kitchen with one service hides every service control.
+
+**Enrolment.** A _person_service_ row says which services a consumer takes, and from when
+(`active_from`, optional `active_to`, inclusive). A new consumer takes every service. A consumer is
+billed for a service only on the days they are enrolled in it; the rows of one person and service
+never overlap.
+
+**Menu.** A **menu** row has `effective_from` and a note, and says, for each service, which meal it
+serves on each weekday (a weekday with no cell is not served by that service) and which other items
+it **offers**: the meals a person may switch to and the add-ons they may ask for. Every working day
+(§3.2) needs a meal from at least one service.
+
+**Rate card.** A **rate card** row has `effective_from`, a price in paise for each item, optionally
+a different price for one item in one service (an _override_), a `monthly_fee` and a note. Only a
+kitchen that tracks money (§3.8) has rate cards. Such a kitchen is billed only when every item its
+menus offer has a price.
 
 - A date uses the **latest row with effective_from ≤ that date**, of each.
-- To change either, **add a new row**. Never edit old rows. Past months must not change.
-- Initial menu (01-Apr-2026): Mon Veg, Tue Veg, Wed Non Veg, Thu Veg, Fri Non Veg. Initial rate row
-  (01-Apr-2026): Veg ₹150, Non Veg ₹170, Extra Chapati ₹15, Extra Bhakri ₹30, Extras ₹40/month.
-- Default portion: 4 chapati / 2 bhakri. "Extra" means pieces beyond that.
-- "Extras ₹40/month" covers papad, carrot, cucumber, onion and similar. It is charged once per month
-  **if the consumer had ≥1 meal** that month.
+- A price is the exact (item, service) line if there is one, otherwise the (item, any service) line;
+  if neither exists the engine raises `NO_PRICE`.
+- To change a menu or a rate card, **add a new row**. Never edit old rows. Past months must not
+  change.
+- The **monthly fee** is one kitchen-wide amount. It is charged once a month **if the consumer had
+  meals on at least `minDays` different days** that month (§3.6). Days are counted, not servings, so
+  eating two services on one day counts once.
 
 ### 3.2 Working days
 
-- Mon–Fri only.
+- Mon–Fri by default; the kitchen's rules may choose any subset of the week.
 - Exclude **holidays** (table: name, date, location, classification). Only rows classified as
   confirmed holidays count; tentative ones are kept but don't count.
-- 2026–27 Mumbai holidays: 01-May, 14-Sep, 02-Oct, 20-Oct, 09/10/11-Nov, 25-Dec. Tentative: 12-Nov,
-  13-Nov.
-- A consumer is billed only between `active_from` and `active_to` (active_to optional). Jovial and
-  Smruti start 01-Oct-2026.
+- A consumer is billed only between `active_from` and `active_to` (active_to optional).
 
 ### 3.3 Default meal
 
-Every working day, each active consumer gets the menu's meal for that weekday (Veg or Non Veg) at
-that day's rate. **People log exceptions only**; anything not logged means the default.
+Every working day, each active consumer gets, for each service they take that is served that
+weekday, the menu's meal for that weekday at that day's price. **People log exceptions only**;
+anything not logged means the default.
 
 ### 3.4 Exceptions (log entries)
 
-| Change                            | Who logs                                    | Effect                                |
-| --------------------------------- | ------------------------------------------- | ------------------------------------- |
-| Leave                             | Consumer (for self)                         | No meal, ₹0                           |
-| Switch to Veg / Switch to Non Veg | Consumer                                    | That day's meal type and price change |
-| Extra Chapati (qty 1–20)          | Consumer                                    | + qty × extra_chapati                 |
-| Extra Bhakri (qty 1–20)           | Consumer                                    | + qty × extra_bhakri                  |
-| Supplier Off                      | Supplier only; applies to **all** consumers | No meal for anyone that day           |
+There are four actions. What each applies to is the kitchen's own catalogue and services.
+
+| Action       | Who logs                                    | Scope                                                    | Effect                                               |
+| ------------ | ------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| Leave        | Consumer (for self)                         | The whole day (default), or one service                  | No meal there; ₹0, or the leave charge of §3.6       |
+| Switch       | Consumer                                    | One service, to another meal that service offers         | That service's meal and its price change for the day |
+| Extra        | Consumer                                    | One service, an add-on it offers, qty 1 to the `max_qty` | + qty × the add-on's price                           |
+| Supplier Off | Supplier only; applies to **all** consumers | The whole day (default), or one service                  | No meal for anyone that day, or in that service      |
 
 Validation rules:
 
-- No weekends.
-- A date is required.
-- Qty is required for the Extra types.
+- No day outside the working days.
+- A date is required, and the person must be enrolled in the service on it.
+- A Switch or Extra names a service and an item that service **offers** in the menu in force; the
+  item is not retired and the quantity does not exceed its `max_qty`.
+- A service must be served that weekday.
+- Qty is required for Extra and not allowed otherwise.
+- At most one Switch per person, day and service, and one Extra per item.
+- A whole-day Leave (or Supplier Off) and a single-service one on the same day cannot both stand
+  (`OVERLAPPING_SCOPE`); two of the same scope are a duplicate.
 - A consumer can only log for themselves.
 - "All consumers" can only be used with Supplier Off.
 - Every entry stores `logged_by` and `logged_at`.
 
 ### 3.5 Daily ledger (derived, never stored manually)
 
-For each (date, consumer): `status ∈ {Meal, Leave, Holiday, Supplier Off, Inactive}`, plus meal
-type, extra chapati, extra bhakri, `day_total`, and `basis`.
+One row for each (date, consumer, service the consumer takes that is served that weekday):
+`status ∈ {Meal, Leave, Holiday, Supplier Off, Inactive}`, plus the meal served, the add-ons (item,
+qty, amount), `meal_price`, `add_on_amount`, `leave_amount`, `row_total` and `basis`. A date on
+which the person is not active is one row with no service.
 
 - `basis` = **Actual** if date ≤ today, **Projected** if date > today.
-- `day_total` = meal price + extras; it is 0 when status ≠ Meal.
+- Precedence per row: Holiday, then Supplier Off (whole day or that service), then Leave (whole day
+  or that service), then Meal.
+- On a Meal row the meal is the menu's, replaced by the latest Switch for that service. Extras sum
+  per item. A Switch or Extra never affects another service.
+- `row_total` = meal price + add-ons; it is 0 when status ≠ Meal, apart from a leave charge.
 
 ### 3.6 Monthly statement (per month × consumer)
 
-- **Counts:** meals, veg, non_veg, leave, extra_chapati, extra_bhakri.
+- **Counts:** `meals` (servings: one for each Meal row), `leave` (service slots on leave), `items`
+  (meal rows by item) and `add_ons` (quantity by item).
 - **Amounts:**
-  - meals_amt and bread_amt come from the daily ledger.
-  - extras_amt = extras_per_month if meals > 0.
-  - live_total = meals_amt + bread_amt + extras_amt.
-  - actual_to_date = live_total counting only Actual days (extras is included once there's ≥1 actual
-    meal).
+  - meals_amt and add_on_amt come from the daily ledger.
+  - leave_amt = the leave charge: `leave.chargeBps` of the price of the meal that service would have
+    served (after Switches), rounded for each row. Zero by default.
+  - fee_amt = the rate card's `monthly_fee` if the number of days with a Meal row ≥ `minDays`. The
+    card is the one in force on the 1st of the month (or on the first Meal day if the first card
+    starts mid-month).
+  - lines: one for each item (item, qty, amount), meals then add-ons, for the bill. The leave charge
+    and the fee are not lines.
+  - live_total = meals_amt + add_on_amt + leave_amt + fee_amt.
+  - actual_to_date = live_total counting only Actual days (the fee is included once there are
+    `minDays` Actual days).
   - **billed** = the closed (archived) amount if the month is closed, otherwise live_total.
   - changed_after_close = live_total − billed. If this is non-zero, flag "⚠ Changed after close".
   - paid = confirmed payments + admin settlement payments.
@@ -121,14 +168,31 @@ show up as "Changed after close" with the difference.
 ### 3.8 A kitchen without money
 
 A kitchen is made either with money or without it, and the choice is **fixed** once it is made. A
-kitchen without money counts meals and does not price them. It keeps people and roles, holidays,
-working days, leave and exception logging with its cut-off, Supplier Off, extras as counts (the
-number of extra chapatis and bhakris, never priced), the Daily and Dashboard screens as meal counts,
-history and audit, export, move, agent keys for reading and logging, and invitations. A month close
-is a plain **lock** of the month: the `month_close` row has no `billed` amount. It does not have a
-rate card, a bill, a claim, a decision, a reversal, a settlement, a balance, or the four rules about
-money (leave charge, monthly extras, payments, rate card back-dating). The database refuses to hold
-any of them (`DESIGN.md` §5.16).
+kitchen without money counts meals and does not price them. It keeps its catalogue, services,
+enrolments and menu (these carry no price), people and roles, holidays, working days, leave and
+exception logging with its cut-off, Supplier Off, add-ons as counts (never priced), the Daily and
+Dashboard screens as counts per item, history and audit, export, move, agent keys for reading and
+logging, and invitations. A month close is a plain **lock** of the month: the `month_close` row has
+no `billed` amount. It does not have a rate card, a bill, a claim, a decision, a reversal, a
+settlement, a balance, or the four rules about money (leave charge, monthly fee, payments, rate card
+back-dating). The database refuses to hold any of them (`DESIGN.md` §5.16).
+
+### 3.9 Worked example: the home kitchen
+
+The kitchen the rules were first written for is the **seed** that tests and the first starter use
+(`homeKitchenSeed()` in `packages/core/test/seed.ts`); §10 lists it and §11 checks it to the paisa.
+
+- **Service:** Lunch.
+- **Items:** meals Veg and Non Veg (unit "plate"); add-ons Chapati and Bhakri (unit "piece", at most
+  20). "Extra" means pieces beyond the default portion of 4 chapati and 2 bhakri.
+- **Menu from 01-Apr-2026:** Mon Veg, Tue Veg, Wed Non Veg, Thu Veg, Fri Non Veg. Lunch offers all
+  four items.
+- **Rate card from 01-Apr-2026:** Veg ₹150, Non Veg ₹170, Chapati ₹15, Bhakri ₹30, monthly fee ₹40
+  (it covers papad, carrot, cucumber, onion and similar). A second card from 01-Nov-2026 has Veg
+  ₹160 and Non Veg ₹180 and the rest as before.
+- **Rules:** the defaults, with the monthly fee from `minDays` 1.
+- **Holidays (2026–27 Mumbai):** 01-May, 14-Sep, 02-Oct, 20-Oct, 09/10/11-Nov, 25-Dec. Tentative:
+  12-Nov, 13-Nov.
 
 ## 4. Payments: claim → confirm
 
@@ -163,13 +227,17 @@ any of them (`DESIGN.md` §5.16).
 
 ```sql
 people(id, name, role enum('admin','supplier','consumer'), active_from date, active_to date null, auth_user_id uuid unique)
-menus(id, effective_from date unique, menu_sun text, menu_mon text, menu_tue text, menu_wed text, menu_thu text,
-      menu_fri text, menu_sat text, note text, created_at, created_by)
-rate_cards(id, effective_from date unique, veg int, non_veg int, extra_chapati int, extra_bhakri int,
-           extras_per_month int, note text)   -- only in a kitchen that tracks money
+services(id, name unique, position, archived_on date null)
+catalogue_items(id, kind enum('meal','addon'), name unique, unit, max_qty, archived_on date null)
+person_services(id, person_id, service_id, active_from date, active_to date null)   -- dated enrolment, no overlap
+menus(id, effective_from date unique, note text, created_at, created_by)
+menu_offers(menu_id, service_id, item_id)                       -- what a service offers
+menu_days(menu_id, service_id, weekday 0..6, meal_id)           -- no row = not served that weekday
+rate_cards(id, effective_from date unique, monthly_fee int, note text)   -- only in a kitchen that tracks money
+rate_prices(card_id, item_id, service_id null, amount int)      -- null service = the price in every service
 holidays(id, name, date date, location text, classification text, confirmed bool)
-log_entries(id, date date, person_id null, all_consumers bool, change enum(...), qty int null, note,
-            logged_by uuid, logged_at timestamptz)
+log_entries(id, date date, person_id null, all_consumers bool, action enum('Leave','Switch','Extra','Supplier Off'),
+            service_id null, item_id null, qty int null, note, logged_by uuid, logged_at timestamptz)
 claims(id uuid, consumer_id, paid_at timestamptz, for_month date, amount int, method, ref_note, created_at)
 claim_decisions(claim_id uuid PRIMARY KEY, decision enum('Confirmed','Disputed'), note, decided_by, decided_at)
 settlements(id, date, consumer_id, for_month, type, amount null, note, recorded_by, created_at)
@@ -177,17 +245,35 @@ month_closes(for_month date, consumer_id, meals int, billed int null, closed_on,
 audit_log(id, table_name, row_id, action, actor, at, before jsonb, after jsonb)   -- trigger-filled
 ```
 
+Constraints that carry the rules:
+
+- Services and items are never deleted (no delete privilege); a retired one stays for history.
+- An item's `kind`, `unit` and `max_qty` cannot change; `archived_on` is set once.
+- Menus, offers, days, rate cards and prices are append-only. A child row is inserted only in its
+  parent's transaction.
+- A menu day refers to a meal the same service offers (a composite foreign key), and only to an item
+  of kind meal.
+- A log entry's item and kind are a foreign key to the catalogue. A Switch needs a service and a
+  meal, an Extra a service, an add-on and a qty; Leave and Supplier Off take neither item nor qty.
+- One Leave, one Supplier Off, one Switch per scope and day, and one Extra per item, by unique
+  indexes (a whole-day entry has a null service, and nulls count as equal). A trigger refuses a
+  whole-day entry beside a single-service one.
+- A log entry is refused for a retired item, a qty above the item's `max_qty`, a service the person
+  is not enrolled in on that date, or an item the menu in force does not offer.
+
 Compute ledger and statement in **SQL views** (or server functions) so that the UI, the tests and
 every role use the same logic.
 
 **RLS policies:**
 
-- consumer: `SELECT` own rows from log_entries, claims, decisions (via claim), statement view.
-  `INSERT` log_entries and claims only where person_id = self and change ≠ 'Supplier Off'.
-- supplier: `SELECT` all statements and claims. `INSERT` log_entries with change = 'Supplier Off'.
-  `INSERT` claim_decisions; **no UPDATE/DELETE**.
+- consumer: `SELECT` own rows from log_entries, claims, decisions (via claim), person_services,
+  statement view. `INSERT` log_entries and claims only where person_id = self and action ≠ 'Supplier
+  Off'.
+- supplier: `SELECT` all statements, claims and enrolments. `INSERT` log_entries with action =
+  'Supplier Off'. `INSERT` claim_decisions; **no UPDATE/DELETE**.
 - admin: full access.
-- Everyone can read menus, rate_cards and holidays. Only the admin can write them.
+- Everyone can read the catalogue, services, menus, rate cards and holidays. Only the admin can
+  write them.
 - Log entries and claims: the author may edit or delete only while the month is open **and** (for
   claims) before a decision exists.
 
@@ -196,10 +282,11 @@ every role use the same logic.
 ### Consumer
 
 - **Dashboard:** month picker (default "Current month"); a Projected/Actual tag; tiles for Bill,
-  Actual to Date, Paid, Claimed, Balance, Status and Earlier Unpaid; the current rates line; a
-  monthly bill bar chart (projected months marked with \*).
-- **Daily:** a list or calendar of days (status, meal, extras, ₹), with projected days greyed.
-- **My Log:** add an exception (date, change, qty, note), with a live validation hint.
+  Actual to Date, Paid, Claimed, Balance, Status and Earlier Unpaid; the current monthly fee and
+  prices line; a monthly bill bar chart (projected months marked with \*).
+- **Daily:** a list or calendar of days (status, meal, add-ons, ₹), with projected days greyed.
+- **My Log:** add an exception (date, action, service, item, qty, note), with a live validation
+  hint.
 - **My Payments:** add a claim and see each claim's status.
 
 ### Supplier
@@ -213,7 +300,8 @@ every role use the same logic.
 ### Admin
 
 - **Dashboard:** the supplier view plus totals.
-- Settings: menu, prices (rate cards), rules, people.
+- Settings: catalogue and services, menu, prices (rate cards), rules, people and the services each
+  takes.
 - Holidays.
 - Settlements.
 - Month close.
@@ -263,40 +351,55 @@ every role use the same logic.
 
 ## 10. Seed data
 
+The home kitchen of §3.9, as `homeKitchenSeed()`:
+
 - People:
   - Admin (owner).
   - Maple (supplier).
   - Jovial (consumer, from 2026-10-01).
   - Smruti (consumer, from 2026-10-01).
-- Menu and rate card: as in §3.1.
-- Holidays: as in §3.2.
+- Service: Lunch. Enrolment: Jovial and Smruti in Lunch from 2026-10-01.
+- Items: Veg and Non Veg (meals, plate); Chapati and Bhakri (add-ons, piece, at most 20).
+- Menu and rate cards: as in §3.9.
+- Holidays: as in §3.9.
 - Log entries:
-  - 2026-10-01, Jovial, Extra Bhakri, qty 2.
-  - 2026-10-16, Smruti, Leave, note "WFH".
+  - 2026-10-01, Jovial, Extra, Lunch, Bhakri, qty 2.
+  - 2026-10-16, Smruti, Leave, whole day, note "WFH".
 
 ## 11. Reference test cases (must pass)
 
-**October 2026:** 22 weekdays, minus holidays 02-Oct and 20-Oct, gives **20 working days**. Wed +
-Fri: 8 Non Veg; the other 12 are Veg.
+All of them run on the seed of §10.
 
-| Consumer | Calculation                                                      | Billed     |
-| -------- | ---------------------------------------------------------------- | ---------- |
-| Jovial   | 12×150 + 8×170 = 3,160; + bread 2×30 = 60; + extras 40           | **₹3,260** |
-| Smruti   | 3,160 − 170 (Fri 16-Oct leave, Non Veg day) = 2,990; + extras 40 | **₹3,030** |
-| Total    |                                                                  | **₹6,290** |
+**October 2026:** 22 weekdays, minus holidays 02-Oct and 20-Oct, gives **20 working days**. Wed +
+Fri: 8 Non Veg meals; the other 12 are Veg.
+
+| Consumer | Calculation                                                           | Billed     |
+| -------- | --------------------------------------------------------------------- | ---------- |
+| Jovial   | 12×150 + 8×170 = 3,160; + Bhakri 2×30 = 60; + monthly fee 40          | **₹3,260** |
+| Smruti   | 3,160 − 170 (Fri 16-Oct leave, Non Veg day) = 2,990; + monthly fee 40 | **₹3,030** |
+| Total    |                                                                       | **₹6,290** |
 
 **Supplier's handwritten check for a full month:** 22 days, 8 Non Veg, 14 Veg. 14×150 = 2,100; 8×170
-= 1,360; subtotal 3,460; + ₹40 extras = **₹3,500**.
+= 1,360; subtotal 3,460; + ₹40 fee = **₹3,500**. It is built from counts, not from a calendar month.
 
 Other tests:
 
-- **Rate change isn't retroactive:** add a rate row from 01-Nov at Veg 160 / Non Veg 180. October is
-  unchanged; November reprices.
+- **Rate change isn't retroactive:** the second rate card from 01-Nov (Veg 160 / Non Veg 180).
+  October is unchanged; November reprices (18 working days, **₹3,060** with nothing logged).
+- **Mid-month card choice:** a day uses the card in force on that date.
+- **Three services:** a fixture with three services and awkward prices (an override in one service,
+  a whole-day Leave, a Switch and an Extra in one service, a one-service Supplier Off, leave charged
+  per row) is worked out by hand and must match to the paisa. The monthly fee counts days: a person
+  who eats two services on one day with `minDays` 2 is not charged.
+- **Rename and retire change no bill:** renaming or retiring an item leaves every ledger and
+  statement identical.
+- **Without money:** the same run gives the same counts, per item, with no price read.
 - **Claim flow:** Jovial claims ₹100 for Oct. While pending, status = Awaiting confirmation and
   claimed = 100. After the supplier confirms: paid = 100, balance = 3,160, status = Part paid. A
   second decision attempt is rejected.
 - **Dispute:** the supplier disputes a claim with a reason. open_queries = 1 and status = Query
   open. After an admin "Query Resolved" entry, the query closes.
-- **Privacy:** logged in as Jovial, any query for Smruti's rows returns nothing.
+- **Privacy:** logged in as Jovial, any query for Smruti's rows (log, enrolment or audit) returns
+  nothing.
 - **Month close:** after closing October, editing an October log entry leaves billed unchanged and
   shows "⚠ Changed after close" with the difference.

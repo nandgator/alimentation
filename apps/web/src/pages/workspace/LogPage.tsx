@@ -1,14 +1,15 @@
 import {
   addMonths,
   type Issue,
-  LOG_CHANGES,
-  type LogChange,
   type LogEntryDto,
+  logChoices,
+  type MenuVersion,
   monthEnd,
   monthStart,
 } from "@alimentation/core";
 import { useEffect, useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
+import { describeEntry, itemName, menuIn, serviceName } from "../../catalogue.ts";
 import {
   Chip,
   Field,
@@ -21,31 +22,46 @@ import {
   useLoad,
 } from "../../components/ui.tsx";
 import { date } from "../../format.ts";
+import { allowedActions, type Pick, resolveForm, unionChoices } from "../../logForm.ts";
 import { useWorkspace } from "./context.tsx";
 
-const EVERYONE = "all";
+const WHOLE_DAY = "";
 
 export function LogPage() {
   const ws = useWorkspace();
   const { boot } = ws;
   const consumers = boot.people.filter((p) => p.role === "consumer");
   const mayManage = ws.role !== "consumer";
-  const [who, setWho] = useState(mayManage ? (consumers[0]?.id ?? EVERYONE) : boot.me.personId);
+  const [who, setWho] = useState(mayManage ? (consumers[0]?.id ?? "") : boot.me.personId);
   const [day, setDay] = useState(boot.today);
-  const [change, setChange] = useState<LogChange>("Leave");
+  const [pick, setPick] = useState<Pick>({});
   const [qty, setQty] = useState("1");
   const [note, setNote] = useState("");
   const [issues, setIssues] = useState<Issue[]>([]);
   const act = useAction();
 
-  const choices = LOG_CHANGES.filter((c) => (mayManage ? true : c !== "Supplier Off"));
-  const needsQty = change === "Extra Chapati" || change === "Extra Bhakri";
-  const forEveryone = change === "Supplier Off";
+  // The menu in force on the chosen day decides what can be logged for it.
+  const menus = useLoad(() => getJson<MenuVersion[]>(`${ws.api}/menus`), [ws.api]);
+  const menu = menuIn(menus.data ?? (boot.menu ? [boot.menu] : []), day);
+  const person = boot.people.find((p) => p.id === who);
+  const choicesFor = (people: typeof consumers) =>
+    people.map((p) => logChoices(menu, boot.catalogue, boot.services, p, day, boot.enrolments));
+  // A day the kitchen is off is for everyone, so it is offered from what any member could be served.
+  const dayOff = unionChoices(choicesFor(consumers)).filter((c) => c.action === "Supplier Off");
+  const view = resolveForm(
+    unionChoices([...choicesFor(person?.role === "consumer" ? [person] : []), dayOff]),
+    allowedActions(ws.role),
+    pick,
+  );
+  const wholeFor = view.action === "Supplier Off";
+  const needsQty = view.action === "Extra";
   const body = {
     date: day,
-    personId: forEveryone ? null : who === EVERYONE ? null : who,
-    allConsumers: forEveryone,
-    change,
+    personId: wholeFor ? null : who || null,
+    allConsumers: wholeFor,
+    action: view.action,
+    serviceId: view.serviceId,
+    itemId: view.action === "Switch" || view.action === "Extra" ? view.itemId : null,
     qty: needsQty ? Number(qty) || 1 : null,
     note: note.trim() || null,
   };
@@ -53,7 +69,7 @@ export function LogPage() {
   // Tell the person what is wrong before they press the button, not after.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `body` is built from the listed values
   useEffect(() => {
-    if (!day || (!forEveryone && who === EVERYONE)) return setIssues([]);
+    if (!day || !view.action || (!wholeFor && !who)) return setIssues([]);
     const t = setTimeout(() => {
       postJson<{ issues: Issue[] }>(`${ws.api}/log/check`, body).then(
         (r) => setIssues(r.issues),
@@ -61,7 +77,7 @@ export function LogPage() {
       );
     }, 300);
     return () => clearTimeout(t);
-  }, [day, change, qty, who, forEveryone, ws.api]);
+  }, [day, view.action, view.serviceId, view.itemId, qty, who, wholeFor, ws.api]);
 
   const from = monthStart(addMonths(boot.currentMonth, -1));
   const to = monthEnd(addMonths(boot.currentMonth, 1));
@@ -88,7 +104,7 @@ export function LogPage() {
           }
         >
           <div className="pair">
-            {mayManage && !forEveryone ? (
+            {mayManage && !wholeFor ? (
               <Field label="For" id="who">
                 <select id="who" value={who} onChange={(e) => setWho(e.target.value)}>
                   {consumers.map((c) => (
@@ -108,31 +124,105 @@ export function LogPage() {
                 onChange={(e) => setDay(e.target.value)}
               />
             </Field>
-            <Field label="Change" id="change">
-              <select
-                id="change"
-                value={change}
-                onChange={(e) => setChange(e.target.value as LogChange)}
-              >
-                {choices.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
+            {view.action ? (
+              <Field label="Change" id="change">
+                <select
+                  id="change"
+                  value={view.action}
+                  onChange={(e) =>
+                    setPick({ action: e.target.value as Pick["action"], serviceId: undefined })
+                  }
+                >
+                  {view.actions.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+            {view.showScope ? (
+              <Field label="Applies to" id="scope">
+                <select
+                  id="scope"
+                  value={view.serviceId ?? WHOLE_DAY}
+                  onChange={(e) =>
+                    setPick({
+                      ...pick,
+                      action: view.action ?? undefined,
+                      serviceId: e.target.value || null,
+                    })
+                  }
+                >
+                  {view.scopes.map((sv) => (
+                    <option key={sv ?? WHOLE_DAY} value={sv ?? WHOLE_DAY}>
+                      {sv === null ? "Whole day" : serviceName(boot, sv)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+            {view.showService ? (
+              <Field label="Service" id="service">
+                <select
+                  id="service"
+                  value={view.serviceId ?? ""}
+                  onChange={(e) =>
+                    setPick({
+                      action: view.action ?? undefined,
+                      serviceId: e.target.value,
+                      itemId: undefined,
+                    })
+                  }
+                >
+                  {view.services.map((sv) => (
+                    <option key={sv} value={sv}>
+                      {serviceName(boot, sv)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+            {view.action === "Switch" || view.action === "Extra" ? (
+              <Field label={view.action === "Switch" ? "Switch to" : "Item"} id="item">
+                <select
+                  id="item"
+                  value={view.itemId ?? ""}
+                  onChange={(e) =>
+                    setPick({
+                      ...pick,
+                      action: view.action ?? undefined,
+                      serviceId: view.serviceId,
+                      itemId: e.target.value,
+                    })
+                  }
+                >
+                  {view.items.map((id) => (
+                    <option key={id} value={id}>
+                      {itemName(boot, id)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
             {needsQty ? (
               <Field label="How many" id="qty">
                 <input
                   id="qty"
                   type="number"
                   min={1}
-                  max={20}
+                  max={view.maxQty ?? 99}
                   value={qty}
                   onChange={(e) => setQty(e.target.value)}
                 />
               </Field>
             ) : null}
           </div>
-          {forEveryone ? (
+          {!view.action ? (
+            <p className="muted small">
+              Nothing can be logged for this person on this day: they are not eating, or the menu
+              does not serve it.
+            </p>
+          ) : null}
+          {wholeFor ? (
             <p className="muted small">A day the kitchen is off applies to everyone.</p>
           ) : null}
           <Field label="Note (optional)" id="note">
@@ -154,7 +244,11 @@ export function LogPage() {
             </div>
           ))}
           <div>
-            <button type="submit" className="btn" disabled={act.busy || blocked || !ws.writable}>
+            <button
+              type="submit"
+              className="btn"
+              disabled={act.busy || blocked || !ws.writable || !view.action}
+            >
               Add
             </button>
           </div>
@@ -193,7 +287,9 @@ export function LogPage() {
                       {e.allConsumers ? "Everyone" : e.personId ? ws.nameOf(e.personId) : "-"}
                     </td>
                     <td>
-                      <Chip tone={e.change === "Leave" ? "warn" : undefined}>{e.change}</Chip>
+                      <Chip tone={e.action === "Leave" ? "warn" : undefined}>
+                        {describeEntry(boot, e)}
+                      </Chip>
                     </td>
                     <td>
                       {e.by}

@@ -82,9 +82,15 @@ export interface Seeded {
   smruti: Actor;
   claimJ: string;
   claimS: string;
+  /** The catalogue of the seed: one service, two meals and two add-ons. */
+  ids: { lunch: string; veg: string; nonVeg: string; chapati: string; bhakri: string };
 }
 
-/** The spec's seed data, written as the owner would on import. */
+/**
+ * The spec's seed data, written as the owner would on import: one service (Lunch), meals Veg and Non Veg,
+ * add-ons Chapati and Bhakri, the menu and rate card of 2026-04-01, two consumers taking Lunch from
+ * 2026-10-01, and the log of section 11.
+ */
 export async function seed(owner: pg.Pool): Promise<Seeded> {
   const [adminId, supplierId, jovialId, smrutiId] = [
     randomUUID(),
@@ -92,6 +98,13 @@ export async function seed(owner: pg.Pool): Promise<Seeded> {
     randomUUID(),
     randomUUID(),
   ];
+  const ids = {
+    lunch: randomUUID(),
+    veg: randomUUID(),
+    nonVeg: randomUUID(),
+    chapati: randomUUID(),
+    bhakri: randomUUID(),
+  };
   const q = (text: string, values: unknown[] = []) => owner.query(text, values);
   await q(`INSERT INTO workspace (name, time_zone) VALUES ('Test kitchen', 'Asia/Kolkata')`);
   for (const [id, role, name, from] of [
@@ -107,29 +120,95 @@ export async function seed(owner: pg.Pool): Promise<Seeded> {
       from,
     ]);
   }
+  await q(`INSERT INTO service (id, name) VALUES ($1, 'Lunch')`, [ids.lunch]);
+  for (const [id, kind, name, unit] of [
+    [ids.veg, "meal", "Veg", "plate"],
+    [ids.nonVeg, "meal", "Non Veg", "plate"],
+    [ids.chapati, "addon", "Chapati", "piece"],
+    [ids.bhakri, "addon", "Bhakri", "piece"],
+  ] as const) {
+    await q(`INSERT INTO catalogue_item (id, kind, name, unit) VALUES ($1, $2, $3, $4)`, [
+      id,
+      kind,
+      name,
+      unit,
+    ]);
+  }
+  const menuId = randomUUID();
+  await q(`INSERT INTO menu (id, effective_from) VALUES ($1, '2026-04-01')`, [menuId]);
+  for (const item of [ids.veg, ids.nonVeg, ids.chapati, ids.bhakri])
+    await q(`INSERT INTO menu_offer (menu_id, service_id, item_id) VALUES ($1, $2, $3)`, [
+      menuId,
+      ids.lunch,
+      item,
+    ]);
+  for (const [weekday, meal] of [
+    [1, ids.veg],
+    [2, ids.veg],
+    [3, ids.nonVeg],
+    [4, ids.veg],
+    [5, ids.nonVeg],
+  ] as const)
+    await q(
+      `INSERT INTO menu_day (menu_id, service_id, weekday, meal_id) VALUES ($1, $2, $3, $4)`,
+      [menuId, ids.lunch, weekday, meal],
+    );
+  const cardId = randomUUID();
   await q(
-    `INSERT INTO menu (effective_from, menu_mon, menu_tue, menu_wed, menu_thu, menu_fri)
-     VALUES ('2026-04-01', 'Veg', 'Veg', 'Non Veg', 'Veg', 'Non Veg')`,
+    `INSERT INTO rate_card (id, effective_from, monthly_fee) VALUES ($1, '2026-04-01', 4000)`,
+    [cardId],
   );
-  await q(
-    `INSERT INTO rate_card (effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month)
-     VALUES ('2026-04-01', 15000, 17000, 1500, 3000, 4000)`,
-  );
+  for (const [item, amount] of [
+    [ids.veg, 15000],
+    [ids.nonVeg, 17000],
+    [ids.chapati, 1500],
+    [ids.bhakri, 3000],
+  ] as const)
+    await q(`INSERT INTO rate_price (card_id, item_id, amount) VALUES ($1, $2, $3)`, [
+      cardId,
+      item,
+      amount,
+    ]);
+  for (const who of [jovialId, smrutiId])
+    await q(
+      `INSERT INTO person_service (person_id, service_id, active_from) VALUES ($1, $2, '2026-10-01')`,
+      [who, ids.lunch],
+    );
   const log = (
     date: string,
     person: string | null,
-    change: string,
+    action: string,
     qty: number | null,
     by: string,
-    all = false,
+    opts: {
+      all?: boolean;
+      service?: string | null;
+      item?: string | null;
+      kind?: string | null;
+    } = {},
   ) =>
     q(
-      `INSERT INTO log_entry (on_date, person_id, all_consumers, change, qty, logged_by) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [date, person, all, change, qty, by],
+      `INSERT INTO log_entry (on_date, person_id, all_consumers, action, service_id, item_id, item_kind, qty, logged_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        date,
+        person,
+        opts.all ?? false,
+        action,
+        opts.service ?? null,
+        opts.item ?? null,
+        opts.kind ?? null,
+        qty,
+        by,
+      ],
     );
-  await log("2026-10-01", jovialId, "Extra Bhakri", 2, jovialId);
+  await log("2026-10-01", jovialId, "Extra", 2, jovialId, {
+    service: ids.lunch,
+    item: ids.bhakri,
+    kind: "addon",
+  });
   await log("2026-10-16", smrutiId, "Leave", null, smrutiId);
-  await log("2026-10-07", null, "Supplier Off", null, supplierId, true);
+  await log("2026-10-07", null, "Supplier Off", null, supplierId, { all: true });
   const claimJ = randomUUID();
   const claimS = randomUUID();
   for (const [id, who, amt] of [
@@ -164,6 +243,7 @@ export async function seed(owner: pg.Pool): Promise<Seeded> {
     smruti: { role: "consumer", personId: smrutiId },
     claimJ,
     claimS,
+    ids,
   };
 }
 

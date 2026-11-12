@@ -104,35 +104,93 @@ CREATE TABLE policy_version (
   created_by     uuid
 );
 
--- What is served, dated and append-only like a rate card, and with no prices in it. Every kitchen has one,
--- whether or not it tracks money.
+-- What a kitchen serves and when, as data with stable ids. Names, units and prices are the kitchen's own; only
+-- two item kinds (a meal, an add-on) and four log actions are fixed. Nothing here carries a price, so every
+-- kitchen has it whether or not it tracks money. Nothing is deleted: a service or an item is retired from a
+-- date, once, and the rows that name it keep naming it.
+CREATE TABLE service (
+  id         uuid PRIMARY KEY DEFAULT uuidv7(),
+  name       text NOT NULL CHECK (length(name) BETWEEN 1 AND 40),
+  position   smallint NOT NULL DEFAULT 0,
+  archived_on date,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  created_by uuid
+);
+-- Retired ones count: a name is not reused for something else.
+CREATE UNIQUE INDEX service_name ON service (lower(name));
+
+CREATE TABLE catalogue_item (
+  id         uuid PRIMARY KEY DEFAULT uuidv7(),
+  kind       text NOT NULL CHECK (kind IN ('meal', 'addon')),
+  name       text NOT NULL CHECK (length(name) BETWEEN 1 AND 60),
+  unit       text NOT NULL CHECK (length(unit) BETWEEN 1 AND 20),
+  max_qty    integer NOT NULL DEFAULT 20 CHECK (max_qty BETWEEN 1 AND 99),
+  archived_on date,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  created_by uuid,
+  -- What a log entry and a menu cell point at, so that an item of the wrong kind cannot be named.
+  UNIQUE (id, kind)
+);
+CREATE UNIQUE INDEX catalogue_item_name ON catalogue_item (lower(name));
+
+-- Which services a consumer takes, and from when. Dated and inclusive at both ends.
+CREATE TABLE person_service (
+  id          uuid PRIMARY KEY DEFAULT uuidv7(),
+  person_id   uuid NOT NULL REFERENCES person (id),
+  service_id  uuid NOT NULL REFERENCES service (id),
+  active_from date NOT NULL,
+  active_to   date,
+  CHECK (active_to IS NULL OR active_to >= active_from)
+);
+CREATE INDEX person_service_person ON person_service (person_id, service_id);
+
+-- What is served, dated and append-only like a rate card, and with no prices in it. The menu is one record
+-- for the whole kitchen; what each service offers and which meal it serves on which weekday are its children.
 CREATE TABLE menu (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
   effective_from  date NOT NULL UNIQUE,
-  menu_sun text CHECK (menu_sun IN ('Veg', 'Non Veg')),
-  menu_mon text CHECK (menu_mon IN ('Veg', 'Non Veg')),
-  menu_tue text CHECK (menu_tue IN ('Veg', 'Non Veg')),
-  menu_wed text CHECK (menu_wed IN ('Veg', 'Non Veg')),
-  menu_thu text CHECK (menu_thu IN ('Veg', 'Non Veg')),
-  menu_fri text CHECK (menu_fri IN ('Veg', 'Non Veg')),
-  menu_sat text CHECK (menu_sat IN ('Veg', 'Non Veg')),
   note       text,
   created_at timestamptz NOT NULL DEFAULT now(),
   created_by uuid
+);
+
+-- What a service offers: the meals one can switch to and the add-ons one can ask for.
+CREATE TABLE menu_offer (
+  menu_id    uuid NOT NULL REFERENCES menu (id),
+  service_id uuid NOT NULL REFERENCES service (id),
+  item_id    uuid NOT NULL REFERENCES catalogue_item (id),
+  PRIMARY KEY (menu_id, service_id, item_id)
+);
+
+-- No row means that service is not served on that weekday.
+CREATE TABLE menu_day (
+  menu_id    uuid NOT NULL,
+  service_id uuid NOT NULL,
+  weekday    smallint NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+  meal_id    uuid NOT NULL,
+  meal_kind  text NOT NULL DEFAULT 'meal' CHECK (meal_kind = 'meal'),
+  PRIMARY KEY (menu_id, service_id, weekday),
+  FOREIGN KEY (menu_id, service_id, meal_id) REFERENCES menu_offer (menu_id, service_id, item_id),
+  FOREIGN KEY (meal_id, meal_kind) REFERENCES catalogue_item (id, kind)
 );
 
 -- Prices only. A kitchen that does not track money has none (see guard_money).
 CREATE TABLE rate_card (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
   effective_from  date NOT NULL UNIQUE,
-  veg             paise NOT NULL,
-  non_veg         paise NOT NULL,
-  extra_chapati   paise NOT NULL,
-  extra_bhakri    paise NOT NULL,
-  extras_per_month paise NOT NULL,
+  monthly_fee     paise NOT NULL DEFAULT 0,
   note       text,
   created_at timestamptz NOT NULL DEFAULT now(),
   created_by uuid
+);
+
+-- A price per item, with an optional price for one service. No service means the price in every service.
+CREATE TABLE rate_price (
+  card_id    uuid NOT NULL REFERENCES rate_card (id),
+  item_id    uuid NOT NULL REFERENCES catalogue_item (id),
+  service_id uuid REFERENCES service (id),
+  amount     paise NOT NULL,
+  UNIQUE NULLS NOT DISTINCT (card_id, item_id, service_id)
 );
 
 CREATE TABLE holiday (
@@ -151,23 +209,37 @@ CREATE TABLE log_entry (
   on_date       date NOT NULL,
   person_id     uuid REFERENCES person (id),
   all_consumers boolean NOT NULL DEFAULT false,
-  change        text NOT NULL CHECK (change IN
-                  ('Leave', 'Switch to Veg', 'Switch to Non Veg', 'Extra Chapati', 'Extra Bhakri', 'Supplier Off')),
-  qty           integer CHECK (qty IS NULL OR qty BETWEEN 1 AND 20),
+  action        text NOT NULL CHECK (action IN ('Leave', 'Switch', 'Extra', 'Supplier Off')),
+  -- Null means the whole day. Leave and Supplier Off may be either; Switch and Extra name the one service.
+  service_id    uuid REFERENCES service (id),
+  item_id       uuid,
+  item_kind     text,
+  qty           integer CHECK (qty IS NULL OR qty BETWEEN 1 AND 99),
   note_enc      enc_blob,
   logged_by     uuid NOT NULL REFERENCES person (id),
   logged_at     timestamptz NOT NULL DEFAULT now(),
+  FOREIGN KEY (item_id, item_kind) REFERENCES catalogue_item (id, kind),
+  CHECK ((item_id IS NULL) = (item_kind IS NULL)),
   -- Supplier Off is for everyone and for no one in particular; all else is for one person.
-  CHECK ((change = 'Supplier Off') = all_consumers),
+  CHECK ((action = 'Supplier Off') = all_consumers),
   CHECK ((person_id IS NULL) = all_consumers),
-  CHECK ((change IN ('Extra Chapati', 'Extra Bhakri')) = (qty IS NOT NULL))
+  -- coalesce, because a CHECK that comes out null passes.
+  CHECK (CASE action
+    WHEN 'Leave' THEN item_id IS NULL AND qty IS NULL
+    WHEN 'Supplier Off' THEN item_id IS NULL AND qty IS NULL
+    WHEN 'Switch' THEN service_id IS NOT NULL AND coalesce(item_kind = 'meal', false) AND qty IS NULL
+    WHEN 'Extra' THEN service_id IS NOT NULL AND coalesce(item_kind = 'addon', false) AND qty IS NOT NULL
+  END)
 );
 CREATE INDEX log_entry_person_date ON log_entry (person_id, on_date);
 CREATE INDEX log_entry_date ON log_entry (on_date);
-CREATE UNIQUE INDEX log_entry_one_leave ON log_entry (on_date, person_id) WHERE change = 'Leave';
-CREATE UNIQUE INDEX log_entry_one_supplier_off ON log_entry (on_date) WHERE change = 'Supplier Off';
-CREATE UNIQUE INDEX log_entry_one_switch ON log_entry (on_date, person_id, change)
-  WHERE change IN ('Switch to Veg', 'Switch to Non Veg');
+-- A whole day (no service) and one service are different to an index; the stamp trigger refuses the pair.
+CREATE UNIQUE INDEX log_one_leave ON log_entry (on_date, person_id, service_id) NULLS NOT DISTINCT
+  WHERE action = 'Leave';
+CREATE UNIQUE INDEX log_one_off ON log_entry (on_date, service_id) NULLS NOT DISTINCT
+  WHERE action = 'Supplier Off';
+CREATE UNIQUE INDEX log_one_switch ON log_entry (on_date, person_id, service_id) WHERE action = 'Switch';
+CREATE UNIQUE INDEX log_one_extra ON log_entry (on_date, person_id, service_id, item_id) WHERE action = 'Extra';
 
 CREATE TABLE claim (
   id          uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -280,6 +352,12 @@ CREATE TRIGGER rate_card_append_only BEFORE UPDATE OR DELETE ON rate_card
   FOR EACH ROW EXECUTE FUNCTION forbid_change();
 CREATE TRIGGER menu_append_only BEFORE UPDATE OR DELETE ON menu
   FOR EACH ROW EXECUTE FUNCTION forbid_change();
+CREATE TRIGGER menu_offer_append_only BEFORE UPDATE OR DELETE ON menu_offer
+  FOR EACH ROW EXECUTE FUNCTION forbid_change();
+CREATE TRIGGER menu_day_append_only BEFORE UPDATE OR DELETE ON menu_day
+  FOR EACH ROW EXECUTE FUNCTION forbid_change();
+CREATE TRIGGER rate_price_append_only BEFORE UPDATE OR DELETE ON rate_price
+  FOR EACH ROW EXECUTE FUNCTION forbid_change();
 CREATE TRIGGER policy_version_append_only BEFORE UPDATE OR DELETE ON policy_version
   FOR EACH ROW EXECUTE FUNCTION forbid_change();
 CREATE TRIGGER claim_decision_append_only BEFORE UPDATE OR DELETE ON claim_decision
@@ -297,10 +375,35 @@ CREATE FUNCTION person_billing(p_person uuid) RETURNS TABLE (role text, active_f
   LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
   AS $$ SELECT role, active_from, active_to FROM person WHERE id = p_person $$;
 
+-- Whether a person takes a service on a date. Definer, because a consumer may read only their own rows.
+CREATE FUNCTION enrolled_on(p_person uuid, p_service uuid, d date) RETURNS boolean
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+  AS $$
+    SELECT EXISTS (
+      SELECT 1 FROM person_service
+       WHERE person_id = p_person AND service_id = p_service
+         AND active_from <= d AND (active_to IS NULL OR d <= active_to))
+  $$;
+
+-- Whether a person has a closed month between two dates (both included; a null end is open) that the caller
+-- may not change: the same lock a log entry is under.
+CREATE FUNCTION enrolment_locked(p_person uuid, lo date, hi date) RETURNS boolean
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+  AS $$
+    SELECT EXISTS (
+      SELECT 1 FROM month_close c
+       WHERE c.consumer_id = p_person
+         AND c.for_month >= date_trunc('month', lo)::date
+         AND (hi IS NULL OR c.for_month <= hi)
+         AND (policy_on(c.for_month) -> 'monthClose' ->> 'mode') IS DISTINCT FROM 'off'
+         AND (app_role() IS DISTINCT FROM 'admin' OR close_blocks_admin(c.for_month)))
+  $$;
+
 CREATE FUNCTION stamp_log_entry() RETURNS trigger
   LANGUAGE plpgsql AS $$
 DECLARE
   who record;
+  it record;
 BEGIN
   IF TG_OP = 'INSERT' AND is_app_session() THEN
     NEW.logged_by := app_person();
@@ -323,6 +426,44 @@ BEGIN
          OR (who.active_to IS NOT NULL AND NEW.on_date > who.active_to) THEN
         RAISE EXCEPTION 'ALIMENTATION_RULE: that person is not billed on %', NEW.on_date USING ERRCODE = 'P0001';
       END IF;
+      IF NEW.service_id IS NOT NULL AND NOT enrolled_on(NEW.person_id, NEW.service_id, NEW.on_date) THEN
+        RAISE EXCEPTION 'ALIMENTATION_RULE: that person does not take that service on %', NEW.on_date USING ERRCODE = 'P0001';
+      END IF;
+    END IF;
+    IF NEW.item_id IS NOT NULL THEN
+      SELECT * INTO it FROM catalogue_item WHERE id = NEW.item_id;
+      -- An item that does not exist is the foreign key's to refuse, and an entry with no service where one
+      -- is needed is the shape check's.
+      IF FOUND THEN
+        IF it.archived_on IS NOT NULL AND it.archived_on <= NEW.on_date THEN
+          RAISE EXCEPTION 'ALIMENTATION_RULE: % is no longer served on %', it.name, NEW.on_date USING ERRCODE = 'P0001';
+        END IF;
+        IF NEW.qty > it.max_qty THEN
+          RAISE EXCEPTION 'ALIMENTATION_RULE: at most % of % at a time', it.max_qty, it.name USING ERRCODE = 'P0001';
+        END IF;
+        IF NEW.service_id IS NOT NULL AND NOT EXISTS (
+             SELECT 1 FROM menu_offer o
+              WHERE o.menu_id = (SELECT m.id FROM menu m WHERE m.effective_from <= NEW.on_date
+                                  ORDER BY m.effective_from DESC LIMIT 1)
+                AND o.service_id = NEW.service_id AND o.item_id = NEW.item_id) THEN
+          RAISE EXCEPTION 'ALIMENTATION_RULE: % is not offered by that service on %', it.name, NEW.on_date USING ERRCODE = 'P0001';
+        END IF;
+      END IF;
+    END IF;
+    -- A whole day and one of its services cannot both be left, or both be off. The unique indexes see
+    -- the same scope twice; this sees a whole day against a part. Serialised, so that two writers
+    -- who cannot see each other's row do not both pass.
+    IF NEW.action IN ('Leave', 'Supplier Off') THEN
+      PERFORM pg_advisory_xact_lock(hashtextextended(NEW.action || NEW.on_date::text || coalesce(NEW.person_id::text, '*'), 0));
+      IF EXISTS (
+           SELECT 1 FROM log_entry x
+            WHERE x.on_date = NEW.on_date AND x.action = NEW.action
+              AND x.person_id IS NOT DISTINCT FROM NEW.person_id
+              AND x.id <> NEW.id
+              AND x.service_id IS DISTINCT FROM NEW.service_id
+              AND (x.service_id IS NULL OR NEW.service_id IS NULL)) THEN
+        RAISE EXCEPTION 'ALIMENTATION_RULE: the whole day and one of its services cannot both be %', lower(NEW.action) USING ERRCODE = 'P0001';
+      END IF;
     END IF;
   END IF;
 
@@ -340,6 +481,121 @@ BEGIN
 END $$;
 CREATE TRIGGER log_entry_stamp BEFORE INSERT OR UPDATE OR DELETE ON log_entry
   FOR EACH ROW EXECUTE FUNCTION stamp_log_entry();
+
+-- A service or an item is retired from a date, once. The date cannot move or be cleared, so a bill that
+-- was right when it was made stays right.
+CREATE FUNCTION keep_archived_once() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.archived_on IS NOT NULL AND NEW.archived_on IS DISTINCT FROM OLD.archived_on THEN
+    RAISE EXCEPTION 'ALIMENTATION_IMMUTABLE: % was retired on % and that cannot change', OLD.name, OLD.archived_on USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER service_keep_archived_once BEFORE UPDATE ON service
+  FOR EACH ROW EXECUTE FUNCTION keep_archived_once();
+CREATE TRIGGER catalogue_item_keep_archived_once BEFORE UPDATE ON catalogue_item
+  FOR EACH ROW EXECUTE FUNCTION keep_archived_once();
+
+-- Behaviour hangs on the kind, the unit is what a count is of, and the largest quantity is what an entry was
+-- checked against: none of them changes under an item that has been used. A rename is allowed (and audited).
+CREATE FUNCTION keep_item_shape() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.kind IS DISTINCT FROM OLD.kind OR NEW.unit IS DISTINCT FROM OLD.unit
+     OR NEW.max_qty IS DISTINCT FROM OLD.max_qty THEN
+    RAISE EXCEPTION 'ALIMENTATION_IMMUTABLE: the kind, unit and largest quantity of an item cannot change; add a new item' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER catalogue_item_keep_shape BEFORE UPDATE ON catalogue_item
+  FOR EACH ROW EXECUTE FUNCTION keep_item_shape();
+
+-- The services a person takes: a consumer, once at a time per service, and a closed month stays as it was.
+CREATE FUNCTION stamp_person_service() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+DECLARE
+  who record;
+  far constant date := '9999-12-31';
+  lo date;
+  hi date;
+BEGIN
+  IF TG_OP = 'UPDATE' AND (NEW.person_id <> OLD.person_id OR NEW.service_id <> OLD.service_id) THEN
+    RAISE EXCEPTION 'ALIMENTATION_IMMUTABLE: who takes which service cannot change; end it and add another' USING ERRCODE = 'P0001';
+  END IF;
+  IF TG_OP <> 'DELETE' THEN
+    SELECT * INTO who FROM person_billing(NEW.person_id);
+    IF who.role IS DISTINCT FROM 'consumer' THEN
+      RAISE EXCEPTION 'ALIMENTATION_RULE: only consumers take a service' USING ERRCODE = 'P0001';
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtextextended('person_service' || NEW.person_id::text, 0));
+    IF EXISTS (
+         SELECT 1 FROM person_service x
+          WHERE x.person_id = NEW.person_id AND x.service_id = NEW.service_id AND x.id <> NEW.id
+            AND x.active_from <= coalesce(NEW.active_to, far) AND NEW.active_from <= coalesce(x.active_to, far)) THEN
+      RAISE EXCEPTION 'ALIMENTATION_RULE: that person already takes that service on some of those days' USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  -- The days whose bill this changes, and whether any of them is in a month the caller may not touch.
+  IF is_app_session() THEN
+    IF TG_OP = 'INSERT' THEN
+      IF enrolment_locked(NEW.person_id, NEW.active_from, NEW.active_to) THEN
+        RAISE EXCEPTION 'ALIMENTATION_RULE: that month is closed' USING ERRCODE = 'P0001';
+      END IF;
+    ELSIF TG_OP = 'DELETE' THEN
+      IF enrolment_locked(OLD.person_id, OLD.active_from, OLD.active_to) THEN
+        RAISE EXCEPTION 'ALIMENTATION_RULE: that month is closed' USING ERRCODE = 'P0001';
+      END IF;
+    ELSE
+      IF NEW.active_from <> OLD.active_from THEN
+        lo := least(NEW.active_from, OLD.active_from);
+        hi := greatest(NEW.active_from, OLD.active_from) - 1;
+        IF enrolment_locked(NEW.person_id, lo, hi) THEN
+          RAISE EXCEPTION 'ALIMENTATION_RULE: that month is closed' USING ERRCODE = 'P0001';
+        END IF;
+      END IF;
+      IF NEW.active_to IS DISTINCT FROM OLD.active_to THEN
+        lo := least(coalesce(NEW.active_to, far), coalesce(OLD.active_to, far)) + 1;
+        hi := greatest(coalesce(NEW.active_to, far), coalesce(OLD.active_to, far));
+        IF enrolment_locked(NEW.person_id, lo, CASE WHEN hi = far THEN NULL ELSE hi END) THEN
+          RAISE EXCEPTION 'ALIMENTATION_RULE: that month is closed' USING ERRCODE = 'P0001';
+        END IF;
+      END IF;
+    END IF;
+  END IF;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END $$;
+CREATE TRIGGER person_service_stamp BEFORE INSERT OR UPDATE OR DELETE ON person_service
+  FOR EACH ROW EXECUTE FUNCTION stamp_person_service();
+
+-- A menu or a rate card is written in one transaction with its children, and never added to later. The
+-- application role cannot add an offer, a day or a price to a menu or card that already exists, so a
+-- published record cannot be extended behind the append-only rule. (The owner, who imports a moved kitchen,
+-- keeps the dates the file says.)
+CREATE FUNCTION guard_same_transaction() RETURNS trigger
+  LANGUAGE plpgsql AS $$
+DECLARE
+  made timestamptz;
+BEGIN
+  IF is_app_session() THEN
+    IF TG_TABLE_NAME = 'rate_price' THEN
+      SELECT created_at INTO made FROM rate_card WHERE id = NEW.card_id;
+    ELSE
+      SELECT created_at INTO made FROM menu WHERE id = NEW.menu_id;
+    END IF;
+    IF made IS DISTINCT FROM now() THEN
+      RAISE EXCEPTION 'ALIMENTATION_IMMUTABLE: % can only be added in the transaction that made its parent', TG_TABLE_NAME USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER menu_offer_same_transaction BEFORE INSERT ON menu_offer
+  FOR EACH ROW EXECUTE FUNCTION guard_same_transaction();
+CREATE TRIGGER menu_day_same_transaction BEFORE INSERT ON menu_day
+  FOR EACH ROW EXECUTE FUNCTION guard_same_transaction();
+CREATE TRIGGER rate_price_same_transaction BEFORE INSERT ON rate_price
+  FOR EACH ROW EXECUTE FUNCTION guard_same_transaction();
 
 CREATE FUNCTION stamp_decision() RETURNS trigger
   LANGUAGE plpgsql AS $$
@@ -425,6 +681,18 @@ CREATE TRIGGER rate_card_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE
   FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
 CREATE TRIGGER menu_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON menu
   FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER service_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON service
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER catalogue_item_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON catalogue_item
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER person_service_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON person_service
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER menu_offer_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON menu_offer
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER menu_day_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON menu_day
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER rate_price_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON rate_price
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
 CREATE TRIGGER holiday_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON holiday
   FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
 CREATE TRIGGER log_entry_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON log_entry
@@ -505,6 +773,18 @@ CREATE TRIGGER rate_card_audit AFTER INSERT OR UPDATE OR DELETE ON rate_card
   FOR EACH ROW EXECUTE FUNCTION audit_row('id');
 CREATE TRIGGER menu_audit AFTER INSERT OR UPDATE OR DELETE ON menu
   FOR EACH ROW EXECUTE FUNCTION audit_row('id');
+CREATE TRIGGER service_audit AFTER INSERT OR UPDATE OR DELETE ON service
+  FOR EACH ROW EXECUTE FUNCTION audit_row('id');
+CREATE TRIGGER catalogue_item_audit AFTER INSERT OR UPDATE OR DELETE ON catalogue_item
+  FOR EACH ROW EXECUTE FUNCTION audit_row('id');
+CREATE TRIGGER person_service_audit AFTER INSERT OR UPDATE OR DELETE ON person_service
+  FOR EACH ROW EXECUTE FUNCTION audit_row('id');
+CREATE TRIGGER menu_offer_audit AFTER INSERT OR UPDATE OR DELETE ON menu_offer
+  FOR EACH ROW EXECUTE FUNCTION audit_row('menu_id,service_id,item_id');
+CREATE TRIGGER menu_day_audit AFTER INSERT OR UPDATE OR DELETE ON menu_day
+  FOR EACH ROW EXECUTE FUNCTION audit_row('menu_id,service_id,weekday');
+CREATE TRIGGER rate_price_audit AFTER INSERT OR UPDATE OR DELETE ON rate_price
+  FOR EACH ROW EXECUTE FUNCTION audit_row('card_id,item_id,service_id');
 CREATE TRIGGER holiday_audit AFTER INSERT OR UPDATE OR DELETE ON holiday
   FOR EACH ROW EXECUTE FUNCTION audit_row('id');
 CREATE TRIGGER log_entry_audit AFTER INSERT OR UPDATE OR DELETE ON log_entry
@@ -572,8 +852,14 @@ END $$;
 ALTER TABLE workspace ENABLE ROW LEVEL SECURITY;
 ALTER TABLE person ENABLE ROW LEVEL SECURITY;
 ALTER TABLE policy_version ENABLE ROW LEVEL SECURITY;
+ALTER TABLE service ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catalogue_item ENABLE ROW LEVEL SECURITY;
+ALTER TABLE person_service ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu ENABLE ROW LEVEL SECURITY;
+ALTER TABLE menu_offer ENABLE ROW LEVEL SECURITY;
+ALTER TABLE menu_day ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_card ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rate_price ENABLE ROW LEVEL SECURITY;
 ALTER TABLE holiday ENABLE ROW LEVEL SECURITY;
 ALTER TABLE log_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE claim ENABLE ROW LEVEL SECURITY;
@@ -596,11 +882,33 @@ CREATE POLICY person_admin_update ON person FOR UPDATE
 CREATE POLICY policy_read ON policy_version FOR SELECT USING (app_role() IS NOT NULL);
 CREATE POLICY policy_admin_insert ON policy_version FOR INSERT WITH CHECK (app_role() = 'admin');
 
+CREATE POLICY service_read ON service FOR SELECT USING (app_role() IS NOT NULL);
+CREATE POLICY service_admin_insert ON service FOR INSERT WITH CHECK (app_role() = 'admin');
+CREATE POLICY service_admin_update ON service FOR UPDATE
+  USING (app_role() = 'admin') WITH CHECK (app_role() = 'admin');
+
+CREATE POLICY item_read ON catalogue_item FOR SELECT USING (app_role() IS NOT NULL);
+CREATE POLICY item_admin_insert ON catalogue_item FOR INSERT WITH CHECK (app_role() = 'admin');
+CREATE POLICY item_admin_update ON catalogue_item FOR UPDATE
+  USING (app_role() = 'admin') WITH CHECK (app_role() = 'admin');
+
+-- A member sees which services they take and no one else's.
+CREATE POLICY person_service_read ON person_service FOR SELECT USING (
+  app_role() IN ('admin', 'supplier') OR person_id = app_person());
+CREATE POLICY person_service_admin_write ON person_service FOR ALL
+  USING (app_role() = 'admin') WITH CHECK (app_role() = 'admin');
+
 CREATE POLICY menu_read ON menu FOR SELECT USING (app_role() IS NOT NULL);
 CREATE POLICY menu_admin_insert ON menu FOR INSERT WITH CHECK (app_role() = 'admin');
+CREATE POLICY menu_offer_read ON menu_offer FOR SELECT USING (app_role() IS NOT NULL);
+CREATE POLICY menu_offer_admin_insert ON menu_offer FOR INSERT WITH CHECK (app_role() = 'admin');
+CREATE POLICY menu_day_read ON menu_day FOR SELECT USING (app_role() IS NOT NULL);
+CREATE POLICY menu_day_admin_insert ON menu_day FOR INSERT WITH CHECK (app_role() = 'admin');
 
 CREATE POLICY rate_card_read ON rate_card FOR SELECT USING (app_role() IS NOT NULL);
 CREATE POLICY rate_card_admin_insert ON rate_card FOR INSERT WITH CHECK (app_role() = 'admin');
+CREATE POLICY rate_price_read ON rate_price FOR SELECT USING (app_role() IS NOT NULL);
+CREATE POLICY rate_price_admin_insert ON rate_price FOR INSERT WITH CHECK (app_role() = 'admin');
 
 CREATE POLICY holiday_read ON holiday FOR SELECT USING (app_role() IS NOT NULL);
 CREATE POLICY holiday_admin_write ON holiday FOR ALL
@@ -613,8 +921,8 @@ CREATE POLICY log_read ON log_entry FOR SELECT USING (
   OR (app_role() = 'consumer' AND (person_id = app_person() OR all_consumers)));
 CREATE POLICY log_insert ON log_entry FOR INSERT WITH CHECK (
   app_role() = 'admin'
-  OR (app_role() = 'consumer' AND person_id = app_person() AND change <> 'Supplier Off')
-  OR (app_role() = 'supplier' AND change = 'Supplier Off'));
+  OR (app_role() = 'consumer' AND person_id = app_person() AND action <> 'Supplier Off')
+  OR (app_role() = 'supplier' AND action = 'Supplier Off'));
 CREATE POLICY log_update ON log_entry FOR UPDATE
   USING (app_role() = 'admin' OR logged_by = app_person())
   WITH CHECK (app_role() = 'admin' OR logged_by = app_person());
@@ -680,6 +988,7 @@ BEGIN
   EXECUTE format('GRANT USAGE ON SCHEMA public TO %I', app);
   EXECUTE format('GRANT EXECUTE ON FUNCTION app_role(), app_person(), is_app_session(), workspace_today(), '
                  'policy_on(date), is_working_day(date), month_closed(date, uuid), close_blocks_admin(date), person_billing(uuid), '
+                 'enrolled_on(uuid, uuid, date), enrolment_locked(uuid, date, date), '
                  'resolve_actor(uuid), bind_account(uuid, uuid), system_close_month(date, uuid, integer, bigint), schema_version() TO %I', app);
 END $$;
 
@@ -687,8 +996,14 @@ SELECT grant_to_app('SELECT', 'meta');
 SELECT grant_to_app('SELECT, UPDATE', 'workspace');
 SELECT grant_to_app('SELECT, INSERT, UPDATE', 'person');
 SELECT grant_to_app('SELECT, INSERT', 'policy_version');
+SELECT grant_to_app('SELECT, INSERT, UPDATE', 'service');
+SELECT grant_to_app('SELECT, INSERT, UPDATE', 'catalogue_item');
+SELECT grant_to_app('SELECT, INSERT, UPDATE, DELETE', 'person_service');
 SELECT grant_to_app('SELECT, INSERT', 'menu');
+SELECT grant_to_app('SELECT, INSERT', 'menu_offer');
+SELECT grant_to_app('SELECT, INSERT', 'menu_day');
 SELECT grant_to_app('SELECT, INSERT', 'rate_card');
+SELECT grant_to_app('SELECT, INSERT', 'rate_price');
 SELECT grant_to_app('SELECT, INSERT, UPDATE, DELETE', 'holiday');
 SELECT grant_to_app('SELECT, INSERT, UPDATE, DELETE', 'log_entry');
 SELECT grant_to_app('SELECT, INSERT, DELETE', 'claim');
@@ -757,6 +1072,8 @@ BEGIN
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END $$;
 CREATE TRIGGER rate_card_guard_money BEFORE INSERT OR UPDATE OR DELETE ON rate_card
+  FOR EACH ROW EXECUTE FUNCTION guard_money();
+CREATE TRIGGER rate_price_guard_money BEFORE INSERT OR UPDATE OR DELETE ON rate_price
   FOR EACH ROW EXECUTE FUNCTION guard_money();
 CREATE TRIGGER claim_guard_money BEFORE INSERT OR UPDATE OR DELETE ON claim
   FOR EACH ROW EXECUTE FUNCTION guard_money();

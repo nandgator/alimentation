@@ -1,17 +1,8 @@
 import { rupees } from "@alimentation/core";
 import pg from "pg";
+import { type CatalogueIds, enrolEveryone, logRow, seedCatalogue } from "./catalogue.ts";
 import { ADMIN_URL } from "./pg.ts";
-import { type Client, MENU, type TestPlatform } from "./platform.ts";
-
-export const RATES = {
-  effectiveFrom: "2026-04-01",
-  veg: rupees(150),
-  nonVeg: rupees(170),
-  extraChapati: rupees(15),
-  extraBhakri: rupees(30),
-  extrasPerMonth: rupees(40),
-};
-export const MENUS = { effectiveFrom: "2026-04-01", menu: MENU };
+import type { Client, TestPlatform } from "./platform.ts";
 
 export interface Kitchen {
   slug: string;
@@ -19,8 +10,42 @@ export interface Kitchen {
   jovial: Client;
   smruti: Client;
   ids: { jovial: string; smruti: string };
+  /** The ids of what the kitchen serves. */
+  catalogue: CatalogueIds;
   /** Everything an admin sees that carries money, as the server states it. */
   snapshot(): Promise<unknown>;
+}
+
+/** The same five entries in every test kitchen: two leaves, two extras and a day the supplier is off. */
+async function seedEntries(
+  db: pg.Pool,
+  c: CatalogueIds,
+  ids: Record<string, string>,
+  supplier: string,
+): Promise<void> {
+  const jovial = ids.jovial!;
+  const smruti = ids.smruti!;
+  await logRow(db, { date: "2026-09-08", person: jovial, action: "Leave", by: jovial });
+  await logRow(db, {
+    date: "2026-09-15",
+    person: smruti,
+    action: "Extra",
+    service: c.lunch,
+    item: c.chapati,
+    qty: 3,
+    by: smruti,
+  });
+  await logRow(db, {
+    date: "2026-10-01",
+    person: jovial,
+    action: "Extra",
+    service: c.lunch,
+    item: c.bhakri,
+    qty: 2,
+    by: jovial,
+  });
+  await logRow(db, { date: "2026-10-07", person: null, action: "Supplier Off", by: supplier });
+  await logRow(db, { date: "2026-10-16", person: smruti, action: "Leave", by: smruti });
 }
 
 /**
@@ -41,8 +66,11 @@ export async function seedKitchen(
   });
   if (made.status !== 201) throw new Error(`workspace not made: ${JSON.stringify(made.json)}`);
   const w = `/api/w/${slug}`;
-  await owner.post(`${w}/menus`, MENUS);
-  await owner.post(`${w}/rate-cards`, RATES);
+  // What the kitchen serves and its prices are written as rows, the way an import writes them, so that
+  // moving, wiping and re-keying are tested on their own and not through the routes that say the same.
+  const handle = (await p.runtime.deps.directory.bySlug(slug))!;
+  const db = new pg.Pool({ connectionString: handle.dsns.owner, max: 1 });
+  const catalogue = await seedCatalogue(db, { money: true });
   await owner.post(`${w}/holidays`, {
     name: "Gandhi Jayanti",
     date: "2026-10-02",
@@ -69,27 +97,10 @@ export async function seedKitchen(
   }
 
   // Meals are logged the way the owner of the database would on import: straight in.
-  const handle = (await p.runtime.deps.directory.bySlug(slug))!;
-  const db = new pg.Pool({ connectionString: handle.dsns.owner, max: 1 });
+  await enrolEveryone(db, catalogue.lunch);
   const supplier = (await db.query<{ id: string }>(`SELECT id FROM person WHERE role = 'supplier'`))
     .rows[0]!.id;
-  const log = (
-    date: string,
-    person: string | null,
-    change: string,
-    qty: number | null,
-    all = false,
-  ) =>
-    db.query(
-      `INSERT INTO log_entry (on_date, person_id, all_consumers, change, qty, logged_by, note_enc)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [date, person, all, change, qty, person ?? supplier, null],
-    );
-  await log("2026-09-08", ids.jovial!, "Leave", null);
-  await log("2026-09-15", ids.smruti!, "Extra Chapati", 3);
-  await log("2026-10-01", ids.jovial!, "Extra Bhakri", 2);
-  await log("2026-10-07", null, "Supplier Off", null, true);
-  await log("2026-10-16", ids.smruti!, "Leave", null);
+  await seedEntries(db, catalogue, ids, supplier);
   await db.end();
 
   const asSupplier = { "x-acting-as": "supplier" };
@@ -129,6 +140,7 @@ export async function seedKitchen(
     jovial: clients.jovial!,
     smruti: clients.smruti!,
     ids: { jovial: ids.jovial!, smruti: ids.smruti! },
+    catalogue,
     async snapshot() {
       const get = async (path: string) => (await owner.get(`${w}${path}`)).json;
       return {
@@ -159,7 +171,9 @@ export async function seedMealsKitchen(
   });
   if (made.status !== 201) throw new Error(`workspace not made: ${JSON.stringify(made.json)}`);
   const w = `/api/w/${slug}`;
-  await owner.post(`${w}/menus`, MENUS);
+  const handle = (await p.runtime.deps.directory.bySlug(slug))!;
+  const db = new pg.Pool({ connectionString: handle.dsns.owner, max: 1 });
+  const catalogue = await seedCatalogue(db, { money: false });
   await owner.post(`${w}/holidays`, {
     name: "Gandhi Jayanti",
     date: "2026-10-02",
@@ -183,27 +197,10 @@ export async function seedMealsKitchen(
     clients[key] = await p.signIn(email, name);
     await clients[key]!.post("/api/invites/accept", { token: inv.json.link.split("#")[1] });
   }
-  const handle = (await p.runtime.deps.directory.bySlug(slug))!;
-  const db = new pg.Pool({ connectionString: handle.dsns.owner, max: 1 });
+  await enrolEveryone(db, catalogue.lunch);
   const supplier = (await db.query<{ id: string }>(`SELECT id FROM person WHERE role = 'supplier'`))
     .rows[0]!.id;
-  const log = (
-    date: string,
-    person: string | null,
-    change: string,
-    qty: number | null,
-    all = false,
-  ) =>
-    db.query(
-      `INSERT INTO log_entry (on_date, person_id, all_consumers, change, qty, logged_by, note_enc)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [date, person, all, change, qty, person ?? supplier, null],
-    );
-  await log("2026-09-08", ids.jovial!, "Leave", null);
-  await log("2026-09-15", ids.smruti!, "Extra Chapati", 3);
-  await log("2026-10-01", ids.jovial!, "Extra Bhakri", 2);
-  await log("2026-10-07", null, "Supplier Off", null, true);
-  await log("2026-10-16", ids.smruti!, "Leave", null);
+  await seedEntries(db, catalogue, ids, supplier);
   await db.end();
   const closed = await owner.post(`${w}/closes`, { month: "2026-09" });
   if (closed.status !== 201) throw new Error(`not closed: ${JSON.stringify(closed.json)}`);
@@ -214,6 +211,7 @@ export async function seedMealsKitchen(
     jovial: clients.jovial!,
     smruti: clients.smruti!,
     ids: { jovial: ids.jovial!, smruti: ids.smruti! },
+    catalogue,
     async snapshot() {
       const get = async (path: string) => (await owner.get(`${w}${path}`)).json;
       return {

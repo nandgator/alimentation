@@ -15,11 +15,20 @@ const ROLES: Record<string, Role> = {
   maple: "supplier",
 };
 const NAMES: Record<string, string> = { jovial: "Jovial", smruti: "Smruti" };
+const ITEMS: Record<string, string> = { thali: "Thali", curd: "Curd", rice: "Rice" };
+const SERVICES: Record<string, string> = { lunch: "Lunch", dinner: "Dinner" };
 const CLAIMS = { c1: { consumerId: "jovial", amount: 100_000, forMonth: "2026-10-01" } };
 
 /** What the person reading may know. A member knows no one's name but their own. */
-const as = (viewerId: string, known: string[] = [viewerId]): HistoryContext => ({
+const as = (
+  viewerId: string,
+  known: string[] = [viewerId],
+  severalServices = false,
+): HistoryContext => ({
   viewerId,
+  itemName: (id) => ITEMS[id],
+  serviceName: (id) => SERVICES[id],
+  severalServices,
   timeZone: "Asia/Kolkata",
   nameOf: (id) => (known.includes(id) ? NAMES[id] : undefined),
   roleOf: (id) => ROLES[id],
@@ -42,7 +51,9 @@ const entry = {
   on_date: "2026-10-14",
   person_id: "jovial",
   all_consumers: false,
-  change: "Leave",
+  action: "Leave",
+  service_id: null,
+  item_id: null,
   qty: null,
   logged_at: "2026-10-14T05:00:00Z",
 };
@@ -76,9 +87,12 @@ describe("the trail in words", () => {
 
   it("tells a member what they did, in the first person", () => {
     expect(describeAudit(row({ after: entry }), me)).toBe("You logged Leave on 14-Oct-2026.");
-    expect(describeAudit(row({ after: { ...entry, change: "Extra Chapati", qty: 2 } }), me)).toBe(
-      "You logged Extra Chapati ×2 on 14-Oct-2026.",
-    );
+    expect(
+      describeAudit(
+        row({ after: { ...entry, action: "Extra", service_id: "lunch", item_id: "curd", qty: 2 } }),
+        me,
+      ),
+    ).toBe("You logged Extra Curd ×2 on 14-Oct-2026.");
   });
 
   it("says when an entry was added after its day", () => {
@@ -117,7 +131,7 @@ describe("the trail in words", () => {
   });
 
   it("words a day the kitchen was off", () => {
-    const off = { ...entry, person_id: null, all_consumers: true, change: "Supplier Off" };
+    const off = { ...entry, person_id: null, all_consumers: true, action: "Supplier Off" };
     expect(describeAudit(row({ actor: "maple", after: off }), me)).toBe(
       "The supplier marked the kitchen off on 14-Oct-2026.",
     );
@@ -244,20 +258,14 @@ describe("the trail in words", () => {
         row({
           table: "rate_card",
           actor: "admin",
-          after: {
-            effective_from: "2026-11-01",
-            veg: 16_000,
-            non_veg: 18_000,
-            extra_chapati: 1_500,
-            extra_bhakri: 3_000,
-            extras_per_month: 4_000,
-          },
+          after: { effective_from: "2026-11-01", monthly_fee: 4_000 },
         }),
         me,
       ),
-    ).toBe(
-      "The admin added prices from 01-Nov-2026: Veg ₹160, Non Veg ₹180, extra chapati ₹15, extra bhakri ₹30, ₹40 a month for extras.",
-    );
+    ).toBe("The admin added prices from 01-Nov-2026, with ₹40 a month as the monthly fee.");
+    // The lines of a card and a menu are rows of their own; the card and the menu are the event.
+    for (const table of ["rate_price", "menu_offer", "menu_day"])
+      expect(describeAudit(row({ table, after: {} }), me)).toBeNull();
     expect(
       describeAudit(
         row({ table: "policy_version", actor: "admin", after: { effective_from: "2026-11-01" } }),
@@ -283,6 +291,164 @@ describe("the trail in words", () => {
     expect(
       describeAudit(row({ table: "holiday", actor: "admin", action: "DELETE", before: h }), me),
     ).toBe("The admin removed the holiday “Diwali” on 09-Nov-2026.");
+  });
+
+  describe("with several services", () => {
+    const many = as("jovial", ["jovial"], true);
+    const one = as("jovial");
+    const at = (patch: Record<string, unknown>) => ({ ...entry, ...patch });
+
+    it("names the service only where there are several", () => {
+      const extra = at({ action: "Extra", service_id: "dinner", item_id: "curd", qty: 2 });
+      expect(describeAudit(row({ after: extra }), many)).toBe(
+        "You logged Extra Curd ×2 in Dinner on 14-Oct-2026.",
+      );
+      expect(describeAudit(row({ after: extra }), one)).toBe(
+        "You logged Extra Curd ×2 on 14-Oct-2026.",
+      );
+      const swap = at({ action: "Switch", service_id: "lunch", item_id: "rice" });
+      expect(describeAudit(row({ after: swap }), many)).toBe(
+        "You logged Switch to Rice in Lunch on 14-Oct-2026.",
+      );
+      expect(describeAudit(row({ after: swap }), one)).toBe(
+        "You logged Switch to Rice on 14-Oct-2026.",
+      );
+    });
+    it("says a leave is for the whole day, or for one service", () => {
+      expect(describeAudit(row({ after: entry }), many)).toBe(
+        "You logged Leave (whole day) on 14-Oct-2026.",
+      );
+      expect(describeAudit(row({ after: at({ service_id: "dinner" }) }), many)).toBe(
+        "You logged Leave in Dinner on 14-Oct-2026.",
+      );
+      expect(describeAudit(row({ after: at({ service_id: "dinner" }) }), one)).toBe(
+        "You logged Leave on 14-Oct-2026.",
+      );
+      expect(
+        describeAudit(row({ action: "DELETE", before: at({ service_id: "dinner" }) }), many),
+      ).toBe("You removed your Leave in Dinner entry for 14-Oct-2026.");
+      expect(
+        describeAudit(row({ action: "UPDATE", after: at({ service_id: "dinner" }) }), many),
+      ).toBe("You changed your Leave in Dinner entry for 14-Oct-2026.");
+    });
+    it("says the kitchen was off for a service", () => {
+      const off = (service_id: string | null) => ({
+        ...entry,
+        person_id: null,
+        all_consumers: true,
+        action: "Supplier Off",
+        service_id,
+      });
+      expect(describeAudit(row({ actor: "maple", after: off("dinner") }), many)).toBe(
+        "The supplier marked the kitchen off for Dinner on 14-Oct-2026.",
+      );
+      expect(describeAudit(row({ actor: "maple", after: off("dinner") }), one)).toBe(
+        "The supplier marked the kitchen off on 14-Oct-2026.",
+      );
+      expect(describeAudit(row({ actor: "maple", after: off(null) }), many)).toBe(
+        "The supplier marked the kitchen off on 14-Oct-2026.",
+      );
+      expect(
+        describeAudit(row({ actor: "maple", action: "DELETE", before: off("dinner") }), many),
+      ).toBe("The supplier removed the kitchen-off day for Dinner on 14-Oct-2026.");
+    });
+    it("shows the current name for an item or service it cannot find as a plain noun", () => {
+      const lost = at({ action: "Extra", service_id: "gone", item_id: "gone", qty: 1 });
+      expect(describeAudit(row({ after: lost }), many)).toBe(
+        "You logged Extra an item ×1 in a service on 14-Oct-2026.",
+      );
+    });
+    it("words enrolment, but only where there is a choice", () => {
+      const enrolled = {
+        person_id: "jovial",
+        service_id: "dinner",
+        active_from: "2026-10-01",
+        active_to: null,
+      };
+      const ins = row({ table: "person_service", actor: "admin", after: enrolled });
+      expect(describeAudit(ins, many)).toBe("The admin set you to take Dinner from 01-Oct-2026.");
+      expect(describeAudit(ins, one)).toBeNull();
+      const bounded = { ...enrolled, active_to: "2026-12-31" };
+      expect(
+        describeAudit(row({ table: "person_service", actor: "admin", after: bounded }), many),
+      ).toBe("The admin set you to take Dinner from 01-Oct-2026 until 31-Dec-2026.");
+      const upd = (before: Record<string, unknown>, after: Record<string, unknown>) =>
+        row({ table: "person_service", actor: "admin", action: "UPDATE", before, after });
+      expect(describeAudit(upd(enrolled, bounded), many)).toBe(
+        "The admin changed your place in Dinner: until 31-Dec-2026.",
+      );
+      expect(describeAudit(upd(bounded, enrolled), many)).toBe(
+        "The admin changed your place in Dinner: until further notice.",
+      );
+      expect(describeAudit(upd(enrolled, enrolled), many)).toBeNull();
+      expect(
+        describeAudit(
+          row({ table: "person_service", actor: "admin", action: "DELETE", before: enrolled }),
+          many,
+        ),
+      ).toBe("The admin removed your place in Dinner.");
+    });
+  });
+
+  describe("the catalogue", () => {
+    const item = { name: "Thali", archived_on: null };
+    const ev = (
+      table: string,
+      action: string,
+      before: Record<string, unknown> | null,
+      after: Record<string, unknown> | null,
+    ) => row({ table, actor: "admin", action, before, after });
+    it("words an item or service added, renamed and retired", () => {
+      expect(describeAudit(ev("catalogue_item", "INSERT", null, item), me)).toBe(
+        "The admin added “Thali” to what the kitchen serves.",
+      );
+      expect(describeAudit(ev("service", "INSERT", null, { name: "Dinner" }), me)).toBe(
+        "The admin added the service “Dinner”.",
+      );
+      expect(
+        describeAudit(ev("catalogue_item", "UPDATE", item, { ...item, name: "Rice" }), me),
+      ).toBe("The admin renamed the item “Thali” to “Rice”.");
+      expect(
+        describeAudit(
+          ev(
+            "service",
+            "UPDATE",
+            { name: "Dinner", archived_on: null },
+            { name: "Supper", archived_on: null },
+          ),
+          me,
+        ),
+      ).toBe("The admin renamed the service “Dinner” to “Supper”.");
+      expect(
+        describeAudit(
+          ev("catalogue_item", "UPDATE", item, { ...item, archived_on: "2026-12-01" }),
+          me,
+        ),
+      ).toBe("The admin retired the item “Thali” from 01-Dec-2026.");
+      expect(
+        describeAudit(
+          ev(
+            "service",
+            "UPDATE",
+            { name: "Dinner", archived_on: null },
+            { name: "Dinner", archived_on: "2026-12-01" },
+          ),
+          me,
+        ),
+      ).toBe("The admin retired the service “Dinner” from 01-Dec-2026.");
+    });
+    it("words a rename and a retirement made together, and ignores a change that is neither", () => {
+      expect(
+        describeAudit(
+          ev("catalogue_item", "UPDATE", item, { name: "Rice", archived_on: "2026-12-01" }),
+          me,
+        ),
+      ).toBe(
+        "The admin renamed the item “Thali” to “Rice”. The admin retired the item “Rice” from 01-Dec-2026.",
+      );
+      expect(describeAudit(ev("catalogue_item", "UPDATE", item, { ...item }), me)).toBeNull();
+      expect(describeAudit(ev("catalogue_item", "DELETE", item, null), me)).toBeNull();
+    });
   });
 
   it("skips tables nobody would look for", () => {

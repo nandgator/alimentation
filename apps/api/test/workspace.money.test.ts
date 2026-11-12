@@ -92,7 +92,13 @@ describe("a kitchen says once whether it tracks money", () => {
 
 describe("a kitchen without money holds no money", () => {
   it("refuses a price, by the application and by the owner", async () => {
-    const insert = `INSERT INTO rate_card (effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month) VALUES ('2026-10-01', 1, 1, 1, 1, 1)`;
+    const insert = `INSERT INTO rate_card (effective_from, monthly_fee) VALUES ('2026-10-01', 1)`;
+    expect((await dbError(asApp(meals, admin, insert))).message).toContain(NOT_TRACKED);
+    expect((await dbError(meals.owner.query(insert))).message).toContain(NOT_TRACKED);
+  });
+
+  it("refuses a price on an item, by the application and by the owner, with or without a card", async () => {
+    const insert = `INSERT INTO rate_price (card_id, item_id, amount) VALUES ('${randomUUID()}', '${randomUUID()}', 100)`;
     expect((await dbError(asApp(meals, admin, insert))).message).toContain(NOT_TRACKED);
     expect((await dbError(meals.owner.query(insert))).message).toContain(NOT_TRACKED);
   });
@@ -148,21 +154,41 @@ describe("a kitchen without money holds no money", () => {
     expect(rows.rows).toEqual([{ meals: 3, billed: null, closed_by: null }]);
   });
 
-  it("keeps the menu, people, the log and holidays as they are", async () => {
-    await asApp(
-      meals,
-      admin,
-      `INSERT INTO menu (effective_from, menu_mon, menu_tue) VALUES ('2026-10-01', 'Veg', 'Non Veg')`,
-    );
+  it("keeps the catalogue, services, enrolment, menu, people, the log and holidays as they are", async () => {
+    const [svc, veg, rice] = [randomUUID(), randomUUID(), randomUUID()];
+    const menu = randomUUID();
+    await asActor(meals.app, admin, async (c) => {
+      await c.query(`INSERT INTO service (id, name) VALUES ($1, 'Meals')`, [svc]);
+      await c.query(
+        `INSERT INTO catalogue_item (id, kind, name, unit) VALUES ($1, 'meal', 'Thali', 'plate'), ($2, 'addon', 'Curd', 'cup')`,
+        [veg, rice],
+      );
+      await c.query(`INSERT INTO menu (id, effective_from) VALUES ($1, '2026-10-01')`, [menu]);
+      await c.query(
+        `INSERT INTO menu_offer (menu_id, service_id, item_id) VALUES ($1, $2, $3), ($1, $2, $4)`,
+        [menu, svc, veg, rice],
+      );
+      await c.query(
+        `INSERT INTO menu_day (menu_id, service_id, weekday, meal_id) VALUES ($1, $2, 1, $3), ($1, $2, 2, $3)`,
+        [menu, svc, veg],
+      );
+      await c.query(
+        `INSERT INTO person_service (person_id, service_id, active_from) VALUES ($1, $2, '2026-10-01')`,
+        [consumer.personId, svc],
+      );
+    });
     await asApp(
       meals,
       consumer,
-      `INSERT INTO log_entry (on_date, person_id, change, logged_by) VALUES ('2026-10-14', $1, 'Leave', $1)`,
-      [consumer.personId],
+      `INSERT INTO log_entry (on_date, person_id, action, service_id, logged_by) VALUES ('2026-10-14', $1, 'Leave', $2, $1)`,
+      [consumer.personId, svc],
     );
     await asApp(meals, admin, `INSERT INTO holiday (name, on_date) VALUES ('A day', '2026-10-20')`);
-    const got = await asApp(meals, consumer, `SELECT menu_mon FROM menu`);
-    expect(got).toEqual([{ menu_mon: "Veg" }]);
+    const got = await asApp(meals, consumer, `SELECT weekday FROM menu_day ORDER BY weekday`);
+    expect(got).toEqual([{ weekday: 1 }, { weekday: 2 }]);
+    expect(await asApp(meals, consumer, `SELECT count(*)::int AS n FROM rate_price`)).toEqual([
+      { n: 0 },
+    ]);
   });
 });
 
@@ -202,16 +228,16 @@ describe("a kitchen with money freezes an amount when it closes a month", () => 
 
 describe("the menu is dated and append-only, like the prices", () => {
   it("is written by the admin alone, never edited, and shown in the trail", async () => {
-    const insert = `INSERT INTO menu (effective_from, menu_wed) VALUES ('2030-01-01', 'Veg')`;
+    const insert = `INSERT INTO menu (effective_from, note) VALUES ('2030-01-01', 'a')`;
     expect((await dbError(asApp(money, seeded.jovial, insert))).code).toBe("42501");
     expect((await dbError(asApp(money, seeded.supplier, insert))).code).toBe("42501");
     await asApp(money, seeded.admin, insert);
-    expect(
-      (await dbError(asApp(money, seeded.admin, `UPDATE menu SET menu_wed = 'Non Veg'`))).code,
-    ).toBe("42501");
-    expect(
-      (await dbError(money.owner.query(`UPDATE menu SET menu_wed = 'Non Veg'`))).message,
-    ).toContain("ALIMENTATION_IMMUTABLE");
+    expect((await dbError(asApp(money, seeded.admin, `UPDATE menu SET note = 'b'`))).code).toBe(
+      "42501",
+    );
+    expect((await dbError(money.owner.query(`UPDATE menu SET note = 'b'`))).message).toContain(
+      "ALIMENTATION_IMMUTABLE",
+    );
     expect((await dbError(money.owner.query(`DELETE FROM menu`))).message).toContain(
       "ALIMENTATION_IMMUTABLE",
     );

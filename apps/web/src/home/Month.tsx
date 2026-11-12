@@ -5,11 +5,12 @@ import {
   CHAPATIS,
   dayLabel,
   isFrozen,
+  itemLabel,
   type Marks,
   monthLabel,
   nextMark,
-  SAMPLE_CARD,
   SAMPLE_PERSON,
+  samplePrice,
   startingMarks,
   todayIso,
   WEEKDAY_NAMES,
@@ -91,8 +92,8 @@ export function Month({ now }: { now?: Date }) {
             </button>
           </div>
           <p>
-            Veg {rupee(SAMPLE_CARD.veg)} · Non-veg {rupee(SAMPLE_CARD.nonVeg)} · Extra chapati{" "}
-            {rupee(SAMPLE_CARD.extraChapati)}
+            Veg {rupee(samplePrice("veg"))} · Non-veg {rupee(samplePrice("nonveg"))} · Extra chapati{" "}
+            {rupee(samplePrice("chapati"))}
           </p>
         </header>
 
@@ -119,11 +120,11 @@ export function Month({ now }: { now?: Date }) {
               const mark = marks[date] ?? "meal";
               const frozen = isFrozen(date, today);
               const isToday = date === today;
-              const meal = day.meal === "Veg" ? "Veg" : "Non veg";
+              const meal = itemLabel(day.mealId) === "Veg" ? "Veg" : "Non veg";
               const what =
                 mark === "leave"
                   ? "Leave, no meal, ₹0"
-                  : `${meal}, ${rupee(day.dayTotal)}${
+                  : `${meal}, ${rupee(day.rowTotal)}${
                       mark === "switch"
                         ? ", switched"
                         : mark === "chapati"
@@ -149,7 +150,7 @@ export function Month({ now }: { now?: Date }) {
                     {mark === "leave" ? "Leave" : meal}
                   </span>
                   <span className="p" aria-hidden="true">
-                    {mark === "leave" ? "–" : `${frozen ? "" : "~"}${rupee(day.dayTotal)}`}
+                    {mark === "leave" ? "–" : `${frozen ? "" : "~"}${rupee(day.rowTotal)}`}
                   </span>
                   {mark === "chapati" ? (
                     <span className="plus" aria-hidden="true">
@@ -201,12 +202,12 @@ export function Month({ now }: { now?: Date }) {
               <dd>{rupee(s.mealsAmount)}</dd>
             </div>
             <div>
-              <dt>{s.counts.extraChapati} extra chapatis</dt>
-              <dd>{rupee(s.breadAmount)}</dd>
+              <dt>{s.counts.addOns.chapati ?? 0} extra chapatis</dt>
+              <dd>{rupee(s.addOnAmount)}</dd>
             </div>
             <div>
               <dt>Month’s extras, for papad, salad and the like</dt>
-              <dd>{rupee(s.extrasAmount)}</dd>
+              <dd>{rupee(s.feeAmount)}</dd>
             </div>
           </dl>
           {!done && s.actualToDate > 0 ? (

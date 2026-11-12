@@ -7,10 +7,11 @@ import { nodeDb } from "../src/db/node.ts";
 import { exportWorkspace } from "../src/lifecycle/bundleio.ts";
 import { importBundle } from "../src/lifecycle/import.ts";
 import { type Fixture, makeFixture } from "./support/fixture.ts";
-import { emptyDatabase, MENUS, seedKitchen, seedMealsKitchen } from "./support/kitchen.ts";
+import { emptyDatabase, seedKitchen, seedMealsKitchen } from "./support/kitchen.ts";
 import { newWorkspace } from "./support/pg.ts";
 import { makePlatform, type TestPlatform } from "./support/platform.ts";
-import { at, MENU, seedSpec } from "./support/spec.ts";
+import { type HomeIds, homePrices, setUpHomeService } from "./support/setup.ts";
+import { at, seedSpec } from "./support/spec.ts";
 
 /**
  * A kitchen can run with no money at all: it counts meals, and keeps everything else a kitchen keeps. Every
@@ -21,11 +22,16 @@ import { at, MENU, seedSpec } from "./support/spec.ts";
 const when = new Date("2026-11-15T06:00:00Z");
 
 /** A kitchen without money, with a menu, two members, meals and a locked month, made through the service. */
-async function mealsKitchen(): Promise<{ fx: Fixture; jovial: string; smruti: string }> {
+async function mealsKitchen(): Promise<{
+  fx: Fixture;
+  jovial: string;
+  smruti: string;
+  ids: HomeIds;
+}> {
   const fx = await makeFixture({ moneyEnabled: false });
   fx.clock.now = at("2026-09-30T06:00:00Z");
   const { svc, admin } = fx;
-  await svc.addMenu(admin, { effectiveFrom: "2026-04-01", menu: MENU });
+  const ids = await setUpHomeService(fx, { money: false });
   await svc.addHoliday(admin, {
     name: "Gandhi Jayanti",
     date: "2026-10-02",
@@ -38,20 +44,24 @@ async function mealsKitchen(): Promise<{ fx: Fixture; jovial: string; smruti: st
     date: "2026-10-01",
     personId: jovial.personId,
     allConsumers: false,
-    change: "Extra Bhakri",
+    action: "Extra",
+    serviceId: ids.lunch,
+    itemId: ids.bhakri,
     qty: 2,
   });
   await svc.addLog(smruti, {
     date: "2026-10-16",
     personId: smruti.personId,
     allConsumers: false,
-    change: "Leave",
+    action: "Leave",
+    serviceId: null,
+    itemId: null,
     qty: null,
     note: "WFH",
   });
   fx.clock.now = at("2026-11-15T06:00:00Z");
   await svc.closeMonth(admin, "2026-10", jovial.personId);
-  return { fx, jovial: jovial.personId, smruti: smruti.personId };
+  return { fx, jovial: jovial.personId, smruti: smruti.personId, ids };
 }
 
 async function freshTarget() {
@@ -77,25 +87,32 @@ const bundleOf = async (fx: Fixture): Promise<Bundle> => {
 describe("a kitchen without money, as the service keeps it", () => {
   let fx: Fixture;
   let jovial: string;
+  let ids: HomeIds;
 
   beforeAll(async () => {
     const r = await mealsKitchen();
     fx = r.fx;
     jovial = r.jovial;
+    ids = r.ids;
   });
   afterAll(async () => fx.close());
 
   it("gives counts and no money: statements, ledger and the start of a screen", async () => {
     const [s] = await fx.svc.statements(fx.admin, ["2026-10"], jovial);
-    expect(s).toMatchObject({ month: "2026-10", closed: true, counts: { extraBhakri: 2 } });
+    expect(s).toMatchObject({
+      month: "2026-10",
+      closed: true,
+      counts: { addOns: { [ids.bhakri]: 2 } },
+    });
     expect(Object.keys(s ?? {}).sort()).toEqual(
       ["basis", "closed", "counts", "month", "name", "personId"].sort(),
     );
     const ledger = await fx.svc.ledger(fx.admin, "2026-10", jovial);
-    expect(ledger.days.length).toBeGreaterThan(0);
-    for (const d of ledger.days) {
-      expect(d).not.toHaveProperty("dayTotal");
+    expect(ledger.rows.length).toBeGreaterThan(0);
+    for (const d of ledger.rows) {
+      expect(d).not.toHaveProperty("rowTotal");
       expect(d).not.toHaveProperty("mealPrice");
+      for (const a of d.addOns) expect(a).not.toHaveProperty("amount");
     }
     const boot = await fx.svc.bootstrap(fx.admin, ["admin"]);
     expect(boot.workspace.moneyEnabled).toBe(false);
@@ -103,7 +120,7 @@ describe("a kitchen without money, as the service keeps it", () => {
     expect(boot).not.toHaveProperty("pendingClaims");
     expect(boot.menu?.effectiveFrom).toBe("2026-04-01");
     expect(boot.setup).toEqual([]);
-    for (const rule of ["extras", "leave", "payments", "rateCards"])
+    for (const rule of ["monthlyFee", "leave", "payments", "rateCards"])
       expect(boot.policy).not.toHaveProperty(rule);
     expect(boot.policy.workingDays).toEqual([1, 2, 3, 4, 5]);
   });
@@ -132,11 +149,8 @@ describe("a kitchen without money, as the service keeps it", () => {
     await expect(
       fx.svc.addRateCard(fx.admin, {
         effectiveFrom: "2026-11-01",
-        veg: 1,
-        nonVeg: 1,
-        extraChapati: 1,
-        extraBhakri: 1,
-        extrasPerMonth: 1,
+        monthlyFee: 1,
+        prices: homePrices(ids, { veg: 1, nonVeg: 1, chapati: 1, bhakri: 1 }),
       }),
     ).rejects.toMatchObject({ code: "money_not_tracked" });
     await expect(
@@ -185,12 +199,15 @@ describe("a kitchen without money, as the service keeps it", () => {
     expect(t.meals).toBeGreaterThan(0);
   });
 
-  it("asks for the menu to be set up, and says what it needs", async () => {
+  it("asks for what it serves and the menu to be set up, and says what it needs", async () => {
     const empty = await makeFixture({ moneyEnabled: false });
     try {
       const boot = await empty.svc.bootstrap(empty.admin, ["admin"]);
       expect(boot.setup.map((s) => s.code).sort()).toEqual(["consumers", "menu"]);
       expect(boot.setup.map((s) => s.code)).not.toContain("rate_card");
+      expect(boot.setup[0]?.message).toMatch(/Add what you serve/);
+      expect(boot.catalogue).toEqual([]);
+      expect(boot.services).toEqual([]);
     } finally {
       await empty.close();
     }
@@ -219,7 +236,17 @@ describe("[P3] a bundle moves between kitchens with money and without, and drops
   it("carries the menu and the kind of kitchen as a section of its own", () => {
     expect(mealsBundle.workspace.moneyEnabled).toBe(false);
     expect(mealsBundle.menus).toHaveLength(1);
-    expect(mealsBundle.menus[0]?.days).toMatchObject({ "1": "Veg", "3": "Non Veg" });
+    expect(mealsBundle.menus[0]?.days).toMatchObject({
+      [meals.ids.lunch]: { "1": meals.ids.veg, "3": meals.ids.nonVeg },
+    });
+    // What it serves comes with it, and not one price.
+    expect(mealsBundle.catalogue.map((i) => i.name).sort()).toEqual([
+      "Bhakri",
+      "Chapati",
+      "Non Veg",
+      "Veg",
+    ]);
+    expect(mealsBundle.services.map((s) => s.name)).toEqual(["Lunch"]);
     expect(mealsBundle.rateCards).toEqual([]);
     expect(mealsBundle.claims).toEqual([]);
     expect(mealsBundle.closes.every((c) => c.billed === null)).toBe(true);
@@ -278,9 +305,7 @@ describe("[P3] a bundle moves between kitchens with money and without, and drops
       expect(await q(`SELECT 1 FROM holiday`)).toHaveLength(mealsBundle.holidays.length);
       expect(await q(`SELECT billed FROM month_close`)).toEqual([{ billed: null }]);
       // And it is a kitchen that tracks money from now on: it can have a price, a claim and a bill.
-      await q(
-        `INSERT INTO rate_card (effective_from, veg, non_veg, extra_chapati, extra_bhakri, extras_per_month) VALUES ('2026-04-01', 150, 170, 15, 30, 40)`,
-      );
+      await q(`INSERT INTO rate_card (effective_from, monthly_fee) VALUES ('2026-04-01', 4000)`);
     } finally {
       await t.owner.close();
       await t.ws.destroy();
@@ -335,21 +360,22 @@ describe("[P3] a bundle moves between kitchens with money and without, and drops
       });
       const actor = { personId: must(admin).id, role: "admin" as const };
       const boot = await svc.bootstrap(actor, ["admin"]);
-      expect(boot.setup).toContainEqual({
-        code: "rate_card",
-        message: "Add prices to start billing.",
-      });
+      // It names exactly the four items that still have no price.
+      const ask = boot.setup.find((h) => h.code === "rate_card");
+      expect(ask?.message).toMatch(/^Price 4 items to start billing: /);
+      for (const name of ["Veg", "Non Veg", "Chapati", "Bhakri"])
+        expect(ask?.message).toContain(name);
       expect(boot.statements.length).toBeGreaterThan(0);
       expect(boot.statements.every((s) => !("billed" in s))).toBe(true);
 
       await svc.addRateCard(actor, {
         effectiveFrom: "2026-04-01",
-        veg: rupees(150),
-        nonVeg: rupees(170),
-        extraChapati: rupees(15),
-        extraBhakri: rupees(30),
-        extrasPerMonth: rupees(40),
+        monthlyFee: rupees(40),
+        prices: homePrices(meals.ids),
       });
+      expect((await svc.bootstrap(actor, ["admin"])).setup.map((h) => h.code)).not.toContain(
+        "rate_card",
+      );
       const priced = (await svc.statements(actor, ["2026-10"])) as StatementDto[];
       expect(priced.length).toBeGreaterThan(0);
       const jovial = priced.find((s) => s.name === "Jovial");
@@ -389,7 +415,17 @@ describe("a kitchen without money, over HTTP", () => {
     expect(boot.workspace.moneyEnabled).toBe(false);
     expect(boot.rateCard).toBeUndefined();
     expect(boot.pendingClaims).toBeUndefined();
-    expect(boot.menu.days).toMatchObject({ "1": "Veg" });
+    expect(boot.menu.days).toMatchObject({
+      [kitchen.catalogue.lunch]: { "1": kitchen.catalogue.veg },
+    });
+    // What it serves is there for every kitchen, with no price on any of it.
+    expect(boot.catalogue.map((i: { name: string }) => i.name).sort()).toEqual([
+      "Bhakri",
+      "Chapati",
+      "Non Veg",
+      "Veg",
+    ]);
+    expect(boot.services.map((x: { name: string }) => x.name)).toEqual(["Lunch"]);
     expect(boot.statements.map((s: { name: string }) => s.name).sort()).toEqual([
       "Jovial",
       "Smruti",
@@ -444,10 +480,12 @@ describe("a kitchen without money, over HTTP", () => {
     const ledger = await kitchen.jovial.get(
       `${w}/ledger?month=2026-10&person=${kitchen.ids.jovial}`,
     );
-    expect(ledger.json.days.length).toBeGreaterThan(0);
-    expect(JSON.stringify(ledger.json)).not.toMatch(/dayTotal|mealPrice|breadAmount|leaveAmount/);
-    expect(ledger.json.days.find((d: { date: string }) => d.date === "2026-10-01")).toMatchObject({
-      extraBhakri: 2,
+    expect(ledger.json.rows.length).toBeGreaterThan(0);
+    expect(JSON.stringify(ledger.json)).not.toMatch(
+      /rowTotal|mealPrice|addOnAmount|leaveAmount|amount/,
+    );
+    expect(ledger.json.rows.find((d: { date: string }) => d.date === "2026-10-01")).toMatchObject({
+      addOns: [{ itemId: kitchen.catalogue.bhakri, qty: 2 }],
     });
   });
 
@@ -475,18 +513,29 @@ describe("a kitchen without money, over HTTP", () => {
   it("keeps a menu, dated and in words, that the admin alone can add", async () => {
     const menus = (await kitchen.jovial.get(`${w}/menus`)).json;
     expect(menus).toHaveLength(1);
-    expect(menus[0]).toMatchObject({ effectiveFrom: "2026-04-01", days: { "1": "Veg" } });
-    expect((await kitchen.jovial.post(`${w}/menus`, MENUS)).status).toBe(403);
-    expect((await kitchen.owner.post(`${w}/menus`, MENUS)).status).toBe(422); // that date has one
+    const { lunch, veg, nonVeg, chapati, bhakri } = kitchen.catalogue;
+    const offered = { [lunch]: [veg, nonVeg, chapati, bhakri] };
+    expect(menus[0]).toMatchObject({
+      effectiveFrom: "2026-04-01",
+      days: { [lunch]: { "1": veg } },
+      offered: { [lunch]: expect.arrayContaining([veg, bhakri]) },
+    });
+    // No price is on a menu of a kitchen without money, nor can one be sent to it.
+    expect(JSON.stringify(menus)).not.toMatch(/amount|price/i);
+    const same = { effectiveFrom: "2026-04-01", days: { [lunch]: { 1: veg } }, offered };
+    expect((await kitchen.jovial.post(`${w}/menus`, same)).status).toBe(403);
+    expect((await kitchen.owner.post(`${w}/menus`, same)).status).toBe(422); // that date has one
     const next = await kitchen.owner.post(`${w}/menus`, {
       effectiveFrom: "2026-12-01",
-      menu: { 1: "Non Veg", 2: "Non Veg", 3: "Non Veg", 4: "Non Veg" },
+      days: { [lunch]: { 1: nonVeg, 2: nonVeg, 3: nonVeg, 4: nonVeg } },
+      offered,
     });
     expect(next.status).toBe(422);
-    expect(next.json.error.issues[0].code).toBe("NO_MENU_FOR_WORKING_DAY");
+    expect(next.json.error.issues[0].code).toBe("SERVICE_NOT_SERVED");
     const ok = await kitchen.owner.post(`${w}/menus`, {
       effectiveFrom: "2026-12-01",
-      menu: { 1: "Non Veg", 2: "Non Veg", 3: "Non Veg", 4: "Non Veg", 5: "Veg" },
+      days: { [lunch]: { 1: nonVeg, 2: nonVeg, 3: nonVeg, 4: nonVeg, 5: veg } },
+      offered,
     });
     expect(ok.status).toBe(201);
     const history = (await kitchen.jovial.get(`${w}/history`)).json.events.map(
@@ -498,7 +547,7 @@ describe("a kitchen without money, over HTTP", () => {
   it("shows the rules without the money rules, and keeps them neutral", async () => {
     const rules = (await kitchen.owner.get(`${w}/policies`)).json;
     for (const r of rules)
-      for (const k of ["extras", "leave", "payments", "rateCards"])
+      for (const k of ["monthlyFee", "leave", "payments", "rateCards"])
         expect(r.doc, k).not.toHaveProperty(k);
     const set = await kitchen.owner.post(`${w}/policies`, {
       effectiveFrom: "2026-12-01",
@@ -539,6 +588,8 @@ describe("a kitchen without money, over HTTP", () => {
       `/ledger?month=2026-10&person=${id}`,
       "/history",
       "/menus",
+      "/catalogue",
+      "/services",
       "/policies",
       "/holidays",
       "/log",
@@ -548,7 +599,7 @@ describe("a kitchen without money, over HTTP", () => {
       "/export",
     ];
     const keys =
-      /"(billed|paid|owed|balance|amount|price|claims|settlements|decisions|reversals|dayTotal|liveTotal|extrasPerMonth)":(?!\[\]|null|0[,}])/;
+      /"(billed|paid|owed|balance|amount|price|claims|settlements|decisions|reversals|rowTotal|liveTotal|monthlyFee)":(?!\[\]|null|0[,}]|\{"minDays":1\})/;
     const words = /₹|rupee|paise|\bbill(ed|s)?\b|\bprice/i;
     for (const [who, headers] of [
       [kitchen.owner, undefined],
@@ -654,17 +705,26 @@ describe("what an agent is offered in a kitchen without money", () => {
     const listed = (await call(key, "resources/list")).json.result.resources as { uri: string }[];
     expect(listed.map((r) => r.uri)).toEqual([
       "alimentation://kitchen/guide",
+      "alimentation://kitchen/catalogue",
       "alimentation://kitchen/menu",
       "alimentation://kitchen/holidays",
     ]);
     const menu = (await call(key, "resources/read", { uri: "alimentation://kitchen/menu" })).json
       .result.contents[0];
-    expect(JSON.parse(menu.text)).toEqual((await meals.jovial.get(`/api/w/mcp-meals/menus`)).json);
+    expect(JSON.parse(menu.text)).toEqual({
+      services: (await meals.jovial.get(`/api/w/mcp-meals/services`)).json,
+      menus: (await meals.jovial.get(`/api/w/mcp-meals/menus`)).json,
+    });
+    // The catalogue shows no price in a kitchen that has none.
+    const served = (await call(key, "resources/read", { uri: "alimentation://kitchen/catalogue" }))
+      .json.result.contents[0];
+    expect(served.text).not.toMatch(/price|amount|paise/i);
+    expect(JSON.parse(served.text).items).toHaveLength(4);
     const ledger = (
       await call(key, "resources/read", { uri: "alimentation://kitchen/ledger/2026-10" })
     ).json.result.contents[0];
-    expect(JSON.parse(ledger.text).days.length).toBeGreaterThan(0);
-    expect(ledger.text).not.toMatch(/dayTotal|mealPrice/);
+    expect(JSON.parse(ledger.text).rows.length).toBeGreaterThan(0);
+    expect(ledger.text).not.toMatch(/rowTotal|mealPrice/);
     const prices = await call(key, "resources/read", { uri: "alimentation://kitchen/prices" });
     expect(prices.json.error.code).toBe(-32002);
     const guide = (await call(key, "resources/read", { uri: "alimentation://kitchen/guide" })).json
@@ -874,11 +934,12 @@ describe("[P3] moving a kitchen without money, and a kitchen with money, between
     const boot = (await boss.get("/api/w/go-track/bootstrap")).json;
     expect(boot.workspace.moneyEnabled).toBe(true);
     expect(boot.rateCard).toBeNull();
-    expect(boot.setup).toContainEqual({
-      code: "rate_card",
-      message: "Add prices to start billing.",
-    });
+    // It asks for exactly the items that came over without a price.
+    expect(boot.setup.find((h: { code: string }) => h.code === "rate_card").message).toMatch(
+      /^Price 4 items to start billing: .*Veg/,
+    );
     expect(boot.menu).not.toBeNull();
+    expect(boot.catalogue).toHaveLength(4);
     const now = (await boss.get("/api/w/go-track/statements?months=2026-09,2026-10")).status;
     expect(now).toBe(422); // no prices: the money statements need them
     // The meals came over: the counts of the bootstrap month are those the original kept.
@@ -888,11 +949,13 @@ describe("[P3] moving a kitchen without money, and a kitchen with money, between
     // The first price makes it bill, and the locked September stays locked with nothing frozen.
     const card = await boss.post("/api/w/go-track/rate-cards", {
       effectiveFrom: "2026-04-01",
-      veg: 15000,
-      nonVeg: 17000,
-      extraChapati: 1500,
-      extraBhakri: 3000,
-      extrasPerMonth: 4000,
+      monthlyFee: 4000,
+      prices: [
+        { itemId: other.catalogue.veg, amount: 15000 },
+        { itemId: other.catalogue.nonVeg, amount: 17000 },
+        { itemId: other.catalogue.chapati, amount: 1500 },
+        { itemId: other.catalogue.bhakri, amount: 3000 },
+      ],
     });
     expect(card.status).toBe(201);
     const sep = (await boss.get("/api/w/go-track/statements?months=2026-09")).json;

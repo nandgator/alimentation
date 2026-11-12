@@ -1,7 +1,6 @@
 import { type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { seedHome } from "./seed.ts";
 import { expectAccessible, firstOfMonth, signIn } from "./support.ts";
-
-const MENU = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" };
 
 /** A kitchen with prices, a member who has joined, and a claim waiting, made through the API. */
 async function seed(owner: Page, member: Page, tag: string) {
@@ -10,17 +9,7 @@ async function seed(owner: Page, member: Page, tag: string) {
   const api = owner.request;
   await api.post("/api/workspaces", { data: { slug, name: `Layout ${tag}`, alsoSupplier: true } });
   const w = `/api/w/${slug}`;
-  await api.post(`${w}/menus`, { data: { effectiveFrom: firstOfMonth(), menu: MENU } });
-  await api.post(`${w}/rate-cards`, {
-    data: {
-      effectiveFrom: firstOfMonth(),
-      veg: 15000,
-      nonVeg: 17000,
-      extraChapati: 1500,
-      extraBhakri: 3000,
-      extrasPerMonth: 4000,
-    },
-  });
+  await seedHome(api, slug);
   const made = await api.post(`${w}/people`, {
     data: { name: "Jovial", role: "consumer", activeFrom: firstOfMonth() },
   });

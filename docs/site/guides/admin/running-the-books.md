@@ -17,6 +17,8 @@ their name, contact and dates, and **disable** them or **enable** them again.
 - **Invite** on a member's row makes a one-use link for seven days, tied to the email you type.
 - **Disabling** someone keeps their history and stops new entries. It is not deleting.
 - **Eating from** and **Until** are the dates a member is billed between.
+- **Services** (only when the kitchen has two or more) are the ones the member takes, each from a
+  date. A new member takes all of them.
 - **Contact** is yours alone, and is stored encrypted.
 - **Key** is your own code for a person, such as a room or staff number. It is optional, it must be
   unique in the kitchen, and once it is set it cannot be changed. Use a code you already have, not a
@@ -26,9 +28,10 @@ their name, contact and dates, and **disable** them or **enable** them again.
 ### Bringing many people in from a file
 
 **Import** on the People screen takes a file (or text pasted in) with one person to a row. The first
-line names the columns: `externalKey`, `name`, `role`, `contact`, `activeFrom`, `activeTo`. Only
-`name` and `role` are needed, and `role` is member, supplier or admin. **Download a template** gives
-you a file to start from.
+line names the columns: `externalKey`, `name`, `role`, `contact`, `activeFrom`, `activeTo`,
+`services`. Only `name` and `role` are needed, and `role` is member, supplier or admin. **Download a
+template** gives you a file to start from. In `services`, put the names of the services a member
+takes between `|` (for example `Lunch|Dinner`); leave it blank and a new member takes every service.
 
 ```text
 externalKey,name,role,contact,activeFrom,activeTo
@@ -60,11 +63,17 @@ fingerprint of the file, never the file), beside the usual line for each person.
 and import it back. People you have not given a key will be added again if you import their rows,
 which the preview shows.
 
-## Menu, prices and rules
+## What you serve, the menu, prices and rules
 
-- **Menu** says which meal is served on each working day, from a date. Every kitchen has one.
-- **Prices** (rate cards) carry what a meal and an extra cost, from a date. Only a kitchen that
-  tracks money has them; see [A kitchen without money](/guides/admin/a-kitchen-without-money/).
+- **Catalogue** lists your services and your items (meals and add-ons), each of which can be added,
+  renamed and retired, and never deleted. See [What you serve](/guides/admin/what-you-serve/).
+- **Menu** says which meal each service serves on each working day, and which other items it offers,
+  from a date. Every kitchen has one.
+- **Prices** (rate cards) carry what each item costs, and the monthly fee, from a date. Only a
+  kitchen that tracks money has them; see
+  [A kitchen without money](/guides/admin/a-kitchen-without-money/).
+- On **People**, a kitchen with more than one service shows which services each member takes, and
+  from when.
 - Both are **added, never edited**: a new one applies from its date, and earlier months keep what
   they had.
 - **Rules for this kitchen** are the options in [the rules reference](/guides/admin/kitchen-rules/).

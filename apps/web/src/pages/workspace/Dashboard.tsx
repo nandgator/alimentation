@@ -7,6 +7,7 @@ import {
 } from "@alimentation/core";
 import { useMemo, useState } from "react";
 import { getJson } from "../../api.ts";
+import { priceWords, shownItems } from "../../catalogue.ts";
 import { BarChart } from "../../components/Chart.tsx";
 import {
   Chip,
@@ -18,6 +19,7 @@ import {
   useLoad,
 } from "../../components/ui.tsx";
 import { date, money, month as monthLabel } from "../../format.ts";
+import { BillLines } from "./BillLines.tsx";
 import { useWorkspace } from "./context.tsx";
 
 const TONE: Record<string, "good" | "warn" | "bad" | undefined> = {
@@ -66,6 +68,21 @@ function MealsDashboard() {
   const mine = all.filter((s) => s.month === selected);
   const single = ws.role === "consumer";
   const projected = mine.length > 0 && mine.every((s) => s.basis === "Projected");
+  // The kitchen's own food: a column and a tile for each meal and each add-on it has served.
+  const meals = shownItems(
+    boot,
+    "meal",
+    mine.map((s) => s.counts.items),
+    boot.today,
+  );
+  const addOns = shownItems(
+    boot,
+    "addon",
+    mine.map((s) => s.counts.addOns),
+    boot.today,
+  );
+  const extrasOf = (s: MealStatementDto) =>
+    Object.values(s.counts.addOns).reduce((a, n) => a + n, 0);
   const series = [...new Set(all.map((s) => s.personId))].map((id) => ({
     name: single ? "Meals" : ws.nameOf(id),
     values: range.map(
@@ -111,18 +128,26 @@ function MealsDashboard() {
               projected={projected}
             />
             <Tile lead label="Leave days" value={total(mine, (s) => s.counts.leave) || "-"} />
-            <Tile
-              lead
-              label="Extras"
-              value={total(mine, (s) => s.counts.extraChapati + s.counts.extraBhakri) || "-"}
-            />
+            <Tile lead label="Extras" value={total(mine, extrasOf) || "-"} />
           </div>
-          <div className="tiles">
-            <Tile label="Veg" value={total(mine, (s) => s.counts.veg)} />
-            <Tile label="Non veg" value={total(mine, (s) => s.counts.nonVeg)} />
-            <Tile label="Chapatis" value={total(mine, (s) => s.counts.extraChapati) || "-"} />
-            <Tile label="Bhakris" value={total(mine, (s) => s.counts.extraBhakri) || "-"} />
-          </div>
+          {meals.length + addOns.length > 0 ? (
+            <div className="tiles">
+              {meals.map((i) => (
+                <Tile
+                  key={i.id}
+                  label={i.name}
+                  value={total(mine, (s) => s.counts.items[i.id] ?? 0)}
+                />
+              ))}
+              {addOns.map((i) => (
+                <Tile
+                  key={i.id}
+                  label={i.name}
+                  value={total(mine, (s) => s.counts.addOns[i.id] ?? 0) || "-"}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : !stm.loading && boot.menu ? (
         <p className="muted">Nothing to show for {monthLabel(selected)} yet.</p>
@@ -139,11 +164,17 @@ function MealsDashboard() {
               <tr>
                 <th>Name</th>
                 <th className="r">Meals</th>
-                <th className="r">Veg</th>
-                <th className="r">Non veg</th>
+                {meals.map((i) => (
+                  <th key={i.id} className="r">
+                    {i.name}
+                  </th>
+                ))}
                 <th className="r">Leave</th>
-                <th className="r">Chapatis</th>
-                <th className="r">Bhakris</th>
+                {addOns.map((i) => (
+                  <th key={i.id} className="r">
+                    {i.name}
+                  </th>
+                ))}
                 <th>Month</th>
               </tr>
             </thead>
@@ -152,11 +183,17 @@ function MealsDashboard() {
                 <tr key={s.personId} className={s.basis === "Projected" ? "projected" : ""}>
                   <td>{s.name}</td>
                   <td className="r">{s.counts.meals}</td>
-                  <td className="r">{s.counts.veg}</td>
-                  <td className="r">{s.counts.nonVeg}</td>
+                  {meals.map((i) => (
+                    <td key={i.id} className="r">
+                      {s.counts.items[i.id] ?? 0}
+                    </td>
+                  ))}
                   <td className="r">{s.counts.leave || "-"}</td>
-                  <td className="r">{s.counts.extraChapati || "-"}</td>
-                  <td className="r">{s.counts.extraBhakri || "-"}</td>
+                  {addOns.map((i) => (
+                    <td key={i.id} className="r">
+                      {s.counts.addOns[i.id] || "-"}
+                    </td>
+                  ))}
                   <td>
                     <Chip tone={s.closed ? "good" : undefined}>{s.closed ? "Locked" : "Open"}</Chip>
                   </td>
@@ -221,7 +258,10 @@ function MoneyDashboard() {
     values: range.map((m) => all.find((s) => s.personId === id && s.month === m)?.billed ?? null),
   }));
   const rateLine = boot.rateCard
-    ? `Veg ${money(boot.rateCard.veg)} · Non Veg ${money(boot.rateCard.nonVeg)} · Chapati ${money(boot.rateCard.extraChapati)} · Bhakri ${money(boot.rateCard.extraBhakri)} · Extras ${money(boot.rateCard.extrasPerMonth)}/month · from ${date(boot.rateCard.effectiveFrom)}`
+    ? `${[
+        ...priceWords(boot, boot.rateCard.prices, money),
+        ...(boot.rateCard.monthlyFee > 0 ? [`Monthly fee ${money(boot.rateCard.monthlyFee)}`] : []),
+      ].join(" · ")} · from ${date(boot.rateCard.effectiveFrom)}`
     : null;
 
   return (
@@ -353,6 +393,15 @@ function MoneyDashboard() {
           This month was closed, and entries changed afterwards by{" "}
           {money(Math.abs(mine[0].changedAfterClose))}.
         </div>
+      ) : null}
+
+      {mine.length > 0 ? (
+        <section className="stack" aria-label="Bill lines">
+          <h2>{single ? "Your bill" : "Bills, line by line"}</h2>
+          {mine.map((s) => (
+            <BillLines key={s.personId} statement={s} name={single ? null : s.name} />
+          ))}
+        </section>
       ) : null}
 
       {series.length > 0 ? (

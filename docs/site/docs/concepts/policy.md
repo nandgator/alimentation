@@ -19,7 +19,7 @@ rule this build does not know is refused, never silently dropped.
   "version": 1,
   "workingDays": [1, 2, 3, 4, 5],
   "holidays": { "count": "confirmed" },
-  "extras": { "minMeals": 1 },
+  "monthlyFee": { "minDays": 1 },
   "leave": { "chargeBps": 0 },
   "monthClose": { "mode": "manual", "afterClose": "flag" },
   "exceptionCutoff": null,
@@ -30,27 +30,30 @@ rule this build does not know is refused, never silently dropped.
 
 That is `DEFAULT_POLICY`, and what a kitchen runs on until it adds a version.
 
+A policy names no item and no service, so it can never point at something that was retired. What a
+kitchen serves is in its catalogue and menus; the policy holds only the rules.
+
 ### The rules about money
 
-`extras`, `leave`, `payments` and `rateCards` are about money (`MONEY_RULES`). A kitchen that does
-not track money has none to choose: its policy documents are stored with these four at the values
-above, whatever is sent for them, and they are left out of `/bootstrap` and `/policies` (the
+`monthlyFee`, `leave`, `payments` and `rateCards` are about money (`MONEY_RULES`). A kitchen that
+does not track money has none to choose: its policy documents are stored with these four at the
+values above, whatever is sent for them, and they are left out of `/bootstrap` and `/policies` (the
 `PolicyView` type). Rules that arrive in a bundle from such a kitchen therefore carry the neutral
 values, and a kitchen that tracks money can take them as they are.
 
 ## Fields
 
-| Field                   | Values                                                                                                                               | Default             |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
-| `workingDays`           | Distinct integers 0 to 6 (0 is Sunday), at least one. Each needs a meal on the menu.                                                 | `[1,2,3,4,5]`       |
-| `holidays.count`        | `confirmed` (only confirmed holidays cancel a meal) or `all`.                                                                        | `confirmed`         |
-| `extras`                | `{ "minMeals": 1–31 }` or `null` for no monthly extras. The amount comes from the rate card.                                         | `{ "minMeals": 1 }` |
-| `leave.chargeBps`       | 0 to 10000: the share of the day's meal charged on a leave day, in basis points.                                                     | `0`                 |
-| `monthClose`            | `{ "mode": "off" }`; `{ "mode": "manual", "afterClose": … }`; or `{ "mode": "auto", "afterDays": 0–60, "afterClose": … }`.           | `manual`, `flag`    |
-| `monthClose.afterClose` | `flag` (the change is allowed and shown as _changed after close_) or `block` (it is refused until the month is reopened).            | `flag`              |
-| `exceptionCutoff`       | `{ "daysBefore": 0–7, "time": "HH:MM" }` or `null`. A member's exception must be made before this.                                   | `null`              |
-| `payments`              | `claim_confirm` (a member claims, the supplier decides) or `direct` (members cannot claim).                                          | `claim_confirm`     |
-| `rateCards.backdating`  | `none` (a card may start today or later), `current_month` (from the start of this month, never into a closed month), `unrestricted`. | `current_month`     |
+| Field                   | Values                                                                                                                                                             | Default            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
+| `workingDays`           | Distinct integers 0 to 6 (0 is Sunday), at least one. Each needs a service that serves it.                                                                         | `[1,2,3,4,5]`      |
+| `holidays.count`        | `confirmed` (only confirmed holidays cancel a meal) or `all`.                                                                                                      | `confirmed`        |
+| `monthlyFee`            | `{ "minDays": 1–31 }` or `null` for no monthly fee. It is charged when meals were eaten on at least this many different days. The amount comes from the rate card. | `{ "minDays": 1 }` |
+| `leave.chargeBps`       | 0 to 10000: the share of the day's meal charged on a leave day, in basis points.                                                                                   | `0`                |
+| `monthClose`            | `{ "mode": "off" }`; `{ "mode": "manual", "afterClose": … }`; or `{ "mode": "auto", "afterDays": 0–60, "afterClose": … }`.                                         | `manual`, `flag`   |
+| `monthClose.afterClose` | `flag` (the change is allowed and shown as _changed after close_) or `block` (it is refused until the month is reopened).                                          | `flag`             |
+| `exceptionCutoff`       | `{ "daysBefore": 0–7, "time": "HH:MM" }` or `null`. A member's exception must be made before this.                                                                 | `null`             |
+| `payments`              | `claim_confirm` (a member claims, the supplier decides) or `direct` (members cannot claim).                                                                        | `claim_confirm`    |
+| `rateCards.backdating`  | `none` (a card may start today or later), `current_month` (from the start of this month, never into a closed month), `unrestricted`.                               | `current_month`    |
 
 ## Taking effect
 

@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { seedHome } from "./seed.ts";
 import { firstOfMonth, signIn } from "./support.ts";
 
 /**
@@ -68,6 +69,7 @@ const PATHS = [
   "/log",
   "/payments",
   "/people",
+  "/catalogue",
   "/menu",
   "/prices",
   "/rates",
@@ -89,22 +91,7 @@ test.describe("the controls as drawn", () => {
       await api.post("/api/workspaces", {
         data: { slug, name: `Controls ${scheme}`, alsoSupplier: true },
       });
-      await api.post(`/api/w/${slug}/menus`, {
-        data: {
-          effectiveFrom: firstOfMonth(),
-          menu: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
-        },
-      });
-      await api.post(`/api/w/${slug}/rate-cards`, {
-        data: {
-          effectiveFrom: firstOfMonth(),
-          veg: 15000,
-          nonVeg: 17000,
-          extraChapati: 1500,
-          extraBhakri: 3000,
-          extrasPerMonth: 4000,
-        },
-      });
+      await seedHome(api, slug, { more: ["Dinner"] });
       await api.post(`/api/w/${slug}/people`, {
         data: { name: "Jovial", role: "consumer", activeFrom: firstOfMonth() },
       });

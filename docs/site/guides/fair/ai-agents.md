@@ -31,8 +31,8 @@ is about to do, and to ask you before it writes anything.
 
 In a kitchen without money there are no payments to talk about: a key cannot be given the right to
 say a payment was made, and the helper is offered nothing about bills, balances or payments. It can
-still read the menu, the holidays and the counts of meals, and log leave and extras if it is allowed
-to.
+still read what the kitchen serves, the menu, the holidays and the counts of meals, and log leave,
+switches and extras if it is allowed to.
 
 ## What it may not
 

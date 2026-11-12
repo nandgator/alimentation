@@ -9,8 +9,9 @@ description:
 ## Days the kitchen is off
 
 If you do not cook on a working day, open **My log** and add **Supplier Off** for that date. It
-applies to **everyone** and removes that day's meal from every bill. Every member sees _"The
-supplier marked the kitchen off on..."_ in their history.
+applies to **everyone** and removes that day's meal from every bill. If you serve more than one time
+of day, you can mark only one service off (for instance, no dinner) and the others carry on. Every
+member sees _"The supplier marked the kitchen off on..."_ in their history.
 
 If you add it after the day, it is marked **late**, like any other late entry. After the month is
 closed, only the admin can change it.

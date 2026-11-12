@@ -9,7 +9,7 @@ import {
   prepare,
 } from "./engine.ts";
 import { PolicySchema } from "./policy.ts";
-import { LOG_CHANGES, PAY_METHODS, SETTLEMENT_TYPES } from "./types.ts";
+import { LOG_ACTIONS, PAY_METHODS, SETTLEMENT_TYPES } from "./types.ts";
 
 /**
  * The portable form of a workspace: everything in it, in plain, versioned,
@@ -49,13 +49,51 @@ export const BundleSchema = z
     policies: z.array(
       z.object({ effectiveFrom: date, doc: z.unknown(), createdBy: nullable(uuid) }).strict(),
     ),
-    /** What is served, by date. Every kitchen has it, with or without money. */
+    /** What the kitchen serves and when it serves it. Every kitchen has them, with or without money. */
+    catalogue: z.array(
+      z
+        .object({
+          id: uuid,
+          kind: z.enum(["meal", "addon"]),
+          name: z.string().min(1).max(60),
+          unit: z.string().min(1).max(20),
+          maxQty: int.min(1).max(99),
+          archivedOn: nullable(date),
+          createdBy: nullable(uuid),
+        })
+        .strict(),
+    ),
+    services: z.array(
+      z
+        .object({
+          id: uuid,
+          name: z.string().min(1).max(40),
+          position: int.min(0).max(32767),
+          archivedOn: nullable(date),
+          createdBy: nullable(uuid),
+        })
+        .strict(),
+    ),
+    /** Which services each consumer takes, and from when. */
+    enrolments: z.array(
+      z
+        .object({
+          id: uuid,
+          personId: uuid,
+          serviceId: uuid,
+          activeFrom: date,
+          activeTo: nullable(date),
+        })
+        .strict(),
+    ),
+    /** What is served, by date: per service the meal for each weekday, and the items it offers. No prices. */
     menus: z.array(
       z
         .object({
           id: uuid,
           effectiveFrom: date,
-          days: z.record(z.string().regex(/^[0-6]$/), z.enum(["Veg", "Non Veg"])),
+          days: z.record(uuid, z.record(z.string().regex(/^[0-6]$/), uuid)),
+          offered: z.record(uuid, z.array(uuid)),
           note: nullable(z.string()),
           createdBy: nullable(uuid),
         })
@@ -67,11 +105,16 @@ export const BundleSchema = z
         .object({
           id: uuid,
           effectiveFrom: date,
-          veg: int,
-          nonVeg: int,
-          extraChapati: int,
-          extraBhakri: int,
-          extrasPerMonth: int,
+          prices: z.array(
+            z
+              .object({
+                itemId: uuid,
+                serviceId: nullable(uuid),
+                amount: int.min(0).max(10_000_000_000),
+              })
+              .strict(),
+          ),
+          monthlyFee: int.min(0).max(10_000_000_000),
           note: nullable(z.string()),
           createdBy: nullable(uuid),
         })
@@ -112,8 +155,10 @@ export const BundleSchema = z
           date,
           personId: nullable(uuid),
           allConsumers: z.boolean(),
-          change: z.enum(LOG_CHANGES),
-          qty: nullable(int),
+          action: z.enum(LOG_ACTIONS),
+          serviceId: nullable(uuid),
+          itemId: nullable(uuid),
+          qty: nullable(int.min(1).max(99)),
           note: nullable(z.string()),
           loggedBy: uuid,
           loggedAt: z.string(),
@@ -215,6 +260,8 @@ export const BundleSchema = z
           personId: uuid,
           month,
           meals: int,
+          /** Servings by meal item, so a mix-up between two meals fails verification even with no prices. */
+          items: z.record(uuid, int),
           money: nullable(
             z
               .object({
@@ -258,6 +305,9 @@ export async function sha256Hex(text: string): Promise<string> {
 
 const TABLES = [
   "policies",
+  "catalogue",
+  "services",
+  "enrolments",
   "menus",
   "rateCards",
   "holidays",
@@ -314,7 +364,162 @@ export async function parseBundle(raw: unknown): Promise<ParsedBundle> {
     if (bundle.closes.some((c) => c.billed !== null))
       problems.push("closes: a bundle without money freezes no amounts");
   }
+  problems.push(...referenceProblems(body));
   return problems.length ? { ok: false, problems } : { ok: true, bundle };
+}
+
+/**
+ * Whether every id in the bundle names something that is in it, and of the right kind: a menu cell a meal, a
+ * switch a meal, an extra an add-on. A bundle that fails is refused, not repaired. At most a handful are listed.
+ */
+export function referenceProblems(b: BundleBody): string[] {
+  const out: string[] = [];
+  const dup = (name: string, ids: readonly string[]) => {
+    if (new Set(ids).size !== ids.length) out.push(`${name}: an id is used twice`);
+  };
+  dup(
+    "catalogue",
+    b.catalogue.map((x) => x.id),
+  );
+  dup(
+    "services",
+    b.services.map((x) => x.id),
+  );
+  dup(
+    "enrolments",
+    b.enrolments.map((x) => x.id),
+  );
+  dup(
+    "menus",
+    b.menus.map((x) => x.id),
+  );
+  dup(
+    "rateCards",
+    b.rateCards.map((x) => x.id),
+  );
+  dup(
+    "people",
+    b.people.map((x) => x.id),
+  );
+  dup(
+    "log",
+    b.log.map((x) => x.id),
+  );
+
+  const names = (what: string, xs: readonly { name: string }[]) => {
+    if (new Set(xs.map((x) => x.name.toLowerCase())).size !== xs.length)
+      out.push(`${what}: a name is used twice (names differ by more than their case)`);
+  };
+  names("catalogue", b.catalogue);
+  names("services", b.services);
+  const dates = (what: string, xs: readonly { effectiveFrom: string }[]) => {
+    if (new Set(xs.map((x) => x.effectiveFrom)).size !== xs.length)
+      out.push(`${what}: two start on the same day`);
+  };
+  dates("menus", b.menus);
+  dates("rateCards", b.rateCards);
+
+  const items = new Map(b.catalogue.map((i) => [i.id, i]));
+  const services = new Set(b.services.map((s) => s.id));
+  const people = new Map(b.people.map((p) => [p.id, p]));
+  const item = (where: string, id: string) => {
+    const i = items.get(id);
+    if (!i) out.push(`${where}: names an item that is not in the catalogue`);
+    return i;
+  };
+  const service = (where: string, id: string) => {
+    if (!services.has(id)) out.push(`${where}: names a service that is not in the bundle`);
+  };
+
+  for (const e of b.enrolments) {
+    service("enrolments", e.serviceId);
+    if (people.get(e.personId)?.role !== "consumer")
+      out.push("enrolments: names someone who is not a consumer in the bundle");
+    if (e.activeTo !== null && e.activeTo < e.activeFrom)
+      out.push("enrolments: ends before it starts");
+  }
+  const spans = new Map<string, { from: string; to: string }[]>();
+  for (const e of b.enrolments) {
+    const key = `${e.personId}|${e.serviceId}`;
+    const to = e.activeTo ?? "9999-12-31";
+    const mine = spans.get(key) ?? [];
+    if (mine.some((x) => x.from <= to && e.activeFrom <= x.to))
+      out.push("enrolments: a person takes a service twice on the same days");
+    mine.push({ from: e.activeFrom, to });
+    spans.set(key, mine);
+  }
+  for (const m of b.menus) {
+    for (const [sid, ids] of Object.entries(m.offered)) {
+      service("menus", sid);
+      for (const id of ids) item("menus", id);
+    }
+    for (const [sid, week] of Object.entries(m.days)) {
+      service("menus", sid);
+      for (const meal of Object.values(week)) {
+        const i = item("menus", meal);
+        if (i && i.kind !== "meal") out.push("menus: a day is served with an add-on, not a meal");
+        if (!m.offered[sid]?.includes(meal))
+          out.push("menus: a service serves a meal that it does not offer");
+      }
+    }
+  }
+  for (const c of b.rateCards) {
+    const seen = new Set<string>();
+    for (const l of c.prices) {
+      item("rateCards", l.itemId);
+      if (l.serviceId !== null) service("rateCards", l.serviceId);
+      const key = `${l.itemId}|${l.serviceId ?? ""}`;
+      if (seen.has(key)) out.push("rateCards: an item is priced twice for the same service");
+      seen.add(key);
+    }
+  }
+  const scopes = new Set<string>();
+  const wholeDay = new Set<string>();
+  const parts = new Set<string>();
+  for (const e of b.log) {
+    if (
+      e.allConsumers !== (e.action === "Supplier Off") ||
+      (e.personId === null) !== e.allConsumers
+    )
+      out.push("log: who an entry is for does not fit its action");
+    const who = e.personId ?? "*";
+    const scope = `${e.date}|${who}|${e.action}`;
+    const key =
+      e.action === "Switch"
+        ? `${scope}|${e.serviceId}`
+        : e.action === "Extra"
+          ? `${scope}|${e.serviceId}|${e.itemId}`
+          : `${scope}|${e.serviceId ?? ""}`;
+    if (scopes.has(key)) out.push("log: the same entry is made twice");
+    scopes.add(key);
+    if (e.action === "Leave" || e.action === "Supplier Off") {
+      (e.serviceId === null ? wholeDay : parts).add(scope);
+    }
+    if (e.action === "Extra" && e.itemId !== null) {
+      const i = items.get(e.itemId);
+      if (i && e.qty !== null && e.qty > i.maxQty)
+        out.push("log: an extra is for more than the item's largest quantity");
+    }
+    if (e.personId !== null && !people.has(e.personId))
+      out.push("log: names a person who is not in the bundle");
+    if (e.serviceId !== null) service("log", e.serviceId);
+    const i = e.itemId === null ? undefined : item("log", e.itemId);
+    if (e.action === "Switch" && (e.serviceId === null || i?.kind !== "meal"))
+      out.push("log: a switch must name a service and a meal");
+    if (e.action === "Extra" && (e.serviceId === null || i?.kind !== "addon" || e.qty === null))
+      out.push("log: an extra must name a service, an add-on and a quantity");
+    if (
+      (e.action === "Leave" || e.action === "Supplier Off") &&
+      (e.itemId !== null || e.qty !== null)
+    )
+      out.push(`log: ${e.action} takes no item or quantity`);
+  }
+  for (const k of wholeDay)
+    if (parts.has(k)) out.push("log: a whole day and one of its services both stand");
+  for (const x of b.expected)
+    for (const id of Object.keys(x.items))
+      if (items.get(id)?.kind !== "meal") out.push("expected: counts an item that is not a meal");
+  return [...new Set(out)].slice(0, 12);
 }
 
 /** Rules in the bundle that this release does not understand. They are listed and the move is refused. */
@@ -330,6 +535,9 @@ export function unsupportedRules(b: Pick<Bundle, "policies">): string[] {
   }
   return out;
 }
+
+const nonZero = (r: Readonly<Record<string, number>>): Record<string, number> =>
+  Object.fromEntries(Object.entries(r).filter(([, n]) => n > 0));
 
 /**
  * Every consumer's month up to today, in the form a bundle carries: the meals, and the money where the
@@ -355,6 +563,7 @@ export function expectedTotals(data: EngineData): ExpectedTotal[] {
         personId: m.personId,
         month: m.month,
         meals: m.counts.meals,
+        items: nonZero(m.counts.items),
         money: s
           ? {
               liveTotal: s.liveTotal,
@@ -387,7 +596,13 @@ export function moneyBundleProblem(
 export interface TotalMismatch {
   personId: string;
   month: string;
-  field: keyof NonNullable<ExpectedTotal["money"]> | "meals" | "money" | "missing" | "unexpected";
+  field:
+    | keyof NonNullable<ExpectedTotal["money"]>
+    | "meals"
+    | "items"
+    | "money"
+    | "missing"
+    | "unexpected";
   expected: unknown;
   actual: unknown;
 }
@@ -419,6 +634,14 @@ export function compareTotals(
         field: "meals",
         expected: e.meals,
         actual: a.meals,
+      });
+    if (canonicalJson(a.items) !== canonicalJson(e.items))
+      out.push({
+        personId: e.personId,
+        month: e.month,
+        field: "items",
+        expected: e.items,
+        actual: a.items,
       });
     // Money is compared where the original had it. A copy that has none (a meals-only bundle moved into a
     // kitchen with no prices yet) is checked by its meals alone.

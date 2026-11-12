@@ -7,22 +7,25 @@ import {
   monthOf,
   monthStart,
   monthsBetween,
+  type Weekday,
   weekdayOf,
 } from "./dates.ts";
 import { fractionOf, type Paise } from "./money.ts";
 import { must } from "./must.ts";
 import { autoCloseDate, type Policy, type PolicyVersion, policyForMonth } from "./policy.ts";
 import {
+  type CatalogueItem,
   type Claim,
   type Decision,
   EngineError,
+  type Enrolment,
   type Holiday,
   type LogEntry,
-  type MealType,
   type MenuVersion,
   type MonthClose,
   type Person,
   type RateCard,
+  type Service,
   type Settlement,
 } from "./types.ts";
 
@@ -35,6 +38,11 @@ export interface EngineData {
    */
   moneyEnabled: boolean;
   policies: readonly PolicyVersion[];
+  /** What the kitchen serves. Its ids are what menus, prices and log entries refer to. */
+  catalogue: readonly CatalogueItem[];
+  services: readonly Service[];
+  /** Which services each consumer takes, and from when. A consumer is billed only for those. */
+  enrolments: readonly Enrolment[];
   /** What is served, by date. Every kitchen has it. */
   menus: readonly MenuVersion[];
   /** Prices, by date. Empty for a kitchen that does not track money. */
@@ -51,31 +59,43 @@ export interface EngineData {
 export type DayStatus = "Meal" | "Leave" | "Holiday" | "Supplier Off" | "Inactive";
 export type Basis = "Actual" | "Projected";
 
-export interface LedgerDay {
+/** One add-on a person asked for in one service on one day. */
+export interface LedgerAddOn {
+  itemId: string;
+  qty: number;
+  amount: Paise;
+}
+
+/**
+ * One consumer, one date, one service. A day on which the person is not active is one row with no service; a
+ * working day on which a service is not served, or the person does not take it, has no row for it.
+ */
+export interface LedgerRow {
   date: IsoDate;
   personId: string;
+  serviceId: string | null;
   status: DayStatus;
-  meal: MealType | null;
-  extraChapati: number;
-  extraBhakri: number;
+  /** The meal served: the menu's, unless a Switch replaced it. Null unless the status is Meal. */
+  mealId: string | null;
+  addOns: LedgerAddOn[];
   mealPrice: Paise;
-  breadAmount: Paise;
-  /** Charged on a leave day when the workspace's rules say so; otherwise zero. */
+  addOnAmount: Paise;
+  /** Charged on a leave row when the workspace's rules say so; otherwise zero. */
   leaveAmount: Paise;
-  dayTotal: Paise;
+  rowTotal: Paise;
   basis: Basis;
   holidayName: string | null;
 }
 
-/** A day of a kitchen without money: what was eaten, and no price on any of it. */
-export type MealLedgerDay = Omit<
-  LedgerDay,
-  "mealPrice" | "breadAmount" | "leaveAmount" | "dayTotal"
->;
+/** A row of a kitchen without money: what was eaten, and no price on any of it. */
+export type MealLedgerRow = Omit<
+  LedgerRow,
+  "mealPrice" | "addOnAmount" | "leaveAmount" | "rowTotal" | "addOns"
+> & { addOns: Omit<LedgerAddOn, "amount">[] };
 
-export function mealLedgerDay(d: LedgerDay): MealLedgerDay {
-  const { mealPrice: _m, breadAmount: _b, leaveAmount: _l, dayTotal: _t, ...rest } = d;
-  return rest;
+export function mealLedgerRow(r: LedgerRow): MealLedgerRow {
+  const { mealPrice: _m, addOnAmount: _b, leaveAmount: _l, rowTotal: _t, addOns, ...rest } = r;
+  return { ...rest, addOns: addOns.map(({ itemId, qty }) => ({ itemId, qty })) };
 }
 
 export type StatusCode =
@@ -99,38 +119,45 @@ export const STATUS_LABEL: Record<StatusCode, string> = {
   PROJECTED: "Projected",
 };
 
+/** What was served to a person in a month, counted. */
+export interface StatementCounts {
+  /** Servings: one for each meal row, so a person who eats two services on a day has two. */
+  meals: number;
+  /** Service slots on leave. */
+  leave: number;
+  /** Meal rows by item. */
+  items: Record<string, number>;
+  /** Add-ons asked for, by item. */
+  addOns: Record<string, number>;
+}
+
 /** What a kitchen without money knows of a person's month: the counts, and whether the month is locked. */
 export interface MealStatement {
   personId: string;
   month: Month;
   basis: Basis;
-  counts: {
-    meals: number;
-    veg: number;
-    nonVeg: number;
-    leave: number;
-    extraChapati: number;
-    extraBhakri: number;
-  };
+  counts: StatementCounts;
   closed: boolean;
+}
+
+/** One line of a bill: an item, how many, and what they came to. */
+export interface StatementLine {
+  itemId: string;
+  qty: number;
+  amount: Paise;
 }
 
 export interface Statement {
   personId: string;
   month: Month;
   basis: Basis;
-  counts: {
-    meals: number;
-    veg: number;
-    nonVeg: number;
-    leave: number;
-    extraChapati: number;
-    extraBhakri: number;
-  };
+  counts: StatementCounts;
   mealsAmount: Paise;
-  breadAmount: Paise;
+  addOnAmount: Paise;
   leaveAmount: Paise;
-  extrasAmount: Paise;
+  feeAmount: Paise;
+  /** Meals, then add-ons, each by item. The leave charge and the monthly fee are not lines. */
+  lines: StatementLine[];
   liveTotal: Paise;
   actualToDate: Paise;
   closed: boolean;
@@ -150,8 +177,14 @@ export interface Prepared {
   readonly cards: readonly RateCard[];
   readonly menus: readonly MenuVersion[];
   readonly holidaysByDate: ReadonlyMap<IsoDate, readonly Holiday[]>;
-  readonly supplierOff: ReadonlySet<IsoDate>;
+  /** For each date, whether the whole day is off and which services are off. */
+  readonly supplierOff: ReadonlyMap<IsoDate, { whole: boolean; services: ReadonlySet<string> }>;
   readonly logByPersonDate: ReadonlyMap<string, readonly LogEntry[]>;
+  readonly enrolmentsByPerson: ReadonlyMap<string, readonly Enrolment[]>;
+  /** Where each service stands in the order rows are listed in. */
+  readonly serviceRank: ReadonlyMap<string, number>;
+  /** Meal items before add-ons: the order lines are listed in. */
+  readonly itemKind: ReadonlyMap<string, CatalogueItem["kind"]>;
   readonly decisionByClaim: ReadonlyMap<string, Decision>;
   readonly closeByKey: ReadonlyMap<string, MonthClose>;
 }
@@ -175,15 +208,34 @@ export function prepare(data: EngineData): Prepared {
   const holidaysByDate = new Map<IsoDate, Holiday[]>();
   for (const h of data.holidays) push(holidaysByDate, h.date, h);
 
-  const supplierOff = new Set<IsoDate>();
+  const supplierOff = new Map<IsoDate, { whole: boolean; services: Set<string> }>();
   const logByPersonDate = new Map<string, LogEntry[]>();
   for (const e of [...data.log].sort(byLogOrder)) {
-    if (e.change === "Supplier Off") {
-      if (e.allConsumers) supplierOff.add(e.date);
+    if (e.action === "Supplier Off") {
+      if (!e.allConsumers) continue;
+      let off = supplierOff.get(e.date);
+      if (!off) {
+        off = { whole: false, services: new Set() };
+        supplierOff.set(e.date, off);
+      }
+      if (e.serviceId === null) off.whole = true;
+      else off.services.add(e.serviceId);
     } else {
       push(logByPersonDate, `${e.personId}|${e.date}`, e);
     }
   }
+
+  const enrolmentsByPerson = new Map<string, Enrolment[]>();
+  for (const en of data.enrolments) push(enrolmentsByPerson, en.personId, en);
+
+  const serviceRank = new Map<string, number>();
+  [...data.services]
+    .sort((a, b) => a.position - b.position || compareText(a.id, b.id))
+    .forEach((sv, i) => {
+      serviceRank.set(sv.id, i);
+    });
+  const itemKind = new Map<string, CatalogueItem["kind"]>();
+  for (const it of data.catalogue) itemKind.set(it.id, it.kind);
 
   const decisionByClaim = new Map<string, Decision>();
   for (const d of data.decisions) decisionByClaim.set(d.claimId, d);
@@ -198,6 +250,9 @@ export function prepare(data: EngineData): Prepared {
     holidaysByDate,
     supplierOff,
     logByPersonDate,
+    enrolmentsByPerson,
+    serviceRank,
+    itemKind,
     decisionByClaim,
     closeByKey,
   };
@@ -223,29 +278,64 @@ export function menuOn(p: Prepared, date: IsoDate): MenuVersion | null {
   return found;
 }
 
-function requireMenuMeal(p: Prepared, date: IsoDate): MealType {
-  const menu = menuOn(p, date);
-  if (!menu) throw new EngineError("NO_MENU", `no menu is in force on ${date}`, date);
-  const meal = menu.days[weekdayOf(date)];
-  if (!meal)
-    throw new EngineError(
-      "NO_MENU",
-      `the menu from ${menu.effectiveFrom} serves nothing on this weekday`,
-      date,
-    );
-  return meal;
-}
-
 function requireCard(p: Prepared, date: IsoDate): RateCard {
   const c = cardOn(p, date);
   if (!c) throw new EngineError("NO_RATE_CARD", `no rate card is in force on ${date}`, date);
   return c;
 }
 
+const priceMaps = new WeakMap<RateCard, Map<string, Paise>>();
+const priceKey = (itemId: string, serviceId: string | null) => `${itemId}|${serviceId ?? ""}`;
+
+/**
+ * What `itemId` costs in `serviceId` on a card: the line for that item in that service, else the item's
+ * line for every service, else NO_PRICE. A price of zero is a price.
+ */
+export function priceOf(
+  card: RateCard,
+  itemId: string,
+  serviceId: string | null,
+  date: IsoDate,
+): Paise {
+  let map = priceMaps.get(card);
+  if (!map) {
+    map = new Map();
+    for (const line of card.prices) map.set(priceKey(line.itemId, line.serviceId), line.amount);
+    priceMaps.set(card, map);
+  }
+  const price = map.get(priceKey(itemId, serviceId)) ?? map.get(priceKey(itemId, null));
+  if (price === undefined)
+    throw new EngineError(
+      "NO_PRICE",
+      `${itemId} has no price on the rate card of ${card.effectiveFrom}`,
+      date,
+      itemId,
+    );
+  return price;
+}
+
 export function isActiveOn(person: Person, date: IsoDate): boolean {
   if (person.activeFrom === null) return false;
   if (date < person.activeFrom) return false;
   return person.activeTo === null || date <= person.activeTo;
+}
+
+/** Whether `personId` takes `serviceId` on `date`: from the first day to the last, both included. */
+export function enrolledOn(
+  p: Prepared,
+  personId: string,
+  serviceId: string,
+  date: IsoDate,
+): boolean {
+  for (const en of p.enrolmentsByPerson.get(personId) ?? []) {
+    if (
+      en.serviceId === serviceId &&
+      en.activeFrom <= date &&
+      (en.activeTo === null || date <= en.activeTo)
+    )
+      return true;
+  }
+  return false;
 }
 
 function countingHoliday(p: Prepared, policy: Policy, date: IsoDate): Holiday | null {
@@ -255,110 +345,139 @@ function countingHoliday(p: Prepared, policy: Policy, date: IsoDate): Holiday | 
   return null;
 }
 
+/** The services a menu serves on a weekday, with the meal each serves, in listing order. */
+function cellsOf(
+  p: Prepared,
+  menu: MenuVersion,
+  wd: Weekday,
+): { serviceId: string; mealId: string }[] {
+  const out: { serviceId: string; mealId: string }[] = [];
+  for (const [serviceId, days] of Object.entries(menu.days)) {
+    const mealId = days[wd];
+    if (mealId !== undefined) out.push({ serviceId, mealId });
+  }
+  const rank = (id: string) => p.serviceRank.get(id) ?? Number.MAX_SAFE_INTEGER;
+  return out.sort(
+    (a, b) => rank(a.serviceId) - rank(b.serviceId) || compareText(a.serviceId, b.serviceId),
+  );
+}
+
 /**
- * The ledger row for one consumer on one date, or null when the date is not a
- * working day under the rules in force that month. Several entries on one day
- * combine like this: leave beats everything; the latest switch wins; extras add.
+ * The ledger rows for one consumer on one date: none when the date is not a working day under the rules in
+ * force that month. Entries on one day combine like this, per service: a holiday beats everything, then a
+ * Supplier Off, then a Leave; otherwise it is a meal, the latest Switch for that service wins and extras add.
  */
-export function ledgerDay(p: Prepared, person: Person, date: IsoDate): LedgerDay | null {
-  return dayRow(p, person, date, p.data.moneyEnabled);
+export function ledgerRows(p: Prepared, person: Person, date: IsoDate): LedgerRow[] {
+  return dayRows(p, person, date, p.data.moneyEnabled);
 }
 
 /** `priced` false counts the day and puts no price on it, so it reads no rate card. */
-function dayRow(p: Prepared, person: Person, date: IsoDate, priced: boolean): LedgerDay | null {
+function dayRows(p: Prepared, person: Person, date: IsoDate, priced: boolean): LedgerRow[] {
   const policy = policyForMonth(p.data.policies, monthOf(date));
   const wd = weekdayOf(date);
-  if (!policy.workingDays.includes(wd)) return null;
+  if (!policy.workingDays.includes(wd)) return [];
 
-  const row: LedgerDay = {
+  const row = (serviceId: string | null): LedgerRow => ({
     date,
     personId: person.id,
+    serviceId,
     status: "Inactive",
-    meal: null,
-    extraChapati: 0,
-    extraBhakri: 0,
+    mealId: null,
+    addOns: [],
     mealPrice: 0,
-    breadAmount: 0,
+    addOnAmount: 0,
     leaveAmount: 0,
-    dayTotal: 0,
+    rowTotal: 0,
     basis: date <= p.data.today ? "Actual" : "Projected",
     holidayName: null,
-  };
+  });
 
-  if (!isActiveOn(person, date)) return row;
+  if (!isActiveOn(person, date)) return [row(null)];
+
+  const menu = menuOn(p, date);
+  const cells = menu ? cellsOf(p, menu, wd) : [];
+  const slots = cells.filter((c) => enrolledOn(p, person.id, c.serviceId, date));
 
   const holiday = countingHoliday(p, policy, date);
-  if (holiday) return { ...row, status: "Holiday", holidayName: holiday.name };
+  if (holiday)
+    return slots.map((c) => ({
+      ...row(c.serviceId),
+      status: "Holiday",
+      holidayName: holiday.name,
+    }));
 
-  if (p.supplierOff.has(date)) return { ...row, status: "Supplier Off" };
+  if (!menu) throw new EngineError("NO_MENU", `no menu is in force on ${date}`, date);
+  if (cells.length === 0)
+    throw new EngineError(
+      "NO_MENU",
+      `the menu from ${menu.effectiveFrom} serves nothing on this weekday`,
+      date,
+    );
 
+  const off = p.supplierOff.get(date);
   // Stryker disable next-line ArrayDeclaration: an empty fallback is never read as data
   const entries = p.logByPersonDate.get(`${person.id}|${date}`) ?? [];
-
-  const priceOf = (card: RateCard, meal: MealType): Paise =>
-    meal === "Veg" ? card.veg : card.nonVeg;
-
-  if (entries.some((e) => e.change === "Leave")) {
-    let leaveAmount = 0;
-    if (priced && policy.leave.chargeBps > 0) {
-      const card = requireCard(p, date);
-      let meal = requireMenuMeal(p, date);
-      for (const e of entries) {
-        switch (e.change) {
-          case "Switch to Veg":
-            meal = "Veg";
-            break;
-          case "Switch to Non Veg":
-            meal = "Non Veg";
-            break;
-        }
-      }
-      leaveAmount = fractionOf(priceOf(card, meal), policy.leave.chargeBps);
-    }
-    return { ...row, status: "Leave", leaveAmount, dayTotal: leaveAmount };
-  }
-
-  let meal = requireMenuMeal(p, date);
-  let chapati = 0;
-  let bhakri = 0;
-  for (const e of entries) {
-    switch (e.change) {
-      case "Switch to Veg":
-        meal = "Veg";
-        break;
-      case "Switch to Non Veg":
-        meal = "Non Veg";
-        break;
-      case "Extra Chapati":
-        chapati += e.qty ?? 0;
-        break;
-      case "Extra Bhakri":
-        bhakri += e.qty ?? 0;
-        break;
-    }
-  }
-  const card = priced ? requireCard(p, date) : null;
-  const mealPrice = card ? priceOf(card, meal) : 0;
-  const breadAmount = card ? chapati * card.extraChapati + bhakri * card.extraBhakri : 0;
-  return {
-    ...row,
-    status: "Meal",
-    meal,
-    extraChapati: chapati,
-    extraBhakri: bhakri,
-    mealPrice,
-    breadAmount,
-    dayTotal: mealPrice + breadAmount,
+  // The card is read only by a row that needs a price, so a day of leave that costs nothing needs none.
+  let card: RateCard | null = null;
+  const cardNow = (): RateCard | null => {
+    if (priced) card ??= requireCard(p, date);
+    return card;
   };
+
+  return slots.map((c) => {
+    const base = row(c.serviceId);
+    if (off && (off.whole || off.services.has(c.serviceId)))
+      return { ...base, status: "Supplier Off" };
+
+    let mealId = c.mealId;
+    const extras = new Map<string, number>();
+    let leave = false;
+    for (const e of entries) {
+      if (e.action === "Leave") {
+        if (e.serviceId === null || e.serviceId === c.serviceId) leave = true;
+      } else if (e.serviceId === c.serviceId && e.itemId !== null) {
+        if (e.action === "Switch") mealId = e.itemId;
+        else if (e.action === "Extra")
+          extras.set(e.itemId, (extras.get(e.itemId) ?? 0) + (e.qty ?? 0));
+      }
+    }
+
+    if (leave) {
+      const leaveCard = policy.leave.chargeBps > 0 ? cardNow() : null;
+      const leaveAmount = leaveCard
+        ? fractionOf(priceOf(leaveCard, mealId, c.serviceId, date), policy.leave.chargeBps)
+        : 0;
+      return { ...base, status: "Leave", leaveAmount, rowTotal: leaveAmount };
+    }
+
+    const mealCard = cardNow();
+    const addOns: LedgerAddOn[] = [...extras]
+      .filter(([, qty]) => qty > 0)
+      .sort(([a], [b]) => compareText(a, b))
+      .map(([itemId, qty]) => ({
+        itemId,
+        qty,
+        amount: mealCard ? qty * priceOf(mealCard, itemId, c.serviceId, date) : 0,
+      }));
+    const mealPrice = mealCard ? priceOf(mealCard, mealId, c.serviceId, date) : 0;
+    const addOnAmount = addOns.reduce((a, x) => a + x.amount, 0);
+    return {
+      ...base,
+      status: "Meal",
+      mealId,
+      addOns,
+      mealPrice,
+      addOnAmount,
+      rowTotal: mealPrice + addOnAmount,
+    };
+  });
 }
 
-/** Every working day of `month` for one consumer. */
-export function ledgerMonth(p: Prepared, person: Person, month: Month): LedgerDay[] {
-  const out: LedgerDay[] = [];
-  for (const date of daysBetween(monthStart(month), monthEnd(month))) {
-    const row = ledgerDay(p, person, date);
-    if (row) out.push(row);
-  }
+/** Every row of every working day of `month` for one consumer. */
+export function ledgerMonth(p: Prepared, person: Person, month: Month): LedgerRow[] {
+  const out: LedgerRow[] = [];
+  for (const date of daysBetween(monthStart(month), monthEnd(month)))
+    out.push(...ledgerRows(p, person, date));
   return out;
 }
 
@@ -397,53 +516,86 @@ function statusOf(s: {
   return s.basis === "Actual" ? "DUE" : "PROJECTED";
 }
 
+function bump(m: Record<string, number>, k: string, n: number): void {
+  m[k] = (m[k] ?? 0) + n;
+}
+
+/** The counts of a month's rows. */
+function countsOf(rows: readonly LedgerRow[]): StatementCounts {
+  const counts: StatementCounts = { meals: 0, leave: 0, items: {}, addOns: {} };
+  for (const r of rows) {
+    if (r.status === "Leave") counts.leave++;
+    if (r.status === "Meal") {
+      counts.meals++;
+      bump(counts.items, must(r.mealId), 1);
+      for (const a of r.addOns) bump(counts.addOns, a.itemId, a.qty);
+    }
+  }
+  return counts;
+}
+
 function monthStatement(
   p: Prepared,
   person: Person,
   month: Month,
 ): Omit<Statement, "earlierUnpaid"> {
   const policy = policyForMonth(p.data.policies, month);
-  const days = ledgerMonth(p, person, month);
+  const rows = ledgerMonth(p, person, month);
+  const counts = countsOf(rows);
 
-  const counts = { meals: 0, veg: 0, nonVeg: 0, leave: 0, extraChapati: 0, extraBhakri: 0 };
   let mealsAmount = 0;
-  let breadAmount = 0;
+  let addOnAmount = 0;
   let leaveAmount = 0;
-  let actualMeals = 0;
-  let actualDays: Paise = 0;
+  let actualRows: Paise = 0;
+  const mealDates = new Set<IsoDate>();
+  const actualMealDates = new Set<IsoDate>();
   let firstMeal: IsoDate | null = null;
-  for (const d of days) {
-    if (d.status === "Leave") {
-      counts.leave++;
-      leaveAmount += d.leaveAmount;
+  const mealLines: Record<string, number> = {};
+  const addOnLines: Record<string, number> = {};
+  for (const r of rows) {
+    leaveAmount += r.leaveAmount;
+    if (r.status === "Meal") {
+      mealsAmount += r.mealPrice;
+      addOnAmount += r.addOnAmount;
+      bump(mealLines, must(r.mealId), r.mealPrice);
+      for (const a of r.addOns) bump(addOnLines, a.itemId, a.amount);
+      firstMeal ??= r.date;
+      mealDates.add(r.date);
+      if (r.basis === "Actual") actualMealDates.add(r.date);
     }
-    if (d.status === "Meal") {
-      counts.meals++;
-      if (d.meal === "Veg") counts.veg++;
-      else counts.nonVeg++;
-      counts.extraChapati += d.extraChapati;
-      counts.extraBhakri += d.extraBhakri;
-      mealsAmount += d.mealPrice;
-      breadAmount += d.breadAmount;
-      firstMeal ??= d.date;
-      if (d.basis === "Actual") actualMeals++;
-    }
-    if (d.basis === "Actual") actualDays += d.dayTotal;
+    if (r.basis === "Actual") actualRows += r.rowTotal;
   }
 
-  // The flat monthly fee comes from the card in force on the first of the month,
-  // or on the first meal day when the first card starts mid-month.
-  const minMeals = policy.extras?.minMeals ?? null;
-  let extrasAmount: Paise = 0;
-  let actualExtras: Paise = 0;
-  if (minMeals !== null && counts.meals >= minMeals) {
+  // The flat monthly fee comes from the card in force on the first of the month, or on the first meal day
+  // when the first card starts mid-month. It counts days with a meal, not meals, so a second service on a
+  // day does not bring it closer.
+  const minDays = policy.monthlyFee?.minDays ?? null;
+  let feeAmount: Paise = 0;
+  let actualFee: Paise = 0;
+  if (minDays !== null && mealDates.size >= minDays) {
     const feeCard = cardOn(p, monthStart(month)) ?? requireCard(p, must(firstMeal));
-    extrasAmount = feeCard.extrasPerMonth;
-    if (actualMeals >= minMeals) actualExtras = extrasAmount;
+    feeAmount = feeCard.monthlyFee;
+    if (actualMealDates.size >= minDays) actualFee = feeAmount;
   }
 
-  const liveTotal = mealsAmount + breadAmount + leaveAmount + extrasAmount;
-  const actualToDate = actualDays + actualExtras;
+  const byKind = (a: StatementLine, b: StatementLine) =>
+    (p.itemKind.get(a.itemId) === "addon" ? 1 : 0) -
+      (p.itemKind.get(b.itemId) === "addon" ? 1 : 0) || compareText(a.itemId, b.itemId);
+  const lines: StatementLine[] = [
+    ...Object.entries(counts.items).map(([itemId, qty]) => ({
+      itemId,
+      qty,
+      amount: must(mealLines[itemId]),
+    })),
+    ...Object.entries(counts.addOns).map(([itemId, qty]) => ({
+      itemId,
+      qty,
+      amount: must(addOnLines[itemId]),
+    })),
+  ].sort(byKind);
+
+  const liveTotal = mealsAmount + addOnAmount + leaveAmount + feeAmount;
+  const actualToDate = actualRows + actualFee;
 
   const close =
     policy.monthClose.mode === "off" ? undefined : p.closeByKey.get(`${person.id}|${month}`);
@@ -492,9 +644,10 @@ function monthStatement(
     basis,
     counts,
     mealsAmount,
-    breadAmount,
+    addOnAmount,
     leaveAmount,
-    extrasAmount,
+    feeAmount,
+    lines,
     liveTotal,
     actualToDate,
     closed,
@@ -545,33 +698,16 @@ export function buildStatements(
   return out;
 }
 
-function countsOf(days: readonly LedgerDay[]): MealStatement["counts"] {
-  const counts = { meals: 0, veg: 0, nonVeg: 0, leave: 0, extraChapati: 0, extraBhakri: 0 };
-  for (const d of days) {
-    if (d.status === "Leave") counts.leave++;
-    if (d.status === "Meal") {
-      counts.meals++;
-      if (d.meal === "Veg") counts.veg++;
-      else counts.nonVeg++;
-      counts.extraChapati += d.extraChapati;
-      counts.extraBhakri += d.extraBhakri;
-    }
-  }
-  return counts;
-}
-
 function mealStatement(p: Prepared, person: Person, month: Month): MealStatement {
   const policy = policyForMonth(p.data.policies, month);
-  const days: LedgerDay[] = [];
-  for (const date of daysBetween(monthStart(month), monthEnd(month))) {
-    const row = dayRow(p, person, date, false);
-    if (row) days.push(row);
-  }
+  const rows: LedgerRow[] = [];
+  for (const date of daysBetween(monthStart(month), monthEnd(month)))
+    rows.push(...dayRows(p, person, date, false));
   return {
     personId: person.id,
     month,
     basis: p.data.today > monthEnd(month) ? "Actual" : "Projected",
-    counts: countsOf(days),
+    counts: countsOf(rows),
     closed: policy.monthClose.mode !== "off" && p.closeByKey.has(`${person.id}|${month}`),
   };
 }

@@ -267,9 +267,17 @@ a few days, carrying only a pseudonym. Copies the tenant exported are theirs.
 changed, by the tenant or by you; the database refuses it. `MONEY_ALLOWED=0` makes every new kitchen
 a kitchen that only counts meals, and a kitchen that tracks money sent to such an instance is
 refused (`money_not_allowed`), so nothing is dropped on the way. The other direction is open: a
-kitchen without money can be received as a kitchen that tracks money, and arrives with no prices.
-Nothing in a move needs your help for it. To see which a kitchen is, ask for its `/bootstrap`:
+kitchen without money can be received as a kitchen that tracks money, and arrives with its
+catalogue, services and menu and no prices; its setup then lists the items to price. Nothing in a
+move needs your help for it. To see which a kitchen is, ask for its `/bootstrap`:
 `workspace.moneyEnabled`.
+
+**What a kitchen serves.** A kitchen names its own services and items (meals and add-ons); nothing
+about food is in the program or the database. The caps are 6 services and 60 items (`MAX_SERVICES`,
+`MAX_ITEMS` in `packages/core/src/limits.ts`). Nothing is deleted: a service or item is retired and
+its name stays taken, so a past bill can always name it. A kitchen made through the API alone starts
+with no service; the web app's starters (home lunch, mess, blank) fill one in through ordinary
+calls. `bun run smoke:live` makes a service, three items, a menu and prices the same way.
 
 **A tenant over the limit.** The meter on **Your data** warns at 70 and 90 percent and gives 14 days
 at 100. Reading and exporting never stop. The tenant moves with one action; there is nothing for you
@@ -277,11 +285,12 @@ to do.
 
 ## When something is wrong
 
-| Sign                                           | Likely cause and what to do                                                                                              |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Everyone gets "Something went wrong"           | The control database is unreachable or `MASTER_KEYS` is wrong. Check `/api/health`, then the logs.                       |
-| `502 move_unconfirmed` for a tenant            | See "A move that stopped part-way".                                                                                      |
-| A route answers 404 `money_not_tracked`        | The kitchen was made without money, which cannot be changed. Make a new kitchen that tracks money and move the meals in. |
-| A kitchen answers 410                          | Its wipe stopped after destroying keys. Run housekeeping; it finishes.                                                   |
-| New kitchens fail with `placement_unavailable` | The database host refused: look for `neon …` in the logs (a quota, a bad key, a wrong region).                           |
-| Cloudflare error 1027                          | The account's daily request cap was reached. Budgets exist to prevent it; lower `FREE_LIMITS_JSON.requestsPerDay`.       |
+| Sign                                           | Likely cause and what to do                                                                                                                                           |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Everyone gets "Something went wrong"           | The control database is unreachable or `MASTER_KEYS` is wrong. Check `/api/health`, then the logs.                                                                    |
+| `502 move_unconfirmed` for a tenant            | See "A move that stopped part-way".                                                                                                                                   |
+| A member cannot log a service (`NOT_ENROLLED`) | The member does not take that service on that date. The admin sets which services a member takes under **People**; a change cannot reach into a month that is closed. |
+| A route answers 404 `money_not_tracked`        | The kitchen was made without money, which cannot be changed. Make a new kitchen that tracks money and move the meals in.                                              |
+| A kitchen answers 410                          | Its wipe stopped after destroying keys. Run housekeeping; it finishes.                                                                                                |
+| New kitchens fail with `placement_unavailable` | The database host refused: look for `neon …` in the logs (a quota, a bad key, a wrong region).                                                                        |
+| Cloudflare error 1027                          | The account's daily request cap was reached. Budgets exist to prevent it; lower `FREE_LIMITS_JSON.requestsPerDay`.                                                    |

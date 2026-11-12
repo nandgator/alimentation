@@ -2,12 +2,13 @@ import {
   addDays,
   addMonths,
   buildStatements,
+  type CatalogueItem,
   DEFAULT_POLICY,
   type EngineData,
+  type Enrolment,
   formatDate,
   type IsoDate,
-  type LedgerDay,
-  type LogChange,
+  type LedgerRow,
   type LogEntry,
   ledgerMonth,
   type MenuVersion,
@@ -21,6 +22,7 @@ import {
   prepare,
   type RateCard,
   rupees,
+  type Service,
   type Statement,
   weekdayOf,
 } from "@alimentation/core";
@@ -38,23 +40,54 @@ export const SAMPLE_PERSON: Person = {
   activeTo: null,
 };
 
+/** What the sample mess serves: two meals and two add-ons, in one service. */
+export const SAMPLE_ITEMS: CatalogueItem[] = [
+  { id: "veg", kind: "meal", name: "Veg", unit: "plate", maxQty: 20, archivedOn: null },
+  { id: "nonveg", kind: "meal", name: "Non Veg", unit: "plate", maxQty: 20, archivedOn: null },
+  { id: "chapati", kind: "addon", name: "Chapati", unit: "piece", maxQty: 20, archivedOn: null },
+  { id: "bhakri", kind: "addon", name: "Bhakri", unit: "piece", maxQty: 20, archivedOn: null },
+];
+const VEG = "veg";
+const NON_VEG = "nonveg";
+const CHAPATI = "chapati";
+
+export const SAMPLE_SERVICE: Service = {
+  id: "lunch",
+  name: "Lunch",
+  position: 0,
+  archivedOn: null,
+};
+
 export const SAMPLE_CARD: RateCard = {
   id: "sample",
   effectiveFrom: "2000-01-01",
-  veg: rupees(120),
-  nonVeg: rupees(150),
-  extraChapati: rupees(10),
-  extraBhakri: rupees(20),
-  extrasPerMonth: rupees(30),
+  prices: [
+    { itemId: VEG, serviceId: null, amount: rupees(120) },
+    { itemId: NON_VEG, serviceId: null, amount: rupees(150) },
+    { itemId: CHAPATI, serviceId: null, amount: rupees(10) },
+    { itemId: "bhakri", serviceId: null, amount: rupees(20) },
+  ],
+  monthlyFee: rupees(30),
   note: null,
 };
 
 export const SAMPLE_MENU: MenuVersion = {
   id: "sample",
   effectiveFrom: "2000-01-01",
-  days: { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" },
+  days: {
+    [SAMPLE_SERVICE.id]: { 1: VEG, 2: VEG, 3: NON_VEG, 4: VEG, 5: NON_VEG },
+  },
+  offered: { [SAMPLE_SERVICE.id]: SAMPLE_ITEMS.map((i) => i.id) },
   note: null,
 };
+
+/** What the sample mess calls an item. */
+export const itemLabel = (id: string | null): string =>
+  SAMPLE_ITEMS.find((i) => i.id === id)?.name ?? "";
+
+/** The price of an item in the sample card. */
+export const samplePrice = (id: string): number =>
+  must(SAMPLE_CARD.prices.find((l) => l.itemId === id)).amount;
 
 export const WEEKDAY_NAMES = [
   "Sunday",
@@ -158,13 +191,20 @@ export function startingMarks(today: IsoDate): Marks {
   };
 }
 
-function entry(date: IsoDate, change: LogChange, qty: number | null): LogEntry {
+function entry(
+  date: IsoDate,
+  action: LogEntry["action"],
+  itemId: string | null,
+  qty: number | null,
+): LogEntry {
   return {
-    id: `${date}-${change}`,
+    id: `${date}-${action}`,
     date,
     personId: SAMPLE_PERSON.id,
     allConsumers: false,
-    change,
+    action,
+    serviceId: action === "Switch" || action === "Extra" ? SAMPLE_SERVICE.id : null,
+    itemId,
     qty,
     note: null,
     loggedBy: SAMPLE_PERSON.id,
@@ -173,7 +213,7 @@ function entry(date: IsoDate, change: LogChange, qty: number | null): LogEntry {
 }
 
 export interface Board {
-  days: ReadonlyMap<IsoDate, LedgerDay>;
+  days: ReadonlyMap<IsoDate, LedgerRow>;
   statement: Statement;
 }
 
@@ -181,11 +221,11 @@ export interface Board {
 export function board(marks: Marks, today: IsoDate, month: Month): Board {
   const log: LogEntry[] = [];
   for (const [date, mark] of Object.entries(marks)) {
-    if (mark === "leave") log.push(entry(date, "Leave", null));
-    if (mark === "chapati") log.push(entry(date, "Extra Chapati", CHAPATIS));
+    if (mark === "leave") log.push(entry(date, "Leave", null, null));
+    if (mark === "chapati") log.push(entry(date, "Extra", CHAPATI, CHAPATIS));
     if (mark === "switch") {
-      const served = SAMPLE_MENU.days[weekdayOf(date)];
-      log.push(entry(date, served === "Veg" ? "Switch to Non Veg" : "Switch to Veg", null));
+      const served = SAMPLE_MENU.days[SAMPLE_SERVICE.id]?.[weekdayOf(date)];
+      log.push(entry(date, "Switch", served === VEG ? NON_VEG : VEG, null));
     }
   }
   // Billed from the first of last month, so the month before this one can be looked at too.
@@ -193,9 +233,18 @@ export function board(marks: Marks, today: IsoDate, month: Month): Board {
     ...SAMPLE_PERSON,
     activeFrom: monthStart(addMonths(monthOf(today), -1)),
   };
+  const enrolment: Enrolment = {
+    personId: person.id,
+    serviceId: SAMPLE_SERVICE.id,
+    activeFrom: person.activeFrom ?? "2000-01-01",
+    activeTo: null,
+  };
   const data: EngineData = {
     today,
     moneyEnabled: true,
+    catalogue: SAMPLE_ITEMS,
+    services: [SAMPLE_SERVICE],
+    enrolments: [enrolment],
     menus: [SAMPLE_MENU],
     policies: [{ effectiveFrom: "2000-01-01", doc: DEFAULT_POLICY }],
     rateCards: [SAMPLE_CARD],

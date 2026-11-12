@@ -12,6 +12,7 @@ import * as z from "zod";
 import {
   DEFAULT_KEY_DAYS,
   hashAgentToken,
+  LOG_TOOLS,
   looksLikeAgentToken,
   MAX_ACTIVE_KEYS,
   newAgentToken,
@@ -37,8 +38,12 @@ import {
   canRead,
   complete,
   getPrompt,
+  type KitchenWords,
   kitchenGuide,
   LEDGER_TEMPLATE,
+  type LogWords,
+  logBody,
+  type Boot as McpBoot,
   parseResource,
   promptArguments,
   promptIsMoney,
@@ -67,11 +72,13 @@ import {
   CreateAgentKey,
   CreateClaim,
   CreateHoliday,
+  CreateItem,
   CreateMenu,
   CreateOrganisation,
   CreatePerson,
   CreatePolicy,
   CreateRateCard,
+  CreateService,
   CreateSettlement,
   CreateWorkspace,
   DecideClaim,
@@ -95,10 +102,13 @@ import {
   PageQuery,
   ReverseClaim,
   ROLE_ORDER,
+  SetEnrolments,
   SetLimits,
   StatementsQuery,
   UpdateHoliday,
+  UpdateItem,
   UpdatePerson,
+  UpdateService,
 } from "./schemas.ts";
 import { SECURITY_HEADERS } from "./security.ts";
 import { type Actor, resolveActors } from "./workspace/context.ts";
@@ -1004,12 +1014,37 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     );
   });
 
-  w.get("/menus", async (c) => c.json(await svc(c).listMenus(who(c))));
-  w.post("/menus", async (c) => {
-    const b = await parse(c, CreateMenu);
-    const menu = Object.fromEntries(Object.entries(b.menu).map(([k, v]) => [Number(k), v]));
-    return c.json(await svc(c).addMenu(who(c), { ...b, menu }), 201);
+  w.put("/people/:id/services", async (c) => {
+    const b = await parse(c, SetEnrolments);
+    await svc(c).setEnrolments(who(c), c.req.param("id"), b.services);
+    return c.body(null, 204);
   });
+
+  w.get("/catalogue", async (c) => c.json(await svc(c).listCatalogue(who(c))));
+  w.post("/catalogue", async (c) => {
+    const b = await parse(c, CreateItem);
+    return c.json(await svc(c).addItem(who(c), b), 201);
+  });
+  w.patch("/catalogue/:id", async (c) => {
+    const b = await parse(c, UpdateItem);
+    await svc(c).updateItem(who(c), c.req.param("id"), b);
+    return c.body(null, 204);
+  });
+  w.get("/services", async (c) => c.json(await svc(c).listServices(who(c))));
+  w.post("/services", async (c) => {
+    const b = await parse(c, CreateService);
+    return c.json(await svc(c).addService(who(c), b), 201);
+  });
+  w.patch("/services/:id", async (c) => {
+    const b = await parse(c, UpdateService);
+    await svc(c).updateService(who(c), c.req.param("id"), b);
+    return c.body(null, 204);
+  });
+
+  w.get("/menus", async (c) => c.json(await svc(c).listMenus(who(c))));
+  w.post("/menus", async (c) =>
+    c.json(await svc(c).addMenu(who(c), await parse(c, CreateMenu)), 201),
+  );
   w.get("/rate-cards", async (c) => c.json(await svc(c).listRateCards(who(c))));
   w.post("/rate-cards", async (c) => {
     const b = await parse(c, CreateRateCard);
@@ -1221,6 +1256,9 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
       me?: { personId?: string };
       today?: string;
       policy?: { workingDays?: number[]; holidays?: { count?: string } };
+      services?: KitchenWords["services"] & { id: string }[];
+      catalogue?: KitchenWords["catalogue"];
+      enrolments?: { serviceId: string; activeFrom: string; activeTo: string | null }[];
     };
     /** The kitchen's answer as JSON, or the error to give back in its words. */
     const read = async (pathAndQuery: string) => {
@@ -1234,6 +1272,20 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         throw new ApiError(res.status, "refused", message);
       }
       return { text, json: JSON.parse(text) as Boot };
+    };
+    /**
+     * What the kitchen serves, as the kitchen says it, for the words of a prompt or the guide. A key that cannot
+     * read it, or a kitchen that does not answer, gets the plain words instead.
+     */
+    const kitchenWords = async (): Promise<KitchenWords | undefined> => {
+      if (!toolNames.includes("get_bootstrap")) return undefined;
+      try {
+        const boot = (await read(`${base}/bootstrap`)).json;
+        if (!boot.services || !boot.catalogue || !boot.today) return undefined;
+        return { services: boot.services, catalogue: boot.catalogue, today: boot.today };
+      } catch {
+        return undefined;
+      }
     };
     const refused = (e: unknown) =>
       e instanceof ApiError
@@ -1279,19 +1331,42 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         );
         if (missing.length)
           return c.json(rpcError(msg.id, -32602, `Missing: ${missing.join(", ")}.`));
+        // An entry said in names becomes the ids the kitchen takes, or an answer that lists the choices.
+        let said: Record<string, unknown> | undefined;
+        if (LOG_TOOLS.has(tool.name)) {
+          try {
+            const b = (await read(`${base}/bootstrap`)).json;
+            const made = logBody(args as unknown as LogWords, {
+              today: b.today ?? "",
+              me: { personId: b.me?.personId ?? "" },
+              services: b.services ?? [],
+              catalogue: b.catalogue ?? [],
+            } satisfies McpBoot);
+            if (!made.ok)
+              return c.json(
+                rpc(msg.id, { content: [{ type: "text", text: made.message }], isError: true }),
+              );
+            said = made.body;
+          } catch (e) {
+            const out = refused(e);
+            if (out) return c.json(out);
+            throw e;
+          }
+        }
         let path = tool.op.path.replace(":slug", encodeURIComponent(handle.row.slug));
         for (const n of tool.parts.path)
           path = path.replace(`:${n}`, encodeURIComponent(String(args[n])));
         const query = new URLSearchParams();
         for (const n of tool.parts.query) if (args[n] !== undefined) query.set(n, String(args[n]));
         const body =
-          tool.parts.body === "whole"
+          said ??
+          (tool.parts.body === "whole"
             ? args.body
             : tool.parts.body
               ? Object.fromEntries(
                   tool.parts.body.filter((n) => args[n] !== undefined).map((n) => [n, args[n]]),
                 )
-              : undefined;
+              : undefined);
         // An ordinary request to the kitchen, as this key: the same checks, the same count, the same record.
         const res = await asKey(
           tool.op.method.toUpperCase(),
@@ -1307,7 +1382,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         );
       }
       case "prompts/list":
-        return c.json(rpc(msg.id, { prompts: promptsFor(toolNames, money) }));
+        return c.json(rpc(msg.id, { prompts: promptsFor(toolNames, money, await kitchenWords()) }));
       case "prompts/get": {
         const name = String(msg.params?.name ?? "");
         const got = getPrompt(
@@ -1315,6 +1390,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
           msg.params?.arguments as Record<string, unknown> | undefined,
           toolNames,
           money,
+          promptNeeds(name) ? await kitchenWords() : undefined,
         );
         if (!got.ok) return c.json(rpcError(msg.id, -32602, got.message));
         return c.json(rpc(msg.id, { description: got.description, messages: got.messages }));
@@ -1333,9 +1409,21 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
           let text: string;
           if (ref.kind === "guide") {
             mimeType = "text/plain";
-            text = kitchenGuide(money);
-          } else if (ref.kind === "menu") text = (await read(`${base}/menus`)).text;
-          else if (ref.kind === "prices") text = (await read(`${base}/rate-cards`)).text;
+            text = kitchenGuide(money, await kitchenWords());
+          } else if (ref.kind === "menu") {
+            // The services come with the menus, so the ids in a menu can be read.
+            const [services, menus] = await Promise.all([
+              read(`${base}/services`),
+              read(`${base}/menus`),
+            ]);
+            text = JSON.stringify({ services: services.json, menus: menus.json }, null, 2);
+          } else if (ref.kind === "catalogue") {
+            const [services, items] = await Promise.all([
+              read(`${base}/services`),
+              read(`${base}/catalogue`),
+            ]);
+            text = JSON.stringify({ services: services.json, items: items.json }, null, 2);
+          } else if (ref.kind === "prices") text = (await read(`${base}/rate-cards`)).text;
           else if (ref.kind === "holidays")
             text = JSON.stringify((await read(`${base}/bootstrap`)).json.holidays ?? [], null, 2);
           else {
@@ -1374,6 +1462,11 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         if (!known) return c.json(rpc(msg.id, empty));
         if (!takes.includes(argName) || !(COMPLETABLE as readonly string[]).includes(argName))
           return c.json(rpc(msg.id, empty));
+        // The names of services and items are the kitchen's to share: a key that cannot read them is offered none.
+        if (argName === "service" && !toolNames.includes("get_services"))
+          return c.json(rpc(msg.id, empty));
+        if (argName === "item" && !toolNames.includes("get_catalogue"))
+          return c.json(rpc(msg.id, empty));
         const ctx: CompletionContext = {
           today: localNow(deps.now(), handle.info.timeZone).date,
           role: key.role as Role,
@@ -1390,6 +1483,36 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
             ctx.holidays = ((boot.holidays ?? []) as { date: string; confirmed: boolean }[])
               .filter((h) => all || h.confirmed)
               .map((h) => h.date);
+          } catch (e) {
+            const out = refused(e);
+            if (out) return c.json(out);
+            throw e;
+          }
+        }
+        if (argName === "service" || argName === "item") {
+          // What is on offer today, and for a member only the services they take: the kitchen answers for their key.
+          try {
+            const boot = (await read(`${base}/bootstrap`)).json;
+            const today = boot.today ?? ctx.today;
+            const live = (x: { archivedOn: string | null }) =>
+              x.archivedOn === null || x.archivedOn > today;
+            const takes = (id: string) =>
+              (boot.enrolments ?? []).some(
+                (e) =>
+                  e.serviceId === id &&
+                  e.activeFrom <= today &&
+                  (e.activeTo === null || e.activeTo >= today),
+              );
+            ctx.services = (boot.services ?? [])
+              .filter((x) => live(x) && (key.role !== "consumer" || takes(x.id)))
+              .map((x) => x.name);
+            ctx.items = (boot.catalogue ?? [])
+              .filter(live)
+              .map((x) => ({ name: x.name, kind: x.kind }));
+            const prior = (
+              msg.params?.context as { arguments?: Record<string, unknown> } | undefined
+            )?.arguments?.action;
+            if (typeof prior === "string") ctx.action = prior;
           } catch (e) {
             const out = refused(e);
             if (out) return c.json(out);

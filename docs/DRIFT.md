@@ -10,23 +10,28 @@ helpers one small step at a time (a `<` made `<=`, a `+` made `-`, a branch remo
 tests. A change nothing notices is a rule nobody is checking. The report goes to
 `reports/mutation/core.json`; surviving changes that are equivalent (the program behaves the same)
 carry a `// Stryker disable` comment that says why. At the last run the engine's mutation score was
-99.8 percent (1,264 of 1,266 changes caught). It is not part of CI (it takes several minutes); run
-it after changing the engine.
+96.2 percent (2,174 of 2,391 changes caught: `engine.ts` 98.5, `validate.ts` 93.9, and 100 for the
+dates, limits, money and policy files). The 87 that survive are the new catalogue and enrolment
+checks in `validate.ts` (68, and 10 not reached by any test) and nine in `engine.ts`; each is listed
+in the report and is neither killed nor shown to be equivalent yet. It is not part of CI (it takes
+about half an hour); run it after changing the engine.
 
 ## The database: guards removed on purpose
 
 `bun run drift:db` (`scripts/drift-db.mjs`) takes each database guard in turn (a row-level-security
 policy, a privilege, an append-only trigger, a cap, a read-only guard, a rule that a person may log
-only one leave a day), removes or loosens it in a freshly made workspace database, and runs the
-database tests. For each defect it names the test that must fail. The run fails if:
+only one leave a day for a scope, an item that cannot be changed or deleted, a person logging for a
+service they do not take, a price on a kitchen without money), removes or loosens it in a freshly
+made workspace database, and runs the database tests. For each defect it names the test that must
+fail. The run fails if:
 
 - **MISSED**: nothing failed, so nothing was checking that guard;
 - **caught by the wrong test**: something failed, but not the test written for that guard;
 - the **control** (a change that breaks nothing) makes anything fail, which would mean the harness
   itself is broken.
 
-Last run: 97 defects, 0 missed, 96 caught by their own test, and the control behaved. The same tests
-are what stand behind promise VII (one person's rows are invisible to everyone else) and the
+Last run: 181 defects, 0 missed, 180 caught by their own test, and the control behaved. The same
+tests are what stand behind promise VII (one person's rows are invisible to everyone else) and the
 immutability of claims, decisions and the audit trail.
 
 ### Adding a guard

@@ -1,13 +1,14 @@
 import {
   dayName,
   type IsoDate,
-  type LedgerDay,
   type LedgerDto,
-  type MealLedgerDay,
+  type LedgerRow,
+  type MealLedgerRow,
   weekdayOf,
 } from "@alimentation/core";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { getJson } from "../../api.ts";
+import { everSeveral, groupByDate, itemName, serviceName } from "../../catalogue.ts";
 import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { date, money } from "../../format.ts";
 import { useWorkspace } from "./context.tsx";
@@ -27,8 +28,15 @@ export function Daily() {
         : Promise.resolve(null),
     [ws.api, selected, person],
   );
-  // Days with a price on them for a kitchen that tracks money; the same days without one for a kitchen that does not.
-  const days: (MealLedgerDay | LedgerDay)[] = res.data?.days ?? [];
+  // Rows with a price on them for a kitchen that tracks money; the same rows without one for a kitchen that does not.
+  const rows: (MealLedgerRow | LedgerRow)[] = res.data?.rows ?? [];
+  const days = groupByDate(rows);
+  const several = everSeveral(boot);
+  const tone = (status: string) =>
+    status === "Meal" ? undefined : status === "Leave" ? ("warn" as const) : ("good" as const);
+  const extrasOf = (r: MealLedgerRow | LedgerRow) =>
+    r.addOns.map((a) => `${a.qty} ${itemName(boot, a.itemId)}`).join(", ");
+  const amountOf = (r: MealLedgerRow | LedgerRow) => ("rowTotal" in r ? r.rowTotal : null);
   return (
     <div className="stack">
       <PageHead
@@ -81,39 +89,78 @@ export function Daily() {
               </tr>
             </thead>
             <tbody>
-              {days
-                .filter((d) => d.status !== "Inactive")
-                .map((d) => {
-                  const extras = [
-                    d.extraChapati ? `${d.extraChapati} chapati` : "",
-                    d.extraBhakri ? `${d.extraBhakri} bhakri` : "",
-                  ]
-                    .filter(Boolean)
-                    .join(", ");
+              {days.map(({ date: d, rows: here }) => {
+                const first = here[0];
+                if (!first) return null;
+                const projected = here.every((r) => r.basis === "Projected");
+                const dayCell = (
+                  <td>
+                    {date(d)} <span className="muted">{dayName(weekdayOf(d as IsoDate))}</span>
+                  </td>
+                );
+                const holiday = here.find((r) => r.holidayName)?.holidayName;
+                if (!several) {
+                  const amount = amountOf(first);
                   return (
-                    <tr key={d.date} className={d.basis === "Projected" ? "projected" : ""}>
+                    <tr key={d} className={projected ? "projected" : ""}>
+                      {dayCell}
                       <td>
-                        {date(d.date)}{" "}
-                        <span className="muted">{dayName(weekdayOf(d.date as IsoDate))}</span>
-                      </td>
-                      <td>
-                        <Chip
-                          tone={
-                            d.status === "Meal" ? undefined : d.status === "Leave" ? "warn" : "good"
-                          }
-                        >
-                          {d.status}
-                          {d.holidayName ? ` · ${d.holidayName}` : ""}
+                        <Chip tone={tone(first.status)}>
+                          {first.status}
+                          {holiday ? ` · ${holiday}` : ""}
                         </Chip>
                       </td>
-                      <td>{d.meal ?? "-"}</td>
-                      <td className="r">{extras || "-"}</td>
+                      <td>{first.mealId ? itemName(boot, first.mealId) : "-"}</td>
+                      <td className="r">{extrasOf(first) || "-"}</td>
                       {ws.money ? (
-                        <td className="r">{"dayTotal" in d ? money(d.dayTotal) : "-"}</td>
+                        <td className="r">{amount === null ? "-" : money(amount)}</td>
                       ) : null}
                     </tr>
                   );
-                })}
+                }
+                // Two or more services: the day, then a row for each service it was served in.
+                const alike = here.every((r) => r.status === first.status);
+                const total = here.reduce((n, r) => n + (amountOf(r) ?? 0), 0);
+                return (
+                  <Fragment key={d}>
+                    <tr className={`day-row${projected ? " projected" : ""}`}>
+                      {dayCell}
+                      <td>
+                        {alike ? (
+                          <Chip tone={tone(first.status)}>
+                            {first.status}
+                            {holiday ? ` · ${holiday}` : ""}
+                          </Chip>
+                        ) : (
+                          <Chip>Mixed</Chip>
+                        )}
+                      </td>
+                      <td />
+                      <td />
+                      {ws.money ? <td className="r">{money(total)}</td> : null}
+                    </tr>
+                    {here.map((r) => {
+                      const amount = amountOf(r);
+                      return (
+                        <tr
+                          key={`${d}-${r.serviceId}`}
+                          className={`service-row${r.basis === "Projected" ? " projected" : ""}`}
+                        >
+                          <td className="muted">{serviceName(boot, r.serviceId)}</td>
+                          <td>
+                            <Chip tone={tone(r.status)}>{r.status}</Chip>
+                          </td>
+                          <td>{r.mealId ? itemName(boot, r.mealId) : "-"}</td>
+                          <td className="r">{extrasOf(r) || "-"}</td>
+                          {ws.money ? (
+                            <td className="r">{amount === null ? "-" : money(amount)}</td>
+                          ) : null}
+                        </tr>
+                      );
+                    })}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

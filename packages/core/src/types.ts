@@ -2,17 +2,12 @@ import type { IsoDate, Month, Weekday } from "./dates.ts";
 import type { Paise } from "./money.ts";
 
 export type Role = "admin" | "supplier" | "consumer";
-export type MealType = "Veg" | "Non Veg";
+/** What an item is. Behaviour depends on this and on nothing else about it: a meal is served, an add-on is extra. */
+export type ItemKind = "meal" | "addon";
 
-export const LOG_CHANGES = [
-  "Leave",
-  "Switch to Veg",
-  "Switch to Non Veg",
-  "Extra Chapati",
-  "Extra Bhakri",
-  "Supplier Off",
-] as const;
-export type LogChange = (typeof LOG_CHANGES)[number];
+/** The four things a log entry can do. Everything else about a kitchen's food is data. */
+export const LOG_ACTIONS = ["Leave", "Switch", "Extra", "Supplier Off"] as const;
+export type LogAction = (typeof LOG_ACTIONS)[number];
 
 export const PAY_METHODS = ["UPI", "Cash", "Bank transfer", "Other"] as const;
 export type PayMethod = (typeof PAY_METHODS)[number];
@@ -30,16 +25,32 @@ export interface Person {
   activeTo: IsoDate | null;
 }
 
-/** Prices only, dated and append-only. Only a kitchen that tracks money has them. */
-export interface RateCard {
+/** Something a kitchen serves. Its name and unit are free text; its id and kind never change. */
+export interface CatalogueItem {
   id: string;
-  effectiveFrom: IsoDate;
-  veg: Paise;
-  nonVeg: Paise;
-  extraChapati: Paise;
-  extraBhakri: Paise;
-  extrasPerMonth: Paise;
-  note: string | null;
+  kind: ItemKind;
+  name: string;
+  unit: string;
+  /** The most of it one entry can ask for (an add-on's quantity). */
+  maxQty: number;
+  /** From this date the item is not offered any more. Null while it is. */
+  archivedOn: IsoDate | null;
+}
+
+/** A time of day the kitchen serves (lunch, dinner). A kitchen has at least one. */
+export interface Service {
+  id: string;
+  name: string;
+  position: number;
+  archivedOn: IsoDate | null;
+}
+
+/** A consumer takes a service from `activeFrom` to `activeTo`, both days included. */
+export interface Enrolment {
+  personId: string;
+  serviceId: string;
+  activeFrom: IsoDate;
+  activeTo: IsoDate | null;
 }
 
 /**
@@ -49,8 +60,27 @@ export interface RateCard {
 export interface MenuVersion {
   id: string;
   effectiveFrom: IsoDate;
-  /** Meal served on each weekday. A weekday that is absent serves nothing. */
-  days: Partial<Record<Weekday, MealType>>;
+  /** Per service, the meal served on each weekday. A weekday without a cell is not served in that service. */
+  days: Readonly<Record<string, Partial<Record<Weekday, string>>>>;
+  /** Per service, the items it offers: the meals a consumer may switch to and the add-ons they may ask for. */
+  offered: Readonly<Record<string, readonly string[]>>;
+  note: string | null;
+}
+
+/** The price of one item, in every service or (when `serviceId` is set) in that service only. */
+export interface PriceLine {
+  itemId: string;
+  serviceId: string | null;
+  amount: Paise;
+}
+
+/** Prices only, dated and append-only. Only a kitchen that tracks money has them. */
+export interface RateCard {
+  id: string;
+  effectiveFrom: IsoDate;
+  prices: readonly PriceLine[];
+  /** The flat fee for a month, charged when the policy's `monthlyFee` rule is met. */
+  monthlyFee: Paise;
   note: string | null;
 }
 
@@ -69,7 +99,11 @@ export interface LogEntry {
   /** Null exactly when `allConsumers` is true. */
   personId: string | null;
   allConsumers: boolean;
-  change: LogChange;
+  action: LogAction;
+  /** Null: the whole day (Leave and Supplier Off). Always set for Switch and Extra. */
+  serviceId: string | null;
+  /** The meal switched to, or the add-on asked for. Null for Leave and Supplier Off. */
+  itemId: string | null;
   qty: number | null;
   note: string | null;
   loggedBy: string;
@@ -124,12 +158,20 @@ export interface MonthClose {
 }
 
 export class EngineError extends Error {
-  readonly code: "NO_RATE_CARD" | "NO_MENU" | "BAD_INPUT";
+  readonly code: "NO_RATE_CARD" | "NO_MENU" | "NO_PRICE" | "BAD_INPUT";
   readonly date: IsoDate | null;
-  constructor(code: EngineError["code"], message: string, date: IsoDate | null = null) {
+  /** The item that has no price, for NO_PRICE. */
+  readonly itemId: string | null;
+  constructor(
+    code: EngineError["code"],
+    message: string,
+    date: IsoDate | null = null,
+    itemId: string | null = null,
+  ) {
     super(message);
     this.name = "EngineError";
     this.code = code;
     this.date = date;
+    this.itemId = itemId;
   }
 }

@@ -1,8 +1,8 @@
 ---
 title: How a bill is worked out
 description:
-  The menu, rate cards, working days, holidays, exceptions and extras, with a month worked through
-  to the rupee.
+  The catalogue, services, menu, rate cards, working days, holidays, exceptions and the monthly fee,
+  with a month worked through to the rupee.
 ---
 
 # How a bill is worked out
@@ -13,9 +13,11 @@ while the month is open) and when a kitchen moves, so they always agree.
 
 ## The ingredients
 
-**A menu** says which meal is served on each working day. **A rate card** has the price of a veg
-meal and a non-veg meal, of an extra chapati and an extra bhakri, and a flat monthly amount for
-extras. Each applies **from a date**. A day uses the latest of each that started on or before it. A
+**The catalogue** is what the kitchen serves: meals, and add-ons that people ask for on top of a
+meal. **A service** is a time of day it serves (Lunch, Dinner); a kitchen has one or more. **A
+menu** says which meal each service serves on each working day. **A rate card** has the price of
+each item (sometimes a different price in one service) and a flat monthly fee. The menu and the rate
+card each apply **from a date**. A day uses the latest of each that started on or before it. A
 kitchen needs both before it can bill. (A kitchen without money has a menu and no rate card; see
 [A kitchen without money](/guides/admin/a-kitchen-without-money/).)
 
@@ -26,29 +28,33 @@ working day has no meal and no bill.
 kept on the list and does nothing until confirmed.
 
 **People are billed between dates.** A member is billed from the day they start eating, and until
-the day they stop, if there is one.
+the day they stop, if there is one. They are billed for a service only on the days they take it; a
+new member takes every service.
 
 ## The default meal
 
-Every working day, every member who is active gets the meal the menu says for that weekday, at that
-day's price. **Nobody logs a plain lunch.** The only entries are the exceptions.
+Every working day, every member who is active gets, in each service they take, the meal the menu
+says for that weekday, at that day's price. **Nobody logs a plain lunch.** The only entries are the
+exceptions.
 
 ## Exceptions
 
-| Entry                                 | Effect on that day                                                            |
-| ------------------------------------- | ----------------------------------------------------------------------------- |
-| **Leave**                             | No meal. Costs nothing, or a fixed share of the meal if your kitchen says so. |
-| **Switch to Veg / Switch to Non Veg** | The meal and its price change for that day.                                   |
-| **Extra Chapati / Extra Bhakri** ×n   | Adds n × the price per piece. n is 1 to 20.                                   |
-| **Supplier Off**                      | No meal for **anyone** that day.                                              |
+| Entry            | Effect on that day                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Leave**        | No meal. Costs nothing, or a fixed share of the meal if your kitchen says so. For the whole day, or for one service. |
+| **Switch**       | The meal in one service changes to another it offers, and so does its price, for that day.                           |
+| **Extra** ×n     | Adds n × the add-on's price, in one service. n is 1 up to the most the kitchen allows.                               |
+| **Supplier Off** | No meal for **anyone** that day, or in one service.                                                                  |
 
-A day's total is the price of its meal plus its extras, or nothing on a leave day, a holiday, a
-supplier-off day, or a day the person is not billed.
+A service's total for a day is the price of its meal plus its extras, or nothing on a leave day, a
+holiday, a supplier-off day, or a day the person is not billed. A day with two services is two
+amounts that add up, and a switch or an extra in one never touches the other.
 
-## The monthly extras
+## The monthly fee
 
-The flat **extras** amount (papad, salad, and so on) is charged **once a month**, if the member had
-at least one meal that month. Your kitchen can raise that to "from the Nth meal".
+The flat **monthly fee** (for the things that are not counted one by one) is charged **once a
+month**, if the member ate on at least one **day** that month. Your kitchen can raise that to "from
+the Nth day". It counts days, not plates, so eating two services on one day counts once.
 
 ## Projected and actual
 
@@ -58,15 +64,16 @@ date** is the bill counting only the days that have happened.
 
 ## A month, worked through
 
-Take a kitchen with these prices: veg ₹120, non-veg ₹150, an extra chapati ₹10, extras ₹30 a month.
-The menu is veg on Monday, Tuesday and Thursday, and non-veg on Wednesday and Friday. March 2027 has
-23 working days: 14 veg days and 9 non-veg days.
+Take an example kitchen with one service. It serves a veg meal at ₹120 and a non-veg meal at ₹150,
+and an add-on, chapati, at ₹10 a piece, and charges ₹30 a month. The menu is veg on Monday, Tuesday
+and Thursday, and non-veg on Wednesday and Friday. March 2027 has 23 working days: 14 veg days and 9
+non-veg days.
 
 | Line                                | Working              |     Amount |
 | ----------------------------------- | -------------------- | ---------: |
 | Veg meals                           | 14 × ₹120            |     ₹1,680 |
 | Non-veg meals                       | 9 × ₹150             |     ₹1,350 |
-| Monthly extras                      | once                 |        ₹30 |
+| Monthly fee                         | once                 |        ₹30 |
 | **If nobody logs anything**         |                      | **₹3,060** |
 | A leave on a Friday (a non-veg day) | less ₹150            |      −₹150 |
 | A Tuesday switched to non-veg       | ₹150 instead of ₹120 |       +₹30 |
@@ -74,6 +81,12 @@ The menu is veg on Monday, Tuesday and Thursday, and non-veg on Wednesday and Fr
 | **The member's bill**               |                      | **₹2,960** |
 
 The home page lets you try exactly this, on today's calendar.
+
+## What a bill lists
+
+A bill lists each item by its own name and how many: _Veg × 14_, _Chapati × 2_, then the monthly
+fee. You can check it against your own count. Renaming an item later changes the word on old bills
+and never their amounts.
 
 ## The status of a bill
 

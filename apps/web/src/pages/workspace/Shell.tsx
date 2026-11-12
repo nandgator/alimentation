@@ -2,20 +2,24 @@ import type { BootstrapDto, Role } from "@alimentation/core";
 import { type ComponentType, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Route, Switch, useLocation, useParams } from "wouter";
 import { api, setActingAs } from "../../api.ts";
+import { retiredBy } from "../../catalogue.ts";
 import { AppBar, RequireSignIn } from "../../components/Chrome.tsx";
 import { ThemeSwitch } from "../../components/ThemeSwitch.tsx";
 import { Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { useMedia } from "../../home/motion.tsx";
 import { Audit } from "./Audit.tsx";
+import { Catalogue } from "./Catalogue.tsx";
 import { type Workspace, WorkspaceProvider } from "./context.tsx";
 import { Daily } from "./Daily.tsx";
 import { Dashboard } from "./Dashboard.tsx";
 import { History } from "./History.tsx";
 import { LogPage } from "./LogPage.tsx";
+import { Menu } from "./Menu.tsx";
 import { CloseMonths, Holidays, Settlements } from "./Money.tsx";
 import { Payments } from "./Payments.tsx";
 import { People } from "./People.tsx";
-import { Menu, Prices, Rates } from "./Rates.tsx";
+import { Prices } from "./Prices.tsx";
+import { Rates } from "./Rates.tsx";
 import {
   groupsFor,
   hrefOf,
@@ -40,6 +44,7 @@ const VIEW: Record<SectionKey, ComponentType> = {
   payments: Payments,
   history: History,
   people: People,
+  catalogue: Catalogue,
   menu: Menu,
   prices: Prices,
   rates: Rates,
@@ -203,6 +208,10 @@ function Loaded({
     <NavLink key={s.key} base={base} section={s} location={location} waiting={waiting} />
   );
   const moved = boot.workspace.state === "MOVED";
+  // A kitchen that serves nothing yet is sent to the catalogue before the menu.
+  const serves =
+    boot.services.some((s) => !retiredBy(s, boot.today)) &&
+    boot.catalogue.some((i) => i.kind === "meal" && !retiredBy(i, boot.today));
   const acting = <Acting roles={boot.roles} role={role} slug={slug} reload={reload} />;
 
   const content = (
@@ -233,7 +242,11 @@ function Loaded({
         <div key={s.code} className="banner info">
           {s.message}
           {role === "admin" && s.code === "menu" ? (
-            <Link href={`${base}/menu`}>Add one</Link>
+            serves ? (
+              <Link href={`${base}/menu`}>Add one</Link>
+            ) : (
+              <Link href={`${base}/catalogue`}>Add what you serve</Link>
+            )
           ) : null}
           {role === "admin" && s.code === "rate_card" ? (
             <Link href={`${base}/prices`}>Add prices</Link>

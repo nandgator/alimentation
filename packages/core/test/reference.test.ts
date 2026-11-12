@@ -10,18 +10,23 @@ import {
   weekdayOf,
 } from "../src/index.ts";
 import {
+  BHAKRI,
   CARD_APR,
   CARD_NOV,
   claim,
   close,
   data,
   decision,
-  entry,
+  enrol,
   JOVIAL,
+  leaveOf,
   MENU_APR,
+  NON_VEG,
+  offOf,
   prep,
   SMRUTI,
   settlement,
+  VEG,
 } from "./fixtures.ts";
 
 const stmt = (over: Parameters<typeof prep>[0], id: string, month: string) => {
@@ -39,24 +44,29 @@ describe("spec section 11: October 2026", () => {
     const p = prep();
     const meals = ledgerMonth(p, JOVIAL, "2026-10").filter((d) => d.status === "Meal");
     expect(meals).toHaveLength(20);
-    expect(meals.filter((d) => d.meal === "Non Veg")).toHaveLength(8);
-    expect(meals.filter((d) => d.meal === "Veg")).toHaveLength(12);
+    expect(meals.filter((d) => d.mealId === NON_VEG)).toHaveLength(8);
+    expect(meals.filter((d) => d.mealId === VEG)).toHaveLength(12);
   });
 
   it("bills Jovial 3,260: 12x150 + 8x170 = 3,160, bread 2x30, extras 40", () => {
     const s = stmt({}, "jovial", "2026-10");
     expect(s.mealsAmount).toBe(rupees(3160));
-    expect(s.breadAmount).toBe(rupees(60));
-    expect(s.extrasAmount).toBe(rupees(40));
+    expect(s.addOnAmount).toBe(rupees(60));
+    expect(s.feeAmount).toBe(rupees(40));
     expect(s.liveTotal).toBe(rupees(3260));
     expect(s.billed).toBe(rupees(3260));
-    expect(s.counts).toMatchObject({ meals: 20, veg: 12, nonVeg: 8, leave: 0, extraBhakri: 2 });
+    expect(s.counts).toMatchObject({
+      meals: 20,
+      leave: 0,
+      items: { [VEG]: 12, [NON_VEG]: 8 },
+      addOns: { [BHAKRI]: 2 },
+    });
   });
 
   it("bills Smruti 3,030: Friday 16-Oct leave removes a Non Veg 170", () => {
     const s = stmt({}, "smruti", "2026-10");
     expect(s.liveTotal).toBe(rupees(3030));
-    expect(s.counts).toMatchObject({ meals: 19, veg: 12, nonVeg: 7, leave: 1 });
+    expect(s.counts).toMatchObject({ meals: 19, leave: 1, items: { [VEG]: 12, [NON_VEG]: 7 } });
   });
 
   it("totals 6,290", () => {
@@ -83,6 +93,7 @@ describe("spec section 11: October 2026", () => {
     const consumer = { ...JOVIAL, activeFrom: monthStart(found!) };
     const p = prep({
       people: [consumer],
+      enrolments: [enrol("jovial")],
       holidays: [],
       log: [],
       today: monthEnd(found!),
@@ -90,7 +101,7 @@ describe("spec section 11: October 2026", () => {
       menus: [{ ...MENU_APR, effectiveFrom: "2020-01-01" }],
     });
     const s = buildStatements(p, ["jovial"], [found!])[0]!;
-    expect(s.counts).toMatchObject({ meals: 22, veg: 14, nonVeg: 8 });
+    expect(s.counts).toMatchObject({ meals: 22, items: { [VEG]: 14, [NON_VEG]: 8 } });
     expect(s.liveTotal).toBe(rupees(3500));
   });
 });
@@ -103,7 +114,7 @@ describe("rate card is never retroactive", () => {
     // November: 18 working days (9, 10, 11 are confirmed holidays; 12 and 13 are tentative and still count),
     // 11 Veg x160 + 7 Non Veg x180 = 3,020, plus 40.
     const nov = stmt({ rateCards: [CARD_APR, CARD_NOV], log: [] }, "jovial", "2026-11");
-    expect(nov.counts).toMatchObject({ meals: 18, veg: 11, nonVeg: 7 });
+    expect(nov.counts).toMatchObject({ meals: 18, items: { [VEG]: 11, [NON_VEG]: 7 } });
     expect(nov.liveTotal).toBe(rupees(3060));
   });
 
@@ -190,7 +201,7 @@ describe("month close (spec section 3.7)", () => {
     const edited = stmt(
       {
         closes: closed,
-        log: [...data().log, entry({ date: "2026-10-14", personId: "jovial", change: "Leave" })],
+        log: [...data().log, leaveOf("2026-10-14", "jovial")],
       },
       "jovial",
       "2026-10",
@@ -261,12 +272,12 @@ describe("statement status and basis", () => {
 
 describe("Supplier Off applies to every consumer", () => {
   it("removes the meal for all and costs nothing", () => {
-    const off = entry({ date: "2026-10-07", allConsumers: true, change: "Supplier Off" });
+    const off = offOf("2026-10-07");
     const p = prep({ log: [off] });
     for (const c of [JOVIAL, SMRUTI]) {
       expect(ledgerMonth(p, c, "2026-10").find((d) => d.date === "2026-10-07")).toMatchObject({
         status: "Supplier Off",
-        dayTotal: 0,
+        rowTotal: 0,
       });
     }
   });

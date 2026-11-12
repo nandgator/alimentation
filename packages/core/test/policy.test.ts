@@ -17,15 +17,24 @@ import {
   STATUS_LABEL,
 } from "../src/index.ts";
 import {
+  BHAKRI,
   CARD_APR,
   CARD_NOV,
+  CHAPATI,
   close,
-  entry,
+  type entry,
+  extraOf,
   JOVIAL,
+  LUNCH,
+  leaveOf,
   MENU_APR,
+  NON_VEG,
+  offOf,
   policyWith,
   prep,
   SMRUTI,
+  switchOf,
+  VEG,
 } from "./fixtures.ts";
 
 const jovialOct = (over: Parameters<typeof prep>[0]) =>
@@ -46,7 +55,10 @@ describe("policy document", () => {
       { exceptionCutoff: { daysBefore: 1, time: "24:00" } },
       { exceptionCutoff: { daysBefore: 8, time: "18:00" } },
       { leave: { chargeBps: 10001 } },
-      { extras: { minMeals: 0 } },
+      { monthlyFee: { minDays: 0 } },
+      { monthlyFee: { minDays: 32 } },
+      { monthlyFee: { minDays: 2.5 } },
+      { monthlyFee: {} },
       { monthClose: { mode: "auto", afterDays: -1, afterClose: "flag" } },
       { monthClose: { mode: "manual" } },
       { payments: "cheque" },
@@ -56,10 +68,14 @@ describe("policy document", () => {
         PolicySchema.safeParse({ ...DEFAULT_POLICY, ...patch }).success,
         JSON.stringify(patch),
       ).toBe(false);
+    for (const minDays of [1, 31])
+      expect(PolicySchema.safeParse({ ...DEFAULT_POLICY, monthlyFee: { minDays } }).success).toBe(
+        true,
+      );
     expect(
       PolicySchema.safeParse({
         ...DEFAULT_POLICY,
-        extras: null,
+        monthlyFee: null,
         exceptionCutoff: { daysBefore: 0, time: "09:30" },
       }).success,
     ).toBe(true);
@@ -67,13 +83,13 @@ describe("policy document", () => {
 
   it("picks the latest version on or before the date, else the default", () => {
     const v1 = policyWith({ payments: "direct" }, "2026-06-01");
-    const v2 = policyWith({ payments: "claim_confirm", extras: null }, "2026-11-01");
+    const v2 = policyWith({ payments: "claim_confirm", monthlyFee: null }, "2026-11-01");
     expect(policyOn([], "2026-10-01")).toBe(DEFAULT_POLICY);
     expect(policyOn([v1, v2], "2026-05-31")).toBe(DEFAULT_POLICY);
     expect(policyOn([v1, v2], "2026-06-01").payments).toBe("direct");
     expect(policyOn([v2, v1], "2026-10-31").payments).toBe("direct"); // order of the list does not matter
-    expect(policyOn([v1, v2], "2026-11-01").extras).toBeNull();
-    expect(policyForMonth([v1, v2], "2026-11").extras).toBeNull();
+    expect(policyOn([v1, v2], "2026-11-01").monthlyFee).toBeNull();
+    expect(policyForMonth([v1, v2], "2026-11").monthlyFee).toBeNull();
   });
 
   it("computes when an automatic close falls due", () => {
@@ -111,12 +127,14 @@ describe("rules change what is billed", () => {
     expect(s.counts.leave).toBe(1);
   });
 
-  it("can drop the flat monthly fee, or require more meals before it applies", () => {
-    expect(jovialOct({ policies: [policyWith({ extras: null })] }).liveTotal).toBe(rupees(3220));
-    expect(jovialOct({ policies: [policyWith({ extras: { minMeals: 20 } })] }).extrasAmount).toBe(
+  it("can drop the flat monthly fee, or require more days with a meal before it applies", () => {
+    expect(jovialOct({ policies: [policyWith({ monthlyFee: null })] }).liveTotal).toBe(
+      rupees(3220),
+    );
+    expect(jovialOct({ policies: [policyWith({ monthlyFee: { minDays: 20 } })] }).feeAmount).toBe(
       rupees(40),
     );
-    expect(jovialOct({ policies: [policyWith({ extras: { minMeals: 21 } })] }).extrasAmount).toBe(
+    expect(jovialOct({ policies: [policyWith({ monthlyFee: { minDays: 21 } })] }).feeAmount).toBe(
       0,
     );
   });
@@ -126,19 +144,19 @@ describe("rules change what is billed", () => {
       ...CARD_NOV,
       id: "mid",
       effectiveFrom: "2026-10-15",
-      extrasPerMonth: rupees(99),
+      monthlyFee: rupees(99),
     };
-    expect(jovialOct({ rateCards: [CARD_APR, dearer] }).extrasAmount).toBe(rupees(40));
+    expect(jovialOct({ rateCards: [CARD_APR, dearer] }).feeAmount).toBe(rupees(40));
   });
 
   it("falls back to the first meal day when the first card starts mid-month", () => {
-    const late = { ...CARD_APR, effectiveFrom: "2026-10-15", extrasPerMonth: rupees(55) };
+    const late = { ...CARD_APR, effectiveFrom: "2026-10-15", monthlyFee: rupees(55) };
     const p = prep({
       rateCards: [late],
       people: [{ ...JOVIAL, activeFrom: "2026-10-15" }],
       log: [],
     });
-    expect(buildStatements(p, ["jovial"], ["2026-10"])[0]!.extrasAmount).toBe(rupees(55));
+    expect(buildStatements(p, ["jovial"], ["2026-10"])[0]!.feeAmount).toBe(rupees(55));
   });
 
   it("counts tentative holidays too when the workspace says all holidays count", () => {
@@ -155,10 +173,10 @@ describe("rules change what is billed", () => {
 
   it("serves Saturdays when they are working days and the card has a menu for them", () => {
     const policies = [policyWith({ workingDays: [1, 2, 3, 4, 5, 6] })];
-    const menu = { ...MENU_APR, days: { ...MENU_APR.days, 6: "Veg" as const } };
+    const menu = { ...MENU_APR, days: { [LUNCH]: { ...MENU_APR.days[LUNCH], 6: VEG } } };
     const p = prep({ policies, menus: [menu], log: [] });
     const sat = ledgerMonth(p, JOVIAL, "2026-10").find((d) => d.date === "2026-10-03")!;
-    expect(sat).toMatchObject({ status: "Meal", meal: "Veg" });
+    expect(sat).toMatchObject({ status: "Meal", mealId: VEG });
     expect(ledgerMonth(p, JOVIAL, "2026-10").some((d) => d.date === "2026-10-04")).toBe(false); // Sunday
   });
 
@@ -172,7 +190,7 @@ describe("rules change what is billed", () => {
     }
     const noFriday = {
       ...MENU_APR,
-      days: { 1: "Veg" as const, 2: "Veg" as const, 3: "Non Veg" as const, 4: "Veg" as const },
+      days: { [LUNCH]: { 1: VEG, 2: VEG, 3: NON_VEG, 4: VEG } },
     };
     expect(() => jovialOct({ menus: [noFriday] })).toThrowError(/serves nothing/);
     expect(() => jovialOct({ menus: [] })).toThrowError(/no menu is in force/);
@@ -192,14 +210,14 @@ describe("rules change what is billed", () => {
   });
 
   it("applies the rules of the month, not of today", () => {
-    const policies = [policyWith({ extras: null }, "2026-11-01")];
+    const policies = [policyWith({ monthlyFee: null }, "2026-11-01")];
     const [oct, nov] = buildStatements(
       prep({ policies, rateCards: [CARD_APR, CARD_NOV], log: [] }),
       ["jovial"],
       ["2026-10", "2026-11"],
     );
-    expect(oct!.extrasAmount).toBe(rupees(40));
-    expect(nov!.extrasAmount).toBe(0);
+    expect(oct!.feeAmount).toBe(rupees(40));
+    expect(nov!.feeAmount).toBe(0);
   });
 });
 
@@ -212,65 +230,59 @@ describe("same-day entries combine predictably", () => {
 
     expect(
       run([
-        entry({ date: d, personId: "jovial", change: "Switch to Veg", loggedAt: at(1) }),
-        entry({ date: d, personId: "jovial", change: "Switch to Non Veg", loggedAt: at(2) }),
+        switchOf(d, "jovial", VEG, { loggedAt: at(1) }),
+        switchOf(d, "jovial", NON_VEG, { loggedAt: at(2) }),
       ]),
-    ).toMatchObject({ meal: "Non Veg", mealPrice: rupees(170) });
+    ).toMatchObject({ mealId: NON_VEG, mealPrice: rupees(170) });
 
     expect(
       run([
-        entry({ date: d, personId: "jovial", change: "Switch to Non Veg", loggedAt: at(1) }),
-        entry({ date: d, personId: "jovial", change: "Switch to Veg", loggedAt: at(2) }),
+        switchOf(d, "jovial", NON_VEG, { loggedAt: at(1) }),
+        switchOf(d, "jovial", VEG, { loggedAt: at(2) }),
       ]),
-    ).toMatchObject({ meal: "Veg", mealPrice: rupees(150) });
+    ).toMatchObject({ mealId: VEG, mealPrice: rupees(150) });
 
     expect(
       run([
-        entry({ date: d, personId: "jovial", change: "Extra Chapati", qty: 2 }),
-        entry({ date: d, personId: "jovial", change: "Extra Chapati", qty: 3 }),
-        entry({ date: d, personId: "jovial", change: "Extra Bhakri", qty: 1 }),
+        extraOf(d, "jovial", CHAPATI, 2),
+        extraOf(d, "jovial", CHAPATI, 3),
+        extraOf(d, "jovial", BHAKRI, 1),
       ]),
-    ).toMatchObject({ extraChapati: 5, extraBhakri: 1, breadAmount: 5 * rupees(15) + rupees(30) });
+    ).toMatchObject({
+      addOns: [
+        { itemId: BHAKRI, qty: 1, amount: rupees(30) },
+        { itemId: CHAPATI, qty: 5, amount: 5 * rupees(15) },
+      ],
+      addOnAmount: 5 * rupees(15) + rupees(30),
+    });
 
-    expect(
-      run([
-        entry({ date: d, personId: "jovial", change: "Extra Bhakri", qty: 4 }),
-        entry({ date: d, personId: "jovial", change: "Leave" }),
-      ]),
-    ).toMatchObject({ status: "Leave", dayTotal: 0, extraBhakri: 0 });
+    expect(run([extraOf(d, "jovial", BHAKRI, 4), leaveOf(d, "jovial")])).toMatchObject({
+      status: "Leave",
+      rowTotal: 0,
+      addOns: [],
+    });
   });
 
   it("breaks a tie between equal timestamps by id, so the result never depends on input order", () => {
     const d = "2026-10-07";
-    const a = entry({
-      id: "a",
-      date: d,
-      personId: "jovial",
-      change: "Switch to Veg",
-      loggedAt: "2026-10-01T10:00:00Z",
-    });
-    const b = entry({
-      id: "b",
-      date: d,
-      personId: "jovial",
-      change: "Switch to Non Veg",
-      loggedAt: "2026-10-01T10:00:00Z",
-    });
+    const at = "2026-10-01T10:00:00Z";
+    const a = switchOf(d, "jovial", VEG, { id: "a", loggedAt: at });
+    const b = switchOf(d, "jovial", NON_VEG, { id: "b", loggedAt: at });
     const one = ledgerMonth(prep({ log: [a, b] }), JOVIAL, "2026-10").find((x) => x.date === d)!;
     const two = ledgerMonth(prep({ log: [b, a] }), JOVIAL, "2026-10").find((x) => x.date === d)!;
     expect(one).toEqual(two);
-    expect(one.meal).toBe("Non Veg");
+    expect(one.mealId).toBe(NON_VEG);
   });
 
   it("a Supplier Off beats a consumer leave and a holiday beats a Supplier Off", () => {
-    const off = entry({ date: "2026-10-07", allConsumers: true, change: "Supplier Off" });
-    const leave = entry({ date: "2026-10-07", personId: "jovial", change: "Leave" });
+    const off = offOf("2026-10-07");
+    const leave = leaveOf("2026-10-07", "jovial");
     expect(
       ledgerMonth(prep({ log: [off, leave] }), JOVIAL, "2026-10").find(
         (x) => x.date === "2026-10-07",
       )!.status,
     ).toBe("Supplier Off");
-    const offOnHoliday = entry({ date: "2026-10-02", allConsumers: true, change: "Supplier Off" });
+    const offOnHoliday = offOf("2026-10-02");
     expect(
       ledgerMonth(prep({ log: [offOnHoliday] }), JOVIAL, "2026-10").find(
         (x) => x.date === "2026-10-02",
@@ -324,7 +336,7 @@ describe("closing months under the workspace rules", () => {
   it("flags the difference when a month is reopened, edited and the old close remains", () => {
     const s = jovialOct({
       closes: [close()],
-      log: [entry({ date: "2026-10-01", personId: "jovial", change: "Leave" })],
+      log: [leaveOf("2026-10-01", "jovial")],
     });
     expect(STATUS_LABEL[s.status]).toBe("⚠ Changed after close");
     expect(s.changedAfterClose).toBe(s.liveTotal - rupees(3260));

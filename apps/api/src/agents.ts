@@ -1,4 +1,4 @@
-import { must } from "@alimentation/core";
+import { LOG_ACTIONS, must } from "@alimentation/core";
 import { AGENT_SCOPES, type AgentScope } from "./agent-scopes.ts";
 import { type Bytes, randomBytes, toBase64Url } from "./crypto/aead.ts";
 import { agentScopeOf, OPERATIONS, type Operation } from "./openapi.ts";
@@ -56,6 +56,38 @@ type JsonSchema = {
 export const toolName = (op: Operation): string =>
   `${op.method}_${op.path.replace("/api/w/:slug/", "").replace(/[^A-Za-z0-9]+/g, "_")}`;
 
+/** The two tools that write or check an entry say a service and an item by name, and are turned into ids by the server. */
+export const LOG_TOOLS: ReadonlySet<string> = new Set(["post_log", "post_log_check"]);
+
+const LOG_TOOL_PROPERTIES: Record<string, Record<string, unknown>> = {
+  date: { type: "string", description: "The day, as YYYY-MM-DD." },
+  action: {
+    type: "string",
+    enum: [...LOG_ACTIONS],
+    description:
+      "Leave, Switch (to another meal), Extra (more of an add-on, with qty) or Supplier Off (the kitchen is closed for everyone; only the supplier or an admin).",
+  },
+  service: {
+    type: "string",
+    description:
+      "The service, by name (any case) or id; see get_services. Needed for Switch and Extra when the kitchen has more than one; left out, a Leave or Supplier Off is for the whole day.",
+  },
+  item: {
+    type: "string",
+    description:
+      "For Switch the meal to eat instead, for Extra the add-on, by name (any case) or id; see get_catalogue. Not for Leave or Supplier Off.",
+  },
+  qty: {
+    type: "integer",
+    description: "How many, for Extra: from 1 to the item's largest quantity.",
+  },
+  personId: {
+    type: "string",
+    description: "Who it is for; the person the key acts as if left out. Not for Supplier Off.",
+  },
+  note: { type: "string", description: "A note on the entry, up to 500 characters." },
+};
+
 /**
  * The tools for a key that has these scopes: one for each route they open, and none for what is a person's.
  * In a kitchen that does not track money there is no tool for a route about money, whatever the scopes.
@@ -100,9 +132,20 @@ export function toolsFor(
         required.push("body");
       }
     }
+    const name = toolName(m.op);
+    if (LOG_TOOLS.has(name)) {
+      // Said in names, not ids: the server looks them up in the kitchen's own catalogue and services.
+      for (const k of Object.keys(properties)) delete properties[k];
+      Object.assign(properties, LOG_TOOL_PROPERTIES);
+      required.length = 0;
+      required.push("date", "action");
+      body = Object.keys(LOG_TOOL_PROPERTIES);
+    }
     out.push({
-      name: toolName(m.op),
-      description: `${m.op.summary}. ${m.op.description ?? ""}`.trim().slice(0, 1200),
+      name,
+      description: LOG_TOOLS.has(name)
+        ? `${m.op.summary}. Say the service and the item by name (any case) or by id: a name that is not the kitchen’s, or could mean more than one, is answered with the names to choose from. Leave and Supplier Off with no service are for the whole day; Switch and Extra need a service when the kitchen has more than one. See get_services and get_catalogue.`
+        : `${m.op.summary}. ${m.op.description ?? ""}`.trim().slice(0, 1200),
       inputSchema: {
         type: "object",
         properties,

@@ -7,20 +7,25 @@ description:
 
 # Telling the kitchen you will not eat
 
-Open **My log**, pick the date and the change. You only log what is different from the day's meal.
+Open **My log**, pick the date and what to do. You only log what is different from the day's meal.
+The choices come from your kitchen's own menu, so they use its words.
 
-| Change                                | What it does                                                                       |
-| ------------------------------------- | ---------------------------------------------------------------------------------- |
-| **Leave**                             | No meal that day, and no charge (unless your kitchen charges part of a leave day). |
-| **Switch to Veg / Switch to Non Veg** | You get the other meal that day, at its price.                                     |
-| **Extra Chapati / Extra Bhakri**      | Extra pieces, one to twenty, at the price per piece.                               |
+| Action     | What it does                                                                                  |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| **Leave**  | No meal that day, and no charge (unless your kitchen charges part of a leave day).            |
+| **Switch** | You get another meal the kitchen offers instead of that day's, at its price.                  |
+| **Extra**  | Some of an add-on (a piece, a cup), from one up to the most the kitchen allows, at its price. |
 
-You can add a short note. It is stored encrypted, and is visible to you, the supplier and the admin.
+If your kitchen serves more than one time of day, **Switch** and **Extra** ask which service, since
+they change one plate. **Leave** defaults to **Whole day**; pick one service to be away for only
+that one. A service you do not take is not offered. You can add a short note. It is stored
+encrypted, and is visible to you, the supplier and the admin.
 
 The form tells you what is wrong **before** you press **Add**. The rules it follows:
 
 - Only working days. A day your kitchen does not cook is refused.
-- One leave, and one switch of each kind, per day.
+- One leave per day and scope, one switch per service, and one extra of each item per service.
+- A whole-day leave cannot stand beside a leave for one service on the same day.
 - Only for yourself, and only on days you are billed.
 
 ## Taking an entry back

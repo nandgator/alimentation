@@ -19,7 +19,7 @@ a sentence each.
 | **Working days**                | Any days of the week. Each needs a meal on the menu.                                           | Monday to Friday                 |
 | **Holidays that cancel a meal** | Only confirmed ones, or every one listed.                                                      | Only confirmed                   |
 | **Charge on a leave day**       | 0 to 100 percent of the day's meal.                                                            | 0 percent                        |
-| **Monthly extras apply from**   | A number of meals, or no monthly extras.                                                       | The first meal                   |
+| **Monthly fee applies from**    | A number of days with a meal, or no monthly fee.                                               | The first day with a meal        |
 | **Payments**                    | _Member claims, supplier confirms_, or _Recorded directly_.                                    | Member claims, supplier confirms |
 | **Month close**                 | _Never closed_, _Closed by the admin_, or _Closes by itself_ a number of days after month end. | Closed by the admin              |
 | **Entries after close**         | _Allowed, and flagged_, or _Not allowed_.                                                      | Allowed, and flagged             |
@@ -28,15 +28,18 @@ a sentence each.
 
 ## Notes on each
 
-> [!NOTE] A kitchen without money does not show **Charge on a leave day**, **Monthly extras apply
+> [!NOTE] A kitchen without money does not show **Charge on a leave day**, **Monthly fee applies
 > from**, **Payments** or **Rate cards may start**. They are about money, and such a kitchen has
 > none.
 
-**Working days.** The menu must serve every working day. The form refuses a menu that leaves one
-out.
+**Working days.** Some service must serve every working day. The menu form refuses a menu that
+leaves one out.
 
 **Charge on a leave day.** Some kitchens charge a share of the meal for a leave day, because the
 food was already bought. At 0 percent, a leave costs nothing.
+
+**Monthly fee.** It counts days, not plates. A member who eats two services on one day has eaten on
+one day.
 
 **Month close.** _Closes by itself_ gives everyone a fixed catch-up window. The close uses the
 amounts the month had at that moment. See [Month end and catching up](/guides/admin/month-end/).

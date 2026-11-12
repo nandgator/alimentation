@@ -35,9 +35,12 @@ $ curl -s -X POST 'https://kitchen.example.org/api/w/<kitchen>/people/import?mod
 ```
 
 The CSV's first line names the columns, in any order: `externalKey`, `name`, `role`, `contact`,
-`activeFrom` and `activeTo`. `name` and `role` are needed. `role` is `consumer` (or `member`),
-`supplier` or `admin`. Commas, semicolons and tabs all separate cells, quotes are honoured, and a
-byte-order mark is skipped. A row that is not what it should be is reported with its line.
+`activeFrom`, `activeTo` and `services`. `name` and `role` are needed. `services` is the names of
+the services a member takes, as the kitchen spells them, between `|` in one cell; left out or blank,
+a new member takes every service and an existing one is left as they are. `role` is `consumer` (or
+`member`), `supplier` or `admin`. Commas, semicolons and tabs all separate cells, quotes are
+honoured, and a byte-order mark is skipped. A row that is not what it should be is reported with its
+line.
 
 At most **1,000 rows** and **1 MB** are read; a larger body is refused (413) as soon as it grows
 past the limit, and more than 1,000 rows is a 422.

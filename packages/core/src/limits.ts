@@ -6,6 +6,10 @@ import { addDays, type IsoDate } from "./dates.ts";
  * environment, because the numbers belong to the host's current terms.
  */
 
+/** The most services and catalogue items (retired ones included) a kitchen may hold. */
+export const MAX_SERVICES = 6;
+export const MAX_ITEMS = 60;
+
 export interface Limits {
   requestsPerDay: number;
   people: number;

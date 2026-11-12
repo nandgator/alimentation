@@ -7,7 +7,7 @@ import {
   checkLogChange,
   checkLogEntry,
   checkMenu,
-  checkRateCard,
+  checkRateCard as checkRateCardWith,
   checkReversal,
   hasErrors,
   type Issue,
@@ -15,7 +15,20 @@ import {
   type NewLogEntry,
   rupees,
 } from "../src/index.ts";
-import { claim, close, decision, entry, policyWith, prep } from "./fixtures.ts";
+import {
+  BHAKRI,
+  CARD_APR,
+  CHAPATI,
+  claim,
+  close,
+  decision,
+  entry,
+  LUNCH,
+  MENU_APR,
+  policyWith,
+  prep,
+  VEG,
+} from "./fixtures.ts";
 
 const NOW = { date: "2026-10-13", time: "12:00" };
 const consumer: Actor = { personId: "jovial", role: "consumer" };
@@ -26,7 +39,9 @@ const leave = (over: Partial<NewLogEntry> = {}): NewLogEntry => ({
   date: "2026-10-14",
   personId: "jovial",
   allConsumers: false,
-  change: "Leave",
+  action: "Leave",
+  serviceId: null,
+  itemId: null,
   qty: null,
   ...over,
 });
@@ -34,7 +49,9 @@ const off = (over: Partial<NewLogEntry> = {}): NewLogEntry => ({
   date: "2026-10-14",
   personId: null,
   allConsumers: true,
-  change: "Supplier Off",
+  action: "Supplier Off",
+  serviceId: null,
+  itemId: null,
   qty: null,
   ...over,
 });
@@ -84,25 +101,26 @@ describe("shape of an entry", () => {
     expect(e({ personId: null })).toContain("SHAPE");
   });
   it("requires a quantity of 1 to 20 for extras and forbids it elsewhere", () => {
-    const extra = (qty: number | null) => e({ change: "Extra Chapati", qty });
+    const extra = (qty: number | null) =>
+      e({ action: "Extra", serviceId: LUNCH, itemId: CHAPATI, qty });
     expect(extra(null)).toContain("QTY_REQUIRED");
     for (const bad of [0, 21, 1.5, -1]) expect(extra(bad)).toContain("QTY_RANGE");
     for (const ok of [1, 20]) expect(extra(ok)).toEqual([]);
     expect(e({ qty: 2 })).toContain("QTY_NOT_ALLOWED");
   });
   it("rejects a change it does not know", () => {
-    expect(e({ change: "Teleport" as never })).toEqual(["UNKNOWN_CHANGE"]);
+    expect(e({ action: "Teleport" as never })).toEqual(["UNKNOWN_CHANGE"]);
   });
   it("checks the person exists, is a consumer and is billed that day", () => {
     expect(e({ personId: "ghost" })).toContain("UNKNOWN_PERSON");
     expect(e({ personId: "maple" })).toContain("NOT_A_CONSUMER");
     expect(e({ date: "2026-09-30" })).toContain("INACTIVE_ON_DATE");
   });
-  it("refuses a duplicate leave or Supplier Off, but allows repeated extras", () => {
+  it("refuses a duplicate leave or Supplier Off, but allows extras of different items", () => {
     const seeded = prep({
       log: [
-        entry({ date: "2026-10-14", personId: "jovial", change: "Leave" }),
-        entry({ date: "2026-10-15", allConsumers: true, change: "Supplier Off" }),
+        entry({ date: "2026-10-14", personId: "jovial", action: "Leave" }),
+        entry({ date: "2026-10-15", allConsumers: true, action: "Supplier Off" }),
       ],
     });
     expect(codes(checkLogEntry(seeded, admin, leave(), NOW), "error")).toContain("DUPLICATE");
@@ -113,10 +131,27 @@ describe("shape of an entry", () => {
       codes(checkLogEntry(seeded, admin, leave({ personId: "smruti" }), NOW), "error"),
     ).toEqual([]);
     const extras = prep({
-      log: [entry({ date: "2026-10-14", personId: "jovial", change: "Extra Bhakri", qty: 1 })],
+      log: [
+        entry({
+          date: "2026-10-14",
+          personId: "jovial",
+          action: "Extra",
+          serviceId: LUNCH,
+          itemId: BHAKRI,
+          qty: 1,
+        }),
+      ],
     });
     expect(
-      codes(checkLogEntry(extras, admin, leave({ change: "Extra Bhakri", qty: 2 }), NOW), "error"),
+      codes(
+        checkLogEntry(
+          extras,
+          admin,
+          leave({ action: "Extra", serviceId: LUNCH, itemId: CHAPATI, qty: 2 }),
+          NOW,
+        ),
+        "error",
+      ),
     ).toEqual([]);
   });
   it("warns, but does not refuse, on a holiday", () => {
@@ -185,7 +220,7 @@ describe("the cut-off for consumers", () => {
     const existing = entry({
       date: "2026-10-14",
       personId: "jovial",
-      change: "Leave",
+      action: "Leave",
       loggedBy: "jovial",
     });
     expect(checkLogChange(p, consumer, existing, at("2026-10-13", "17:00"))).toEqual([]);
@@ -200,7 +235,7 @@ describe("changing or removing an entry", () => {
   const mine = entry({
     date: "2026-10-14",
     personId: "jovial",
-    change: "Leave",
+    action: "Leave",
     loggedBy: "jovial",
   });
   it("lets the author, and the admin, and nobody else", () => {
@@ -322,6 +357,12 @@ describe("the supplier decides once", () => {
 
 describe("rate cards", () => {
   const p = prep({ today: "2026-10-20" });
+  const checkRateCard = (pp: typeof p, effectiveFrom: string) =>
+    checkRateCardWith(pp, {
+      effectiveFrom,
+      prices: CARD_APR.prices,
+      monthlyFee: CARD_APR.monthlyFee,
+    });
   it("accepts a card for a future month", () => {
     expect(checkRateCard(p, "2026-11-01")).toEqual([]);
   });
@@ -364,35 +405,40 @@ describe("rate cards", () => {
 });
 
 describe("menus", () => {
-  const days = { 1: "Veg", 2: "Veg", 3: "Non Veg", 4: "Veg", 5: "Non Veg" };
-  const p = prep({ today: "2026-10-20" });
-  it("accepts a menu for a future month with a meal on every working day", () => {
-    expect(checkMenu(p, "2026-11-01", days)).toEqual([]);
+  const menu = (effectiveFrom: string, days = MENU_APR.days) => ({
+    effectiveFrom,
+    days,
+    offered: MENU_APR.offered,
   });
-  it("needs a meal on every working day", () => {
-    expect(codes(checkMenu(p, "2026-11-01", { 1: "Veg" }))).toContain("NO_MENU_FOR_WORKING_DAY");
+  const p = prep({ today: "2026-10-20" });
+  it("accepts a menu for a future month with a service on every working day", () => {
+    expect(checkMenu(p, menu("2026-11-01"))).toEqual([]);
+  });
+  it("needs some service on every working day", () => {
+    const monOnly = { [LUNCH]: { 1: VEG } };
+    expect(codes(checkMenu(p, menu("2026-11-01", monOnly)))).toEqual(["SERVICE_NOT_SERVED"]);
   });
   it("refuses a second menu on the same date", () => {
-    expect(codes(checkMenu(p, "2026-04-01", days))).toContain("DUPLICATE");
+    expect(codes(checkMenu(p, menu("2026-04-01")))).toContain("DUPLICATE");
   });
   it("lets the very first menu start whenever", () => {
     const empty = prep({ today: "2026-10-20", menus: [] });
-    expect(checkMenu(empty, "2026-04-01", days)).toEqual([]);
+    expect(checkMenu(empty, menu("2026-04-01"))).toEqual([]);
   });
   it("refuses a menu that reaches back into a closed month, and lets one start after it", () => {
     const closed = prep({ today: "2026-11-20", closes: [close()] });
-    expect(codes(checkMenu(closed, "2026-10-25", days))).toEqual(["BACKDATED_MENU"]);
-    expect(checkMenu(closed, "2026-11-02", days)).toEqual([]);
+    expect(codes(checkMenu(closed, menu("2026-10-25")))).toEqual(["BACKDATED_MENU"]);
+    expect(checkMenu(closed, menu("2026-11-02"))).toEqual([]);
   });
   it("is the same for a kitchen without money", () => {
     const meals = prep({ today: "2026-10-20", moneyEnabled: false, rateCards: [] });
-    expect(checkMenu(meals, "2026-11-01", days)).toEqual([]);
-    expect(codes(checkMenu(meals, "2026-11-01", { 2: "Veg" }))).toContain(
-      "NO_MENU_FOR_WORKING_DAY",
-    );
+    expect(checkMenu(meals, menu("2026-11-01"))).toEqual([]);
+    expect(codes(checkMenu(meals, menu("2026-11-01", { [LUNCH]: { 2: VEG } })))).toEqual([
+      "SERVICE_NOT_SERVED",
+    ]);
   });
   it("rejects a date that is not a date", () => {
-    expect(codes(checkMenu(p, "next month", days))).toEqual(["NOT_A_DATE"]);
+    expect(codes(checkMenu(p, menu("next month")))).toEqual(["NOT_A_DATE"]);
   });
 });
 

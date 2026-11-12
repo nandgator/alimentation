@@ -25,7 +25,7 @@ about your data. If you use a kitchen rather than run one, you want the [guides]
 - **A rule that matters is written twice:** once in `packages/core`, so a person gets a helpful
   message before they press the button, and once in the database, so it holds even for a buggy
   caller.
-- **Records that people rely on are only added to.** Rate cards, rules, decisions, reversals,
+- **Records that people rely on are only added to.** Menus, rate cards, rules, decisions, reversals,
   settlements and the audit trail cannot be edited or removed through the application.
 - **Nothing is loaded from anywhere but the site itself.** The content-security policy forbids
   inline script and style, so styling is classes and custom properties, never `style=` attributes

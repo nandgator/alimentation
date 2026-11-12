@@ -14,6 +14,10 @@ has no tagged test, or a tag names no promise.
 | P6  | Your data is yours to take, at any time.             | tagged in http.test.ts, lifecycle.move.test.ts, lifecycle.test.ts                                                                                                            | tested |
 | P7  | One person's records are invisible to everyone else. | tagged in http.test.ts, people-import.test.ts, service.test.ts, workspace.db.test.ts                                                                                         | tested |
 
+What a promise covers follows the kitchen's own data. P3's reconciliation counts the meals and each
+item a kitchen serves, and money to the paisa where it tracks money. P7 covers a person's enrolments
+(which services they take) as it covers their log: another member cannot read them.
+
 The limits stated beside each promise in `DESIGN.md` section 1 are part of the promise. The home
 page repeats them.
 

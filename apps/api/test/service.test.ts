@@ -2,9 +2,45 @@ import { type Policy, rupees } from "@alimentation/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Actor } from "../src/workspace/context.ts";
 import { ApiError } from "../src/workspace/errors.ts";
+import type { CatalogueIds } from "./support/catalogue.ts";
 import { type Fixture, makeFixture, moneyStatements } from "./support/fixture.ts";
-
 import { at, seedSpec } from "./support/spec.ts";
+
+/** A rate card in the seed's shape: the four prices and the monthly fee, for the items of a kitchen. */
+const card = (
+  ids: CatalogueIds,
+  effectiveFrom: string,
+  p: { veg: number; nonVeg: number; chapati?: number; bhakri?: number; fee?: number },
+) => ({
+  effectiveFrom,
+  monthlyFee: p.fee ?? rupees(40),
+  prices: [
+    { itemId: ids.veg, serviceId: null, amount: p.veg },
+    { itemId: ids.nonVeg, serviceId: null, amount: p.nonVeg },
+    { itemId: ids.chapati, serviceId: null, amount: p.chapati ?? rupees(15) },
+    { itemId: ids.bhakri, serviceId: null, amount: p.bhakri ?? rupees(30) },
+  ],
+});
+
+/** An entry for one person that is not a leave: an extra of an add-on in the one service. */
+const extraOf = (who: Actor, ids: CatalogueIds, date: string, item: string, qty: number) => ({
+  date,
+  personId: who.personId,
+  allConsumers: false,
+  action: "Extra" as const,
+  serviceId: ids.lunch,
+  itemId: item,
+  qty,
+});
+const leaveOf = (who: Actor, date: string) => ({
+  date,
+  personId: who.personId,
+  allConsumers: false,
+  action: "Leave" as const,
+  serviceId: null,
+  itemId: null,
+  qty: null,
+});
 
 const thrown = async (p: Promise<unknown>): Promise<ApiError> => {
   try {
@@ -20,9 +56,10 @@ describe("the spec, end to end: database, row-level security, encryption and eng
   let fx: Fixture;
   let jovial: Actor;
   let smruti: Actor;
+  let ids: CatalogueIds;
   beforeAll(async () => {
     fx = await makeFixture();
-    ({ jovial, smruti } = await seedSpec(fx));
+    ({ jovial, smruti, ids } = await seedSpec(fx));
   });
   afterAll(async () => fx.close());
 
@@ -32,7 +69,11 @@ describe("the spec, end to end: database, row-level security, encryption and eng
     expect(by.Jovial!.billed).toBe(rupees(3260));
     expect(by.Smruti!.billed).toBe(rupees(3030));
     expect(all.reduce((a, s) => a + s.billed, 0)).toBe(rupees(6290));
-    expect(by.Jovial!.counts).toMatchObject({ meals: 20, veg: 12, nonVeg: 8, extraBhakri: 2 });
+    expect(by.Jovial!.counts).toMatchObject({
+      meals: 20,
+      items: { [ids.veg]: 12, [ids.nonVeg]: 8 },
+      addOns: { [ids.bhakri]: 2 },
+    });
     expect(by.Jovial!.label).toBe("Due");
   });
 
@@ -65,9 +106,9 @@ describe("the spec, end to end: database, row-level security, encryption and eng
 
   it("shows the owner of an entry its note, and others not", async () => {
     const own = await fx.svc.listLog(smruti, { from: "2026-10-01", to: "2026-10-31" });
-    expect(own.find((e) => e.change === "Leave")!.note).toBe("WFH");
+    expect(own.find((e) => e.action === "Leave")!.note).toBe("WFH");
     const admin = await fx.svc.listLog(fx.admin, { from: "2026-10-01", to: "2026-10-31" });
-    expect(admin.find((e) => e.change === "Leave")!.note).toBe("WFH");
+    expect(admin.find((e) => e.action === "Leave")!.note).toBe("WFH");
   });
 
   it("[P5] stores names and notes only as ciphertext", async () => {
@@ -82,14 +123,10 @@ describe("the spec, end to end: database, row-level security, encryption and eng
 
   it("reprices only from the new card: October unchanged, November repriced", async () => {
     fx.clock.now = at("2026-10-24T06:00:00Z");
-    await fx.svc.addRateCard(fx.admin, {
-      effectiveFrom: "2026-11-01",
-      veg: rupees(160),
-      nonVeg: rupees(180),
-      extraChapati: rupees(15),
-      extraBhakri: rupees(30),
-      extrasPerMonth: rupees(40),
-    });
+    await fx.svc.addRateCard(
+      fx.admin,
+      card(ids, "2026-11-01", { veg: rupees(160), nonVeg: rupees(180) }),
+    );
     fx.clock.now = at("2026-11-15T06:00:00Z");
     const [oct, nov] = await moneyStatements(
       fx.svc,
@@ -103,32 +140,12 @@ describe("the spec, end to end: database, row-level security, encryption and eng
 
   it("refuses a card back-dated into a month already begun by one that exists, and a second card on one date", async () => {
     expect(
-      (
-        await thrown(
-          fx.svc.addRateCard(fx.admin, {
-            effectiveFrom: "2026-10-05",
-            veg: 1,
-            nonVeg: 1,
-            extraChapati: 1,
-            extraBhakri: 1,
-            extrasPerMonth: 1,
-          }),
-        )
-      ).code,
+      (await thrown(fx.svc.addRateCard(fx.admin, card(ids, "2026-10-05", { veg: 1, nonVeg: 1 }))))
+        .code,
     ).toBe("invalid");
     expect(
-      (
-        await thrown(
-          fx.svc.addRateCard(fx.admin, {
-            effectiveFrom: "2026-11-01",
-            veg: 1,
-            nonVeg: 1,
-            extraChapati: 1,
-            extraBhakri: 1,
-            extrasPerMonth: 1,
-          }),
-        )
-      ).code,
+      (await thrown(fx.svc.addRateCard(fx.admin, card(ids, "2026-11-01", { veg: 1, nonVeg: 1 }))))
+        .code,
     ).toBe("invalid");
   });
 });
@@ -292,14 +309,7 @@ describe("closing a month", () => {
   });
 
   it("locks the author out of a closed month; the admin may edit and the change is flagged", async () => {
-    const add = (who: Actor, date: string) =>
-      fx.svc.addLog(who, {
-        date,
-        personId: jovial.personId,
-        allConsumers: false,
-        change: "Leave",
-        qty: null,
-      });
+    const add = (who: Actor, date: string) => fx.svc.addLog(who, leaveOf(jovial, date));
     expect((await thrown(add(jovial, "2026-10-14"))).code).toBe("invalid");
     const { warnings } = await add(fx.admin, "2026-10-14"); // Wednesday, Non Veg: 170 off
     expect(warnings.map((w) => w.code)).toEqual(["CHANGES_AFTER_CLOSE", "LATE_ENTRY"]);
@@ -335,7 +345,7 @@ describe("rules that differ by workspace", () => {
     version: 1,
     workingDays: [1, 2, 3, 4, 5],
     holidays: { count: "confirmed" },
-    extras: { minMeals: 1 },
+    monthlyFee: { minDays: 1 },
     leave: { chargeBps: 0 },
     monthClose: { mode: "manual", afterClose: "flag" },
     exceptionCutoff: null,
@@ -368,15 +378,7 @@ describe("rules that differ by workspace", () => {
       expect(rows).toHaveLength(2);
       expect(rows.every((r) => r.closed_by === null)).toBe(true);
       // And a write that follows cannot reach back, even from the admin.
-      const err = await thrown(
-        fx.svc.addLog(fx.admin, {
-          date: "2026-10-14",
-          personId: jovial.personId,
-          allConsumers: false,
-          change: "Leave",
-          qty: null,
-        }),
-      );
+      const err = await thrown(fx.svc.addLog(fx.admin, leaveOf(jovial, "2026-10-14")));
       expect(err.code).toBe("invalid");
       expect(await moneyStatements(fx.svc, fx.admin, ["2026-10"], jovial.personId)).toMatchObject([
         { billed: rupees(3260), changedAfterClose: 0 },
@@ -389,35 +391,23 @@ describe("rules that differ by workspace", () => {
   it("applies an exception cut-off to consumers and not to the admin", async () => {
     const fx = await makeFixture();
     try {
-      const { jovial } = await seedSpec(fx);
+      const { jovial, ids } = await seedSpec(fx);
       fx.clock.now = at("2026-10-24T06:00:00Z");
       await fx.svc.addPolicy(
         fx.admin,
         "2026-11-01",
         policy({ exceptionCutoff: { daysBefore: 1, time: "18:00" } }),
       );
-      const _leave = (who: Actor, date: string) =>
-        fx.svc.addLog(who, {
-          date,
-          personId: jovial.personId,
-          allConsumers: false,
-          change: "Leave",
-          qty: null,
-        });
       const extra = (who: Actor) =>
-        fx.svc.addLog(who, {
-          date: "2026-11-18",
-          personId: jovial.personId,
-          allConsumers: false,
-          change: "Extra Chapati",
-          qty: 2,
-        });
+        fx.svc.addLog(who, extraOf(jovial, ids, "2026-11-18", ids.chapati, 2));
       fx.clock.now = at("2026-11-17T12:29:00Z"); // 17:59 in Kolkata, the day before 18-Nov
       await fx.svc.addLog(jovial, {
         date: "2026-11-18",
         personId: jovial.personId,
         allConsumers: false,
-        change: "Switch to Veg",
+        action: "Switch",
+        serviceId: ids.lunch,
+        itemId: ids.veg,
         qty: null,
       });
       fx.clock.now = at("2026-11-17T12:30:00Z"); // 18:00: the cut-off has arrived
@@ -533,19 +523,15 @@ describe("seeing what has been done to you, and when it was done", () => {
   let fx: Fixture;
   let jovial: Actor;
   let smruti: Actor;
+  let ids: CatalogueIds;
   beforeAll(async () => {
     fx = await makeFixture();
-    ({ jovial, smruti } = await seedSpec(fx));
+    ({ jovial, smruti, ids } = await seedSpec(fx));
   });
   afterAll(async () => fx.close());
 
-  const entry = (who: Actor, date: string, change: "Leave" | "Extra Chapati" = "Leave") => ({
-    date,
-    personId: who.personId,
-    allConsumers: false,
-    change,
-    qty: change === "Leave" ? null : 2,
-  });
+  const entry = (who: Actor, date: string, change: "Leave" | "Extra Chapati" = "Leave") =>
+    change === "Leave" ? leaveOf(who, date) : extraOf(who, ids, date, ids.chapati, 2);
   const words = async (who: Actor, opts = {}) =>
     (await fx.svc.history(who, { limit: 200, ...opts })).events.map((e) => e.text);
 
@@ -567,15 +553,17 @@ describe("seeing what has been done to you, and when it was done", () => {
       date: "2099-12-29",
       personId: null,
       allConsumers: true,
-      change: "Supplier Off",
+      action: "Supplier Off",
+      serviceId: null,
+      itemId: null,
       qty: null,
     });
     const seen = await fx.svc.listLog(jovial, { from: "2026-10-01", to: "2099-12-31" });
-    expect(seen.find((e) => e.change === "Supplier Off")!.by).toBe("The supplier");
+    expect(seen.find((e) => e.action === "Supplier Off")!.by).toBe("The supplier");
     const bySupplier = await fx.svc.listLog(fx.supplier, { from: "2026-10-01", to: "2026-10-31" });
     expect(bySupplier.find((e) => e.note === "WFH")!.by).toBe("Smruti");
     const byAdmin = await fx.svc.listLog(fx.admin, { from: "2026-10-01", to: "2026-10-31" });
-    expect(byAdmin.find((e) => e.change === "Extra Bhakri")!.by).toBe("Jovial");
+    expect(byAdmin.find((e) => e.action === "Extra" && e.itemId === ids.bhakri)!.by).toBe("Jovial");
   });
 
   it("tells a member, in words, what they did and what someone else did to their records", async () => {
