@@ -19,6 +19,9 @@ CREATE TABLE meta (
 -- role could change itself) so that triggers can tell the application from the
 -- owner, who imports and wipes.
 INSERT INTO meta (key, value) VALUES ('app_role', current_setting('alimentation.app_role'));
+-- The role that runs this file is the platform: it owns every object and is the only role that may hand
+-- months over (see archive_cut_apply). Recorded here so that a trigger can ask who is really asking.
+INSERT INTO meta (key, value) VALUES ('platform_role', current_user);
 
 -- session_user, not current_user: inside a SECURITY DEFINER function current_user is
 -- the function's owner, which would make the application look like the owner.
@@ -342,9 +345,62 @@ CREATE FUNCTION close_blocks_admin(d date) RETURNS boolean
   LANGUAGE sql STABLE
   AS $$ SELECT (policy_on(date_trunc('month', d)::date) -> 'monthClose' ->> 'afterClose') = 'block' $$;
 
+-- Which month a row belongs to, as the first day of that month, for the tables whose months can be handed over
+-- and removed. A decision or a reversal belongs to the month of its claim, and an audit row to the month of
+-- the row it describes. Null for anything else, which is never removed.
+CREATE FUNCTION archive_row_month(tbl text, r jsonb) RETURNS date
+  LANGUAGE plpgsql STABLE AS $$
+BEGIN
+  RETURN CASE tbl
+    WHEN 'claim' THEN (r ->> 'for_month')::date
+    WHEN 'settlement' THEN (r ->> 'for_month')::date
+    WHEN 'month_close' THEN (r ->> 'for_month')::date
+    WHEN 'log_entry' THEN date_trunc('month', (r ->> 'on_date')::date)::date
+    WHEN 'claim_decision' THEN (SELECT c.for_month FROM claim c WHERE c.id = (r ->> 'claim_id')::uuid)
+    WHEN 'claim_reversal' THEN (SELECT c.for_month FROM claim c WHERE c.id = (r ->> 'claim_id')::uuid)
+    WHEN 'audit_log' THEN
+      CASE WHEN r ->> 'table_name' = 'audit_log' THEN NULL
+           ELSE archive_row_month(r ->> 'table_name', coalesce(r -> 'after', r -> 'before')) END
+    ELSE NULL
+  END;
+END $$;
+
+-- The one narrow door through which a row of an append-only table may be deleted: whole months, handed over,
+-- by archive_cut_apply and by nothing else. All of these must hold, and a setting alone is never enough:
+--   * the statement is a delete of a row of one of the fixed tables, in a month at or before the cut;
+--   * the transaction-local setting alimentation.archiving names the cut;
+--   * the caller is the platform role (inside a definer function current_user is its owner, so a session of
+--     the application role cannot satisfy this, and is_app_session() is false);
+--   * archive_cut_apply is on the call stack, so the platform role deleting by hand is refused too.
+-- There is no branch for an update, anywhere.
+CREATE FUNCTION archive_delete_allowed(tbl text, r jsonb) RETURNS boolean
+  LANGUAGE plpgsql STABLE AS $$
+DECLARE
+  cut text := nullif(current_setting('alimentation.archiving', true), '');
+  m date;
+  ctx text;
+BEGIN
+  IF cut IS NULL OR tbl IS NULL
+     OR tbl <> ALL (ARRAY['audit_log', 'claim_reversal', 'claim_decision', 'claim', 'settlement', 'month_close', 'log_entry']) THEN
+    RETURN false;
+  END IF;
+  IF is_app_session() OR current_user IS DISTINCT FROM (SELECT value FROM meta WHERE key = 'platform_role') THEN
+    RETURN false;
+  END IF;
+  m := archive_row_month(tbl, r);
+  IF m IS NULL OR m > cut::date THEN
+    RETURN false;
+  END IF;
+  GET DIAGNOSTICS ctx = PG_CONTEXT;
+  RETURN position('archive_cut_apply(' IN ctx) > 0;
+END $$;
+
 CREATE FUNCTION forbid_change() RETURNS trigger
   LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP = 'DELETE' AND NOT is_app_session() AND archive_delete_allowed(TG_TABLE_NAME, to_jsonb(OLD)) THEN
+    RETURN OLD;
+  END IF;
   RAISE EXCEPTION 'ALIMENTATION_IMMUTABLE: % is append-only', TG_TABLE_NAME USING ERRCODE = 'P0001';
 END $$;
 
@@ -1100,6 +1156,240 @@ BEGIN
 END $$;
 CREATE TRIGGER month_close_guard_close BEFORE INSERT OR UPDATE ON month_close
   FOR EACH ROW EXECUTE FUNCTION guard_close();
+
+-- ---------------------------------------------------------------------------
+-- Months that were handed over and removed. A cut records that every month up to its through_month left, in
+-- a chain by checksum so a missing backup can be seen. A kitchen that tracks money carries, per person, what
+-- they owed on the first day of the first live month. Both are append-only. The function that removes the
+-- months, and the refusal to write into them, come with the retention step.
+
+CREATE TABLE opening_balance (
+  person_id    uuid NOT NULL REFERENCES person (id),
+  as_of_month  date NOT NULL CHECK (extract(day FROM as_of_month) = 1),
+  -- billed - paid over every earlier month: signed, so arrears are positive and a credit is negative.
+  balance      bigint NOT NULL,
+  billed_total paise NOT NULL,
+  paid_total   paise NOT NULL,
+  PRIMARY KEY (person_id, as_of_month)
+);
+
+CREATE TABLE archive_cut (
+  through_month date PRIMARY KEY CHECK (extract(day FROM through_month) = 1),
+  prior_through date REFERENCES archive_cut (through_month),
+  prior_digest  char(64),
+  bundle_digest char(64) NOT NULL,
+  slice_hash    char(64) NOT NULL,
+  counts        jsonb NOT NULL,
+  -- Null once the person who confirmed it has been erased.
+  cut_by        uuid REFERENCES person (id),
+  cut_at        timestamptz NOT NULL DEFAULT now(),
+  CHECK ((prior_through IS NULL) = (prior_digest IS NULL))
+);
+
+CREATE TRIGGER opening_balance_append_only BEFORE UPDATE OR DELETE ON opening_balance
+  FOR EACH ROW EXECUTE FUNCTION forbid_change();
+CREATE TRIGGER archive_cut_append_only BEFORE UPDATE OR DELETE ON archive_cut
+  FOR EACH ROW EXECUTE FUNCTION forbid_change();
+CREATE TRIGGER opening_balance_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON opening_balance
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER archive_cut_read_only BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON archive_cut
+  FOR EACH STATEMENT EXECUTE FUNCTION guard_read_only();
+CREATE TRIGGER opening_balance_audit AFTER INSERT OR UPDATE OR DELETE ON opening_balance
+  FOR EACH ROW EXECUTE FUNCTION audit_row('person_id,as_of_month');
+CREATE TRIGGER archive_cut_audit AFTER INSERT OR UPDATE OR DELETE ON archive_cut
+  FOR EACH ROW EXECUTE FUNCTION audit_row('through_month');
+-- A kitchen without money carries no balance.
+CREATE TRIGGER opening_balance_guard_money BEFORE INSERT OR UPDATE OR DELETE ON opening_balance
+  FOR EACH ROW EXECUTE FUNCTION guard_money();
+
+ALTER TABLE opening_balance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE archive_cut ENABLE ROW LEVEL SECURITY;
+CREATE POLICY opening_read ON opening_balance FOR SELECT USING (
+  app_role() IN ('admin', 'supplier') OR person_id = app_person());
+CREATE POLICY archive_cut_read ON archive_cut FOR SELECT USING (app_role() IS NOT NULL);
+SELECT grant_to_app('SELECT', 'opening_balance');
+SELECT grant_to_app('SELECT', 'archive_cut');
+
+-- Nothing can be written into the archived past, the owner included. A row for a month at or before the
+-- latest cut would be a row the kept bundle does not hold and the opening balances do not count. Late
+-- payments are recorded on the first live month. Fires first, so it is the answer given whatever else is wrong.
+CREATE FUNCTION refuse_archived() RETURNS trigger
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  cut date;
+BEGIN
+  SELECT max(through_month) INTO cut FROM archive_cut;
+  IF cut IS NOT NULL AND date_trunc('month', (to_jsonb(NEW) ->> TG_ARGV[0])::date)::date <= cut THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVED: months up to % were handed over and removed; record it on the first live month', to_char(cut, 'YYYY-MM') USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER log_entry_0_refuse_archived BEFORE INSERT OR UPDATE ON log_entry
+  FOR EACH ROW EXECUTE FUNCTION refuse_archived('on_date');
+CREATE TRIGGER claim_0_refuse_archived BEFORE INSERT OR UPDATE ON claim
+  FOR EACH ROW EXECUTE FUNCTION refuse_archived('for_month');
+CREATE TRIGGER settlement_0_refuse_archived BEFORE INSERT OR UPDATE ON settlement
+  FOR EACH ROW EXECUTE FUNCTION refuse_archived('for_month');
+CREATE TRIGGER month_close_0_refuse_archived BEFORE INSERT OR UPDATE ON month_close
+  FOR EACH ROW EXECUTE FUNCTION refuse_archived('for_month');
+
+-- The checksum of the rows a cut through `p_through` would remove, as the database holds them: each table
+-- in a fixed order, its rows as JSON in key order. The platform computes it when it offers the months for
+-- download and the cut computes it again before it deletes anything, so a change in between is caught.
+CREATE FUNCTION archive_slice_hash(p_through date) RETURNS text
+  LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
+  SELECT encode(sha256(convert_to(concat_ws(E'\n',
+    'audit_log', (SELECT coalesce(string_agg(to_jsonb(a)::text, E'\n' ORDER BY a.id), '') FROM audit_log a
+                   WHERE archive_row_month('audit_log', to_jsonb(a)) <= p_through),
+    'claim_reversal', (SELECT coalesce(string_agg(to_jsonb(x)::text, E'\n' ORDER BY x.claim_id), '') FROM claim_reversal x
+                        WHERE x.claim_id IN (SELECT id FROM claim WHERE for_month <= p_through)),
+    'claim_decision', (SELECT coalesce(string_agg(to_jsonb(x)::text, E'\n' ORDER BY x.claim_id), '') FROM claim_decision x
+                        WHERE x.claim_id IN (SELECT id FROM claim WHERE for_month <= p_through)),
+    'claim', (SELECT coalesce(string_agg(to_jsonb(x)::text, E'\n' ORDER BY x.id), '') FROM claim x
+               WHERE x.for_month <= p_through),
+    'settlement', (SELECT coalesce(string_agg(to_jsonb(x)::text, E'\n' ORDER BY x.id), '') FROM settlement x
+                    WHERE x.for_month <= p_through),
+    'month_close', (SELECT coalesce(string_agg(to_jsonb(x)::text, E'\n' ORDER BY x.for_month, x.consumer_id), '') FROM month_close x
+                     WHERE x.for_month <= p_through),
+    'log_entry', (SELECT coalesce(string_agg(to_jsonb(x)::text, E'\n' ORDER BY x.id), '') FROM log_entry x
+                   WHERE x.on_date < (p_through + interval '1 month')::date)
+  ), 'UTF8')), 'hex')
+$$;
+
+-- Hands months over: removes every month up to and including p_through, writes one opening balance per
+-- person (money kitchens only) and one archive_cut, in this one transaction. Only the platform role may call
+-- it. It does not trust its caller: it checks again that the months may go (the rules of the design's
+-- section 2 that the database can see), that the rows about to go hash to what the backup was made from, and
+-- that exactly the counted rows were removed. Anything else raises and the whole transaction rolls back.
+-- Whether every later statement comes out the same is compared by the platform before it commits.
+CREATE FUNCTION archive_cut_apply(p_through date, p_keep integer, p_digest char(64), p_slice_hash char(64),
+    p_prior_digest char(64), p_counts jsonb, p_by uuid, p_openings jsonb)
+RETURNS jsonb
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  today     date := workspace_today();
+  keep      integer := least(60, greatest(13, coalesce(p_keep, 24)));
+  last_cut  date;
+  last_digest text;
+  span_from date;
+  money     boolean;
+  got       jsonb := '{}'::jsonb;
+  removed   bigint;
+  t         text;
+  w         text;
+BEGIN
+  IF is_app_session() THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_FORBIDDEN: only the platform may hand months over' USING ERRCODE = 'P0001';
+  END IF;
+  LOCK TABLE log_entry, claim, claim_decision, claim_reversal, settlement, month_close, audit_log,
+             person, archive_cut, opening_balance IN SHARE ROW EXCLUSIVE MODE;
+  SELECT money_enabled INTO money FROM workspace;
+  IF money IS NULL THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: not_a_workspace' USING ERRCODE = 'P0001';
+  END IF;
+  IF (SELECT read_only FROM workspace) THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: read_only' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Rule 1: a whole month, after every month already handed over (so nothing is left in between).
+  IF p_through IS NULL OR extract(day FROM p_through) <> 1 THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: not_a_month' USING ERRCODE = 'P0001';
+  END IF;
+  SELECT through_month, bundle_digest INTO last_cut, last_digest
+    FROM archive_cut ORDER BY through_month DESC LIMIT 1;
+  IF last_cut IS NOT NULL AND p_through <= last_cut THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: already_archived' USING ERRCODE = 'P0001';
+  END IF;
+  IF p_prior_digest IS DISTINCT FROM last_digest THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: wrong_chain' USING ERRCODE = 'P0001';
+  END IF;
+  -- Rule 2: at least `keep` full months besides the current one stay, and never fewer than 13.
+  IF p_through > (date_trunc('month', today) - make_interval(months => keep + 1))::date THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: too_recent' USING ERRCODE = 'P0001';
+  END IF;
+  span_from := coalesce((last_cut + interval '1 month')::date, DATE '0001-01-01');
+
+  -- Rule 3: every consumer active in a month of the span has a close for it.
+  IF EXISTS (
+    SELECT 1
+      FROM person p
+      CROSS JOIN LATERAL generate_series(0,
+             (extract(year FROM p_through)::int * 12 + extract(month FROM p_through)::int)
+             - (extract(year FROM greatest(date_trunc('month', p.active_from)::date, span_from))::int * 12
+                + extract(month FROM greatest(date_trunc('month', p.active_from)::date, span_from))::int)) AS g(i)
+     WHERE p.role = 'consumer' AND p.active_from IS NOT NULL
+       AND (greatest(date_trunc('month', p.active_from)::date, span_from) + make_interval(months => g.i))::date
+             <= coalesce(date_trunc('month', p.active_to)::date, p_through)
+       AND NOT EXISTS (
+         SELECT 1 FROM month_close c
+          WHERE c.consumer_id = p.id
+            AND c.for_month = (greatest(date_trunc('month', p.active_from)::date, span_from) + make_interval(months => g.i))::date)
+  ) THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: not_closed' USING ERRCODE = 'P0001';
+  END IF;
+  -- Rule 4: every claim has a decision, and no query or dispute is left open.
+  IF EXISTS (SELECT 1 FROM claim c WHERE c.for_month <= p_through
+               AND NOT EXISTS (SELECT 1 FROM claim_decision d WHERE d.claim_id = c.id)) THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: pending_claim' USING ERRCODE = 'P0001';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM (
+      SELECT c.consumer_id, c.for_month, 1 AS n
+        FROM claim c JOIN claim_decision d ON d.claim_id = c.id
+       WHERE c.for_month <= p_through AND d.decision = 'Disputed'
+         AND NOT EXISTS (SELECT 1 FROM claim_reversal r WHERE r.claim_id = c.id)
+      UNION ALL
+      SELECT s.consumer_id, s.for_month, CASE s.type WHEN 'Query' THEN 1 ELSE -1 END
+        FROM settlement s WHERE s.for_month <= p_through AND s.type IN ('Query', 'Query Resolved')
+    ) q GROUP BY consumer_id, for_month HAVING sum(n) > 0
+  ) THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: open_query' USING ERRCODE = 'P0001';
+  END IF;
+  -- Rules 5 and 6 (that nothing changed after a close, and that every frozen amount is still what the month
+  -- comes to) need the billing engine. The platform checks them before it offers the months and compares
+  -- every later statement before and after, in this transaction, before it commits.
+
+  -- The rows that are about to go are the ones the admin's backup was made from.
+  IF archive_slice_hash(p_through) IS DISTINCT FROM p_slice_hash THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: hash_mismatch' USING ERRCODE = 'P0001';
+  END IF;
+
+  PERFORM set_config('alimentation.archiving', p_through::text, true);
+  -- The audit rows go first, while the rows they describe are still here to say which month they are of.
+  FOR t, w IN
+    SELECT * FROM (VALUES
+      ('audit_log', 'archive_row_month(''audit_log'', to_jsonb(audit_log)) <= $1'),
+      ('claim_reversal', 'claim_id IN (SELECT id FROM claim WHERE for_month <= $1)'),
+      ('claim_decision', 'claim_id IN (SELECT id FROM claim WHERE for_month <= $1)'),
+      ('claim', 'for_month <= $1'),
+      ('settlement', 'for_month <= $1'),
+      ('month_close', 'for_month <= $1'),
+      ('log_entry', 'on_date < ($1 + interval ''1 month'')::date')
+    ) AS v(t, w)
+  LOOP
+    EXECUTE format('DELETE FROM %I WHERE %s', t, w) USING p_through;
+    GET DIAGNOSTICS removed = ROW_COUNT;
+    IF (p_counts ->> t)::bigint IS DISTINCT FROM removed THEN
+      RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: count_mismatch' USING ERRCODE = 'P0001', DETAIL = t;
+    END IF;
+    got := got || jsonb_build_object(t, removed);
+  END LOOP;
+  PERFORM set_config('alimentation.archiving', '', true);
+
+  IF money THEN
+    INSERT INTO opening_balance (person_id, as_of_month, balance, billed_total, paid_total)
+    SELECT (x ->> 'person_id')::uuid, (p_through + interval '1 month')::date,
+           (x ->> 'balance')::bigint, (x ->> 'billed_total')::bigint, (x ->> 'paid_total')::bigint
+      FROM jsonb_array_elements(coalesce(p_openings, '[]'::jsonb)) x;
+  ELSIF jsonb_array_length(coalesce(p_openings, '[]'::jsonb)) > 0 THEN
+    RAISE EXCEPTION 'ALIMENTATION_ARCHIVE_REFUSED: meals_only_opening' USING ERRCODE = 'P0001';
+  END IF;
+  INSERT INTO archive_cut (through_month, prior_through, prior_digest, bundle_digest, slice_hash, counts, cut_by)
+  VALUES (p_through, last_cut, last_digest, p_digest, p_slice_hash, got, p_by);
+  RETURN got;
+END $$;
+REVOKE ALL ON FUNCTION archive_cut_apply(date, integer, char, char, char, jsonb, uuid, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION archive_slice_hash(date) FROM PUBLIC;
 
 -- No function is executable by everyone.
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;

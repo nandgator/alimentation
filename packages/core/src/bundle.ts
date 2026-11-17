@@ -1,14 +1,16 @@
 import * as z from "zod";
-import { monthOf } from "./dates.ts";
+import { addMonths, type Month, monthEnd, monthOf } from "./dates.ts";
 import {
   buildMealStatements,
   buildStatements,
   consumers,
   type EngineData,
+  liveFloor,
   monthRange,
   prepare,
 } from "./engine.ts";
 import { PolicySchema } from "./policy.ts";
+import { firstMonthWithData, openingsAt } from "./retention.ts";
 import { LOG_ACTIONS, PAY_METHODS, SETTLEMENT_TYPES } from "./types.ts";
 
 /**
@@ -27,6 +29,34 @@ const month = z.string().regex(/^\d{4}-\d{2}$/);
 const uuid = z.uuid();
 const int = z.number().int();
 const nullable = <T extends z.ZodTypeAny>(t: T) => t.nullable();
+const sha = z.string().regex(/^[0-9a-f]{64}$/);
+
+/** What a person carried into a month, signed: arrears are positive, a credit is negative. */
+const OpeningSchema = z
+  .object({
+    personId: uuid,
+    asOfMonth: month,
+    balance: int,
+    billedTotal: int.min(0),
+    paidTotal: int.min(0),
+  })
+  .strict();
+
+/** The record that months up to `throughMonth` were handed over, chained to the one before it by digest. */
+const CutSchema = z
+  .object({
+    throughMonth: month,
+    priorDigest: nullable(sha),
+    /** The checksum of the slice bundle the admin held when the months left. */
+    bundleDigest: sha,
+    /** The checksum of the rows that were removed, as the database counted them. */
+    sliceHash: sha,
+    counts: z.record(z.string(), int),
+    cutBy: nullable(uuid),
+    cutByRole: z.literal("admin"),
+    cutAt: z.string(),
+  })
+  .strict();
 
 export const BundleSchema = z
   .object({
@@ -266,6 +296,8 @@ export const BundleSchema = z
             z
               .object({
                 liveTotal: int,
+                /** What the person carried into the month, so a lost or altered opening balance is found. */
+                earlierUnpaid: int,
                 billed: int,
                 paid: int,
                 balance: int,
@@ -277,6 +309,26 @@ export const BundleSchema = z
         })
         .strict(),
     ),
+    /**
+     * Months that have been handed over. A `live` bundle is the kitchen as it stands: its cuts and the
+     * opening balances its first live month starts from. A `slice` is the months a cut hands over, as a
+     * kitchen that stands on its own: the opening it starts from, the balances it leaves, and the checksum
+     * of the slice before it.
+     */
+    archive: z
+      .object({
+        kind: z.enum(["live", "slice"]),
+        /** The first month the rows begin at: the first live month, or the first month of the slice. */
+        fromMonth: nullable(month),
+        /** The last month of a slice. Null for a live bundle. */
+        throughMonth: nullable(month),
+        /** A slice: the bundle digest of the cut before it, or null for the first. Null for a live bundle. */
+        priorDigest: nullable(sha),
+        openingIn: z.array(OpeningSchema),
+        closing: z.array(OpeningSchema),
+        cuts: z.array(CutSchema),
+      })
+      .strict(),
     manifest: z
       .object({ counts: z.record(z.string(), int), digest: z.string().regex(/^[0-9a-f]{64}$/) })
       .strict(),
@@ -324,7 +376,12 @@ const TABLES = [
 ] as const;
 
 export function countsOf(b: BundleBody): Record<string, number> {
-  return Object.fromEntries(TABLES.map((t) => [t, b[t].length]));
+  return {
+    ...Object.fromEntries(TABLES.map((t) => [t, b[t].length])),
+    cuts: b.archive.cuts.length,
+    openingIn: b.archive.openingIn.length,
+    closing: b.archive.closing.length,
+  };
 }
 
 export async function digestOf(b: BundleBody): Promise<string> {
@@ -353,9 +410,11 @@ export async function parseBundle(raw: unknown): Promise<ParsedBundle> {
   const { manifest, ...body } = bundle;
   const problems: string[] = [];
   const counts = countsOf(body);
-  for (const t of TABLES)
+  for (const t of Object.keys(counts))
     if (manifest.counts[t] !== counts[t])
       problems.push(`${t}: the manifest says ${manifest.counts[t]} but there are ${counts[t]}`);
+  for (const t of Object.keys(manifest.counts))
+    if (!(t in counts)) problems.push(`${t}: the manifest counts something a bundle does not hold`);
   if ((await digestOf(body)) !== manifest.digest)
     problems.push("the checksum does not match: the bundle was altered after it was made");
   if (!bundle.workspace.moneyEnabled) {
@@ -364,7 +423,7 @@ export async function parseBundle(raw: unknown): Promise<ParsedBundle> {
     if (bundle.closes.some((c) => c.billed !== null))
       problems.push("closes: a bundle without money freezes no amounts");
   }
-  problems.push(...referenceProblems(body));
+  problems.push(...referenceProblems(body), ...archiveProblems(body));
   return problems.length ? { ok: false, problems } : { ok: true, bundle };
 }
 
@@ -522,6 +581,213 @@ export function referenceProblems(b: BundleBody): string[] {
   return [...new Set(out)].slice(0, 12);
 }
 
+/** The archive section of a kitchen that has handed nothing over. */
+export function noArchive(): Bundle["archive"] {
+  return {
+    kind: "live",
+    fromMonth: null,
+    throughMonth: null,
+    priorDigest: null,
+    openingIn: [],
+    closing: [],
+    cuts: [],
+  };
+}
+
+/**
+ * Whether the archive section is coherent with the rows around it: the cuts follow one another by checksum,
+ * balances exist only where money is tracked and begin on the first live month, and no row lies on the wrong
+ * side of a cut. Whether the balances are the right figures is proved by recomputing, on import.
+ */
+export function archiveProblems(b: BundleBody): string[] {
+  const out: string[] = [];
+  const a = b.archive;
+  a.cuts.forEach((c, i) => {
+    const before = a.cuts[i - 1];
+    if (before && c.throughMonth <= before.throughMonth)
+      out.push("archive: the cuts are not in order, oldest first");
+    if (c.priorDigest !== (before?.bundleDigest ?? null))
+      out.push(
+        "archive: the chain of checksums is broken, so a backup is missing or a cut was altered",
+      );
+  });
+  const last = a.cuts.at(-1) ?? null;
+  const floor = last === null ? null : addMonths(last.throughMonth, 1);
+
+  if (!b.workspace.moneyEnabled && (a.openingIn.length > 0 || a.closing.length > 0))
+    out.push("archive: a kitchen without money carries no balances");
+  const consumersIn = new Set(b.people.filter((x) => x.role === "consumer").map((x) => x.id));
+  const balances = (
+    name: string,
+    xs: Bundle["archive"]["openingIn"],
+    starts: ReadonlySet<Month>,
+  ) => {
+    const seen = new Set<string>();
+    for (const o of xs) {
+      if (!starts.has(o.asOfMonth))
+        out.push(`archive: ${name} holds a balance that does not begin on a first live month`);
+      if (!consumersIn.has(o.personId))
+        out.push(
+          `archive: ${name} holds a balance for someone who is not a consumer in the bundle`,
+        );
+      const key = `${o.personId}|${o.asOfMonth}`;
+      if (seen.has(key)) out.push(`archive: ${name} holds two balances for one person and month`);
+      seen.add(key);
+    }
+  };
+
+  // Every consumer who started on or before the last cut carries a balance into the first live month; one
+  // missing would drop what they owed.
+  if (b.workspace.moneyEnabled && last !== null && a.kind === "live") {
+    const have = new Set(a.openingIn.filter((o) => o.asOfMonth === floor).map((o) => o.personId));
+    for (const x of b.people)
+      if (
+        x.role === "consumer" &&
+        x.activeFrom !== null &&
+        monthOf(x.activeFrom) <= last.throughMonth &&
+        !have.has(x.id)
+      )
+        out.push("archive: a person who started before the last cut has no balance carried in");
+  }
+
+  // Rows below the last cut would have been removed with it.
+  if (last !== null) {
+    const gone = monthEnd(last.throughMonth);
+    if (
+      b.log.some((e) => e.date <= gone) ||
+      b.claims.some((c) => c.forMonth <= last.throughMonth) ||
+      b.settlements.some((s) => s.forMonth <= last.throughMonth) ||
+      b.closes.some((c) => c.forMonth <= last.throughMonth)
+    )
+      out.push("archive: there are records in months that were handed over");
+  }
+
+  if (a.kind === "live") {
+    if (a.throughMonth !== null || a.priorDigest !== null || a.closing.length > 0)
+      out.push("archive: a live bundle names no slice");
+    if (a.fromMonth !== floor)
+      out.push("archive: a live bundle begins at the month after its last cut");
+    balances("the bundle", a.openingIn, new Set(a.cuts.map((c) => addMonths(c.throughMonth, 1))));
+    return [...new Set(out)];
+  }
+
+  const { fromMonth: from, throughMonth: through } = a;
+  if (from === null || through === null) {
+    out.push("archive: a slice names the months it holds");
+    return out;
+  }
+  if (from > through) out.push("archive: a slice ends before it begins");
+  if (floor !== null && from !== floor)
+    out.push("archive: a slice begins at the month after the cut before it");
+  if (last !== null && through <= last.throughMonth)
+    out.push("archive: a slice ends at or before the cut before it");
+  if (a.priorDigest !== (last?.bundleDigest ?? null))
+    out.push("archive: the slice does not follow the cut before it");
+  balances("the start of the slice", a.openingIn, new Set(floor === null ? [] : [floor]));
+  balances("the end of the slice", a.closing, new Set([addMonths(through, 1)]));
+  if (b.workspace.moneyEnabled) {
+    const closed = new Set(a.closing.map((o) => o.personId));
+    for (const x of b.people)
+      if (
+        x.role === "consumer" &&
+        x.activeFrom !== null &&
+        monthOf(x.activeFrom) <= through &&
+        !closed.has(x.id)
+      )
+        out.push("archive: a person who started in the slice has no closing balance");
+  }
+  const end = monthEnd(through);
+  if (
+    b.log.some((e) => e.date > end) ||
+    b.claims.some((c) => c.forMonth > through) ||
+    b.settlements.some((s) => s.forMonth > through) ||
+    b.closes.some((c) => c.forMonth > through) ||
+    b.expected.some((x) => x.month > through)
+  )
+    out.push("archive: a slice holds records after the months it hands over");
+  return [...new Set(out)];
+}
+
+/** The tables whose rows leave with a cut, and the column of each audit row that says which month it is in. */
+const SPAN_AUDIT: Readonly<Record<string, string>> = {
+  log_entry: "on_date",
+  claim: "for_month",
+  settlement: "for_month",
+  month_close: "for_month",
+  claim_decision: "claim",
+  claim_reversal: "claim",
+};
+
+/**
+ * The month an audit row belongs to, or null for one about something a cut never removes (or a decision
+ * whose claim cannot be found). A decision or a reversal is in its claim's month.
+ */
+export function auditBusinessMonth(
+  a: Pick<Bundle["audit"][number], "table" | "rowId" | "before" | "after">,
+  claimMonth: ReadonlyMap<string, Month>,
+): Month | null {
+  const col = SPAN_AUDIT[a.table];
+  if (col === undefined) return null;
+  if (col === "claim") return claimMonth.get(a.rowId) ?? null;
+  const v = (a.after ?? a.before)?.[col];
+  return typeof v === "string" ? v.slice(0, 7) : null;
+}
+
+/**
+ * The months up to `through` as a bundle that stands on its own, from the live body of the kitchen and its
+ * engine data: the full configuration, the rows and audit trail of the span, the balance the span starts
+ * from and the one it leaves, and the figures every person's month came to. Imported into a fresh kitchen it
+ * recomputes the span and must agree.
+ */
+export function sliceBody(full: BundleBody, data: EngineData, through: Month): BundleBody {
+  const floor = liveFloor(data);
+  if (data.archivedThrough !== null && through <= data.archivedThrough)
+    throw new RangeError("that month is already handed over");
+  const from = floor ?? firstMonthWithData(data);
+  if (from === null || through < from)
+    throw new RangeError("there is nothing to hand over up to that month");
+  const end = monthEnd(through);
+  const claims = data.claims.filter((c) => c.forMonth <= through);
+  const kept = new Set(claims.map((c) => c.id));
+  const spanData: EngineData = {
+    ...data,
+    log: data.log.filter((e) => e.date <= end),
+    claims,
+    decisions: data.decisions.filter((d) => kept.has(d.claimId)),
+    settlements: data.settlements.filter((s) => s.forMonth <= through),
+    closes: data.closes.filter((c) => c.forMonth <= through),
+  };
+  const claimMonth = new Map<string, Month>(full.claims.map((c) => [c.id, c.forMonth]));
+  for (const a of full.audit)
+    if (a.table === "claim" && !claimMonth.has(a.rowId)) {
+      const v = (a.after ?? a.before)?.for_month;
+      if (typeof v === "string") claimMonth.set(a.rowId, v.slice(0, 7));
+    }
+  return {
+    ...full,
+    log: full.log.filter((e) => e.date <= end),
+    claims: full.claims.filter((c) => c.forMonth <= through),
+    decisions: full.decisions.filter((d) => kept.has(d.claimId)),
+    reversals: full.reversals.filter((r) => kept.has(r.claimId)),
+    settlements: full.settlements.filter((s) => s.forMonth <= through),
+    closes: full.closes.filter((c) => c.forMonth <= through),
+    audit: full.audit.filter((a) => {
+      const m = auditBusinessMonth(a, claimMonth);
+      return m === null || m <= through;
+    }),
+    archive: {
+      kind: "slice",
+      fromMonth: from,
+      throughMonth: through,
+      priorDigest: full.archive.cuts.at(-1)?.bundleDigest ?? null,
+      openingIn: full.archive.openingIn.filter((o) => o.asOfMonth === floor),
+      closing: openingsAt(prepare(data), through),
+      cuts: full.archive.cuts,
+    },
+    expected: expectedTotals(spanData).filter((x) => x.month <= through),
+  };
+}
+
 /** Rules in the bundle that this release does not understand. They are listed and the move is refused. */
 export function unsupportedRules(b: Pick<Bundle, "policies">): string[] {
   const out: string[] = [];
@@ -567,6 +833,7 @@ export function expectedTotals(data: EngineData): ExpectedTotal[] {
         money: s
           ? {
               liveTotal: s.liveTotal,
+              earlierUnpaid: s.earlierUnpaid,
               billed: s.billed,
               paid: s.paid,
               balance: s.balance,
@@ -658,6 +925,7 @@ export function compareTotals(
       }
       for (const f of [
         "liveTotal",
+        "earlierUnpaid",
         "billed",
         "paid",
         "balance",

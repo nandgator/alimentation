@@ -417,6 +417,10 @@ function lastClosedMonth(p: Prepared): Month | null {
   return last;
 }
 
+/** Whether `month` was handed over and removed. Nothing may be dated into it: its closes went with it. */
+const handedOver = (p: Prepared, month: Month): boolean =>
+  p.data.archivedThrough !== null && month <= p.data.archivedThrough;
+
 /** What a new menu says: the same as a stored one, less the id and note. */
 export type NewMenu = Pick<MenuVersion, "effectiveFrom" | "days" | "offered">;
 
@@ -477,7 +481,10 @@ export function checkMenu(p: Prepared, m: NewMenu): Issue[] {
   // The first menu serves nothing that was served before, so it may start whenever; a later one may not
   // reach back into a month that has been closed, which would change what that month's counts say.
   const closed = lastClosedMonth(p);
-  if (p.menus.length > 0 && closed !== null && monthOf(m.effectiveFrom) <= closed) {
+  if (
+    handedOver(p, monthOf(m.effectiveFrom)) ||
+    (p.menus.length > 0 && closed !== null && monthOf(m.effectiveFrom) <= closed)
+  ) {
     out.push(err("BACKDATED_MENU", MSG.backdatedMenu));
   }
 
@@ -518,8 +525,9 @@ export function checkRateCard(p: Prepared, c: NewRateCard): Issue[] {
   }
   // The first card prices nothing that was priced before, so it may start whenever.
   if (
-    p.cards.length > 0 &&
-    !rateCardStartAllowed(policy, c.effectiveFrom, p.data.today, lastClosedMonth(p))
+    handedOver(p, monthOf(c.effectiveFrom)) ||
+    (p.cards.length > 0 &&
+      !rateCardStartAllowed(policy, c.effectiveFrom, p.data.today, lastClosedMonth(p)))
   ) {
     out.push(err("BACKDATED_RATE_CARD", MSG.backdatedRateCard));
   }
@@ -723,6 +731,11 @@ export function checkEnrolment(
         if (takes(before, sv, day) !== takes(next, sv, day)) months.add(monthOf(day));
   }
   for (const mo of [...months].sort()) {
+    if (handedOver(p, mo)) {
+      if (!out.some((i) => i.code === "MONTH_CLOSED"))
+        out.push(err("MONTH_CLOSED", MSG.archivedMonth));
+      continue;
+    }
     const ci = closedIssue(p, actor, mo, isMonthClosed(p, personId, mo));
     if (ci && !out.some((i) => i.code === ci.code)) out.push(ci);
   }

@@ -130,16 +130,17 @@ export class Directory {
       if (!(e instanceof KeysDestroyedError)) throw e;
     }
     const appDb = this.d.openDb(dsns.app);
-    if (row.state === "ACTIVE") await this.ensureSchema(dsns, appDb);
+    // A workspace that is handing older months over is as open as an active one, apart from its writes.
+    const serving = row.state === "ACTIVE" || row.state === "ARCHIVING";
+    if (serving) await this.ensureSchema(dsns, appDb);
     const cipher = keys ? new FieldCipher(keys) : null;
     // Whether the kitchen tracks money never changes, so it is asked of the kitchen's own database once, when
     // the kitchen is first served here. A kitchen that is gone or moved is only read, and is not asked.
-    const moneyEnabled =
-      row.state === "ACTIVE"
-        ? await appDb.tx(async (tx) =>
-            Boolean(must((await tx.query<{ on: boolean }>("SELECT money_enabled() AS on"))[0]).on),
-          )
-        : true;
+    const moneyEnabled = serving
+      ? await appDb.tx(async (tx) =>
+          Boolean(must((await tx.query<{ on: boolean }>("SELECT money_enabled() AS on"))[0]).on),
+        )
+      : true;
     const info: WorkspaceInfo = {
       id: row.id,
       slug: row.slug,
@@ -151,6 +152,10 @@ export class Directory {
       movedTo: row.movedToUrl,
       limits: row.limits as Limits,
       overSince: row.overSince,
+      graceUntil:
+        row.overSince !== null && row.retention.graceFor === row.overSince
+          ? row.retention.graceUntil
+          : null,
     };
     const { control, now, requestsLast24h } = this.d;
     let service: WorkspaceService | undefined;

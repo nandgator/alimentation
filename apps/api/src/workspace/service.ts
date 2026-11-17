@@ -108,6 +108,26 @@ import {
 // biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
 type R = Record<string, any>;
 
+/** What a kitchen holds, as the meter counts it: live rows, and the bytes of our own tables and their indexes. */
+export async function measureUsage(tx: Tx, requests: number): Promise<Usage> {
+  const [row] = await tx.query<R>(
+    `SELECT (SELECT count(*) FROM person)::int AS people,
+            ((SELECT count(*) FROM log_entry) + (SELECT count(*) FROM claim) + (SELECT count(*) FROM settlement) + (SELECT count(*) FROM claim_decision))::int AS rows,
+            -- Our own tables and their indexes: an empty Postgres database is already several
+            -- megabytes of catalogs, which are not the kitchen's, and on a database the tenant owns
+            -- the rest of it is not ours to count.
+            (SELECT coalesce(sum(pg_total_relation_size(c.oid)), 0)
+               FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+              WHERE n.nspname = 'public' AND c.relkind IN ('r', 'm'))::bigint AS bytes`,
+  );
+  return {
+    requestsLast24h: requests,
+    people: must(row).people,
+    rows: must(row).rows,
+    bytes: Number(must(row).bytes),
+  };
+}
+
 export interface WorkspaceInfo {
   id: string;
   slug: string;
@@ -116,10 +136,12 @@ export interface WorkspaceInfo {
   currency: string;
   /** Whether the kitchen tracks money. Fixed when it was made, so it is read once and kept. */
   moneyEnabled: boolean;
-  state: "ACTIVE" | "MIGRATING" | "MOVED";
+  state: "ACTIVE" | "MIGRATING" | "ARCHIVING" | "MOVED";
   movedTo: string | null;
   limits: Limits;
   overSince: string | null;
+  /** A later last day for writes while over a limit, given once while a hand-over of older months was on offer. */
+  graceUntil?: string | null;
 }
 
 export interface ServiceDeps {
@@ -212,9 +234,41 @@ export class WorkspaceService {
         "read_only",
         this.d.info.state === "MOVED"
           ? "This workspace has moved."
-          : "This workspace is being moved and is read-only.",
+          : this.d.info.state === "ARCHIVING"
+            ? "Older months are being handed over, so this workspace is read-only for a moment."
+            : "This workspace is being moved and is read-only.",
       );
     }
+  }
+
+  /**
+   * What the engine refusing a request is told to the caller as. A month that was handed over and removed is
+   * `410 archived_month`, with the cut that took it, so that a reader can say where the records went.
+   */
+  private async engineRefusal(tx: Tx, data: EngineData, e: EngineError): Promise<ApiError> {
+    if (e.code !== "ARCHIVED_MONTH") return new ApiError(422, e.code.toLowerCase(), e.message);
+    const [cut] = await tx.query<R>(
+      "SELECT through_month, bundle_digest, cut_at FROM archive_cut ORDER BY through_month DESC LIMIT 1",
+    );
+    return new ApiError(410, "archived_month", e.message, undefined, {
+      archivedThrough: data.archivedThrough,
+      cut: cut
+        ? {
+            throughMonth: String(cut.through_month).slice(0, 7),
+            bundleDigest: cut.bundle_digest,
+            cutAt: cut.cut_at,
+          }
+        : null,
+    });
+  }
+
+  /**
+   * Stores the automatic closes that have come due, as every read does, and says nothing of them. Run before
+   * a kitchen is asked which of its months may be handed over, since a month that is only due to close has not
+   * been closed yet.
+   */
+  async settleDueCloses(actor: Actor): Promise<void> {
+    await this.run(actor, async (_tx, load) => void (await load()));
   }
 
   // --- reading -----------------------------------------------------------
@@ -259,7 +313,7 @@ export class WorkspaceService {
       let meterOut: BootstrapDto["meter"] = null;
       if (actor.role === "admin") {
         const usage = await this.measure(tx, requests);
-        const m = computeMeter(usage, info.limits, info.overSince, today);
+        const m = computeMeter(usage, info.limits, info.overSince, today, info.graceUntil ?? null);
         if (m.overSince !== info.overSince) await this.d.recordOverSince(m.overSince);
         meterOut = { ...m, usage };
       }
@@ -368,22 +422,7 @@ export class WorkspaceService {
   }
 
   private async measure(tx: Tx, requests: number): Promise<Usage> {
-    const [row] = await tx.query<R>(
-      `SELECT (SELECT count(*) FROM person)::int AS people,
-              ((SELECT count(*) FROM log_entry) + (SELECT count(*) FROM claim) + (SELECT count(*) FROM settlement) + (SELECT count(*) FROM claim_decision))::int AS rows,
-              -- Our own tables and their indexes: an empty Postgres database is already several
-              -- megabytes of catalogs, which are not the kitchen's, and on a database the tenant owns
-              -- the rest of it is not ours to count.
-              (SELECT coalesce(sum(pg_total_relation_size(c.oid)), 0)
-                 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public' AND c.relkind IN ('r', 'm'))::bigint AS bytes`,
-    );
-    return {
-      requestsLast24h: requests,
-      people: must(row).people,
-      rows: must(row).rows,
-      bytes: Number(must(row).bytes),
-    };
+    return measureUsage(tx, requests);
   }
 
   private dto(statements: ReturnType<typeof buildStatements>, data: EngineData): StatementDto[] {
@@ -437,7 +476,7 @@ export class WorkspaceService {
   ): Promise<(StatementDto | MealStatementDto)[]> {
     for (const m of months) if (!isValidMonth(m)) throw invalid(`"${m}" is not a month`);
     if (months.length > 36) throw invalid("Ask for at most 36 months at a time.");
-    return this.run(actor, async (_tx, load) => {
+    return this.run(actor, async (tx, load) => {
       const data = await load();
       const p = prepare(data);
       const ids = personId ? [personId] : consumers(p).map((c) => c.id);
@@ -447,7 +486,7 @@ export class WorkspaceService {
           ? this.dto(buildStatements(p, ids, months), data)
           : this.mealDto(buildMealStatements(p, ids, months), data);
       } catch (e) {
-        if (e instanceof EngineError) throw new ApiError(422, e.code.toLowerCase(), e.message);
+        if (e instanceof EngineError) throw await this.engineRefusal(tx, data, e);
         throw e;
       }
     });
@@ -455,7 +494,7 @@ export class WorkspaceService {
 
   async ledger(actor: Actor, month: Month, personId: string): Promise<LedgerDto> {
     if (!isValidMonth(month)) throw invalid(`"${month}" is not a month`);
-    return this.run(actor, async (_tx, load) => {
+    return this.run(actor, async (tx, load) => {
       const data = await load();
       const person = data.people.find((x) => x.id === personId && x.role === "consumer");
       if (!person) throw notFound("Person");
@@ -467,7 +506,7 @@ export class WorkspaceService {
           rows: this.d.info.moneyEnabled ? rows : rows.map(mealLedgerRow),
         };
       } catch (e) {
-        if (e instanceof EngineError) throw new ApiError(422, e.code.toLowerCase(), e.message);
+        if (e instanceof EngineError) throw await this.engineRefusal(tx, data, e);
         throw e;
       }
     });

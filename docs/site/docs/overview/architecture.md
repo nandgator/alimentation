@@ -45,6 +45,16 @@ kinds behind one interface.
 | `neon-project` | A Neon project per kitchen, for the shared service. Written against the published API, tested against a stand-in.          |
 | `external`     | A connection string the kitchen's owner supplies: their own Postgres. A kitchen that has moved is on this one.             |
 
+## Retention
+
+A kitchen keeps a rolling window of live history. The admin can hand older closed months over as a
+verified file; the control database records an `archive_offer` (a digest and counts, never the
+months) and, when done, an `archive_receipt` that survives a wipe. The removal itself runs in the
+kitchen's own database, in one transaction, through one platform-only function, and is proven by
+recomputing every later statement before commit (`DESIGN.md` section 5.18). The engine takes the
+carried balances as `openings` and an `archivedThrough` month, so the same code serves the browser,
+the server and the check.
+
 ## The request path
 
 1. **Verify the session.** A signed cookie, checked without a database call. Once a minute per

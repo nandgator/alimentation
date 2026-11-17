@@ -12,8 +12,8 @@ test.describe("the home page", () => {
     await expect(page.getByText(/of 80 free kitchens taken/)).toBeVisible();
 
     const promises = page.locator("#promises li");
-    await expect(promises).toHaveCount(7);
-    await expect(page.locator("#promises .limit")).toHaveCount(7);
+    await expect(promises).toHaveCount(8);
+    await expect(page.locator("#promises .limit")).toHaveCount(8);
     await expect(page.getByText("Leave, and everything goes.")).toBeVisible();
     await expect(page.getByRole("figure", { name: /example wipe receipt/i })).toBeVisible();
 

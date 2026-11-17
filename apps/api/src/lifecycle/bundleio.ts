@@ -1,14 +1,24 @@
 import {
+  type ArchiveBlocker,
+  addMonths,
+  archiveBlockers,
   assembleBundle,
   BUNDLE_FORMAT,
   type Bundle,
   type BundleBody,
   expectedTotals,
+  firstMonthWithData,
+  isArchivedMonth,
+  liveFloor,
+  type Month,
   must,
+  prepare,
+  sliceBody,
 } from "@alimentation/core";
 import type { FieldCipher } from "../crypto/fields.ts";
 import type { Tx } from "../db/driver.ts";
 import { loadEngineData, menuFromRows, rateCardFromRows } from "../workspace/load.ts";
+import { MAX_SPAN_ROWS, spanCounts, sumCounts } from "./span.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: rows come back from the driver as untyped JSON
 type R = Record<string, any>;
@@ -34,7 +44,13 @@ const fromHexText = (s: string): Uint8Array<ArrayBuffer> =>
 export async function readBundleBody(
   tx: Tx,
   cipher: FieldCipher,
-  ctx: { exportedAt: string; asOf: string; members: BundleMember[] },
+  ctx: {
+    exportedAt: string;
+    asOf: string;
+    members: BundleMember[];
+    /** Read only the months up to this one, as a bundle that stands on its own (see `sliceBody`). */
+    slice?: { through: Month };
+  },
 ): Promise<BundleBody> {
   const [ws] = await tx.query<R>("SELECT name, time_zone, currency, money_enabled FROM workspace");
   if (!ws) throw new Error("this database holds no workspace");
@@ -59,6 +75,8 @@ export async function readBundleBody(
     settlements,
     closes,
     audit,
+    openings,
+    cuts,
   ] = await Promise.all([
     tx.query<R>("SELECT effective_from, doc, created_by FROM policy_version"),
     tx.query<R>(
@@ -103,6 +121,14 @@ export async function readBundleBody(
     ),
     tx.query<R>(
       "SELECT id, table_name, row_id, action, actor, at, via, before, after FROM audit_log",
+    ),
+    money
+      ? tx.query<R>(
+          "SELECT person_id, as_of_month, balance, billed_total, paid_total FROM opening_balance",
+        )
+      : none,
+    tx.query<R>(
+      "SELECT through_month, prior_digest, bundle_digest, slice_hash, counts, cut_by, cut_at FROM archive_cut",
     ),
   ]);
 
@@ -327,10 +353,40 @@ export async function readBundleBody(
         after: await openAudit(a.table_name, a.row_id, a.after),
       })),
     ),
+    archive: {
+      kind: "live",
+      fromMonth: data.archivedThrough === null ? null : addMonths(data.archivedThrough, 1),
+      throughMonth: null,
+      priorDigest: null,
+      openingIn: byKey(
+        openings.map((o) => ({
+          personId: o.person_id as string,
+          asOfMonth: month(o.as_of_month),
+          balance: Number(o.balance),
+          billedTotal: Number(o.billed_total),
+          paidTotal: Number(o.paid_total),
+        })),
+        (o) => o.asOfMonth + o.personId,
+      ),
+      closing: [],
+      cuts: byKey(
+        cuts.map((c) => ({
+          throughMonth: month(c.through_month),
+          priorDigest: (c.prior_digest as string | null) ?? null,
+          bundleDigest: c.bundle_digest as string,
+          sliceHash: c.slice_hash as string,
+          counts: c.counts as Record<string, number>,
+          cutBy: (c.cut_by as string | null) ?? null,
+          cutByRole: "admin" as const,
+          cutAt: c.cut_at as string,
+        })),
+        (c) => c.throughMonth,
+      ),
+    },
     members: byKey(ctx.members, (m) => m.personId + m.role),
     expected: expectedTotals(data),
   };
-  return body;
+  return ctx.slice ? sliceBody(body, data, ctx.slice.through) : body;
 }
 
 /** A consistent snapshot of the workspace, sealed with its counts and digest. */
@@ -349,4 +405,91 @@ export async function exportWorkspace(
     { snapshot: true },
   );
   return assembleBundle(body);
+}
+
+/**
+ * The months up to `through` as a bundle that stands on its own, read from one consistent snapshot: the
+ * file an admin holds before those months leave, and the file a fresh kitchen can be made from to see them.
+ */
+export async function exportArchiveSlice(
+  owner: { tx: <T>(fn: (tx: Tx) => Promise<T>, opts?: { snapshot?: boolean }) => Promise<T> },
+  cipher: FieldCipher,
+  ctx: { exportedAt: Date; members: BundleMember[]; today: string; through: Month },
+): Promise<Bundle> {
+  const body = await owner.tx(
+    (tx) =>
+      readBundleBody(tx, cipher, {
+        exportedAt: ctx.exportedAt.toISOString(),
+        asOf: ctx.today,
+        members: ctx.members,
+        slice: { through: ctx.through },
+      }),
+    { snapshot: true },
+  );
+  return assembleBundle(body);
+}
+
+export type ArchiveOfferDraft =
+  | {
+      ok: true;
+      bundle: Bundle;
+      /** What the database holds of the rows that would go, as `archive_slice_hash` reads it. */
+      sliceHash: string;
+      counts: Record<string, number>;
+      priorDigest: string | null;
+    }
+  | { ok: false; why: "nothing_to_archive" }
+  | { ok: false; why: "blocked"; blockers: ArchiveBlocker[] }
+  | { ok: false; why: "too_large"; rows: number };
+
+/**
+ * Everything a hand-over of the months up to `through` is made from, read in one picture of the database:
+ * whether the months may go, how many rows would, the checksum of those rows, and the file the admin keeps.
+ * Nothing is kept here; the caller says what to remember and sends the file on.
+ */
+export async function exportArchiveOffer(
+  owner: { tx: <T>(fn: (tx: Tx) => Promise<T>, opts?: { snapshot?: boolean }) => Promise<T> },
+  cipher: FieldCipher,
+  ctx: {
+    exportedAt: Date;
+    members: BundleMember[];
+    today: string;
+    through: Month;
+    keepMonths: number;
+    /** The most rows one hand-over may remove. Left out, the limit of the service. */
+    maxRows?: number;
+  },
+): Promise<ArchiveOfferDraft> {
+  const asked = await owner.tx(
+    async (tx): Promise<ArchiveOfferDraft> => {
+      const data = await loadEngineData(tx, cipher, ctx.today);
+      const start = liveFloor(data) ?? firstMonthWithData(data);
+      const gone = isArchivedMonth(data, ctx.through);
+      if (!gone && (start === null || ctx.through < start))
+        return { ok: false, why: "nothing_to_archive" };
+      const blockers = archiveBlockers(prepare(data), ctx.through, { keepMonths: ctx.keepMonths });
+      if (blockers.length > 0) return { ok: false, why: "blocked", blockers };
+      const counts = await spanCounts(tx, ctx.through);
+      const rows = sumCounts(counts);
+      if (rows > (ctx.maxRows ?? MAX_SPAN_ROWS)) return { ok: false, why: "too_large", rows };
+      const [hash] = await tx.query<{ h: string }>("SELECT archive_slice_hash($1::date) AS h", [
+        `${ctx.through}-01`,
+      ]);
+      const body = await readBundleBody(tx, cipher, {
+        exportedAt: ctx.exportedAt.toISOString(),
+        asOf: ctx.today,
+        members: ctx.members,
+        slice: { through: ctx.through },
+      });
+      return {
+        ok: true,
+        bundle: await assembleBundle(body),
+        sliceHash: must(hash).h,
+        counts,
+        priorDigest: body.archive.priorDigest,
+      };
+    },
+    { snapshot: true },
+  );
+  return asked;
 }

@@ -255,6 +255,9 @@ export function board(marks: Marks, today: IsoDate, month: Month): Board {
     decisions: [],
     settlements: [],
     closes: [],
+    // A sample kitchen has handed nothing over.
+    openings: [],
+    archivedThrough: null,
   };
   const p = prepare(data);
   const days = new Map(ledgerMonth(p, person, month).map((d) => [d.date, d]));

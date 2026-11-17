@@ -1,9 +1,10 @@
 import { GRACE_DAYS } from "@alimentation/core";
 import { useState } from "react";
-import { useLocation } from "wouter";
-import { postJson } from "../../api.ts";
-import { Field, Form, PageHead, Problem, toast, useAction } from "../../components/ui.tsx";
+import { Link, useLocation } from "wouter";
+import { getJson, postJson } from "../../api.ts";
+import { Field, Form, PageHead, Problem, toast, useAction, useLoad } from "../../components/ui.tsx";
 import { date } from "../../format.ts";
+import { bytesWords, monthWords, type Retention } from "../../retention.ts";
 import { AgentKeys } from "./AgentKeys.tsx";
 import { useWorkspace } from "./context.tsx";
 import { HeadOffice } from "./HeadOffice.tsx";
@@ -84,6 +85,39 @@ function Usage() {
         );
       })}
       <p className="muted small">{tone ? "" : "The meter warns you well before anything stops."}</p>
+    </section>
+  );
+}
+
+/**
+ * Near a free limit, the first thing offered is handing older months over, which frees room without leaving
+ * the place; moving to somewhere of your own comes after it.
+ */
+function ArchiveBanner() {
+  const ws = useWorkspace();
+  const state = ws.boot.meter?.state;
+  const near = state === "WATCH" || state === "ASK" || state === "OVER";
+  const res = useLoad(
+    () => (near ? getJson<Retention>(`${ws.api}/retention`) : Promise.resolve(null)),
+    [ws.api, near],
+  );
+  const r = res.data;
+  if (!near || !r?.eligibleThrough) return null;
+  return (
+    <section className="card stack" aria-label="Archive older months">
+      <h2>Archive older months</h2>
+      <div className="banner warn">
+        <div className="stack" style={{ ["--gap" as string]: "8px" }}>
+          <span>
+            Everything through {monthWords(r.eligibleThrough)} can be handed over to you as a backup
+            {r.span ? `, which frees about ${bytesWords(r.span.estimatedBytes)}` : ""}. It is the
+            quickest way to get well inside the free allowance again.
+          </span>
+          <Link className="btn small" href={`/w/${ws.slug}/retention`}>
+            Archive older months
+          </Link>
+        </div>
+      </div>
     </section>
   );
 }
@@ -405,6 +439,7 @@ export function YourData() {
         lead={`${ws.boot.workspace.name} · /w/${ws.slug}. This is yours: take it, move it, or delete it.`}
       />
       <Usage />
+      {ws.boot.workspace.state === "ACTIVE" ? <ArchiveBanner /> : null}
       <Export />
       {ws.boot.workspace.state === "ACTIVE" ? <HeadOffice /> : null}
       <AgentKeys />

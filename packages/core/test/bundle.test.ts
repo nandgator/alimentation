@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  archiveProblems,
   assembleBundle,
   BUNDLE_FORMAT,
   type BundleBody,
@@ -8,13 +9,18 @@ import {
   countsOf,
   DEFAULT_POLICY,
   digestOf,
+  dropBefore,
   type EngineData,
   expectedTotals,
   moneyBundleProblem,
+  noArchive,
+  openingsAt,
   parseBundle,
+  prepare,
   referenceProblems,
   rupees,
   sha256Hex,
+  sliceBody,
   unpricedItems,
   unsupportedRules,
 } from "../src/index.ts";
@@ -117,6 +123,8 @@ function october() {
     ],
     settlements: [],
     closes: [],
+    openings: [],
+    archivedThrough: null,
   };
   const body: BundleBody = {
     format: BUNDLE_FORMAT,
@@ -181,6 +189,7 @@ function october() {
     settlements: [],
     closes: [],
     audit: [],
+    archive: noArchive(),
     members: [{ personId: admin, role: "admin", email: "owner@example.org" }],
     expected: expectedTotals(data),
   };
@@ -277,6 +286,9 @@ describe("[P3] a bundle says what it holds, and cannot be altered unnoticed", ()
     expect(Object.keys(countsOf(body)).sort()).toEqual(
       [
         "audit",
+        "closing",
+        "cuts",
+        "openingIn",
         "catalogue",
         "claims",
         "closes",
@@ -756,5 +768,183 @@ describe("a kitchen without money and a kitchen with it", () => {
     const { body } = october();
     expect(moneyBundleProblem(body, false)).toMatch(/tracks money/);
     expect(moneyBundleProblem(body, true)).toBeNull();
+  });
+});
+
+describe("the archive section refuses what a cut could not have produced", () => {
+  const sha = (c: string) => c.repeat(64);
+  const cut = (through: string, prior: string | null, c: string) => ({
+    throughMonth: through,
+    priorDigest: prior,
+    bundleDigest: sha(c),
+    sliceHash: sha("e"),
+    counts: {},
+    cutBy: null,
+    cutByRole: "admin" as const,
+    cutAt: "2026-11-01T00:00:00.000Z",
+  });
+  const withCut = (): BundleBody => {
+    const { body } = october();
+    return {
+      ...body,
+      log: [],
+      claims: [],
+      decisions: [],
+      settlements: [],
+      archive: { ...noArchive(), fromMonth: "2026-09", cuts: [cut("2026-08", null, "a")] },
+    };
+  };
+
+  it("accepts a coherent live bundle after a cut", () => {
+    expect(archiveProblems(withCut())).toEqual([]);
+  });
+
+  it("refuses records inside a handed-over month", () => {
+    const b = withCut();
+    b.settlements = [
+      {
+        id: randomUUID(),
+        personId: october().ids.jovial,
+        paidAt: "2026-09-01T00:00:00.000Z",
+        forMonth: "2026-08",
+        amount: rupees(1),
+        method: "UPI",
+        refNote: null,
+        createdAt: "2026-09-01T00:00:00.000Z",
+      } as never,
+    ];
+    expect(archiveProblems(b).join()).toMatch(/handed over/);
+  });
+
+  it("refuses a broken chain, a cut out of order, and a live bundle that starts elsewhere", () => {
+    const b = withCut();
+    b.archive.cuts.push(cut("2026-09", sha("b"), "c"));
+    expect(archiveProblems(b).join()).toMatch(/chain/);
+    const c = withCut();
+    c.archive.cuts.push(cut("2026-07", sha("a"), "c"));
+    expect(archiveProblems(c).join()).toMatch(/order/);
+    const d = withCut();
+    d.archive.fromMonth = "2026-10";
+    expect(archiveProblems(d).join()).toMatch(/begins at the month after/);
+  });
+
+  it("refuses balances in a kitchen without money, and balances on a month that is not the floor", () => {
+    const b = withCut();
+    const person = october().ids.jovial;
+    b.archive.openingIn = [
+      { personId: person, asOfMonth: "2026-10", balance: 5, billedTotal: 5, paidTotal: 0 },
+    ];
+    expect(archiveProblems(b).join()).toMatch(/first live month/);
+    const m = withCut();
+    m.workspace = { ...m.workspace, moneyEnabled: false };
+    m.archive.openingIn = [
+      { personId: person, asOfMonth: "2026-09", balance: 5, billedTotal: 5, paidTotal: 0 },
+    ];
+    expect(archiveProblems(m).join()).toMatch(/without money/);
+  });
+
+  it("refuses a live bundle that names a slice", () => {
+    const b = withCut();
+    b.archive.throughMonth = "2026-08";
+    expect(archiveProblems(b).join()).toMatch(/names no slice/);
+  });
+});
+
+describe("a lost or altered opening balance cannot pass unnoticed", () => {
+  it("is found by the expected totals, which carry what each month started from", () => {
+    const { data } = october();
+    const cut = dropBefore(data, "2026-10");
+    const want = expectedTotals(cut);
+    const lost = expectedTotals({ ...cut, openings: [] });
+    const arrears = cut.openings.some((o) => o.balance !== 0);
+    // Whatever the balances are, dropping them must differ exactly when one was not zero.
+    expect(compareTotals(want, lost).length > 0).toBe(arrears);
+    const bumped = expectedTotals({
+      ...cut,
+      openings: cut.openings.map((o) => ({ ...o, balance: o.balance + 100 })),
+    });
+    expect(compareTotals(want, bumped).some((d) => d.field === "earlierUnpaid")).toBe(
+      cut.openings.length > 0,
+    );
+  });
+
+  it("refuses a live bundle after a cut that leaves out someone's balance", () => {
+    const { body, data } = october();
+    const cut = dropBefore(data, "2026-10");
+    const sha = "a".repeat(64);
+    const live: BundleBody = {
+      ...body,
+      log: [],
+      claims: [],
+      decisions: [],
+      archive: {
+        ...noArchive(),
+        fromMonth: "2026-11",
+        cuts: [
+          {
+            throughMonth: "2026-10",
+            priorDigest: null,
+            bundleDigest: sha,
+            sliceHash: sha,
+            counts: {},
+            cutBy: null,
+            cutByRole: "admin",
+            cutAt: "2026-11-01T00:00:00.000Z",
+          },
+        ],
+        openingIn: [...cut.openings],
+      },
+    };
+    expect(cut.openings.length).toBeGreaterThan(0);
+    expect(archiveProblems(live)).toEqual([]);
+    const missing = { ...live, archive: { ...live.archive, openingIn: cut.openings.slice(1) } };
+    expect(archiveProblems(missing).join()).toMatch(/no balance carried in/);
+  });
+
+  it("makes a slice that stands on its own, with a closing balance for everyone who had started", () => {
+    const { body, data } = october();
+    const slice = sliceBody(body, data, "2026-10");
+    expect(slice.archive.kind).toBe("slice");
+    expect(slice.archive.closing).toEqual(openingsAt(prepare(data), "2026-10"));
+    expect(archiveProblems(slice)).toEqual([]);
+    const gone = {
+      ...slice,
+      archive: { ...slice.archive, closing: slice.archive.closing.slice(1) },
+    };
+    expect(archiveProblems(gone).join()).toMatch(/no closing balance/);
+  });
+});
+
+describe("a bundle with an archive section is sealed and read back whole", () => {
+  it("round-trips a slice and a live bundle after a cut, and refuses each resealed with a broken part", async () => {
+    const { body, data } = october();
+    const slice = sliceBody(body, data, "2026-10");
+    const sealedSlice = await assembleBundle(slice);
+    expect((await parseBundle(JSON.parse(JSON.stringify(sealedSlice)))).ok).toBe(true);
+    expect(sealedSlice.manifest.counts).toMatchObject({
+      closing: slice.archive.closing.length,
+      cuts: 0,
+      openingIn: 0,
+    });
+
+    // The same slice with its checksum made again: each change is refused for what it says.
+    const reseal = async (change: (b: BundleBody) => void) => {
+      const copy = JSON.parse(JSON.stringify(slice)) as BundleBody;
+      change(copy);
+      const r = await parseBundle(JSON.parse(JSON.stringify(await assembleBundle(copy))));
+      return r.ok ? [] : r.problems;
+    };
+    expect((await reseal((b) => b.archive.closing.pop())).join()).toMatch(/no closing balance/);
+    expect((await reseal((b) => (b.archive.priorDigest = "a".repeat(64)))).join()).toMatch(
+      /does not follow/,
+    );
+    expect((await reseal((b) => (b.archive.fromMonth = "2027-01"))).join()).toMatch(/ends before/);
+
+    // A manifest that counts what a bundle does not hold is refused even with a good checksum.
+    const sealed = JSON.parse(JSON.stringify(sealedSlice));
+    sealed.manifest.counts.somethingElse = 1;
+    const r = await parseBundle(sealed);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.problems.join()).toMatch(/does not hold|checksum/);
   });
 });

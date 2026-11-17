@@ -1,4 +1,11 @@
-import { formatDisplayDate, formatDisplayMonth, lateByDays, monthOf } from "./dates.ts";
+import {
+  formatDisplayDate,
+  formatDisplayMonth,
+  type IsoDate,
+  lateByDays,
+  monthOf,
+  parseDate,
+} from "./dates.ts";
 import { formatMoney } from "./money.ts";
 import type { Role } from "./types.ts";
 
@@ -239,7 +246,51 @@ export function describeAudit(row: AuditRow, c: HistoryContext): string | null {
       const counts = ["create", "update", "unchanged"].map((k) => num(now[k]));
       return `${by} imported people from a file (${now.mode === "overwrite" ? "overwrite" : "merge"}): ${counts[0]} added, ${counts[1]} changed, ${counts[2]} already as in the file.`;
     }
+    case "archive_cut": {
+      if (row.action !== "INSERT") return null;
+      return describeCut(
+        {
+          throughMonth: monthOf(str(now.through_month)),
+          checksum: str(now.bundle_digest),
+          at: row.at,
+        },
+        c.timeZone,
+      );
+    }
     default:
       return null;
   }
+}
+
+/**
+ * The line for one hand-over of older months: through which month, the first characters of the file's
+ * checksum, and the day it was done. It is the same sentence in the History and in the list of hand-overs.
+ */
+export function describeCut(
+  cut: { throughMonth: string; checksum: string; at: string },
+  timeZone: string,
+): string {
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(cut.at));
+  const { y, m, d } = parseDate(day as IsoDate);
+  return `Older records through ${formatDisplayMonthLong(cut.throughMonth)} were handed over as a backup (checksum ${cut.checksum.slice(0, 8)}) on ${d} ${LONG_MONTHS[m - 1]} ${y}, confirmed by an administrator.`;
+}
+
+const LONG_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+/** `Oct 2025` for `2025-10`: a month in words, with the whole year. */
+export function formatDisplayMonthLong(month: string): string {
+  const [y, m] = month.slice(0, 7).split("-");
+  return `${LONG_MONTHS[Number(m) - 1] ?? m} ${y}`;
 }

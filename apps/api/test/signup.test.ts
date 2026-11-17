@@ -745,7 +745,17 @@ describe("what an operator is shown through the app is metadata", () => {
       "overSince",
       "placement",
       "requestsToday",
+      "retention",
       "slug",
+      "state",
+    ]);
+    // Of the kitchen's older months the operator sees a state, a date and counts, and nothing else.
+    expect(Object.keys(listing.json.workspaces[0].retention).sort()).toEqual([
+      "cuts",
+      "liveBytes",
+      "liveRows",
+      "restored",
+      "retainedFrom",
       "state",
     ]);
     expect(Object.keys(listing.json.capacity).sort()).toEqual([

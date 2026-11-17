@@ -25,7 +25,7 @@ CREATE TABLE workspace (
   slug             text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$'),
   display_name     text NOT NULL CHECK (length(display_name) BETWEEN 1 AND 120),
   state            text NOT NULL DEFAULT 'ACTIVE'
-                     CHECK (state IN ('ACTIVE', 'MIGRATING', 'MOVED', 'WIPING')),
+                     CHECK (state IN ('ACTIVE', 'MIGRATING', 'ARCHIVING', 'MOVED', 'WIPING')),
   -- {"kind": "pg-database" | "neon-project" | "external", "data": {...}}
   placement        jsonb NOT NULL,
   -- The workspace database's connection strings, encrypted under the master key.
@@ -38,6 +38,13 @@ CREATE TABLE workspace (
   -- The caps this workspace lives under: see packages/core limits.ts.
   limits           jsonb NOT NULL,
   over_since       date,
+  -- What the daily look at the kitchen's older months found, kept as metadata only: its state (none, due,
+  -- offered, overdue), the first month still live, counts, and the one extension of the grace a hand-over under
+  -- way may earn. It holds no name and no figure from the kitchen, and is written by housekeeping alone.
+  retention        jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Full months of history the kitchen keeps live besides the current one (the window older months are handed
+  -- over from). Set by its admin; the workspace database refuses a cut that leaves fewer than 13 whatever this says.
+  keep_months      integer NOT NULL DEFAULT 24 CHECK (keep_months BETWEEN 13 AND 60),
   -- When it entered its current state; a move that stalls is found by this.
   state_since      timestamptz NOT NULL DEFAULT now(),
   -- Where the workspace went, after a move.
@@ -176,4 +183,57 @@ DECLARE
   app text := current_setting('alimentation.app_role');
 BEGIN
   EXECUTE format('GRANT SELECT, INSERT, UPDATE ON signup_request TO %I', app);
+END $$;
+
+
+-- Handing older months over (see the retention design). Nothing here names a person or holds a byte of the
+-- months themselves: the platform keeps no copy, only what is needed to check the admin held one.
+--
+--   * An offer is made when the admin downloads the months, and is single use. OFFERED when downloaded,
+--     CONFIRMED when the saved file was uploaded back and is the very file offered, PURGING while the
+--     months are being removed, DONE once they are, EXPIRED when it ran out or was withdrawn.
+--   * At most one offer per kitchen is live (OFFERED, CONFIRMED or PURGING) at a time.
+--   * `counts` and `slice_hash` are what the workspace database must still hold for the cut to go through.
+--   * The receipt stays when the kitchen is wiped, like a wipe receipt, and names no one.
+
+CREATE TABLE archive_offer (
+  id             uuid PRIMARY KEY DEFAULT uuidv7(),
+  workspace_id   uuid NOT NULL REFERENCES workspace (id) ON DELETE CASCADE,
+  through_month  date NOT NULL CHECK (extract(day FROM through_month) = 1),
+  keep_months    integer NOT NULL CHECK (keep_months BETWEEN 13 AND 60),
+  state          text NOT NULL DEFAULT 'OFFERED'
+                   CHECK (state IN ('OFFERED', 'CONFIRMED', 'PURGING', 'DONE', 'EXPIRED')),
+  bundle_digest  char(64) NOT NULL,
+  slice_hash     char(64) NOT NULL,
+  prior_digest   char(64),
+  counts         jsonb NOT NULL,
+  offered_by     uuid REFERENCES account (id) ON DELETE SET NULL,
+  offered_at     timestamptz NOT NULL DEFAULT now(),
+  expires_at     timestamptz NOT NULL,
+  confirmed_by   uuid REFERENCES account (id) ON DELETE SET NULL,
+  confirmed_at   timestamptz,
+  state_since    timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX archive_offer_one_live ON archive_offer (workspace_id)
+  WHERE state IN ('OFFERED', 'CONFIRMED', 'PURGING');
+CREATE INDEX archive_offer_by_workspace ON archive_offer (workspace_id, offered_at);
+
+CREATE TABLE archive_receipt (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  workspace_id  uuid NOT NULL,
+  through_month date NOT NULL,
+  bundle_digest char(64) NOT NULL,
+  counts        jsonb NOT NULL,
+  done_at       timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, through_month)
+);
+CREATE TRIGGER archive_receipt_append_only BEFORE UPDATE OR DELETE ON archive_receipt
+  FOR EACH ROW EXECUTE FUNCTION forbid_change();
+
+DO $$
+DECLARE
+  app text := current_setting('alimentation.app_role');
+BEGIN
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON archive_offer TO %I', app);
+  EXECUTE format('GRANT SELECT, INSERT ON archive_receipt TO %I', app);
 END $$;

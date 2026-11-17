@@ -158,6 +158,8 @@ function dataOf(s: GoldenScenario): EngineData {
       closedOn: "2026-11-01",
       closedBy: "admin",
     })),
+    openings: [],
+    archivedThrough: null,
   };
 }
 

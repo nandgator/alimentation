@@ -150,6 +150,8 @@ const kitchen = (over: Partial<EngineData> = {}): EngineData => ({
   decisions: [],
   settlements: [],
   closes: [],
+  openings: [],
+  archivedThrough: null,
   ...over,
 });
 const stmt = (id: string, over: Partial<EngineData> = {}) =>

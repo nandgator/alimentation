@@ -1,5 +1,7 @@
 import type { PlatformDeps } from "../platform/workspaces.ts";
+import { PURGE_PATIENCE_MS, reconcileArchive } from "./archive.ts";
 import { releaseMove } from "./move.ts";
+import { retentionScan } from "./retention-scan.ts";
 import { destroyRetired, UNDO_DAYS, wipeWorkspace } from "./wipe.ts";
 
 const DAY = 86_400_000;
@@ -12,6 +14,12 @@ export interface HousekeepingReport {
   movedCopiesWiped: number;
   oldCopiesRemoved: number;
   stalledMovesReleased: number;
+  /** Hand-overs of older months that stopped part-way and were settled from what the database says. */
+  archivesReconciled: number;
+  /** Offers to hand older months over that ran out of time unused. */
+  offersExpired: number;
+  /** Kitchens whose older months were looked at today. */
+  retentionScanned: number;
   /** Moves that stopped after sending data away; only a person can say which side is the real one. */
   needAttention: string[];
   usageRowsPruned: number;
@@ -34,6 +42,9 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
     movedCopiesWiped: 0,
     oldCopiesRemoved: 0,
     stalledMovesReleased: 0,
+    archivesReconciled: 0,
+    offersExpired: 0,
+    retentionScanned: 0,
     needAttention: [],
     usageRowsPruned: 0,
     invitesPruned: 0,
@@ -94,6 +105,26 @@ export async function housekeeping(p: PlatformDeps): Promise<HousekeepingReport>
       }
       await releaseMove(p, w.id);
       r.stalledMovesReleased++;
+    },
+  );
+
+  await each(
+    "reconcile archive",
+    () => p.control.stuckArchiving(new Date(now.getTime() - PURGE_PATIENCE_MS)),
+    async (w) => {
+      if ((await reconcileArchive(p, w.id)) !== "nothing") r.archivesReconciled++;
+    },
+  );
+
+  await guard("expire offers", async () => {
+    r.offersExpired = await p.control.expireOffers(now);
+  });
+  // Once a day for each kitchen; what it finds is metadata, and nothing is removed or confirmed by it.
+  await each(
+    "look at older months",
+    () => p.control.awaitingRetentionScan(now.toISOString().slice(0, 10)),
+    async (w) => {
+      if (await retentionScan(p, w)) r.retentionScanned++;
     },
   );
 

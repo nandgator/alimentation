@@ -40,7 +40,7 @@ describe("the screens of a kitchen", () => {
     expect(groupsFor("admin").map((g) => [g.label, g.sections.map((s) => s.label)])).toEqual([
       ["Day to day", ["Dashboard", "Daily", "My log", "Payments"]],
       ["The kitchen", ["People", "Catalogue", "Menu", "Prices", "Rates & rules", "Holidays"]],
-      ["The books", ["Settlements", "Month close", "Audit", "Your data"]],
+      ["The books", ["Settlements", "Month close", "Older months", "Audit", "Your data"]],
     ]);
   });
 
@@ -71,7 +71,7 @@ describe("the screens of a kitchen", () => {
       [
         ["Day to day", ["Dashboard", "Daily", "My log"]],
         ["The kitchen", ["People", "Catalogue", "Menu", "Rules", "Holidays"]],
-        ["The books", ["Month close", "Audit", "Your data"]],
+        ["The books", ["Month close", "Older months", "Audit", "Your data"]],
       ],
     );
     for (const role of ["consumer", "supplier"] as const)

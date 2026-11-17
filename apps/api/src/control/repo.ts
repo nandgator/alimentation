@@ -15,7 +15,46 @@ export interface AccountRow {
   displayName: string | null;
 }
 
-export type WorkspaceState = "ACTIVE" | "MIGRATING" | "MOVED" | "WIPING";
+export type RetentionState = "none" | "due" | "offered" | "overdue";
+
+/**
+ * What the daily look at a kitchen's older months left in the control database. Metadata only: a state, the first
+ * month still live, counts, and the bookkeeping of the two things housekeeping does for it (compacting, and the
+ * one extension of the grace). It never holds a name, a figure of money or a byte of the months themselves.
+ */
+export interface RetentionMeta {
+  state: RetentionState;
+  /** The first month still held live, as `YYYY-MM`, or null for a kitchen with nothing yet. */
+  retainedFrom: string | null;
+  liveBytes: number;
+  liveRows: number;
+  /** How many hand-overs the kitchen's database records. */
+  cuts: number;
+  /** The day it was last looked at. */
+  scannedOn: string | null;
+  /** The control database says months were handed over that the kitchen's database no longer records. */
+  restored: boolean;
+  /** The tables were emptied but not yet compacted. */
+  vacuumPending: boolean;
+  /** The extended last day for writes while over the limit, and the `overSince` it was given for. */
+  graceUntil: string | null;
+  graceFor: string | null;
+}
+
+const toRetention = (r: R | null | undefined): RetentionMeta => ({
+  state: r?.state ?? "none",
+  retainedFrom: r?.retainedFrom ?? null,
+  liveBytes: r?.liveBytes ?? 0,
+  liveRows: r?.liveRows ?? 0,
+  cuts: r?.cuts ?? 0,
+  scannedOn: r?.scannedOn ?? null,
+  restored: r?.restored ?? false,
+  vacuumPending: r?.vacuumPending ?? false,
+  graceUntil: r?.graceUntil ?? null,
+  graceFor: r?.graceFor ?? null,
+});
+
+export type WorkspaceState = "ACTIVE" | "MIGRATING" | "ARCHIVING" | "MOVED" | "WIPING";
 
 export interface WorkspaceRow {
   id: string;
@@ -29,7 +68,12 @@ export interface WorkspaceRow {
   timeZone: string;
   limits: Limits;
   overSince: string | null;
+  retention: RetentionMeta;
+  /** Full months of history kept live besides the current one: 24 unless the admin chose another from 13 to 60. */
+  keepMonths: number;
   movedToUrl: string | null;
+  /** When it entered its current state. */
+  stateSince: string;
   createdAt: string;
   /**
    * The organisation this kitchen shares its totals with, when it does. Read with the kitchen, in the one
@@ -54,9 +98,50 @@ const toWorkspace = (r: R): WorkspaceRow => ({
   timeZone: r.time_zone,
   limits: r.limits,
   overSince: r.over_since ?? null,
+  retention: toRetention(r.retention),
+  keepMonths: r.keep_months ?? 24,
   movedToUrl: r.moved_to_url ?? null,
+  stateSince: r.state_since,
   createdAt: r.created_at,
   organisationName: r.organisation_name ?? null,
+});
+
+export type ArchiveOfferState = "OFFERED" | "CONFIRMED" | "PURGING" | "DONE" | "EXPIRED";
+
+/** One hand-over of older months, from the download of the backup to the removal. Carries no name and no content. */
+export interface ArchiveOfferRow {
+  id: string;
+  workspaceId: string;
+  /** The last month to go, as `YYYY-MM`. */
+  throughMonth: string;
+  keepMonths: number;
+  state: ArchiveOfferState;
+  bundleDigest: string;
+  sliceHash: string;
+  priorDigest: string | null;
+  counts: Record<string, number>;
+  offeredBy: string | null;
+  offeredAt: string;
+  expiresAt: string;
+  confirmedAt: string | null;
+  stateSince: string;
+}
+
+const toOffer = (r: R): ArchiveOfferRow => ({
+  id: r.id,
+  workspaceId: r.workspace_id,
+  throughMonth: String(r.through_month).slice(0, 7),
+  keepMonths: r.keep_months,
+  state: r.state,
+  bundleDigest: String(r.bundle_digest).trim(),
+  sliceHash: String(r.slice_hash).trim(),
+  priorDigest: r.prior_digest ? String(r.prior_digest).trim() : null,
+  counts: r.counts,
+  offeredBy: r.offered_by ?? null,
+  offeredAt: r.offered_at,
+  expiresAt: r.expires_at,
+  confirmedAt: r.confirmed_at ?? null,
+  stateSince: r.state_since,
 });
 
 export interface AgentKeyRow {
@@ -205,7 +290,10 @@ export class ControlRepo {
    * Returns why it was not added, or `ok`.
    */
   async insertWorkspace(
-    w: Omit<WorkspaceRow, "createdAt" | "overSince" | "movedToUrl" | "state"> & {
+    w: Omit<
+      WorkspaceRow,
+      "createdAt" | "overSince" | "retention" | "keepMonths" | "movedToUrl" | "stateSince" | "state"
+    > & {
       createdBy: string | null;
     },
     admission?: Admission,
@@ -319,6 +407,196 @@ export class ControlRepo {
       await this.many<R>(`SELECT * FROM workspace WHERE state = 'MIGRATING' AND state_since < $1`, [
         cutoff.toISOString(),
       ])
+    ).map(toWorkspace);
+  }
+
+  async setKeepMonths(id: string, months: number): Promise<void> {
+    await this.many("UPDATE workspace SET keep_months = $2 WHERE id = $1", [id, months]);
+  }
+
+  // --- handing older months over ---------------------------------------------------------------
+
+  /** Takes the archive lock: true for the one caller that finds the workspace active. Move and wipe refuse while it is held. */
+  async beginArchive(id: string): Promise<boolean> {
+    return (
+      (
+        await this.many(
+          `UPDATE workspace SET state = 'ARCHIVING', state_since = $2 WHERE id = $1 AND state = 'ACTIVE' RETURNING id`,
+          [id, this.stamp()],
+        )
+      ).length === 1
+    );
+  }
+
+  /** Lets go of the archive lock. Does nothing to a workspace that is in any other state. */
+  async endArchive(id: string): Promise<void> {
+    await this.many(
+      `UPDATE workspace SET state = 'ACTIVE', state_since = $2 WHERE id = $1 AND state = 'ARCHIVING'`,
+      [id, this.stamp()],
+    );
+  }
+
+  /** Workspaces that have been archiving since before `cutoff`: the purge stopped without finishing. */
+  async stuckArchiving(cutoff: Date): Promise<WorkspaceRow[]> {
+    return (
+      await this.many<R>(`SELECT * FROM workspace WHERE state = 'ARCHIVING' AND state_since < $1`, [
+        cutoff.toISOString(),
+      ])
+    ).map(toWorkspace);
+  }
+
+  async createOffer(o: {
+    workspaceId: string;
+    throughMonth: string;
+    keepMonths: number;
+    bundleDigest: string;
+    sliceHash: string;
+    priorDigest: string | null;
+    counts: Record<string, number>;
+    offeredBy: string;
+    expiresAt: Date;
+  }): Promise<ArchiveOfferRow | "exists"> {
+    try {
+      const r = await this.one<R>(
+        `INSERT INTO archive_offer (workspace_id, through_month, keep_months, bundle_digest, slice_hash, prior_digest, counts, offered_by, offered_at, expires_at, state_since)
+         VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9, $10, $9) RETURNING *`,
+        [
+          o.workspaceId,
+          `${o.throughMonth}-01`,
+          o.keepMonths,
+          o.bundleDigest,
+          o.sliceHash,
+          o.priorDigest,
+          JSON.stringify(o.counts),
+          o.offeredBy,
+          this.stamp(),
+          o.expiresAt.toISOString(),
+        ],
+      );
+      return toOffer(must(r));
+    } catch (e) {
+      if ((e as { code?: string }).code === "23505") return "exists";
+      throw e;
+    }
+  }
+
+  async offerById(id: string): Promise<ArchiveOfferRow | undefined> {
+    const r = await this.one<R>(`SELECT * FROM archive_offer WHERE id = $1`, [id]);
+    return r && toOffer(r);
+  }
+
+  /** The offer that is live for a workspace (offered, confirmed or purging), if any. */
+  async liveOffer(workspaceId: string): Promise<ArchiveOfferRow | undefined> {
+    const r = await this.one<R>(
+      `SELECT * FROM archive_offer WHERE workspace_id = $1 AND state IN ('OFFERED', 'CONFIRMED', 'PURGING')`,
+      [workspaceId],
+    );
+    return r && toOffer(r);
+  }
+
+  /** The most recent offer that is not live, for what the screen says about the last hand-over. */
+  async lastOffer(workspaceId: string): Promise<ArchiveOfferRow | undefined> {
+    const r = await this.one<R>(
+      `SELECT * FROM archive_offer WHERE workspace_id = $1 AND state IN ('DONE', 'EXPIRED') ORDER BY offered_at DESC LIMIT 1`,
+      [workspaceId],
+    );
+    return r && toOffer(r);
+  }
+
+  /**
+   * Moves an offer from one of the states in `from` to `to`, in one statement, so that of two callers only
+   * one wins. True for the winner.
+   */
+  async moveOffer(
+    id: string,
+    from: ArchiveOfferState[],
+    to: ArchiveOfferState,
+    by: { confirmedBy?: string } = {},
+  ): Promise<boolean> {
+    return (
+      (
+        await this.many(
+          `UPDATE archive_offer SET state = $3, state_since = $4,
+                  confirmed_by = coalesce($5::uuid, confirmed_by),
+                  confirmed_at = CASE WHEN $5::uuid IS NULL THEN confirmed_at ELSE $4::timestamptz END
+            WHERE id = $1 AND state = ANY($2::text[]) RETURNING id`,
+          [id, from, to, this.stamp(), by.confirmedBy ?? null],
+        )
+      ).length === 1
+    );
+  }
+
+  /** Offers that ran out of time without being used. */
+  async expireOffers(now: Date): Promise<number> {
+    return (
+      await this.many(
+        `UPDATE archive_offer SET state = 'EXPIRED', state_since = $1
+          WHERE state IN ('OFFERED', 'CONFIRMED') AND expires_at <= $1 RETURNING 1`,
+        [now.toISOString()],
+      )
+    ).length;
+  }
+
+  async offersPurging(): Promise<ArchiveOfferRow[]> {
+    return (await this.many<R>(`SELECT * FROM archive_offer WHERE state = 'PURGING'`)).map(toOffer);
+  }
+
+  async insertArchiveReceipt(r: {
+    workspaceId: string;
+    throughMonth: string;
+    bundleDigest: string;
+    counts: Record<string, number>;
+  }): Promise<void> {
+    await this.many(
+      `INSERT INTO archive_receipt (workspace_id, through_month, bundle_digest, counts) VALUES ($1, $2::date, $3, $4)
+       ON CONFLICT DO NOTHING`,
+      [r.workspaceId, `${r.throughMonth}-01`, r.bundleDigest, JSON.stringify(r.counts)],
+    );
+  }
+
+  async archiveReceipts(
+    workspaceId: string,
+  ): Promise<
+    { throughMonth: string; bundleDigest: string; counts: Record<string, number>; doneAt: string }[]
+  > {
+    return (
+      await this.many<R>(
+        `SELECT through_month, bundle_digest, counts, done_at FROM archive_receipt WHERE workspace_id = $1 ORDER BY through_month`,
+        [workspaceId],
+      )
+    ).map((r) => ({
+      throughMonth: String(r.through_month).slice(0, 7),
+      bundleDigest: r.bundle_digest,
+      counts: r.counts,
+      doneAt: r.done_at,
+    }));
+  }
+
+  /** Merges what the daily look found into the workspace's retention metadata. */
+  async setRetention(id: string, patch: Partial<RetentionMeta>): Promise<void> {
+    await this.many("UPDATE workspace SET retention = retention || $2::jsonb WHERE id = $1", [
+      id,
+      JSON.stringify(patch),
+    ]);
+  }
+
+  /** Every offer of a workspace that has not ended, newest first. */
+  async openOffers(workspaceId: string): Promise<ArchiveOfferRow[]> {
+    return (
+      await this.many<R>(
+        `SELECT * FROM archive_offer WHERE workspace_id = $1 AND state IN ('OFFERED', 'CONFIRMED', 'PURGING') ORDER BY offered_at DESC`,
+        [workspaceId],
+      )
+    ).map(toOffer);
+  }
+
+  /** Active kitchens whose older months have not been looked at on `day` (a `YYYY-MM-DD` date). */
+  async awaitingRetentionScan(day: string): Promise<WorkspaceRow[]> {
+    return (
+      await this.many<R>(
+        `SELECT * FROM workspace WHERE state = 'ACTIVE' AND coalesce(retention->>'scannedOn', '') <> $1 ORDER BY created_at`,
+        [day],
+      )
     ).map(toWorkspace);
   }
 

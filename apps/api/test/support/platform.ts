@@ -24,6 +24,13 @@ export interface Client {
   ): Promise<Reply<T>>; // eslint-disable-line @typescript-eslint/no-explicit-any
   get<T = any>(path: string, headers?: Record<string, string>): Promise<Reply<T>>; // eslint-disable-line @typescript-eslint/no-explicit-any
   post<T = any>(path: string, body?: unknown, headers?: Record<string, string>): Promise<Reply<T>>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  /** A request whose body is sent as it is (a file, a form), not as JSON. */
+  raw<T = any>(
+    method: string,
+    path: string,
+    body: BodyInit,
+    headers?: Record<string, string>,
+  ): Promise<Reply<T>>; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 export interface TestPlatform {
@@ -117,9 +124,26 @@ export async function makePlatform(
       }
       return { status: res.status, json: json as never, headers: res.headers };
     };
+    const raw: Client["raw"] = async (method, path, body, headers = {}) => {
+      const origin = runtime.deps.platform.config.appOrigin;
+      const res = await runtime.app.request(`${origin}${path}`, {
+        method,
+        headers: { origin, ...(jar.cookie ? { cookie: jar.cookie } : {}), ...headers },
+        body,
+      });
+      const text = await res.text();
+      let json: unknown = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = text;
+      }
+      return { status: res.status, json: json as never, headers: res.headers };
+    };
     return {
       email,
       req,
+      raw,
       get: (p, h) => req("GET", p, undefined, h),
       post: (p, b, h) => req("POST", p, b ?? {}, h),
     };

@@ -6,6 +6,8 @@ export class ApiFailure extends Error {
     readonly code: string,
     message: string,
     readonly issues: { path?: string; message: string }[] = [],
+    /** What else the server said with it (the cut that took an archived month, the blockers of a refusal). */
+    readonly extra: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -30,6 +32,22 @@ export const setActingAs = (role: string | null) => {
  */
 const SLOW_DOWN_TRIES = 3;
 const SLOW_DOWN_MOST_MS = 5000;
+
+function failureOf(status: number, json: unknown): ApiFailure {
+  const e = (
+    json as {
+      error?: { code?: string; message?: string; issues?: never[]; [k: string]: unknown };
+    } | null
+  )?.error;
+  const { code, message, issues, id: _id, ...extra } = e ?? {};
+  return new ApiFailure(
+    status,
+    code ?? "error",
+    message ?? "Something went wrong. Try again.",
+    issues ?? [],
+    extra,
+  );
+}
 
 async function call<T>(
   method: string,
@@ -70,16 +88,7 @@ async function call<T>(
   } catch {
     json = null;
   }
-  if (!res.ok) {
-    const e = (json as { error?: { code?: string; message?: string; issues?: never[] } } | null)
-      ?.error;
-    throw new ApiFailure(
-      res.status,
-      e?.code ?? "error",
-      e?.message ?? "Something went wrong. Try again.",
-      e?.issues ?? [],
-    );
-  }
+  if (!res.ok) throw failureOf(res.status, json);
   return { data: json as T, fromDevice: res.headers.get("x-from-device") === "1" };
 }
 
@@ -90,6 +99,53 @@ export const api = {
   put: <T>(path: string, body: unknown) => call<T>("PUT", path, body),
   del: <T>(path: string) => call<T>("DELETE", path),
 };
+
+/**
+ * A file the server makes for a download, asked for with a POST: the bytes as they came, the name it suggests and
+ * the headers it set, so that the caller can keep exactly what it was sent.
+ */
+export async function postForFile(
+  path: string,
+  body: unknown,
+): Promise<{ blob: Blob; filename: string; headers: Headers }> {
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        ...(actingAs ? { "x-acting-as": actingAs } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiFailure(0, "offline", "You appear to be offline.");
+  }
+  if (!res.ok) throw failureOf(res.status, await res.json().catch(() => null));
+  const named = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "");
+  return { blob: await res.blob(), filename: named?.[1] ?? "download.json", headers: res.headers };
+}
+
+/** A saved file sent back as a form, for the routes that take one. */
+export async function postFile<T>(path: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.set("file", file);
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: actingAs ? { "x-acting-as": actingAs } : {},
+      body: form,
+    });
+  } catch {
+    throw new ApiFailure(0, "offline", "You appear to be offline.");
+  }
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw failureOf(res.status, json);
+  return json as T;
+}
 
 /** A csv file sent as it is, for the routes that take one. */
 export const postCsv = async <T>(path: string, csv: string): Promise<T> =>

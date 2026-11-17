@@ -159,6 +159,11 @@ describe("[P5] personal data reaches the database only as ciphertext", () => {
       "audit_log.via",
       "audit_log.before",
       "audit_log.after",
+      // What a cut of old months records: checksums (hex of a file) and how many rows of each table left.
+      "archive_cut.prior_digest",
+      "archive_cut.bundle_digest",
+      "archive_cut.slice_hash",
+      "archive_cut.counts",
       "meta.key",
       "meta.value",
       "schema_migration.name",

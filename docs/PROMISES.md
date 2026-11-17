@@ -4,15 +4,16 @@ Every claim on the home page is listed here with the test that proves it. A test
 carrying the tag `[P<n>]` in its name. `scripts/check-promises.mjs` fails the build when a promise
 has no tagged test, or a tag names no promise.
 
-| ID  | Promise                                              | Proof (tagged tests)                                                                                                                                                         | Status |
-| --- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| P1  | Nobody can crowd you out.                            | tagged in gate.test.ts, http.test.ts, neon.test.ts, people-import.test.ts, service.test.ts, workspace.guards.test.ts                                                         | tested |
-| P2  | Free until you outgrow it, and we say so in advance. | tagged in http.test.ts, service.test.ts                                                                                                                                      | tested |
-| P3  | Outgrow it, move in one click, lose nothing.         | tagged in bundle.test.ts, holidays.test.ts, lifecycle.move.test.ts, lifecycle.test.ts, lifecycle.wipe.test.ts, meals-only.test.ts, service.test.ts, workspace.guards.test.ts | tested |
-| P4  | Leave, and everything goes.                          | tagged in crypto.test.ts, housekeeping.schedule.test.ts, lifecycle.wipe.test.ts, rewrap.test.ts                                                                              | tested |
-| P5  | Your people's details are never readable in logs.    | tagged in crypto.test.ts, http.test.ts, service.test.ts, workspace.guards.test.ts                                                                                            | tested |
-| P6  | Your data is yours to take, at any time.             | tagged in http.test.ts, lifecycle.move.test.ts, lifecycle.test.ts                                                                                                            | tested |
-| P7  | One person's records are invisible to everyone else. | tagged in http.test.ts, people-import.test.ts, service.test.ts, workspace.db.test.ts                                                                                         | tested |
+| ID  | Promise                                              | Proof (tagged tests)                                                                                                                                                                                    | Status |
+| --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| P1  | Nobody can crowd you out.                            | tagged in gate.test.ts, http.test.ts, neon.test.ts, people-import.test.ts, service.test.ts, workspace.guards.test.ts                                                                                    | tested |
+| P2  | Free until you outgrow it, and we say so in advance. | tagged in http.test.ts, service.test.ts                                                                                                                                                                 | tested |
+| P3  | Outgrow it, move in one click, lose nothing.         | tagged in bundle.test.ts, holidays.test.ts, lifecycle.archive.test.ts, lifecycle.move.test.ts, lifecycle.test.ts, lifecycle.wipe.test.ts, meals-only.test.ts, service.test.ts, workspace.guards.test.ts | tested |
+| P4  | Leave, and everything goes.                          | tagged in crypto.test.ts, housekeeping.schedule.test.ts, lifecycle.wipe.test.ts, rewrap.test.ts                                                                                                         | tested |
+| P5  | Your people's details are never readable in logs.    | tagged in crypto.test.ts, http.test.ts, service.test.ts, workspace.guards.test.ts                                                                                                                       | tested |
+| P6  | Your data is yours to take, at any time.             | tagged in http.test.ts, lifecycle.move.test.ts, lifecycle.retention-scan.test.ts, lifecycle.test.ts                                                                                                     | tested |
+| P7  | One person's records are invisible to everyone else. | tagged in http.test.ts, people-import.test.ts, service.test.ts, workspace.db.test.ts                                                                                                                    | tested |
+| P8  | Older years leave only after you hold the backup.    | tagged in lifecycle.archive.test.ts, lifecycle.retention.review.test.ts, lifecycle.retention.test.ts, retention-parity.test.ts, retention.spec.ts, workspace.retention.test.ts                          | tested |
 
 What a promise covers follows the kitchen's own data. P3's reconciliation counts the meals and each
 item a kitchen serves, and money to the paisa where it tracks money. P7 covers a person's enrolments
@@ -21,8 +22,12 @@ item a kitchen serves, and money to the paisa where it tracks money. P7 covers a
 The limits stated beside each promise in `DESIGN.md` section 1 are part of the promise. The home
 page repeats them.
 
-None of the seven is a promise against the people who run an instance's servers. They hold the keys
+None of the eight is a promise against the people who run an instance's servers. They hold the keys
 and the databases' addresses, and can read what a kitchen holds, although the app shows them only
 metadata. P4 (the encrypted fields become unreadable at once; the plain-text ledger goes with the
 database), P5 and P7 say so in their limits. The exact lists are in
 `docs/site/docs/concepts/trust-model.md`.
+
+P8 is the one deliberate exception to "nothing is ever deleted": whole closed months leave only
+after the admin holds a verified file and uploads it back, and every later figure is checked to be
+unchanged in the same transaction (`DESIGN.md` section 5.18). It is not erasure of personal data.

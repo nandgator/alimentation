@@ -9,6 +9,7 @@ import {
 } from "react";
 import { ApiFailure } from "../api.ts";
 import { month as monthLabel } from "../format.ts";
+import { archivedWords } from "../retention.ts";
 
 /** Runs a loader and keeps its result. `reload` fetches again without blanking the screen. */
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
@@ -75,7 +76,10 @@ export const Spinner = ({ label = "Loading" }: { label?: string }) => (
 export const Problem = ({ error }: { error: Error | string | null | undefined }) =>
   error ? (
     <div className="banner bad" role="alert">
-      {typeof error === "string" ? error : error.message}
+      {typeof error === "string"
+        ? error
+        : (archivedWords(error as { code?: string; extra?: Record<string, unknown> }) ??
+          error.message)}
     </div>
   ) : null;
 
@@ -90,7 +94,11 @@ export function useAction() {
       await fn();
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(
+        e instanceof Error
+          ? (archivedWords(e as { code?: string; extra?: Record<string, unknown> }) ?? e.message)
+          : "Something went wrong.",
+      );
       return false;
     } finally {
       setBusy(false);

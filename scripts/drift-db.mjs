@@ -1135,6 +1135,210 @@ const defects = [
     "refuses a price on an item",
   ],
 
+  // Months that leave: the one door, and what it checks before and after.
+  [
+    "archive: a setting alone opens the door",
+    "owner",
+    patch(
+      "archive_delete_allowed(text, jsonb)",
+      "IF cut IS NULL OR tbl IS NULL",
+      "IF cut IS NOT NULL THEN RETURN true; END IF;\n  IF cut IS NULL OR tbl IS NULL",
+    ),
+    "is not reached by a setting alone",
+  ],
+  [
+    "archive: the caller need not be the recorded platform role",
+    "owner",
+    patch(
+      "archive_delete_allowed(text, jsonb)",
+      "IF is_app_session() OR current_user IS DISTINCT FROM (SELECT value FROM meta WHERE key = 'platform_role') THEN",
+      "IF is_app_session() THEN",
+    ),
+    "deletes only for the role recorded as the platform",
+  ],
+  [
+    "archive: the platform deleting by hand is let through (no call-stack check)",
+    "owner",
+    patch(
+      "archive_delete_allowed(text, jsonb)",
+      "RETURN position('archive_cut_apply(' IN ctx) > 0;",
+      "RETURN true;",
+    ),
+    "is not reached by a setting alone",
+  ],
+  [
+    "archive: the door reaches another table",
+    "owner",
+    `${patch(
+      "archive_delete_allowed(text, jsonb)",
+      "'month_close', 'log_entry']",
+      "'month_close', 'log_entry', 'opening_balance', 'archive_cut']",
+    )}; ${patch(
+      "archive_row_month(text, jsonb)",
+      "WHEN 'month_close' THEN (r ->> 'for_month')::date",
+      "WHEN 'month_close' THEN (r ->> 'for_month')::date WHEN 'opening_balance' THEN (r ->> 'as_of_month')::date WHEN 'archive_cut' THEN (r ->> 'through_month')::date",
+    )}`,
+    "reaches no table outside its list",
+  ],
+  [
+    "archive: writes into a handed-over month are accepted",
+    "owner",
+    patch("refuse_archived()", "IF cut IS NOT NULL AND", "IF false AND cut IS NOT NULL AND"),
+    "lets nobody write into the archived past",
+  ],
+  [
+    "archive: a log entry can be written into a handed-over month",
+    "owner",
+    `DROP TRIGGER log_entry_0_refuse_archived ON log_entry`,
+    "lets nobody write into the archived past",
+  ],
+  [
+    "archive: a settlement can be written into a handed-over month",
+    "owner",
+    `DROP TRIGGER settlement_0_refuse_archived ON settlement`,
+    "lets nobody write into the archived past",
+  ],
+  [
+    "archive: the counts of removed rows are not compared",
+    "owner",
+    patch(
+      "archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb)",
+      "IF (p_counts ->> t)::bigint IS DISTINCT FROM removed THEN",
+      "IF false THEN",
+    ),
+    "does not delete a thing when the counts it was given are wrong",
+  ],
+  [
+    "archive: the checksum of the slice is not compared",
+    "owner",
+    patch(
+      "archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb)",
+      "IF archive_slice_hash(p_through) IS DISTINCT FROM p_slice_hash THEN",
+      "IF false THEN",
+    ),
+    "refuses a checksum that is not the rows it would remove",
+  ],
+  [
+    "archive: the floor of thirteen months is not enforced",
+    "owner",
+    patch(
+      "archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb)",
+      "greatest(13, coalesce(p_keep, 24))",
+      "greatest(1, coalesce(p_keep, 24))",
+    ),
+    "refuses what the rules of eligibility forbid",
+  ],
+  [
+    "archive: a month with an unclosed consumer is let go",
+    "owner",
+    patch(
+      "archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb)",
+      "  IF EXISTS (\n    SELECT 1\n      FROM person p",
+      "  IF false AND EXISTS (\n    SELECT 1\n      FROM person p",
+    ),
+    "refuses what the rules of eligibility forbid",
+  ],
+  [
+    "archive: a claim without a decision is let go",
+    "owner",
+    patch(
+      "archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb)",
+      "IF EXISTS (SELECT 1 FROM claim c WHERE c.for_month <= p_through",
+      "IF false AND EXISTS (SELECT 1 FROM claim c WHERE c.for_month <= p_through",
+    ),
+    "refuses what the rules of eligibility forbid",
+  ],
+  [
+    "archive: an open query is let go",
+    "owner",
+    patch(
+      "archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb)",
+      "  IF EXISTS (\n    SELECT 1 FROM (\n      SELECT c.consumer_id",
+      "  IF false AND EXISTS (\n    SELECT 1 FROM (\n      SELECT c.consumer_id",
+    ),
+    "refuses what the rules of eligibility forbid",
+  ],
+  [
+    "archive: a month too recent is let go",
+    "owner",
+    patch(
+      "archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb)",
+      "IF p_through > (date_trunc('month', today)",
+      "IF false AND p_through > (date_trunc('month', today)",
+    ),
+    "refuses what the rules of eligibility forbid",
+  ],
+  [
+    "archive: a cut need not follow the chain",
+    "owner",
+    patch(
+      "archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb)",
+      "IF p_prior_digest IS DISTINCT FROM last_digest THEN",
+      "IF false THEN",
+    ),
+    "refuses what the rules of eligibility forbid",
+  ],
+  [
+    "archive: the application role may call the function",
+    "owner",
+    asApp(
+      "GRANT EXECUTE ON FUNCTION archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb) TO %I",
+    ),
+    "is not callable, and its checksum not readable",
+  ],
+  [
+    "archive: everyone may call the function",
+    "owner",
+    `GRANT EXECUTE ON FUNCTION archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb) TO PUBLIC`,
+    "is not callable, and its checksum not readable",
+  ],
+  [
+    "archive: the application role may read the checksum",
+    "owner",
+    asApp("GRANT EXECUTE ON FUNCTION archive_slice_hash(date) TO %I"),
+    "nothing in the schema is open",
+  ],
+  [
+    "archive: the function runs as its caller",
+    "owner",
+    `ALTER FUNCTION archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb) SECURITY INVOKER`,
+    "is executable by nobody but its owner",
+  ],
+  [
+    "archive: the function has no pinned search path",
+    "owner",
+    `ALTER FUNCTION archive_cut_apply(date, integer, bpchar, bpchar, bpchar, jsonb, uuid, jsonb) RESET search_path`,
+    "is executable by nobody but its owner",
+  ],
+  [
+    "archive: a kitchen without money accepts an opening balance",
+    "owner",
+    `DROP TRIGGER opening_balance_guard_money ON opening_balance`,
+    "refuses an opening balance, from the function and from the table",
+  ],
+  [
+    "archive: the removal writes an audit row of each delete",
+    "owner",
+    patch(
+      "audit_row()",
+      "IF TG_OP = 'DELETE' AND NOT is_app_session() AND archive_delete_allowed(",
+      "IF false AND archive_delete_allowed(",
+    ),
+    "writes one cut and the openings, and no audit row of the removal",
+  ],
+  [
+    "archive: the cut can be edited",
+    "owner",
+    `DROP TRIGGER archive_cut_append_only ON archive_cut`,
+    "keeps the cut and the openings append-only",
+  ],
+  [
+    "archive: the openings can be edited",
+    "owner",
+    `DROP TRIGGER opening_balance_append_only ON opening_balance`,
+    "keeps the cut and the openings append-only",
+  ],
+
   // Placement.
   ["migrate: runner without the lock", "owner", `SELECT 1`, null], // control: a no-op defect must NOT be caught
 ];
@@ -1155,6 +1359,7 @@ for (const [name, as, sql, expect] of picks) {
       "apps/api/test/workspace.guards.test.ts",
       "apps/api/test/workspace.money.test.ts",
       "apps/api/test/workspace.catalogue.test.ts",
+      "apps/api/test/workspace.retention.test.ts",
       "--reporter=json",
       `--outputFile=${file}`,
     ],

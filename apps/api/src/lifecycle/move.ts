@@ -200,7 +200,12 @@ export async function previewMove(
   const bad = targetProblem(target.url, target.kind, p.config.production);
   if (bad) return { ...out, problems: [bad] };
   if (handle.row.state !== "ACTIVE")
-    return { ...out, problems: ["This workspace is already being moved or has moved."] };
+    return {
+      ...out,
+      problems: [
+        "This workspace is already being moved, is handing older months over, or has moved.",
+      ],
+    };
 
   if (target.kind === "database") {
     out.problems.push(
@@ -253,7 +258,11 @@ export async function moveToDatabase(
   if (bad) throw invalid(bad);
   const row = handle.row;
   if (!(await p.control.beginMove(row.id)))
-    throw new ApiError(409, "busy", "This workspace is already being moved or has moved.");
+    throw new ApiError(
+      409,
+      "busy",
+      "This workspace is already being moved, is handing older months over, or has moved.",
+    );
   p.directory.invalidate(row.slug);
 
   const owner = p.openDb(handle.dsns.owner, { ephemeral: true });
@@ -360,7 +369,11 @@ export async function moveToInstance(
   if (bad) throw invalid(bad);
   const row = handle.row;
   if (!(await p.control.beginMove(row.id)))
-    throw new ApiError(409, "busy", "This workspace is already being moved or has moved.");
+    throw new ApiError(
+      409,
+      "busy",
+      "This workspace is already being moved, is handing older months over, or has moved.",
+    );
   p.directory.invalidate(row.slug);
 
   const owner = p.openDb(handle.dsns.owner, { ephemeral: true });

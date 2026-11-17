@@ -26,10 +26,10 @@ CREATE POLICY audit_member_read ON audit_log FOR SELECT USING (
     OR (table_name = 'person_service'
        AND coalesce(after, before) ->> 'person_id' = app_person()::text)
     OR table_name IN ('rate_card', 'rate_price', 'menu', 'menu_offer', 'menu_day', 'service', 'catalogue_item',
-                      'policy_version', 'holiday')));
+                      'policy_version', 'holiday', 'archive_cut')));
 
 CREATE POLICY audit_supplier_read ON audit_log FOR SELECT USING (
   app_role() = 'supplier' AND table_name IN
     ('log_entry', 'claim', 'claim_decision', 'claim_reversal', 'settlement', 'month_close',
      'rate_card', 'rate_price', 'menu', 'menu_offer', 'menu_day', 'service', 'catalogue_item', 'person_service',
-     'policy_version', 'holiday'));
+     'policy_version', 'holiday', 'archive_cut'));

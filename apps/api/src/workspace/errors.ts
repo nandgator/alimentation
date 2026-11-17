@@ -6,6 +6,8 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly issues?: Issue[],
+    /** More for the caller to act on, sent beside the code and message (the blockers of a refused cut, say). */
+    readonly extra?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";
@@ -28,6 +30,8 @@ export function mapDbError(e: unknown): unknown {
     return new ApiError(409, "quota_exceeded", after("ALIMENTATION_QUOTA:"));
   if (message.includes("ALIMENTATION_RULE:"))
     return new ApiError(422, "rule", after("ALIMENTATION_RULE:"));
+  if (message.includes("ALIMENTATION_ARCHIVED:"))
+    return new ApiError(410, "archived_month", after("ALIMENTATION_ARCHIVED:"));
   if (message.includes("ALIMENTATION_IMMUTABLE:"))
     return new ApiError(409, "immutable", after("ALIMENTATION_IMMUTABLE:"));
   switch (err?.code) {

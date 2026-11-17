@@ -4,6 +4,8 @@
  */
 
 export const MSG = {
+  archivedMonth:
+    "Those records were handed over as a backup and are no longer kept here. Record it on the first live month.",
   monthClosed: "That month is closed. Ask the admin to change it.",
   monthClosed2:
     "That month is closed and this workspace does not allow changes after close. Reopen it first.",

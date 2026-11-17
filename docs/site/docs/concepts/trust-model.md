@@ -24,17 +24,17 @@ A rule that matters is in both the first and the last.
 
 ## What the database holds
 
-| Guarantee                                                  | Mechanism                                                                                                                                                                                                                       |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Who made a record, and when, is not the caller's to choose | `BEFORE INSERT` stamp triggers overwrite `logged_by`/`logged_at`, `decided_by`/`decided_at`, `reversed_by`, `recorded_by`, `created_at` from the session. Changing them later raises.                                           |
-| Important records are only added to                        | `forbid_change()` triggers on `menu`, `rate_card`, their offers, days and prices, `policy_version`, `claim_decision`, `claim_reversal`, `settlement`, `audit_log`, and no `UPDATE`/`DELETE` privilege for the application role. |
-| One decision per claim, and the first is final             | `claim_decision.claim_id` is the primary key; the supplier has no update or delete.                                                                                                                                             |
-| Only the supplier decides; only the admin reverses         | Row-level security `WITH CHECK` on the two tables.                                                                                                                                                                              |
-| A member writes only for themselves                        | `log_insert` and `claim_insert` policies check `person_id = app_person()`; and `Supplier Off` is not a member's.                                                                                                                |
-| A member reads only their own rows                         | `SELECT` policies per table. With no role set, nothing matches.                                                                                                                                                                 |
-| A closed month stays closed                                | `log_entry` and `holiday` triggers consult `month_closed()` and `close_blocks_admin()`.                                                                                                                                         |
-| Every change is recorded                                   | `audit_row()` triggers on the records people care about, `SECURITY DEFINER`, so no code path can forget.                                                                                                                        |
-| A kitchen being moved cannot be written to                 | Statement-level triggers refuse application writes while `workspace.read_only`.                                                                                                                                                 |
+| Guarantee                                                  | Mechanism                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Who made a record, and when, is not the caller's to choose | `BEFORE INSERT` stamp triggers overwrite `logged_by`/`logged_at`, `decided_by`/`decided_at`, `reversed_by`, `recorded_by`, `created_at` from the session. Changing them later raises.                                                                                                                                                                                                |
+| Important records are only added to                        | `forbid_change()` triggers on `menu`, `rate_card`, their offers, days and prices, `policy_version`, `claim_decision`, `claim_reversal`, `settlement`, `audit_log`, and no `UPDATE`/`DELETE` privilege for the application role. There is one deliberate exception, audited, that removes whole closed months after you hold a verified file (see [The one delete](#the-one-delete)). |
+| One decision per claim, and the first is final             | `claim_decision.claim_id` is the primary key; the supplier has no update or delete.                                                                                                                                                                                                                                                                                                  |
+| Only the supplier decides; only the admin reverses         | Row-level security `WITH CHECK` on the two tables.                                                                                                                                                                                                                                                                                                                                   |
+| A member writes only for themselves                        | `log_insert` and `claim_insert` policies check `person_id = app_person()`; and `Supplier Off` is not a member's.                                                                                                                                                                                                                                                                     |
+| A member reads only their own rows                         | `SELECT` policies per table. With no role set, nothing matches.                                                                                                                                                                                                                                                                                                                      |
+| A closed month stays closed                                | `log_entry` and `holiday` triggers consult `month_closed()` and `close_blocks_admin()`.                                                                                                                                                                                                                                                                                              |
+| Every change is recorded                                   | `audit_row()` triggers on the records people care about, `SECURITY DEFINER`, so no code path can forget.                                                                                                                                                                                                                                                                             |
+| A kitchen being moved cannot be written to                 | Statement-level triggers refuse application writes while `workspace.read_only`.                                                                                                                                                                                                                                                                                                      |
 
 The tests for these include removing each guard on purpose (`bun run drift:db`) and requiring a
 named test to fail. A guard no test notices is a guard nobody is checking.
@@ -165,6 +165,36 @@ operator with infrastructure access from reading a kitchen.
   operator then has all of the powers above, so what you have chosen is who that is.
 - **Keep what you write plain.** Choose a person's optional key and a kitchen's address as codes
   that mean nothing outside the kitchen.
+
+## The one delete
+
+Everything above says records are only added to. One thing removes them: handing over older months
+(`DESIGN.md` section 5.18). It exists so a kitchen can stay inside the free limits for years, and it
+is built so that it cannot be used to hide anything.
+
+- **It needs a person holding the file.** The admin downloads the months as a verified file and
+  uploads the same file back; only then can they type the last month to confirm. Through the
+  application, agent keys, the operator's console and the system cannot start it, and nothing runs
+  it on a timer.
+- **The operator never holds the archive.** The platform keeps no copy of the months, only a digest
+  and counts to check the file against. The operator's console has no way to purge, restore or read
+  what left.
+- **One function, one role.** Only `archive_cut_apply`, owned by the platform role, can delete, and
+  only from the listed tables, for whole closed months at or before the cut. A session of the
+  application cannot call it, and cannot delete even after setting the flag the function sets,
+  because the triggers also test who the database user is.
+- **Parity is checked in the same transaction.** Before it commits, the server works out every later
+  statement again and compares it with what it was. If any figure differs by a paisa, everything is
+  rolled back.
+- **The cut is recorded with its digest.** `archive_cut` is append-only, shown in History as one
+  line, and chains each cut to the one before so a missing file shows. Triggers refuse any later
+  write into a month that has left, the database owner's included; an owner can still switch
+  triggers off, which the next section says plainly.
+
+The limit: this proves the admin held the exact bytes, not that they stored them safely. Whoever
+owns the database can still change or remove records with their own tools, this function included;
+the guards stop the application and the keys it hands out, and the cut, its digest and the chain are
+what would show a change afterwards (as everywhere else on this page).
 
 ## What is deliberately not done
 

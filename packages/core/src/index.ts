@@ -13,5 +13,6 @@ export * from "./money.ts";
 export { must } from "./must.ts";
 export * from "./people-import.ts";
 export * from "./policy.ts";
+export * from "./retention.ts";
 export * from "./types.ts";
 export * from "./validate.ts";

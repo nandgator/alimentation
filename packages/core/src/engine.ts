@@ -24,6 +24,7 @@ import {
   type LogEntry,
   type MenuVersion,
   type MonthClose,
+  type OpeningBalance,
   type Person,
   type RateCard,
   type Service,
@@ -55,6 +56,13 @@ export interface EngineData {
   decisions: readonly Decision[];
   settlements: readonly Settlement[];
   closes: readonly MonthClose[];
+  /**
+   * What each person carried into the first live month, for a kitchen that tracks money and has handed
+   * older months over. Empty otherwise.
+   */
+  openings: readonly OpeningBalance[];
+  /** The last month that was handed over and removed, or null when none was. The engine never looks at or before it. */
+  archivedThrough: Month | null;
 }
 
 export type DayStatus = "Meal" | "Leave" | "Holiday" | "Supplier Off" | "Inactive";
@@ -188,7 +196,26 @@ export interface Prepared {
   readonly itemKind: ReadonlyMap<string, CatalogueItem["kind"]>;
   readonly decisionByClaim: ReadonlyMap<string, Decision>;
   readonly closeByKey: ReadonlyMap<string, MonthClose>;
+  /** Each person's latest opening balance. */
+  readonly openingByPerson: ReadonlyMap<string, OpeningBalance>;
 }
+
+/** The first month the engine works on: the one after the last that was handed over, or null. */
+export function liveFloor(data: Pick<EngineData, "archivedThrough">): Month | null {
+  return data.archivedThrough === null ? null : addMonths(data.archivedThrough, 1);
+}
+
+/** Whether `month` was handed over and removed. */
+export const isArchivedMonth = (data: Pick<EngineData, "archivedThrough">, month: Month): boolean =>
+  data.archivedThrough !== null && month <= data.archivedThrough;
+
+function refuseArchived(p: Prepared, month: Month): void {
+  if (isArchivedMonth(p.data, month))
+    throw new EngineError("ARCHIVED_MONTH", MSG.archivedMonth, monthStart(month));
+}
+
+/** The later of two months. */
+const laterMonth = (a: Month, b: Month): Month => (a > b ? a : b);
 
 /** Three-way comparison of two strings: negative, zero or positive. */
 export function compareText(a: string, b: string): number {
@@ -244,6 +271,12 @@ export function prepare(data: EngineData): Prepared {
   const closeByKey = new Map<string, MonthClose>();
   for (const c of data.closes) closeByKey.set(`${c.consumerId}|${c.forMonth}`, c);
 
+  const openingByPerson = new Map<string, OpeningBalance>();
+  for (const o of data.openings) {
+    const have = openingByPerson.get(o.personId);
+    if (!have || o.asOfMonth > have.asOfMonth) openingByPerson.set(o.personId, o);
+  }
+
   return {
     data,
     cards: [...data.rateCards].sort((a, b) => compareText(a.effectiveFrom, b.effectiveFrom)),
@@ -256,6 +289,7 @@ export function prepare(data: EngineData): Prepared {
     itemKind,
     decisionByClaim,
     closeByKey,
+    openingByPerson,
   };
 }
 
@@ -374,6 +408,7 @@ export function ledgerRows(p: Prepared, person: Person, date: IsoDate): LedgerRo
 
 /** `priced` false counts the day and puts no price on it, so it reads no rate card. */
 function dayRows(p: Prepared, person: Person, date: IsoDate, priced: boolean): LedgerRow[] {
+  refuseArchived(p, monthOf(date));
   const policy = policyForMonth(p.data.policies, monthOf(date));
   const wd = weekdayOf(date);
   if (!policy.workingDays.includes(wd)) return [];
@@ -496,7 +531,9 @@ export function monthRange(p: Prepared): Month[] {
     .sort();
   const current = monthOf(p.data.today);
   if (starts.length === 0) return [current];
-  return monthsBetween(monthOf(must(starts[0])), current);
+  const floor = liveFloor(p.data);
+  const first = monthOf(must(starts[0]));
+  return monthsBetween(floor === null ? first : laterMonth(first, floor), current);
 }
 
 function statusOf(s: {
@@ -542,6 +579,7 @@ function monthStatement(
   person: Person,
   month: Month,
 ): Omit<Statement, "earlierUnpaid"> {
+  refuseArchived(p, month);
   const policy = policyForMonth(p.data.policies, month);
   const rows = ledgerMonth(p, person, month);
   const counts = countsOf(rows);
@@ -682,6 +720,8 @@ export function buildStatements(
   // Stryker disable next-line ConditionalExpression: with no months the loops below yield nothing anyway
   if (months.length === 0) return [];
   const wanted = new Set(months);
+  for (const m of months) refuseArchived(p, m);
+  const floor = liveFloor(p.data);
   const lastWanted = must([...months].sort().at(-1));
   const firstWanted = must([...months].sort()[0]);
   const out: Statement[] = [];
@@ -690,8 +730,10 @@ export function buildStatements(
     if (!person) throw new EngineError("BAD_INPUT", `unknown person ${id}`);
     const firstOwn = person.activeFrom ? monthOf(person.activeFrom) : firstWanted;
     // Stryker disable next-line EqualityOperator: equal months give the same start either way
-    const start = firstOwn < firstWanted ? firstOwn : firstWanted;
-    let carried: Paise = 0;
+    const earliest = firstOwn < firstWanted ? firstOwn : firstWanted;
+    // Months handed over are not walked again: the opening balance stands for all of them.
+    const start = floor === null ? earliest : laterMonth(earliest, floor);
+    let carried: Paise = p.openingByPerson.get(id)?.balance ?? 0;
     for (const month of monthsBetween(start, lastWanted)) {
       const s = monthStatement(p, person, month);
       if (wanted.has(month)) out.push({ ...s, earlierUnpaid: carried });
@@ -702,6 +744,7 @@ export function buildStatements(
 }
 
 function mealStatement(p: Prepared, person: Person, month: Month): MealStatement {
+  refuseArchived(p, month);
   const policy = policyForMonth(p.data.policies, month);
   const rows: LedgerRow[] = [];
   for (const date of daysBetween(monthStart(month), monthEnd(month)))
@@ -759,7 +802,13 @@ export function dueAutoCloses(p: Prepared): DueClose[] {
   for (const person of consumers(p)) {
     if (person.activeFrom === null) continue;
     const lastMonth = monthOf(billedThrough(person, today));
-    for (let m = monthOf(person.activeFrom); m <= lastMonth; m = addMonths(m, 1)) {
+    const first = monthOf(person.activeFrom);
+    const floor = liveFloor(p.data);
+    for (
+      let m = floor === null ? first : laterMonth(first, floor);
+      m <= lastMonth;
+      m = addMonths(m, 1)
+    ) {
       const policy = policyForMonth(p.data.policies, m);
       const until = autoCloseDate(policy, m);
       if (until === null || today <= until) continue;

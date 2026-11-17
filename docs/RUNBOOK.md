@@ -228,7 +228,8 @@ The server that serves the app serves them, so nothing more is deployed.
 
 **Housekeeping** finishes interrupted wipes, removes workspaces seven days after they moved away,
 removes the old copies a move leaves, frees moves that stalled before sending anything, and drops
-counts nobody reads. It runs hourly on Workers (the cron in `wrangler.jsonc`) and every 15 minutes
+counts nobody reads. Once a day for each kitchen it also looks at the kitchen's older months (see
+"Older months" below). It runs hourly on Workers (the cron in `wrangler.jsonc`) and every 15 minutes
 on a Node server. `/operator` has a button to run it now.
 
 **A move that stopped part-way.** If the other instance may have accepted a kitchen but this one
@@ -240,6 +241,36 @@ at the other instance. If the kitchen is there, wipe this copy
 **After a restore of the control database.** A restore brings back wrapped keys that wipes had
 destroyed. Run housekeeping once: it wipes again any kitchen that already has a receipt. (Neon's
 restore window on the control project is the exposure; keep it short.)
+
+**After a restore of either database: reconcile-archives.** The kitchen's own database is the truth
+about which older months were handed over; the control database only remembers the offers and a
+receipt for each. After restoring either one:
+
+1. Run housekeeping and then look at `/operator`, column _Older months_. The daily look settles
+   every offer against the cuts the kitchen's database records: an offer whose cut is there becomes
+   done (and its receipt is written if it is missing), an offer for months already gone is put away,
+   and a purge that never reached the database is put back so it can be used again.
+2. A kitchen shown as _restored: can be handed over again_ was restored to before a hand-over the
+   control database recorded (`archive.restored` in the events, with no name). Its months are back
+   in its database, nothing is lost, and its admin makes a fresh download and hands them over again.
+   Nothing here can purge them for the admin, and you cannot do it for them.
+3. A restore of the control database alone cannot bring back purged months: it only restores offers
+   and receipts, and the first daily look puts them right.
+
+To run it at once instead of waiting for the day's look: press **Run housekeeping** on `/operator`
+(the look happens once for each kitchen each day, so for a kitchen already looked at today, the
+state is as of today's look).
+
+**Older months.** A kitchen keeps 24 months live by default (13 to 60, set by its admin). The daily
+look writes only metadata to the control database: the state (`none`; `due`, a cut may go;
+`offered`, a download is waiting to be used; `overdue`, a cut may go and the kitchen is over a
+limit), the first month still live, and counts. Offers run out after 24 hours and housekeeping marks
+them so. When a purge left the tables un-compacted (the compacting needs a lock the kitchen may be
+holding), the look compacts them again. A kitchen over a limit while an offer is waiting is given
+its writes until the offer ends, at most 7 days more than the 14, and only once for each time it
+goes over. A purge that brings it under 100 percent takes the date off. You see the state, the first
+live month and counts; there is no route for you to remove, hold or read the months, and no copy of
+them exists on the platform.
 
 **Rotating the master key.**
 

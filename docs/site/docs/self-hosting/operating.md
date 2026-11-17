@@ -109,6 +109,20 @@ It finishes interrupted deletions, removes kitchens seven days after they moved 
 copies a move leaves, and frees moves that stalled before sending anything. It runs every 15 minutes
 on a Node server, and `/operator` has a button to run it now.
 
+Housekeeping also looks once a day at each kitchen's older months. It writes only metadata (`none`,
+`due`, `offered` or `overdue`, the month records are kept from, and the live size), lets a stale
+offer run out, settles offers against what the kitchen's database says was removed, and retries a
+`VACUUM FULL` that did not finish. It never removes or confirms anything: only the kitchen's admin
+can hand months over, and there is no operator route that does.
+
+## Older months
+
+`/operator` shows each kitchen's state, the month records are kept from and how many months it has
+handed over, and nothing more: no names and no bytes of the months. The platform keeps no copy of
+the months that leave, so you cannot restore them for a kitchen. The deleting function is owned by
+the platform role; make sure `meta.platform_role` names the role the server connects as for purges.
+After a restore of either database, run the _reconcile-archives_ step in `docs/RUNBOOK.md`.
+
 ## Rotating the master key
 
 1. Add a key with a higher number to `MASTER_KEYS` everywhere (`1:old,2:new`) and restart. New

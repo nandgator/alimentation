@@ -66,7 +66,7 @@ export interface BootstrapDto {
     /** Whether the kitchen tracks money. Chosen when it was made, and fixed after. */
     moneyEnabled: boolean;
     /** Anything but ACTIVE is read-only; `movedTo` says where it went once it has. */
-    state: "ACTIVE" | "MIGRATING" | "MOVED";
+    state: "ACTIVE" | "MIGRATING" | "ARCHIVING" | "MOVED";
     movedTo: string | null;
   };
   me: { personId: string; role: Role; name: string };
@@ -96,7 +96,7 @@ export interface BootstrapDto {
   pendingClaims?: number;
   /** Shown to the admin only. */
   meter: (Meter & { usage: Usage }) | null;
-  workspaceState: "ACTIVE" | "MIGRATING" | "MOVED";
+  workspaceState: "ACTIVE" | "MIGRATING" | "ARCHIVING" | "MOVED";
   movedTo: string | null;
   /** Who receives this kitchen's totals (counts and money, no names), when it shares them. */
   organisation: { name: string } | null;
@@ -133,7 +133,7 @@ export interface KitchenCounts {
 export interface OrganisationKitchenDto {
   slug: string;
   name: string;
-  state: "ACTIVE" | "MIGRATING" | "MOVED";
+  state: "ACTIVE" | "MIGRATING" | "ARCHIVING" | "MOVED";
   totals: KitchenTotals | null;
   /** Why there are no totals: it has moved, it has used its requests for today, or it could not be read. */
   unavailable: "moved" | "busy" | "unreadable" | null;

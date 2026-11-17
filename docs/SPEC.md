@@ -165,6 +165,35 @@ The admin closes a month for a consumer, which freezes `billed` (stores meals co
 closed_on, closed_by). Later edits to logs or holidays for that month don't change the bill; they
 show up as "Changed after close" with the difference.
 
+### 3.7a Older months leave with a backup
+
+A kitchen keeps a rolling window of live history (24 months by default; the admin may set 13 to 60;
+never fewer than 13 full months). Whole closed months, oldest first and contiguous, may leave the
+kitchen's database only after the admin has downloaded a verified file of them and uploaded that
+same file back. The rule applies to a kitchen with money and without.
+
+- A month may leave only if every consumer active in it is closed, no claim for it or an earlier
+  month is undecided or in Query or Disputed, and nothing changed after its close. Otherwise the
+  month is refused with the reason (`not_closed`, `pending_claim`, `open_query`,
+  `changed_after_close`, `too_recent`).
+- A kitchen with money carries each person's balance (billed less paid, signed, unpaid months
+  included) into an opening balance on the first live month. A kitchen without money carries
+  nothing.
+- Every statement, headline and total for the months after the cut is the same, to the paisa, before
+  and after. If the server finds any difference it removes nothing.
+- A record for a month that has left cannot be added, changed or reopened. A late payment is
+  recorded on the first live month.
+- Only an admin session can do it. Agent keys, the operator and the system cannot, and nothing
+  happens by itself.
+- The file is a complete bundle: imported into a fresh kitchen it reproduces the months it holds.
+
+Acceptance tests: a purge changes no later figure (property test, with and without money, two cuts
+equal one); each refusal above; a file that is not the one downloaded, an expired offer and a record
+edited between download and apply are refused and remove nothing; a write into a month that has left
+is refused for every role and for the owner; the file imports into a fresh kitchen with matching
+totals; a kitchen that has had a cut moves with matching totals; the flow works when the kitchen is
+over its limits; no operator route removes months (`DESIGN.md` section 5.18).
+
 ### 3.8 A kitchen without money
 
 A kitchen is made either with money or without it, and the choice is **fixed** once it is made. A

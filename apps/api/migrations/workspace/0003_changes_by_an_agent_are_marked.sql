@@ -20,6 +20,10 @@ DECLARE
   src jsonb := to_jsonb(CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END);
   rid text;
 BEGIN
+  -- Removing a month that was handed over leaves no audit row of its own: the cut says it happened.
+  IF TG_OP = 'DELETE' AND NOT is_app_session() AND archive_delete_allowed(TG_TABLE_NAME, to_jsonb(OLD)) THEN
+    RETURN NULL;
+  END IF;
   SELECT string_agg(src ->> k, '|' ORDER BY ord) INTO rid
     FROM unnest(string_to_array(TG_ARGV[0], ',')) WITH ORDINALITY AS t(k, ord);
   INSERT INTO audit_log (table_name, row_id, action, actor, via, before, after)

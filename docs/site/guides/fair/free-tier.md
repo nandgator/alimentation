@@ -13,9 +13,9 @@ service. Whoever runs an instance can change them, and a dedicated instance has 
 | Limit             | Free tier                                     |
 | ----------------- | --------------------------------------------- |
 | **People**        | 100                                           |
-| **Entries**       | 20,000                                        |
+| **Entries**       | 20,000 live entries                           |
 | **Actions a day** | 1,000, all together, across the whole kitchen |
-| **Storage**       | 20 MB                                         |
+| **Storage**       | 20 MB live                                    |
 
 ## Starting a kitchen on the shared service
 
@@ -34,10 +34,18 @@ decision, one settlement. That is all.
 The ordinary meals are **not** entries. The default meal is worked out when it is needed, so a
 member who eats every weekday and never says otherwise uses **none**.
 
-The 20,000 is **one pool for the whole kitchen**, not per person, and it is not "20,000 across 365
-days across everyone". A kitchen of 100 people who each log three exceptions, make one claim, and
-have it decided by the supplier, every month, writes 100 × 5 × 12 = **6,000** entries a year. That
-uses under a third of the allowance a year, which is three years of headroom.
+The 20,000 is **one pool for the whole kitchen**, not per person, and it counts what is **live**:
+the months in your rolling window, not everything you have ever written. A kitchen of 100 people who
+each log three exceptions, make one claim, and have it decided by the supplier, every month, writes
+100 × 5 × 12 = **6,000** entries a year. That uses under a third of the allowance a year, so a
+24-month window fits with room to spare.
+
+## Older months
+
+Months stay for a window you choose, 24 months unless you change it, and never fewer than 13. Older
+closed months are first handed to you as a verified file and leave only after you upload it back. We
+keep no copy. Balances carry over to the paisa. See
+[Handing older months over](/guides/admin/running-the-books/#older-months).
 
 ## What an "action" is
 

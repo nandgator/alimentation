@@ -14,15 +14,16 @@ one leaves without a trace.
 The home page makes these promises. Each one has a mechanism, a test that proves it, and a stated
 limit. `docs/PROMISES.md` is the ledger; CI fails if a promise has no test that names it.
 
-| ID  | Promise                                              | Mechanism                                                                                                                                                          | Honest limit                                                                                                                                                                                                                                                                                 |
-| --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | Nobody can crowd you out.                            | One database per workspace. Per-workspace request budget, row caps, statement timeouts. Admission control stops signups before the free tiers are over-subscribed. | The stateless API layer is shared. On the free Cloudflare plan the daily request cap is account-wide (section 3), so fairness is enforced by budgets, not guaranteed by the platform.                                                                                                        |
-| P2  | Free until you outgrow it, and we say so in advance. | A usage meter with three thresholds (70, 90, 100 percent) and a 14 day grace period at 100. Reads and export are never blocked.                                    | Thresholds are ours. The host's own limits (Neon, Cloudflare) can change without notice.                                                                                                                                                                                                     |
-| P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa (to the meal and the item, for a kitchen without money), then cutover. The old copy stays read-only for 7 days.            | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email. A kitchen that tracks money is never moved into one that does not, because that would drop its money (section 5.16).               |
-| P4  | Leave, and everything goes.                          | Rows deleted, workspace key destroyed, database removed, receipt issued. The key is destroyed first, so the encrypted fields are unreadable at once.               | Neon keeps a deleted project recoverable for 7 days, then removes it; its plain-text ledger is readable there until then, only the encrypted fields are not. Copies you exported are yours. Law may require some logs to be kept (section 9).                                                |
-| P5  | Your people's details are never readable in logs.    | Names, contacts and free-text notes are encrypted in the application before they reach the database. Logs carry only pseudonymous ids.                             | Amounts, dates and ids are not encrypted. Without the key they cannot be tied to a person. A person's optional key (a code the kitchen chose, section 5.14) is also kept readable. The operator holds the keys: this is not a promise against whoever runs the infrastructure (section 5.6). |
-| P6  | Your data is yours to take, at any time.             | Full export in an open, versioned format. Works when over limit and after cancelling.                                                                              | Plain JSON over TLS. Keep it as carefully as you would a ledger.                                                                                                                                                                                                                             |
-| P7  | One person's rows are invisible to everyone else.    | Row-level security inside each workspace database, forced for the application role. Consumers see only their own rows.                                             | The application role is trusted to set who is asking. Its credentials never leave the server. The rows are invisible through the app; the operator's access to the databases is not bound by it (section 5.6).                                                                               |
+| ID  | Promise                                              | Mechanism                                                                                                                                                                                                                                                              | Honest limit                                                                                                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | Nobody can crowd you out.                            | One database per workspace. Per-workspace request budget, row caps, statement timeouts. Admission control stops signups before the free tiers are over-subscribed.                                                                                                     | The stateless API layer is shared. On the free Cloudflare plan the daily request cap is account-wide (section 3), so fairness is enforced by budgets, not guaranteed by the platform.                                                                                                                |
+| P2  | Free until you outgrow it, and we say so in advance. | A usage meter with three thresholds (70, 90, 100 percent) and a 14 day grace period at 100. Reads and export are never blocked.                                                                                                                                        | Thresholds are ours. The host's own limits (Neon, Cloudflare) can change without notice.                                                                                                                                                                                                             |
+| P3  | Outgrow it, move in one click, lose nothing.         | Dry-run, import, reconcile to the paisa (to the meal and the item, for a kitchen without money), then cutover. The old copy stays read-only for 7 days.                                                                                                                | One click needs a target: a connection string to an empty Postgres, or the address and token of your own instance. Logins are re-bound by verified email. A kitchen that tracks money is never moved into one that does not, because that would drop its money (section 5.16).                       |
+| P4  | Leave, and everything goes.                          | Rows deleted, workspace key destroyed, database removed, receipt issued. The key is destroyed first, so the encrypted fields are unreadable at once.                                                                                                                   | Neon keeps a deleted project recoverable for 7 days, then removes it; its plain-text ledger is readable there until then, only the encrypted fields are not. Copies you exported are yours. Law may require some logs to be kept (section 9).                                                        |
+| P5  | Your people's details are never readable in logs.    | Names, contacts and free-text notes are encrypted in the application before they reach the database. Logs carry only pseudonymous ids.                                                                                                                                 | Amounts, dates and ids are not encrypted. Without the key they cannot be tied to a person. A person's optional key (a code the kitchen chose, section 5.14) is also kept readable. The operator holds the keys: this is not a promise against whoever runs the infrastructure (section 5.6).         |
+| P6  | Your data is yours to take, at any time.             | Full export in an open, versioned format. Works when over limit and after cancelling.                                                                                                                                                                                  | Plain JSON over TLS. Keep it as carefully as you would a ledger.                                                                                                                                                                                                                                     |
+| P7  | One person's rows are invisible to everyone else.    | Row-level security inside each workspace database, forced for the application role. Consumers see only their own rows.                                                                                                                                                 | The application role is trusted to set who is asking. Its credentials never leave the server. The rows are invisible through the app; the operator's access to the databases is not bound by it (section 5.6).                                                                                       |
+| P8  | Older years leave only after you hold the backup.    | A kitchen keeps a rolling window of 24 months. Older closed months are handed to the admin as a verified file, leave only when that file is uploaded back, and every later statement is recomputed in the same transaction and must match to the paisa (section 5.18). | We keep no copy of the months that leave, so a lost file is lost evidence. The server proves the admin held the exact bytes, not that they stored them safely. A purge is not erasure of personal data from the file. The operator's own access to the databases is not bound by this (section 5.6). |
 
 ## 2. Requirements behind the promises
 
@@ -103,8 +104,9 @@ the notes with their sources.
 
 ## 4. Capacity on the free tiers
 
-Per workspace budget (config, default): 1,000 API requests a day, 20,000 rows of ledger data, 100
-people, 20 MB of database.
+Per workspace budget (config, default): 1,000 API requests a day, 20,000 rows of live ledger data,
+100 people, 20 MB of live database. Older closed months leave the count when they are handed over
+(section 5.18).
 
 - Neon: 100 projects per account. One is the control plane, one is spare, so at most 98 workspaces.
 - Cloudflare: 100,000 requests a day shared. Keeping 20 percent headroom for system traffic gives
@@ -805,6 +807,144 @@ kitchen is a seed that reproduces the reference cases to the paisa; a kitchen wi
 its full catalogue and counts; a bundle moves from meals-only to money without loss. The cost is a
 wide change, held in check by the golden master.
 
+### 5.18 Retention: a rolling window with a verified hand-over (ADR-19)
+
+A kitchen keeps a rolling window of live history, 24 months by default. Before the oldest closed
+months leave the database, the admin downloads a verified file of them and uploads that exact file
+back. Only then does a narrow platform-only database function delete those months. In the same
+transaction it writes one opening balance per person (money kitchens only) and one cut record, then
+the server recomputes every later statement and rolls back if any differs by a paisa. It applies to
+kitchens with money and without, and the migrations were edited in place.
+
+| Question                       | Decision                                                                                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit                           | Whole closed months, oldest first, contiguous. Never an open, unclosed or undecided month. The carry is a plain sum of per-month balances.    |
+| Unpaid months                  | Allowed. The opening carries the arrears exactly; refusing would block forever on one debtor.                                                 |
+| What is carried                | Money: one `opening_balance` row per person (signed paise). Meals-only: nothing.                                                              |
+| Trigger                        | The admin's button only. No automatic or operator purge: deletion without a person holding the file is not offered.                           |
+| Window                         | 24 months by default, 13 to 60 by setting, floor 13 enforced in SQL.                                                                          |
+| Proof of receipt               | The saved file is uploaded back and must re-parse to the pinned digest. This proves possession of the bytes, not that they are stored safely. |
+| Late payments to purged months | Refused (410 `archived_month`). Record them on the first live month, so there is one carry path and the archived past is immutable.           |
+| Audit rows of purged tables    | Deleted, and carried in the file under its digest: they hold note ciphertext and most of the bytes.                                           |
+| Viewer                         | None. A file is a complete bundle: import it into a fresh kitchen to look at an old month.                                                    |
+
+**Eligibility** (section 2 of the design, enforced in SQL and pre-checked by the API, which lists
+blockers per month). A month may go only if every month before it has gone or is going; it ended at
+least 13 months ago and is outside the window; every consumer active in it has a `month_close`; no
+claim for it or an earlier month lacks a decision and none is in Query or Disputed; and
+`changedAfterClose` is zero across the span. The API also checks that each frozen `billed` still
+equals the live recomputation. Blocker codes: `not_closed`, `pending_claim`, `open_query`,
+`changed_after_close`, `too_recent`.
+
+**Schema** (workspace `0001`).
+`opening_balance (person_id, as_of_month, balance, billed_total, paid_total)` and `archive_cut` (the
+last month removed, the previous cut and its digest, the file's digest, the hash and counts of the
+rows removed, who confirmed and when), both append-only, guarded read-only and audited, with the
+read policy of `month_close`; a kitchen without money refuses any opening. `refuse_archived()` on
+`log_entry`, `claim`, `settlement` and `month_close` raises `ALIMENTATION_ARCHIVED` for a date in or
+before the latest cut, owner included. `archive_cut_apply(...)` is `SECURITY DEFINER` with a pinned
+`search_path`, owned by the platform role, with `EXECUTE` for nobody else. It locks the tables,
+re-checks eligibility, the chain and the hash of the rows it will remove, sets a transaction-local
+`alimentation.archiving`, deletes in a fixed order comparing each row count with the count it was
+given, inserts the openings and the cut, and returns the counts. The delete exception in
+`forbid_change`, `stamp_log_entry`, the month-closed guard, `guard_read_only` and `audit_row` is one
+branch: it allows only a DELETE, with the setting present, when `current_user` equals the role
+recorded in `meta` as `platform_role` (inside a definer function that is the function's owner, so an
+application session cannot satisfy it, and the setting alone is not enough), on a listed table, for
+a month at or before the cut. It writes no audit row for those deletes and has no UPDATE branch.
+
+**Engine.** `EngineData` gains `openings` and `archivedThrough`. `buildStatements` starts at the
+later of the person's first month and the month after the cut, with `carried` set to their latest
+opening; the ledger, auto-close, history, headline and meal loops share that floor. A request for an
+archived month throws `ARCHIVED_MONTH`, which the API answers with 410 and the cut. `retention.ts`
+holds the pure parts: `archiveBlockers`, `eligibleCuts`, `openingsAt` (from frozen closes),
+`dropBefore` (a mirror of the SQL, for the property test) and the slice body.
+
+**The file.** An ordinary workspace bundle (same format string, edited in place) with an `archive`
+section: `kind` (`slice` or `live`), the span, `openingIn`, `closing` and the chain of cuts. A slice
+holds the full configuration, the span's rows and audit rows, and the expected totals; each stands
+alone and imports into a fresh kitchen, where the span is recomputed and compared. Names and notes
+are plain text in it, as in any export, so the dialog says the admin now guards sensitive data. A
+live bundle carries the cuts and openings, so a kitchen after a cut moves with matching totals.
+`parseBundle` refuses openings into a kitchen without money (`money_bundle_into_meals_only`) and a
+broken chain.
+
+**Flow** (admin session only; agent keys, MCP and the operator cannot call it; the routes are
+`essential` in the gate, so they work when the kitchen is over its limits, which is the way out).
+`GET /retention` shows the window, the eligible cut, blockers, bytes freed and arrears carried.
+`POST /retention/window` sets the window. `POST /retention/prepare {through}` builds the file in a
+repeatable-read read-only transaction, records one live `archive_offer` in the control database (a
+unique partial index; 24-hour expiry; digest, hash and counts, no bytes) and streams the file.
+`POST /retention/confirm` takes the upload, checks shape, counts, digest and totals against the
+offer and the live hash. `POST /retention/apply {offerId, typedMonth}` moves the offer and the
+kitchen to `PURGING` and `ARCHIVING` (move and wipe refuse meanwhile), computes the statements
+before, calls the function as the platform role with a 5 second lock and 60 second statement
+timeout, reloads the data in the same transaction, requires the canonical JSON of the later
+statements to be equal, and otherwise rolls back with `ARCHIVE_PARITY_FAILED`. On commit it writes
+the control `archive_receipt` (no names), marks the offer done and runs `VACUUM FULL` best effort.
+`POST /retention/cancel` withdraws an offer. A span over 200,000 rows is refused: archive in steps.
+
+**Daily scan and the meter.** Housekeeping's `retentionScan` writes only metadata into
+`workspace.retention` (`none`, `due`, `offered`, `overdue`; retained from; live bytes), expires
+stale offers, reconciles offers against `archive_cut`, flags a restored workspace, and retries
+unfinished vacuums. It never purges or confirms. At WATCH and ASK the admin sees "Archive older
+months" ahead of Move. The grace at OVER is unchanged except that writes continue to an offer's
+expiry, at most 7 extra days, once per `overSince`. A purge that brings usage under 100 percent
+clears it. The caps count live data only and stay as a safety net; bytes bind first. The operator
+sees state, retained-from and counts, and has no route to purge.
+
+**Audit, History and law.** Audit rows of purged tables live on in the file under its digest; those
+of kept tables are untouched. The permanent record is `archive_cut` and the normal audit row for its
+insert. History shows one line per cut with the date, the short checksum and "an administrator".
+Tamper evidence for the span now rests on the file and its digest; the log is not hash-chained, so
+"tamper-evident, not tamper-proof" still holds. The platform keeps no copy of the span, and the file
+is the kitchen's own data: erasing a person from it is the kitchen's act. Host recovery copies may
+hold ciphertext for up to 7 days. A purge is not erasure; counsel should confirm the point.
+
+**Other objects.** People, services, catalogue, menus, rate cards, policy versions, holidays and
+enrolments are never purged, so keys stay valid and the card in force at the cut is still there.
+Organisation roll-ups run the engine per kitchen with openings and head-office totals are unchanged.
+Wipe lists `opening_balance`, `archive_cut` and `archive_cut_apply` in `OUR_TABLES` and
+`OUR_FUNCTIONS`; the control `archive_offer` goes with the kitchen and the receipt stays, like a
+wipe receipt.
+
+**Crash safety.** One transaction, so a crash rolls back and the offer returns to `CONFIRMED` on
+reconcile. A crash after commit and before the receipt is mended from `archive_cut`. A restore of
+the control database cannot bring purged data back; a restore of the workspace to before a cut
+brings rows and cut back together, and reconcile flags "restored, can be handed over again"
+(`docs/RUNBOOK.md`, reconcile-archives).
+
+**Verification.** A parity property test in core (random kitchens, with and without money, two cuts
+equal one, meal counts unchanged); refusals each with its own code; database guard tests per table
+as the application role, the platform role and the owner; bundle round trips and a move after a cut;
+drift defects (function granted to the application role, `current_user` test removed, exception
+widened, floor or count check removed, `refuse_archived` dropped, unique offer index dropped); API
+flow, crash states and the gate when over; a browser run of the whole flow.
+
+**Decisions the owner could still reverse.** The 24-month window and the 13-month floor; whether
+unpaid balances may go; the upload as proof against a digest echo; deleting against keeping the
+audit rows of purged tables; keeping the 20,000-row cap; no viewer and no merge back; openings for
+money kitchens only; refusing late payments to purged months; the operator never holding or
+triggering an archive; a plain file against a passphrase option; one transaction with a 200,000-row
+ceiling against batches; the 24-hour offer and 7-day grace extension.
+
+**Residual risks.** The opening is computed in TypeScript, so SQL cannot verify it: the
+same-transaction check is the safeguard, and only the platform role can call the function. The
+platform role can always do worse, as before: this guards against application bugs and a compromised
+session, not the operator. If the admin loses the file, that span's evidence is gone. A plain
+`DELETE` does not shrink the host's logical size; `VACUUM FULL` does and must be tried on the real
+host.
+
+**ADR-19: a rolling window with a verified hand-over.** _Context._ Free storage is a fixed number of
+rows and bytes, and a ledger that only grows ends at the limit with a move as the one way out.
+_Decision._ Let whole closed months leave after the admin holds and returns a verified file, through
+one platform-only function, with balances carried as openings and every later figure proved equal in
+the same transaction. _Consequences._ A small kitchen can stay on the free tier for years; the
+platform never holds the archive; the archived past is immutable and late payments go on the first
+live month. The cost is one deliberate exception to the append-only rule (sections 5.6 and 5.8 for
+keys and usage, 5.10 for wipe, which is the other whole-database deletion) and a file the admin must
+keep.
+
 ## 6. Technology
 
 | Layer      | Choice                                                                                                   | Why                                                                                                                              |
@@ -846,22 +986,23 @@ Considered and set aside:
 
 ## 7. Verification matrix
 
-| Claim                                                           | Verified how, where                                                                                                                               |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Spec rules and reference numbers                                | Unit and property tests in `packages/core`; mutation score 96.2 percent (`docs/DRIFT.md`)                                                         |
-| Cross-person and cross-workspace isolation                      | Database and HTTP tests on Postgres 18: two workspaces, several consumers, with and without a role set                                            |
-| Append-only decisions, settlements, rate cards, menus, receipts | Tests that attempt the update and delete as the application role, and (for receipts) as the owner                                                 |
-| A kitchen without money holds no money                          | Database tests for every refused write, as the application and as the owner; HTTP tests for each money route; MCP tests; bundle round trips       |
-| Guards are not dead code                                        | Each database guard removed in turn; its test must fail (`bun run drift:db`: 180 defects and a control, 0 missed)                                 |
-| No personal data in logs                                        | A full flow with `log_statement=all`; the server log is searched for every sentinel. CI requires the log to be readable, so it cannot be skipped  |
-| Wipe leaves nothing                                             | The database server's catalog and the control database are listed before and after; keys, receipt, interrupted and restored cases                 |
-| Move reconciles to the paisa                                    | Two real databases and two instances; a failure injected at each stage leaves the source as it was                                                |
-| Free-tier fairness                                              | Per-workspace budget and flood tests; export is exempt from the daily budget                                                                      |
-| Browser: install, offline read, role screens, layout            | Chromium through Playwright against the built app, desktop and phone; accessibility (axe) and no-sideways-scroll checks at every stage            |
-| Security policy                                                 | The strict policy is asserted on every response and the whole journey runs under it with no violations                                            |
-| Worker bundle and runtime                                       | `wrangler deploy --dry-run`; `scripts/smoke-worker.sh` runs it in the Workers runtime through Neon's WebSocket path                               |
-| Container image                                                 | `scripts/smoke-compose.sh` builds it, starts it with its own Postgres, makes a kitchen, restarts, and finds it again; the tests run in containers |
-| Neon provisioner, Worker CPU time, claim links, live deploy     | **Not verified here.** Needs credentials; `scripts/smoke-live.mts` is the check to run on first deploy (`docs/RUNBOOK.md`).                       |
+| Claim                                                                   | Verified how, where                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Spec rules and reference numbers                                        | Unit and property tests in `packages/core`; mutation score 96.2 percent (`docs/DRIFT.md`)                                                                                                                                                                                   |
+| Cross-person and cross-workspace isolation                              | Database and HTTP tests on Postgres 18: two workspaces, several consumers, with and without a role set                                                                                                                                                                      |
+| Append-only decisions, settlements, rate cards, menus, receipts         | Tests that attempt the update and delete as the application role, and (for receipts) as the owner                                                                                                                                                                           |
+| A kitchen without money holds no money                                  | Database tests for every refused write, as the application and as the owner; HTTP tests for each money route; MCP tests; bundle round trips                                                                                                                                 |
+| Guards are not dead code                                                | Each database guard removed in turn; its test must fail (`bun run drift:db`: 204 defects and a control, 0 missed)                                                                                                                                                           |
+| No personal data in logs                                                | A full flow with `log_statement=all`; the server log is searched for every sentinel. CI requires the log to be readable, so it cannot be skipped                                                                                                                            |
+| Wipe leaves nothing                                                     | The database server's catalog and the control database are listed before and after; keys, receipt, interrupted and restored cases                                                                                                                                           |
+| Older months leave only with a verified file, and nothing later changes | Parity property test in `packages/core`; guard tests for the one deleting function as the application role, the platform role and the owner; the flow, refusals and crash states over HTTP; drift defects for each guard; a browser run of download, upload and typed month |
+| Move reconciles to the paisa                                            | Two real databases and two instances; a failure injected at each stage leaves the source as it was                                                                                                                                                                          |
+| Free-tier fairness                                                      | Per-workspace budget and flood tests; export is exempt from the daily budget                                                                                                                                                                                                |
+| Browser: install, offline read, role screens, layout                    | Chromium through Playwright against the built app, desktop and phone; accessibility (axe) and no-sideways-scroll checks at every stage                                                                                                                                      |
+| Security policy                                                         | The strict policy is asserted on every response and the whole journey runs under it with no violations                                                                                                                                                                      |
+| Worker bundle and runtime                                               | `wrangler deploy --dry-run`; `scripts/smoke-worker.sh` runs it in the Workers runtime through Neon's WebSocket path                                                                                                                                                         |
+| Container image                                                         | `scripts/smoke-compose.sh` builds it, starts it with its own Postgres, makes a kitchen, restarts, and finds it again; the tests run in containers                                                                                                                           |
+| Neon provisioner, Worker CPU time, claim links, live deploy             | **Not verified here.** Needs credentials; `scripts/smoke-live.mts` is the check to run on first deploy (`docs/RUNBOOK.md`).                                                                                                                                                 |
 
 ## 8. Risks
 

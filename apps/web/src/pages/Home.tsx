@@ -11,7 +11,7 @@ import { Figure, Lines, useChapter, useLight, useLive, useReveal } from "../home
 import { Stage } from "../home/Stage.tsx";
 import { useSession } from "../session.tsx";
 
-/** The seven promises. Each title is the ledger's wording (docs/PROMISES.md), kept equal by a check. */
+/** The eight promises. Each title is the ledger's wording (docs/PROMISES.md), kept equal by a check. */
 const PROMISES: { title: string; how: string; limit: string }[] = [
   {
     title: "Nobody can crowd you out.",
@@ -52,6 +52,12 @@ const PROMISES: { title: string; how: string; limit: string }[] = [
     how: "The database itself enforces it, not only the screen. A member sees their own bill and nobody else’s.",
     limit:
       "Our server tells the database who is asking, so its passwords never leave the server. The rule holds for everyone using the app; it does not bind whoever runs the servers.",
+  },
+  {
+    title: "Older years leave only after you hold the backup.",
+    how: "By default your last 24 months stay (13 to 60, as you choose). Before older closed months leave the book, we hand them to you as a file, and they go only once you upload that same file back. Every later bill is worked out again before the change is kept, and it must match to the paisa.",
+    limit:
+      "We keep no copy of those months, so if you lose the file they are gone. Records in them can no longer be edited, and payments for them are recorded on the first live month.",
   },
 ];
 
@@ -178,6 +184,10 @@ export function Home() {
                 {fmt.format(FREE_LIMITS.rows)} lasts over three years.
               </p>
               <p className="statement-note" data-reveal>
+                {fmt.format(FREE_LIMITS.rows)} entries live. Older months are handed to you as a
+                backup before they leave. A rolling window of 24 months by default.
+              </p>
+              <p className="statement-note" data-reveal>
                 A kitchen does not have to handle money. When you start one you can choose meals
                 only: it counts who ate, who was on leave and the extras, with no prices, bills or
                 payments. You choose once, and it cannot be changed later.
@@ -195,7 +205,7 @@ export function Home() {
                 </dd>
               </div>
               <div>
-                <dt>entries</dt>
+                <dt>live entries</dt>
                 <dd>
                   <Figure value={fmt.format(FREE_LIMITS.rows)} />
                 </dd>
@@ -295,7 +305,7 @@ export function Home() {
 
         <section id="promises" className="section" aria-labelledby="promises-title">
           <div className="hwrap">
-            <Lines lines={["Seven promises,", "and where each one stops"]} id="promises-title" />
+            <Lines lines={["Eight promises,", "and where each one stops"]} id="promises-title" />
             <p className="statement" data-reveal>
               Each promise is backed by automated checks that run whenever we change anything. A
               promise with no check cannot ship.

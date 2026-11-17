@@ -5,7 +5,7 @@ import { readDsns } from "../directory.ts";
 import { OUR_TABLES } from "../placement/external.ts";
 import type { PlacementRef } from "../placement/types.ts";
 import type { PlatformDeps } from "../platform/workspaces.ts";
-import { notFound } from "../workspace/errors.ts";
+import { ApiError, notFound } from "../workspace/errors.ts";
 
 /** How long a workspace that has moved away, or a database it left behind, is kept before it goes. */
 export const UNDO_DAYS = 7;
@@ -97,6 +97,9 @@ export async function wipeWorkspace(p: PlatformDeps, workspaceId: string): Promi
     if (!done) throw notFound("Workspace");
     return { done: true, receipt: toReceipt(done) };
   }
+  // Months that are being removed are removed for good or not at all; a wipe waits for that to be settled.
+  if (row.state === "ARCHIVING")
+    throw new ApiError(409, "busy", "Older months are being handed over. Try again in a moment.");
   const requestedAt = p.now();
   const resumed = row.state === "WIPING";
   // Counted before anything is destroyed, while the database can still be asked.

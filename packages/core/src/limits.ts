@@ -70,6 +70,11 @@ export function meter(
   limits: Limits,
   previousOverSince: IsoDate | null,
   today: IsoDate,
+  /**
+   * A later last day for writes, given once while older months were on offer to be handed over (see the
+   * retention design). It can only lengthen the grace, never shorten it, and means nothing when not over.
+   */
+  graceUntil: IsoDate | null = null,
 ): Meter {
   const ratios = {} as Record<keyof Usage, number>;
   // Stryker disable next-line StringLiteral: overwritten by the first measure
@@ -93,7 +98,9 @@ export function meter(
           ? "WATCH"
           : "OK";
   const overSince = state === "OVER" ? (previousOverSince ?? today) : null;
-  const graceEndsOn = overSince === null ? null : addDays(overSince, GRACE_DAYS);
+  const plain = overSince === null ? null : addDays(overSince, GRACE_DAYS);
+  const graceEndsOn =
+    plain !== null && graceUntil !== null && graceUntil > plain ? graceUntil : plain;
   const writesAllowed = graceEndsOn === null || today <= graceEndsOn;
   return { state, worst, ratio, ratios, overSince, graceEndsOn, writesAllowed };
 }

@@ -21,6 +21,7 @@ import { Payments } from "./Payments.tsx";
 import { People } from "./People.tsx";
 import { Prices } from "./Prices.tsx";
 import { Rates } from "./Rates.tsx";
+import { Retention } from "./Retention.tsx";
 import {
   groupsFor,
   hrefOf,
@@ -53,6 +54,7 @@ const VIEW: Record<SectionKey, ComponentType> = {
   holidays: Holidays,
   settlements: Settlements,
   close: CloseMonths,
+  retention: Retention,
   audit: Audit,
   data: YourData,
 };
@@ -227,6 +229,11 @@ function Loaded({
       {boot.workspace.state === "MIGRATING" ? (
         <div className="banner warn" role="status">
           This kitchen is being moved. It is read-only until the move finishes.
+        </div>
+      ) : null}
+      {boot.workspace.state === "ARCHIVING" ? (
+        <div className="banner warn" role="status">
+          Older months are being handed over. The kitchen is read-only for a moment.
         </div>
       ) : null}
       {moved ? (

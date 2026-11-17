@@ -94,6 +94,11 @@ action, and nothing is lost.
 You, the supplier and the admin. They are encrypted in the database, and the service holds the keys
 that unlock them: see [who can read what](/guides/fair/privacy/).
 
+## Why can't I record a payment for a very old month?
+
+Months older than your window are handed over to the admin as a backup file and removed. A payment
+for one is recorded on the first month that stays, and your balance already carries what was owed.
+
 ## Can I get my data out?
 
 Yes, at any time, even when the kitchen is over its limits: **Your data**, then **Download

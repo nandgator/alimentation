@@ -9,6 +9,7 @@ import {
   type LogEntry,
   type MenuVersion,
   type MonthClose,
+  type OpeningBalance,
   type Person,
   type PolicyVersion,
   prepare,
@@ -168,6 +169,8 @@ export async function loadEngineData(
     decisions,
     settlements,
     closes,
+    openings,
+    cuts,
   ] = await Promise.all([
     tx.query<R>("SELECT id, role, name_enc, active_from, active_to FROM person"),
     tx.query<R>("SELECT effective_from, doc FROM policy_version"),
@@ -199,6 +202,12 @@ export async function loadEngineData(
     tx.query<R>(
       "SELECT for_month, consumer_id, meals, billed, closed_on, closed_by FROM month_close",
     ),
+    moneyEnabled
+      ? tx.query<R>(
+          "SELECT person_id, as_of_month, balance, billed_total, paid_total FROM opening_balance",
+        )
+      : none,
+    tx.query<R>("SELECT max(through_month) AS through FROM archive_cut"),
   ]);
 
   const names = await Promise.all(
@@ -298,6 +307,16 @@ export async function loadEngineData(
         closedBy: c.closed_by ?? null,
       }),
     ),
+    openings: openings.map(
+      (o): OpeningBalance => ({
+        personId: o.person_id,
+        asOfMonth: month(o.as_of_month),
+        balance: o.balance,
+        billedTotal: o.billed_total,
+        paidTotal: o.paid_total,
+      }),
+    ),
+    archivedThrough: cuts[0]?.through ? month(cuts[0].through) : null,
   };
 }
 

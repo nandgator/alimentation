@@ -157,8 +157,31 @@ export interface MonthClose {
   closedBy: string | null;
 }
 
+/**
+ * What a person owed, in paise and signed, on the first day of the first live month: the sum of
+ * `billed - paid` over every month that has been handed over and removed. Only a kitchen that tracks money has them.
+ */
+export interface OpeningBalance {
+  personId: string;
+  /** The first live month: the month after the last one removed. */
+  asOfMonth: Month;
+  balance: Paise;
+  billedTotal: Paise;
+  paidTotal: Paise;
+}
+
+/** The record that months up to `throughMonth` were handed over and removed. */
+export interface ArchiveCut {
+  throughMonth: Month;
+  priorDigest: string | null;
+  bundleDigest: string;
+  counts: Record<string, number>;
+  cutByRole: "admin";
+  cutAt: string;
+}
+
 export class EngineError extends Error {
-  readonly code: "NO_RATE_CARD" | "NO_MENU" | "NO_PRICE" | "BAD_INPUT";
+  readonly code: "NO_RATE_CARD" | "NO_MENU" | "NO_PRICE" | "BAD_INPUT" | "ARCHIVED_MONTH";
   readonly date: IsoDate | null;
   /** The item that has no price, for NO_PRICE. */
   readonly itemId: string | null;

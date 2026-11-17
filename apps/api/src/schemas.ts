@@ -303,6 +303,22 @@ export const MoveBody = z.object({ target: MoveTarget, confirm: z.string() });
 /** The kitchen's own address, typed to confirm something that cannot be undone. */
 export const ConfirmBody = z.object({ confirm: z.string() });
 
+// --- handing older months over ----------------------------------------------------------------------
+
+/** The last month to hand over, as `YYYY-MM`. */
+export const PrepareRetention = z.object({ through: Month });
+
+/** The offer to carry out, and the last month typed out again by the admin who means it. */
+export const ApplyRetention = z.object({ offerId: z.string().uuid(), typedMonth: z.string() });
+
+export const CancelRetention = z.object({ offerId: z.string().uuid() });
+
+/** Full months of history to keep live besides the current one: from 13 to 60. */
+export const RetentionWindow = z.object({ months: z.number().int().min(13).max(60) });
+
+/** The most a saved backup may be when it is uploaded back. */
+export const MAX_ARCHIVE_UPLOAD_BYTES = 120_000_000;
+
 // --- organisations ---------------------------------------------------------------------------------
 
 export const CreateOrganisation = z.object({ name: z.string().trim().min(1).max(120) });

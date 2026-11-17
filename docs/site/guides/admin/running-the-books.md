@@ -137,6 +137,28 @@ name, what is **still waiting**: money claimed but not yet decided, and open que
 not stop those: payments carry on. Read [Month end and catching up](/guides/admin/month-end/) before
 your first close.
 
+## Older months
+
+**Older months** (admin only) is how a kitchen stays small. The last 24 months always stay (you can
+choose 13 to 60). When older closed months can go, the meter's warning offers **Archive older
+months**, and this screen lists what can go and, for each month that cannot, what stands in the way:
+a person not yet closed, a payment waiting for a decision, an open query, or a change made after the
+close.
+
+1. **Download** the months. You get one file. **Keep it: there is no second copy.** It is a whole
+   kitchen's worth of those months, with names and notes in plain text, so keep it as carefully as a
+   ledger book.
+2. **Upload** the file you saved. We check it is the very file we gave you, byte for byte. Nothing
+   has been removed yet.
+3. **Type the last month** to confirm. The months are removed, each person's balance is carried onto
+   the first month that stays, and every later bill is worked out again and must be the same to the
+   paisa. If anything differs, nothing is removed.
+
+After that, records in those months can no longer be edited or reopened, and a payment for one is
+recorded on the first month that stays. To look at an old month, make a new kitchen and import the
+file into it, then delete that kitchen. We cannot restore the months for you. A kitchen without
+money hands months over the same way and carries no balances.
+
 ## Audit
 
 **Audit** is the raw record of every change in the kitchen, written by the database: what, who and

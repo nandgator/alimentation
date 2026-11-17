@@ -106,6 +106,8 @@ export function data(over: Partial<EngineData> = {}): EngineData {
     decisions: [],
     settlements: [],
     closes: [],
+    openings: [],
+    archivedThrough: null,
     ...over,
   };
 }

@@ -26,10 +26,19 @@ import type { AccountRow, AgentKeyRow, ControlRepo } from "./control/repo.ts";
 import { sameSecret } from "./crypto/aead.ts";
 import { KeysDestroyedError } from "./crypto/keys.ts";
 import type { Directory, WorkspaceHandle } from "./directory.ts";
+import {
+  applyArchive,
+  cancelArchive,
+  confirmArchive,
+  prepareArchive,
+  retentionStatus,
+  setWindow,
+} from "./lifecycle/archive.ts";
 import { exportWorkspace } from "./lifecycle/bundleio.ts";
 import { housekeeping } from "./lifecycle/housekeeping.ts";
 import { moveToDatabase, moveToInstance, previewMove, releaseMove } from "./lifecycle/move.ts";
 import { receiveWorkspace } from "./lifecycle/receive.ts";
+import { operatorRetention } from "./lifecycle/retention-scan.ts";
 import { toReceipt, wipeWorkspace } from "./lifecycle/wipe.ts";
 import type { Gate } from "./limits/gate.ts";
 import {
@@ -66,7 +75,9 @@ import {
 } from "./platform/workspaces.ts";
 import {
   AcceptInvite,
+  ApplyRetention,
   ApproveSignup,
+  CancelRetention,
   CloseMonth,
   ConfirmBody,
   CreateAgentKey,
@@ -91,6 +102,7 @@ import {
   LedgerQuery,
   LogBody,
   LogQuery,
+  MAX_ARCHIVE_UPLOAD_BYTES,
   MAX_BUNDLE_BYTES,
   MAX_JSON_BYTES,
   MigrateReceive,
@@ -100,6 +112,8 @@ import {
   OrganisationKitchen,
   OrganisationMember,
   PageQuery,
+  PrepareRetention,
+  RetentionWindow,
   ReverseClaim,
   ROLE_ORDER,
   SetEnrolments,
@@ -219,7 +233,7 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     if (e instanceof ApiError) {
       if (e.status === 429 && e.code !== "rate_limited") c.header("retry-after", "60");
       return c.json(
-        { error: { code: e.code, message: e.message, issues: e.issues, id } },
+        { error: { code: e.code, message: e.message, issues: e.issues, id, ...e.extra } },
         e.status as 400,
       );
     }
@@ -497,6 +511,8 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
         requestsToday: today.get(w.id) ?? 0,
         overSince: w.overSince,
         limits: w.limits,
+        // State, where the live months begin, and counts: nothing of what the months hold, and no way to act.
+        retention: operatorRetention(w.retention),
       })),
     });
   });
@@ -783,7 +799,13 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
 
     const verdict = await deps.gate.admit(
       { id: handle.row.id, limits: handle.info.limits },
-      { essential: c.req.method === "GET" && c.req.path.endsWith("/export") },
+      {
+        // Taking a copy of your own data, and handing older months over (the way out of a full kitchen), are
+        // promises: they are counted and rate limited, and never turned away for the day's budget.
+        essential:
+          (c.req.method === "GET" && c.req.path.endsWith("/export")) ||
+          /^\/retention(\/|$)/.test(c.req.path.slice(c.req.path.indexOf("/", "/api/w/".length))),
+      },
     );
     if (!verdict.allowed) {
       c.header("retry-after", String(verdict.retryAfterSeconds));
@@ -1196,6 +1218,73 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     actorCache.clear();
     accountSeen.clear();
     return c.json(out, out.done ? 200 : 202);
+  });
+
+  // --- handing older months over: only an admin, in a session; no key, no operator --------------------
+
+  const needActingAdmin = (c: Context<{ Variables: Vars }>) => {
+    if (c.get("agent") || who(c).role !== "admin") throw forbidden("Only an admin can do that.");
+    return needAccount(c);
+  };
+  w.get("/retention", async (c) => {
+    needActingAdmin(c);
+    return c.json(await retentionStatus(deps.platform, c.get("handle")));
+  });
+  w.post("/retention/window", async (c) => {
+    needActingAdmin(c);
+    const b = await parse(c, RetentionWindow);
+    return c.json(await setWindow(deps.platform, c.get("handle"), b.months));
+  });
+  w.post("/retention/prepare", async (c) => {
+    const a = needActingAdmin(c);
+    const b = await parse(c, PrepareRetention);
+    const handle = c.get("handle");
+    const out = await prepareArchive(
+      deps.platform,
+      handle,
+      { accountId: a.id, actor: who(c) },
+      b.through,
+    );
+    c.header(
+      "content-disposition",
+      `attachment; filename="${handle.row.slug}.${b.through}.alimentation.json"`,
+    );
+    c.header("x-offer-id", out.offer.id);
+    c.header("x-offer-expires", out.offer.expiresAt);
+    c.header("x-checksum", out.bundle.manifest.digest);
+    return c.json(out.bundle);
+  });
+  w.post("/retention/confirm", async (c) => {
+    const a = needActingAdmin(c);
+    const type = c.req.header("content-type") ?? "";
+    const bytes = await readBytes(c, MAX_ARCHIVE_UPLOAD_BYTES);
+    let file: Uint8Array = bytes;
+    if (type.toLowerCase().startsWith("multipart/form-data")) {
+      const form = await new Response(bytes as BodyInit, { headers: { "content-type": type } })
+        .formData()
+        .catch(() => null);
+      const part = form?.get("file");
+      if (!(part instanceof Blob)) throw invalid("Send the saved file as the form field `file`.");
+      file = new Uint8Array(await part.arrayBuffer());
+    }
+    return c.json(await confirmArchive(deps.platform, c.get("handle"), { accountId: a.id }, file));
+  });
+  w.post("/retention/apply", async (c) => {
+    const a = needActingAdmin(c);
+    const b = await parse(c, ApplyRetention);
+    const out = await applyArchive(
+      deps.platform,
+      c.get("handle"),
+      { accountId: a.id, personId: who(c).personId },
+      b,
+    );
+    actorCache.clear();
+    return c.json(out);
+  });
+  w.post("/retention/cancel", async (c) => {
+    needActingAdmin(c);
+    const b = await parse(c, CancelRetention);
+    return c.json(await cancelArchive(deps.platform, c.get("handle"), b.offerId));
   });
 
   // --- the MCP server: the routes an agent's key opens, as tools ---------------------------------

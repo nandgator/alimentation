@@ -29,6 +29,15 @@ interface Row {
   requestsToday: number;
   overSince: string | null;
   limits: Limits;
+  /** Where the kitchen's older months stand: a state, a date and counts, never what they hold. */
+  retention: {
+    state: "none" | "due" | "offered" | "overdue";
+    retainedFrom: string | null;
+    liveBytes: number;
+    liveRows: number;
+    cuts: number;
+    restored: boolean;
+  };
 }
 interface CapacityDetail {
   capacity: number;
@@ -348,6 +357,7 @@ export function Operator() {
                       <th>Where</th>
                       <th className="r">Requests today</th>
                       <th>Over since</th>
+                      <th>Older months</th>
                       <th />
                     </tr>
                   </thead>
@@ -365,6 +375,22 @@ export function Operator() {
                           {w.requestsToday} / {w.limits.requestsPerDay}
                         </td>
                         <td>{w.overSince ?? "-"}</td>
+                        <td>
+                          <Chip
+                            tone={
+                              w.retention.state === "overdue"
+                                ? "bad"
+                                : w.retention.state === "none"
+                                  ? "good"
+                                  : "warn"
+                            }
+                          >
+                            {w.retention.state}
+                          </Chip>{" "}
+                          {w.retention.retainedFrom ? `from ${w.retention.retainedFrom}, ` : ""}
+                          {w.retention.liveRows} entries, {w.retention.cuts} handed over
+                          {w.retention.restored ? ", restored: can be handed over again" : ""}
+                        </td>
                         <td>
                           <div className="row">
                             {w.state === "ACTIVE" && !list.data?.capacity.dedicated ? (

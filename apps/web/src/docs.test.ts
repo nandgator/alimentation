@@ -412,20 +412,20 @@ describe("code and diagrams in the pages", () => {
   });
 
   it("shows lines of a real file, as they are in it and numbered as in it", () => {
-    const { html } = build(fence("ts file=packages/core/src/engine.ts#L33-L57"));
+    const { html } = build(fence("ts file=packages/core/src/engine.ts#L35-L66"));
     expect(html).toContain('<span class="code-name">packages/core/src/engine.ts</span>');
-    expect(html).toContain('<span class="code-range">lines 33\u201357</span>');
-    expect(html).toContain('data-n="33"');
+    expect(html).toContain('<span class="code-range">lines 35\u201366</span>');
+    expect(html).toContain('data-n="35"');
     // The page names a line range, so a reformat that moves the code must fail here, not in a browser.
-    expect(html).toMatch(/data-n="33">.*export.*interface.*EngineData/s);
-    expect(html).toContain('data-n="57"');
-    expect(html).not.toContain('data-n="58"');
+    expect(html).toMatch(/data-n="35">.*export.*interface.*EngineData/s);
+    expect(html).toContain('data-n="66"');
+    expect(html).not.toContain('data-n="67"');
     const shown = [
       ...html.matchAll(
         /<span class="line" data-n="(\d+)">(.*?)<\/span>(?=\n<span class="line"|<\/code>)/gs,
       ),
     ];
-    expect(shown).toHaveLength(25);
+    expect(shown).toHaveLength(32);
     for (const [, n, markup] of shown) {
       const text = markup!
         .replace(/<[^>]+>/g, "")
@@ -595,7 +595,7 @@ describe("code and diagrams in the pages", () => {
   it("has the diagram and the file excerpt in the pages that were written for them", () => {
     expect(read("docs/overview/architecture.md")).toMatch(/```mermaid title="[^"]+"/);
     expect(read("docs/concepts/billing-engine.md")).toContain(
-      "file=packages/core/src/engine.ts#L33-L57",
+      "file=packages/core/src/engine.ts#L35-L66",
     );
   });
 });
@@ -700,7 +700,7 @@ describe("documentation for language models", () => {
     expect(full).not.toMatch(/^title: /m);
     expect(full).not.toMatch(/^description: /m);
     // The billing page shows lines of the engine by naming them; here they are.
-    expect(full).toContain("// packages/core/src/engine.ts, lines 33 to 57");
+    expect(full).toContain("// packages/core/src/engine.ts, lines 35 to 66");
     expect(full).toContain("export interface EngineData");
   });
 

@@ -13,6 +13,8 @@ import {
 /** Everything a workspace database contains that this program put there, and nothing else. */
 export const OUR_TABLES = [
   "audit_log",
+  "archive_cut",
+  "opening_balance",
   "month_close",
   "settlement",
   "claim_reversal",
@@ -273,4 +275,9 @@ export const OUR_FUNCTIONS = [
   "keep_caps",
   "keep_external_key",
   "record_person_import",
+  "archive_row_month",
+  "archive_delete_allowed",
+  "refuse_archived",
+  "archive_slice_hash",
+  "archive_cut_apply",
 ] as const;

@@ -61,6 +61,26 @@ describe("the usage meter", () => {
     expect(after).toMatchObject({ overSince: "2026-10-24", writesAllowed: false });
   });
 
+  it("lets a longer grace extend the plain one, never shorten it, and means nothing when not over", () => {
+    const o = usage({ rows: L.rows });
+    expect(meter(o, L, "2026-10-24", "2026-11-07", "2026-11-14")).toMatchObject({
+      graceEndsOn: "2026-11-14",
+      writesAllowed: true,
+    });
+    expect(meter(o, L, "2026-10-24", "2026-11-15", "2026-11-14")).toMatchObject({
+      graceEndsOn: "2026-11-14",
+      writesAllowed: false,
+    });
+    expect(meter(o, L, "2026-10-24", "2026-11-08", "2026-11-01")).toMatchObject({
+      graceEndsOn: "2026-11-07",
+      writesAllowed: false,
+    });
+    expect(meter(usage({ rows: 10 }), L, "2026-10-24", "2026-11-08", "2026-11-14")).toMatchObject({
+      graceEndsOn: null,
+      writesAllowed: true,
+    });
+  });
+
   it("forgets being over the moment usage falls back, and restarts the grace if it returns", () => {
     const back = meter(usage({ rows: 10 }), L, "2026-10-24", "2026-11-20");
     expect(back).toMatchObject({

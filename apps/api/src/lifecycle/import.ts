@@ -1,4 +1,5 @@
 import {
+  addMonths,
   type Bundle,
   canonicalJson,
   compareTotals,
@@ -45,6 +46,8 @@ export const AUDITED = [
   "claim_reversal",
   "settlement",
   "month_close",
+  "opening_balance",
+  "archive_cut",
 ] as const;
 /** Multi-row INSERT in chunks. Names are constants in this file; values are always parameters. */
 async function insertMany(
@@ -94,6 +97,7 @@ const sectionKeys = [
   "settlements",
   "closes",
   "audit",
+  "archive",
   "expected",
 ] as const;
 
@@ -417,6 +421,46 @@ export async function importBundle(
         ]),
       );
 
+      // The months that were handed over before this bundle, and the balances its first month starts from.
+      // A slice keeps the cuts that came before it; its own cut is not recorded here, so the kitchen it
+      // becomes begins a chain of its own.
+      await insertMany(
+        tx,
+        "archive_cut",
+        [
+          "through_month",
+          "prior_through",
+          "prior_digest",
+          "bundle_digest",
+          "slice_hash",
+          "counts::jsonb",
+          "cut_by",
+          "cut_at",
+        ],
+        bundle.archive.cuts.map((c, i) => [
+          `${c.throughMonth}-01`,
+          i === 0 ? null : `${must(bundle.archive.cuts[i - 1]).throughMonth}-01`,
+          c.priorDigest,
+          c.bundleDigest,
+          c.sliceHash,
+          JSON.stringify(c.counts),
+          c.cutBy,
+          c.cutAt,
+        ]),
+      );
+      await insertMany(
+        tx,
+        "opening_balance",
+        ["person_id", "as_of_month", "balance", "billed_total", "paid_total"],
+        bundle.archive.openingIn.map((o) => [
+          o.personId,
+          `${o.asOfMonth}-01`,
+          o.balance,
+          o.billedTotal,
+          o.paidTotal,
+        ]),
+      );
+
       const seal = async (table: string, rowId: string, j: Record<string, unknown> | null) => {
         if (j === null) return null;
         const out: Record<string, unknown> = {};
@@ -472,11 +516,23 @@ export async function importBundle(
       for (const t of AUDITED) await tx.query(`ALTER TABLE ${t} ENABLE TRIGGER ${t}_audit`);
 
       // Prove it. Read the copy back into a bundle and compare it to the original, whole.
-      const again = await readBundleBody(tx, cipher, {
+      const readBack = await readBundleBody(tx, cipher, {
         exportedAt: bundle.exportedAt,
         asOf: bundle.asOf,
         members: bundle.members,
+        // A slice is read back as a slice. A kitchen that becomes one with money has no prices yet, so it
+        // has no balances to state; it is read back whole and held to what a kitchen without money carries.
+        ...(bundle.archive.kind === "slice" &&
+        bundle.archive.throughMonth !== null &&
+        targetMoney === bundle.workspace.moneyEnabled
+          ? { slice: { through: bundle.archive.throughMonth } }
+          : {}),
       });
+      const sliceEnd = bundle.archive.kind === "slice" ? bundle.archive.throughMonth : null;
+      const again =
+        sliceEnd !== null && readBack.archive.kind === "live"
+          ? { ...readBack, expected: readBack.expected.filter((x) => x.month <= sliceEnd) }
+          : readBack;
       report.mismatches = compareTotals(bundle.expected, again.expected);
       if (report.mismatches.length)
         report.problems.push(
@@ -488,14 +544,26 @@ export async function importBundle(
       // A kitchen without money that becomes one that tracks money differs from its original in that one
       // setting and in nothing else, so it is held to every part but that one and the checksum, which that
       // setting is part of.
+      const lastCut = bundle.archive.cuts.at(-1);
       const becameMoney = targetMoney !== bundle.workspace.moneyEnabled;
       for (const k of sectionKeys) {
         const was = (original as Record<string, unknown>)[k];
         const now = (again as Record<string, unknown>)[k];
         const same =
-          k === "workspace" && becameMoney
-            ? sameParts({ ...bundle.workspace, moneyEnabled: targetMoney }, now)
-            : sameParts(was, now);
+          k === "archive" && becameMoney && bundle.archive.kind === "slice"
+            ? sameParts(
+                {
+                  ...bundle.archive,
+                  kind: "live",
+                  fromMonth: lastCut === undefined ? null : addMonths(lastCut.throughMonth, 1),
+                  throughMonth: null,
+                  priorDigest: null,
+                },
+                now,
+              )
+            : k === "workspace" && becameMoney
+              ? sameParts({ ...bundle.workspace, moneyEnabled: targetMoney }, now)
+              : sameParts(was, now);
         if (!same) report.problems.push(`${k} was not copied exactly.`);
       }
       if (

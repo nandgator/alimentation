@@ -3,7 +3,9 @@ import * as z from "zod";
 import type { AgentScope } from "./agent-scopes.ts";
 import {
   AcceptInvite,
+  ApplyRetention,
   ApproveSignup,
+  CancelRetention,
   CloseMonth,
   ConfirmBody,
   CreateAgentKey,
@@ -34,6 +36,8 @@ import {
   OrganisationKitchen,
   OrganisationMember,
   PageQuery,
+  PrepareRetention,
+  RetentionWindow,
   ReverseClaim,
   SetEnrolments,
   SetLimits,
@@ -138,6 +142,11 @@ export const TAGS: { name: string; description: string }[] = [
     description: "Taking a copy, moving to another database or instance, or deleting everything.",
   },
   {
+    name: "Older months",
+    description:
+      "A kitchen keeps a rolling window of live history, 24 months unless its admin chooses between 13 and 60. Before the oldest closed months leave, the admin downloads them as a verified file and uploads that exact file back; only then are they removed, and every later statement is checked to be the same to the paisa before the removal is kept. The platform keeps no copy of the months. Only an admin, signed in, can do any of it: no agent key, and not the operator. These routes work even when the kitchen is over its limits or has used the day’s requests, since this is the way out of a full kitchen.",
+  },
+  {
     name: "AI agents",
     description:
       "Keys a person gives an AI agent, and the MCP server it uses them on. An agent acts as that person, in the role the key names, with the scopes the key has, and what it does is marked as an agent’s in the kitchen’s own record.",
@@ -206,6 +215,24 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
   { status: 409, code: "slug_taken", meaning: "That kitchen address is taken." },
   {
     status: 409,
+    code: "offer_pending",
+    meaning:
+      "A hand-over of older months is already waiting for this kitchen. Use it or cancel it first; there is one at a time.",
+  },
+  {
+    status: 409,
+    code: "offer_state",
+    meaning:
+      "The hand-over is not at the step this needs: nothing was downloaded, the file was not uploaded back yet, or it was already used.",
+  },
+  {
+    status: 409,
+    code: "slice_changed",
+    meaning:
+      "Records in the months to be handed over were changed after the file was made, so it no longer matches. Nothing was removed; download the months again.",
+  },
+  {
+    status: 409,
     code: "workspace_limit",
     meaning:
       "The account already has as many kitchens (made by it and not yet wiped) as one account may start here.",
@@ -228,6 +255,17 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
     status: 410,
     code: "gone",
     meaning: "The kitchen has been deleted, or its deletion is under way.",
+  },
+  {
+    status: 410,
+    code: "archived_month",
+    meaning:
+      "That month was handed over and removed. `cut` says through which month and with which checksum, and `archivedThrough` the last month gone. Records for it can no longer be read, added or changed; record a late payment on the first live month.",
+  },
+  {
+    status: 410,
+    code: "offer_expired",
+    meaning: "The hand-over was not used within 24 hours and has ended. Download the months again.",
   },
   {
     status: 410,
@@ -257,6 +295,29 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
     meaning:
       "A kitchen that tracks money was sent to one that does not. Money is never dropped on the way, so it is refused; the other way round is fine.",
   },
+  {
+    status: 422,
+    code: "not_archivable",
+    meaning:
+      "Those months cannot be handed over yet. `blockers` lists, month by month, what stands in the way: `not_closed`, `pending_claim`, `open_query`, `changed_after_close` or `too_recent`.",
+  },
+  {
+    status: 422,
+    code: "span_too_large",
+    meaning:
+      "Those months hold more records than one hand-over takes. Choose an earlier month and hand over in steps.",
+  },
+  {
+    status: 422,
+    code: "wrong_file",
+    meaning:
+      "The file uploaded is not the one that was downloaded: damaged, altered, or from another hand-over.",
+  },
+  {
+    status: 422,
+    code: "wrong_month",
+    meaning: "The last month typed to confirm is not the last month being handed over.",
+  },
   { status: 422, code: "rule", meaning: "The database refused it under a rule of the kitchen." },
   { status: 422, code: "target_unusable", meaning: "The place named to move to cannot be used." },
   {
@@ -274,6 +335,12 @@ export const ERROR_CODES: { status: number; code: string; meaning: string }[] = 
     status: 429,
     code: "budget_reached",
     meaning: "The kitchen’s requests for the day are used. `Retry-After` says when.",
+  },
+  {
+    status: 500,
+    code: "archive_parity_failed",
+    meaning:
+      "Removing the months would have changed a later statement, so nothing was removed. The operator has been told, with no personal data.",
   },
   {
     status: 500,
@@ -363,6 +430,12 @@ export const PERSON_ONLY = new Set([
   "POST /api/w/:slug/organisation",
   "DELETE /api/w/:slug/organisation",
   "GET /api/w/:slug/export",
+  "GET /api/w/:slug/retention",
+  "POST /api/w/:slug/retention/window",
+  "POST /api/w/:slug/retention/prepare",
+  "POST /api/w/:slug/retention/confirm",
+  "POST /api/w/:slug/retention/apply",
+  "POST /api/w/:slug/retention/cancel",
   "POST /api/w/:slug/move/preview",
   "POST /api/w/:slug/move",
   "POST /api/w/:slug/wipe",
@@ -835,6 +908,9 @@ export const OPERATIONS: Operation[] = [
               rows: { type: "integer" },
               bytes: { type: "integer" },
             }),
+            retention: free(
+              "Where the kitchen's older months stand: `state` (`none`, `due`, `offered` or `overdue`), `retainedFrom` (the first month still live), `liveBytes`, `liveRows`, `cuts` (how many hand-overs were made) and `restored` (its database was restored to before one the platform recorded). Counts and a date only; there is no route for the operator to remove or hold the months.",
+            ),
           }),
         },
       }),
@@ -1955,6 +2031,82 @@ export const OPERATIONS: Operation[] = [
     ok: { status: 200, description: "Done.", schema: WipeBody },
     errors: [202],
   },
+  // --- older months -------------------------------------------------------------------------------
+  {
+    method: "get",
+    path: "/api/w/:slug/retention",
+    tag: "Older months",
+    summary: "What may be handed over now",
+    who: "Admin, in a session",
+    kitchen: true,
+    description:
+      "The window, the months already handed over, the newest month that may go now (`eligibleThrough`, or null), what stands in the way of the newest month the window lets go (`blockers`, with `code` one of `not_closed`, `pending_claim`, `open_query`, `changed_after_close`, `too_recent`), how many records and about how many bytes would go, how many people owe something that would be carried forward as a balance, and the offer under way, if any. Changes nothing but storing automatic closes that have come due, as every read does.",
+    ok: { status: 200, description: "The state of the window.", schema: free("The state.") },
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/retention/window",
+    tag: "Older months",
+    summary: "Choose how many months stay",
+    who: "Admin, in a session",
+    kitchen: true,
+    description:
+      "Full months kept live besides the current one: 13 to 60, 24 unless chosen. The kitchen’s database refuses a hand-over that leaves fewer than 13 whatever is set here.",
+    body: RetentionWindow,
+    ok: { status: 200, description: "The window now.", schema: free("`{ keepMonths }`.") },
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/retention/prepare",
+    tag: "Older months",
+    summary: "Download the months to be handed over",
+    who: "Admin, in a session",
+    kitchen: true,
+    description:
+      "Builds every month up to `through` as one file in a consistent picture of the kitchen, and sends it as a download. The platform keeps only its checksum and the checksum of the rows, never the file. The offer is single use and ends after 24 hours; its id is in the `x-offer-id` header. There is one offer at a time. The file is a complete kitchen: imported into a fresh one it shows those months again. It holds names and notes in the clear, so whoever keeps it guards it.",
+    body: PrepareRetention,
+    ok: { status: 200, description: "The file, as a download.", schema: free("A slice bundle.") },
+    errors: [409, 410],
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/retention/confirm",
+    tag: "Older months",
+    summary: "Upload the saved file back",
+    who: "Admin, in a session",
+    kitchen: true,
+    description:
+      "The file as saved, sent as the form field `file` of a `multipart/form-data` body, or as the raw body. It must be the very file that was offered (same checksum, intact) and the records it covers must still be as they were. This proves the bytes are in the admin’s hands; nothing is removed yet.",
+    bodyNote:
+      "`multipart/form-data` with the saved file in `file`, or the file itself as `application/json`. Up to 120 MB.",
+    ok: { status: 200, description: "The offer is confirmed.", schema: free("The offer.") },
+    errors: [409, 413],
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/retention/apply",
+    tag: "Older months",
+    summary: "Remove the handed-over months",
+    who: "Admin, in a session",
+    kitchen: true,
+    description:
+      "`typedMonth` must be the last month being handed over, typed as shown. In one transaction the months are removed, a balance is written for each person who owed or was owed something, and every later statement is recomputed and compared with what it was; if anything differs by a paisa nothing is removed (`archive_parity_failed`). The kitchen is read-only while this runs, and cannot be moved or deleted. Removed months can no longer be read, added to or reopened (`archived_month`).",
+    body: ApplyRetention,
+    ok: { status: 200, description: "Done.", schema: free("The cut and what was removed.") },
+    errors: [409, 410, 500, 503],
+  },
+  {
+    method: "post",
+    path: "/api/w/:slug/retention/cancel",
+    tag: "Older months",
+    summary: "Put an offer away",
+    who: "Admin, in a session",
+    kitchen: true,
+    description: "Ends an offer that has not been carried out, so another can be made.",
+    body: CancelRetention,
+    ok: { status: 200, description: "Ended.", schema: free("`{ cancelled: true }`.") },
+    errors: [409],
+  },
 ];
 
 // --- the document --------------------------------------------------------------------------------
@@ -1989,6 +2141,9 @@ const STATUS_NAMES: Record<number, string> = {
   503: "Busy or full",
 };
 
+/** The routes that read or write the records of a month, and so can meet one that was handed over. */
+const AFTER_CUT = /\/(statements|ledger|log|claims|settlements|closes)(\/|$)/;
+
 /** The codes a route can give with a status: all of that status, narrowed where the route gives fewer. */
 function codesFor(op: Operation, status: number): string[] {
   const all = ERROR_CODES.filter((e) => e.status === status).map((e) => e.code);
@@ -2008,7 +2163,12 @@ function codesFor(op: Operation, status: number): string[] {
             ? only("forbidden", "money_not_allowed")
             : only("forbidden");
     case 422: {
-      const base = all.filter((c) => !c.startsWith("money_"));
+      const mine = op.path.includes("/retention");
+      const base = all.filter(
+        (c) =>
+          !c.startsWith("money_") &&
+          (mine || !["not_archivable", "span_too_large", "wrong_file", "wrong_month"].includes(c)),
+      );
       if (op.path.endsWith("/agents") && op.method === "post")
         return [...base, "money_not_tracked"];
       if (op.path.endsWith("/move") || migrate) return [...base, "money_bundle_into_meals_only"];
@@ -2021,10 +2181,19 @@ function codesFor(op: Operation, status: number): string[] {
       if (op.path.endsWith("/limits")) return only("conflict", "dedicated");
       if (op.path === "/api/invites/accept") return only("unavailable");
       return all.filter(
-        (c) => !["slug_taken", "unavailable", "workspace_limit", "dedicated"].includes(c),
+        (c) =>
+          !["slug_taken", "unavailable", "workspace_limit", "dedicated"].includes(c) &&
+          (op.path.includes("/retention") ||
+            !["offer_pending", "offer_state", "slice_changed"].includes(c)),
       );
     case 410:
-      return op.path === "/api/invites/accept" ? only("invite_invalid") : only("gone");
+      if (op.path === "/api/invites/accept") return only("invite_invalid");
+      if (op.path.includes("/retention")) return only("gone", "offer_expired");
+      return AFTER_CUT.test(op.path) ? only("gone", "archived_month") : only("gone");
+    case 500:
+      return op.path.endsWith("/retention/apply")
+        ? only("internal", "archive_parity_failed")
+        : only("internal");
     case 501:
       return op.path.startsWith("/auth/") ? only("no_provider") : only("no_placement");
     case 503:

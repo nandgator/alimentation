@@ -208,6 +208,25 @@ describe("the trail in words", () => {
     ).toBe("The admin reopened your Oct-26 bill.");
   });
 
+  it("words a hand-over of older months, with its checksum and day, and nothing else about it", () => {
+    const cut = {
+      through_month: "2025-10-01",
+      bundle_digest: "ab12cd34ef567890",
+      counts: { log_entry: 4 },
+    };
+    expect(
+      describeAudit(
+        row({ table: "archive_cut", actor: "admin", at: "2026-11-12T08:00:00Z", after: cut }),
+        me,
+      ),
+    ).toBe(
+      "Older records through Oct 2025 were handed over as a backup (checksum ab12cd34) on 12 Nov 2026, confirmed by an administrator.",
+    );
+    expect(
+      describeAudit(row({ table: "archive_cut", action: "DELETE", before: cut }), me),
+    ).toBeNull();
+  });
+
   it("words changes to a person, and says nothing of a change nobody can see", () => {
     const was = {
       status: "ACTIVE",

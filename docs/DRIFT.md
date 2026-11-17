@@ -30,7 +30,7 @@ fail. The run fails if:
 - the **control** (a change that breaks nothing) makes anything fail, which would mean the harness
   itself is broken.
 
-Last run: 181 defects, 0 missed, 180 caught by their own test, and the control behaved. The same
+Last run: 205 defects, 0 missed, 204 caught by their own test, and the control behaved. The same
 tests are what stand behind promise VII (one person's rows are invisible to everyone else) and the
 immutability of claims, decisions and the audit trail.
 

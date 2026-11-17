@@ -307,6 +307,7 @@ describe("an organisation running several kitchens on an instance of its own", (
         "overSince",
         "placement",
         "requestsToday",
+        "retention",
         "slug",
         "state",
       ]);

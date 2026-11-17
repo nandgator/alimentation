@@ -20,6 +20,7 @@ export type SectionKey =
   | "holidays"
   | "settlements"
   | "close"
+  | "retention"
   | "audit"
   | "data";
 
@@ -98,6 +99,7 @@ export const SECTIONS: readonly Section[] = [
     needsPrices: true,
   },
   { key: "close", path: "/close", label: "Month close", group: "books", roles: ADMIN },
+  { key: "retention", path: "/retention", label: "Older months", group: "books", roles: ADMIN },
   { key: "audit", path: "/audit", label: "Audit", group: "books", roles: ADMIN },
   { key: "data", path: "/data", label: "Your data", group: "books", roles: ADMIN },
 ];
