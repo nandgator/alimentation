@@ -1,3 +1,4 @@
+import { localNow } from "@alimentation/core";
 import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { settleOver } from "../src/lifecycle/archive.ts";
@@ -226,9 +227,11 @@ describe("[P6] the daily look at a kitchen's older months", () => {
   }, 30_000);
 
   describe("when the kitchen is over a limit", () => {
-    const today = () => p.clock.now.toISOString().slice(0, 10);
+    // The grace counts the kitchen's own days, which are not the UTC date for a few hours of every day.
+    const here = () => localNow(p.clock.now, "Asia/Kolkata").date;
+    const today = here;
     const dayOf = (offset: number) =>
-      new Date(p.clock.now.getTime() + offset * DAY).toISOString().slice(0, 10);
+      new Date(Date.parse(`${here()}T00:00:00Z`) + offset * DAY).toISOString().slice(0, 10);
     const over = async (since: string) => {
       await control(`UPDATE workspace SET over_since = $2 WHERE slug = $1`, [k.slug, since]);
       p.runtime.deps.directory.invalidate(k.slug);
@@ -264,14 +267,8 @@ describe("[P6] the daily look at a kitchen's older months", () => {
       await scan();
       const m = await meta();
       expect(m.graceUntil).toBeNull();
-      const boot = (await k.owner.get(`${k.w}/bootstrap`)).json as {
-        today: string;
-        meter: { state: string; graceEndsOn: string; writesAllowed: boolean };
-      };
-      // The grace ends on the UTC day it was counted from; the meter reads the
-      // kitchen's own date, which is a day ahead for a few hours of every day.
-      expect(boot.meter).toMatchObject({ state: "OVER", graceEndsOn: today() });
-      expect(boot.meter.writesAllowed).toBe(boot.today <= boot.meter.graceEndsOn);
+      const meter = await graceEnds();
+      expect(meter).toMatchObject({ state: "OVER", graceEndsOn: today(), writesAllowed: true });
     });
 
     it("lets writes go on to the offer's expiry, once for each time over", async () => {

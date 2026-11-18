@@ -1,4 +1,11 @@
-import { addDays, addMonths, meter as computeMeter, type Month, must } from "@alimentation/core";
+import {
+  addDays,
+  addMonths,
+  meter as computeMeter,
+  localNow,
+  type Month,
+  must,
+} from "@alimentation/core";
 import type {
   ArchiveOfferRow,
   RetentionMeta,
@@ -70,7 +77,10 @@ export async function retentionScan(
   if (row.state !== "ACTIVE") return null;
   const h = await p.directory.bySlug(row.slug);
   if (!h?.cipher || h.row.state !== "ACTIVE") return null;
+  // Two dates, and they are not the same for a few hours of every day: the day's request count resets at
+  // midnight UTC, and the grace is counted in the kitchen's own days, as its meter is.
   const today = day(p.now());
+  const kitchenToday = localNow(p.now(), h.info.timeZone).date;
   const db = p.openDb(h.dsns.owner, { ephemeral: true });
   try {
     // --- what the kitchen's own database records, which is the truth ---
@@ -115,7 +125,7 @@ export async function retentionScan(
     const status = await retentionStatus(p, h);
     const requests = (await p.control.requestsToday(today)).byWorkspace.get(row.id) ?? 0;
     const usage = await db.tx(async (tx) => measureUsage(tx, requests), { snapshot: true });
-    const m = computeMeter(usage, fresh.limits, fresh.overSince, today, null);
+    const m = computeMeter(usage, fresh.limits, fresh.overSince, kitchenToday, null);
     const live = (await p.control.openOffers(row.id))[0];
     const eligible = status.eligibleThrough !== null;
     const state: RetentionState = live
@@ -136,7 +146,7 @@ export async function retentionScan(
       (live.state === "OFFERED" || live.state === "CONFIRMED")
     ) {
       const plain = addDays(fresh.overSince, 14);
-      const offerEnds = day(new Date(live.expiresAt));
+      const offerEnds = localNow(new Date(live.expiresAt), h.info.timeZone).date;
       if (offerEnds > plain) {
         const until =
           offerEnds < addDays(plain, GRACE_EXTRA_DAYS)

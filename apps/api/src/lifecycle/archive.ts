@@ -649,7 +649,7 @@ export async function settleOver(p: PlatformDeps, workspaceId: string, db: Db): 
   const usage = await db.tx(async (tx) => measureUsage(tx, requests.get(row.id) ?? 0), {
     snapshot: true,
   });
-  const m = computeMeter(usage, row.limits, row.overSince, p.now().toISOString().slice(0, 10));
+  const m = computeMeter(usage, row.limits, row.overSince, localNow(p.now(), row.timeZone).date);
   if (m.state === "OVER") return false;
   await p.control.setOverSince(row.id, null);
   p.directory.invalidate(row.slug);
