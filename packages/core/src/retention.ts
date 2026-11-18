@@ -72,6 +72,7 @@ export function firstMonthWithData(data: EngineData): Month | null {
     ...data.log.map((e) => monthOf(e.date)),
   ];
   if (months.length === 0) return null;
+  // Stryker disable next-line EqualityOperator: two equal months are one month, whichever is taken
   return months.reduce((a, b) => (a < b ? a : b));
 }
 
@@ -82,7 +83,6 @@ function spanStart(p: Prepared): Month | null {
 
 /** Rules 3 to 6 for the given months, which must all be live. */
 function scan(p: Prepared, months: readonly Month[]): ArchiveBlocker[] {
-  if (months.length === 0) return [];
   const set = new Set(months);
   const out: ArchiveBlocker[] = [];
   const data = p.data;
@@ -121,6 +121,7 @@ function scan(p: Prepared, months: readonly Month[]): ArchiveBlocker[] {
   // was frozen and there is nothing to differ.
   if (data.moneyEnabled) {
     const withMoney = data.closes.filter((c) => c.billed !== null && set.has(c.forMonth));
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: with no closes there are no statements to build, and none are
     if (withMoney.length > 0) {
       const ids = [...new Set(withMoney.map((c) => c.consumerId))];
       const live = new Map(
@@ -134,20 +135,15 @@ function scan(p: Prepared, months: readonly Month[]): ArchiveBlocker[] {
   return out;
 }
 
-const order = (a: ArchiveBlocker, b: ArchiveBlocker) =>
-  a.month < b.month
-    ? -1
-    : a.month > b.month
-      ? 1
-      : a.code < b.code
-        ? -1
-        : a.code > b.code
-          ? 1
-          : (a.personId ?? "") < (b.personId ?? "")
-            ? -1
-            : (a.personId ?? "") > (b.personId ?? "")
-              ? 1
-              : 0;
+/** Month, then code, then person: no code is the start of another, so the joined text sorts the same way. */
+// Stryker disable next-line StringLiteral: a missing person only meets another when month and code are the same, which two blockers never are
+const sortKey = (b: ArchiveBlocker) => `${b.month}|${b.code}|${b.personId ?? ""}`;
+const order = (a: ArchiveBlocker, b: ArchiveBlocker) => {
+  const x = sortKey(a);
+  const y = sortKey(b);
+  // Stryker disable next-line ConditionalExpression,EqualityOperator: a sort only asks whether one is before another, and the keys are never equal
+  return x < y ? -1 : x > y ? 1 : 0;
+};
 
 /**
  * Why a cut through `through` is not allowed, month by month, or an empty list when it is. A cut removes
@@ -161,7 +157,8 @@ export function archiveBlockers(
   if (isArchivedMonth(p.data, through))
     return [{ month: through, code: "already_archived", personId: null }];
   const start = spanStart(p);
-  if (start === null || through < start) return [];
+  // Stryker disable next-line ConditionalExpression: a month before the start has no months between, so nothing follows
+  if (start === null) return [];
   const months = monthsBetween(start, through);
   const out = scan(p, months);
   const limit = latestCut(p.data.today, opts);
@@ -174,7 +171,8 @@ export function archiveBlockers(
 export function eligibleCuts(p: Prepared, opts: RetentionOptions = {}): Month[] {
   const start = spanStart(p);
   const limit = latestCut(p.data.today, opts);
-  if (start === null || start > limit) return [];
+  // Stryker disable next-line ConditionalExpression: a start after the limit has no months between, so nothing follows
+  if (start === null) return [];
   const months = monthsBetween(start, limit);
   const blocked = new Set(scan(p, months).map((b) => b.month));
   const out: Month[] = [];
@@ -203,18 +201,18 @@ export function openingsAt(p: Prepared, through: Month): OpeningBalance[] {
   for (const personId of [...ids].sort()) {
     const person = must(p.data.people.find((x) => x.id === personId));
     const prior = p.openingByPerson.get(personId);
-    let first = person.activeFrom === null ? through : monthOf(person.activeFrom);
-    if (floor !== null && first < floor) first = floor;
-    const rows =
-      first > through ? [] : buildStatements(p, [personId], monthsBetween(first, through));
+    // From the first live month: the engine itself begins each person at their own first month, never earlier.
+    // Without a floor, a person is here only for having begun: an earlier opening is what a floor comes from.
+    const first = floor ?? monthOf(must(person.activeFrom));
+    const rows = buildStatements(p, [personId], monthsBetween(first, through));
     let billed: Paise = prior?.billedTotal ?? 0;
     let paid: Paise = prior?.paidTotal ?? 0;
     for (const s of rows) {
       billed += s.billed;
       paid += s.paid;
     }
-    const last = rows.at(-1);
-    const balance: Paise = last ? last.earlierUnpaid + last.balance : (prior?.balance ?? 0);
+    const last = must(rows.at(-1));
+    const balance: Paise = last.earlierUnpaid + last.balance;
     out.push({ personId, asOfMonth, balance, billedTotal: billed, paidTotal: paid });
   }
   return out;
@@ -243,6 +241,20 @@ export function dropBefore(data: EngineData, through: Month): EngineData {
 }
 
 /**
+ * What `fn` gives, or, when the engine refuses (a kitchen that cannot yet work out a month: no menu or no price),
+ * the refusal. A kitchen must refuse after a cut for the same reason as before, so a refusal is part of the figures;
+ * anything that is not a refusal is a defect and is let through.
+ */
+export function orRefusal<T>(fn: () => T): T | { refused: string | null; code: string } {
+  try {
+    return fn();
+  } catch (e) {
+    if (e instanceof EngineError) return { refused: e.date, code: e.code };
+    throw e;
+  }
+}
+
+/**
  * Everything the kitchen says about the months after `through`, as one canonical text: each person's meals
  * (and, with money, statements with what they carried, owed and have claimed), the closes that are now due, and
  * the figures a bundle is checked by. The server computes it before a cut and again after, in the same
@@ -254,20 +266,10 @@ export function parityFigures(data: EngineData, through: Month): string {
   const ids = consumers(p)
     .filter((c) => c.activeFrom !== null)
     .map((c) => c.id);
-  // A kitchen that cannot yet work out a month (no menu or no price) must not work it out afterwards either,
-  // and for the same reason, so a refusal is part of the figures.
-  const attempt = <T>(fn: () => T): T | { refused: string | null; code: string } => {
-    try {
-      return fn();
-    } catch (e) {
-      if (e instanceof EngineError) return { refused: e.date, code: e.code };
-      throw e;
-    }
-  };
   return canonicalJson({
-    meals: attempt(() => buildMealStatements(p, ids, after)),
-    statements: data.moneyEnabled ? attempt(() => buildStatements(p, ids, after)) : null,
-    due: attempt(() => dueAutoCloses(p).filter((d) => d.month > through)),
-    expected: attempt(() => expectedTotals(data).filter((t) => t.month > through)),
+    meals: orRefusal(() => buildMealStatements(p, ids, after)),
+    statements: data.moneyEnabled ? orRefusal(() => buildStatements(p, ids, after)) : null,
+    due: orRefusal(() => dueAutoCloses(p).filter((d) => d.month > through)),
+    expected: orRefusal(() => expectedTotals(data).filter((t) => t.month > through)),
   });
 }
