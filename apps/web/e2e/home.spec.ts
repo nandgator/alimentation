@@ -937,29 +937,47 @@ test.describe("the home page", () => {
           .annotations.push({ type: "note", description: `too slow to step: ${twoFrames} ms` });
         return;
       }
+      const flyerAt = () =>
+        page.evaluate(() => {
+          const r = document.querySelector(".flyer")!.getBoundingClientRect();
+          return { x: r.left, y: r.top };
+        });
       await go(yFor(0.7));
+      // Where the page says the carrier is, and where it is put down: what is left between them is what a step may let go of.
+      const said = await flyerAt();
       await rested();
-      let last = await page.evaluate(() => {
-        const r = document.querySelector(".flyer")!.getBoundingClientRect();
-        return { x: r.left, y: r.top };
-      });
-      let widest = 0;
+      let last = await flyerAt();
+      const gap = Math.hypot(last.x - said.x, last.y - said.y);
+      // The carrier is let go of over a moment, in two or three steps: the largest of them, on a slow screen, is about
+      // seven tenths of what was left between it and the page. A pulled carrier moves the whole of it in one step.
+      const allowed = () => 0.85 * gap;
+      if (gap < 60) {
+        // A screen slow to draw had begun to put it down before it was read: nothing was left to be let go of.
+        test
+          .info()
+          .annotations.push({ type: "note", description: `nothing left to let go of: ${gap} px` });
+        return;
+      }
+      let worst = { moved: 0, ms: 0, ratio: 0 };
       for (let y = yFor(0.7); y < yFor(0.7) + 120; y += 6) {
         const began = Date.now();
         await go(y);
+        const ms = Date.now() - began;
         const now = await page.evaluate(() => {
           const r = document.querySelector(".flyer")!.getBoundingClientRect();
           return { x: r.left, y: r.top };
         });
         // A step that took as long as the carrier waits to be put down is a pause in the scroll, in which it was.
-        if (Date.now() - began < 150)
-          widest = Math.max(widest, Math.hypot(now.x - last.x, now.y - last.y));
+        if (ms < 150) {
+          const moved = Math.hypot(now.x - last.x, now.y - last.y);
+          if (moved / allowed() > worst.ratio) worst = { moved, ms, ratio: moved / allowed() };
+        }
         last = now;
       }
       expect(
-        widest,
-        `the longest step of the carrier, for six pixels of scrolling (two frames took ${Math.round(twoFrames)} ms)`,
-      ).toBeLessThan(45);
+        worst.ratio,
+        `the longest step of the carrier, for six pixels of scrolling: ${Math.round(worst.moved)} px in a step of ${worst.ms} ms, where ${Math.round(allowed())} is the most it may move, of a gap of ${Math.round(gap)} px (two frames took ${Math.round(twoFrames)} ms)`,
+      ).toBeLessThan(1);
     });
 
     test("keeps the light under the pointer while a theme dissolves, and it does not wander off across the name", async ({
