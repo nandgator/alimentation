@@ -42,6 +42,16 @@ interface Bucket {
   at: number;
 }
 
+/**
+ * A kitchen shares one bucket among everyone in it, so it is sized for a kitchen's people and not for one:
+ * a hundred people opening the app at mealtime, and one person moving through the books, both fit.
+ * The daily budget, not this, is what stops a runaway kitchen.
+ */
+const DEFAULT_BURST = 120;
+const DEFAULT_REFILL_PER_SECOND = 10;
+const ASK_BURST = 40;
+const ASK_REFILL_PER_SECOND = 2;
+
 export class Gate {
   private readonly buckets = new Map<string, Bucket>();
   private pending = new Map<string, { requests: number; rejected: number }>();
@@ -81,14 +91,14 @@ export class Gate {
     return this.cache;
   }
 
-  /** Takes one token from the bucket of `key`; false when there is none. */
-  private take(key: string): boolean {
+  /** Takes one token from the bucket of `key`, sized `burst` and refilled `perSecond`; false when there is none. */
+  private take(key: string, burst: number, perSecond: number): boolean {
     const now = this.o.now().getTime();
-    const b = this.buckets.get(key) ?? { tokens: this.o.burst ?? 40, at: now };
+    const b = this.buckets.get(key) ?? { tokens: burst, at: now };
     b.tokens = Math.min(
-      this.o.burst ?? 40,
+      burst,
       // A clock that steps back (a time sync, another machine's clock) must not drain the bucket.
-      b.tokens + (Math.max(0, now - b.at) / 1000) * (this.o.refillPerSecond ?? 2),
+      b.tokens + (Math.max(0, now - b.at) / 1000) * perSecond,
     );
     b.at = now;
     this.buckets.set(key, b);
@@ -104,7 +114,14 @@ export class Gate {
   throttle(key: string): number | null {
     // Buckets for callers who have gone are not kept for ever.
     if (this.buckets.size > 20_000) this.buckets.clear();
-    return this.take(key) ? null : 1;
+    // One person asking for a place is not a kitchen: a smaller bucket than a kitchen's.
+    return this.take(
+      key,
+      this.o.burst ?? ASK_BURST,
+      this.o.refillPerSecond ?? ASK_REFILL_PER_SECOND,
+    )
+      ? null
+      : 1;
   }
 
   /**
@@ -115,7 +132,14 @@ export class Gate {
     ws: { id: string; limits: Limits },
     opts: { essential?: boolean } = {},
   ): Promise<GateVerdict> {
-    if (!this.take(ws.id)) return this.refuse(ws.id, "rate", 1);
+    if (
+      !this.take(
+        ws.id,
+        this.o.burst ?? DEFAULT_BURST,
+        this.o.refillPerSecond ?? DEFAULT_REFILL_PER_SECOND,
+      )
+    )
+      return this.refuse(ws.id, "rate", 1);
 
     const snap = await this.snapshot();
     const mine = (snap.byWorkspace.get(ws.id) ?? 0) + (this.pending.get(ws.id)?.requests ?? 0);

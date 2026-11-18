@@ -379,7 +379,7 @@ describe("[P1] one workspace cannot use up the others' requests", () => {
       const c = await q.signIn("flood@example.org");
       await c.post("/api/workspaces", { slug: "flood", name: "Flood" });
       const codes: number[] = [];
-      for (let i = 0; i < 60; i++) codes.push((await c.get("/api/w/flood/bootstrap")).status);
+      for (let i = 0; i < 300; i++) codes.push((await c.get("/api/w/flood/bootstrap")).status);
       expect(codes.filter((s) => s === 429).length).toBeGreaterThan(0);
       expect(codes.slice(0, 10).every((s) => s === 200)).toBe(true);
     } finally {
