@@ -2,6 +2,7 @@ import type { CatalogueItemDto, ItemKind, Service } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
 import { inOrder, retiredBy } from "../../catalogue.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Chip,
   Dialog,
@@ -51,9 +52,9 @@ function AddService({ onDone }: { onDone: () => void }) {
         />
       </Field>
       <div>
-        <button type="submit" className="btn" disabled={act.busy}>
+        <Button type="submit" disabled={act.busy}>
           Add service
-        </button>
+        </Button>
       </div>
     </Form>
   );
@@ -150,9 +151,9 @@ function AddItem({ onDone }: { onDone: () => void }) {
         ) : null}
       </div>
       <div>
-        <button type="submit" className="btn" disabled={act.busy}>
+        <Button type="submit" disabled={act.busy}>
           Add
-        </button>
+        </Button>
       </div>
     </Form>
   );
@@ -189,9 +190,9 @@ function Rename({ target, onDone }: { target: NonNullable<Target>; onDone: () =>
         />
       </Field>
       <div>
-        <button type="submit" className="btn" disabled={act.busy}>
+        <Button type="submit" disabled={act.busy}>
           Rename
-        </button>
+        </Button>
       </div>
     </Form>
   );
@@ -209,9 +210,8 @@ function Retire({ target, onDone }: { target: NonNullable<Target>; onDone: () =>
       </p>
       <Problem error={act.error} />
       <div className="row">
-        <button
+        <Button
           type="button"
-          className="btn"
           disabled={act.busy}
           onClick={() =>
             void act.run(async () => {
@@ -223,10 +223,10 @@ function Retire({ target, onDone }: { target: NonNullable<Target>; onDone: () =>
           }
         >
           Retire {target.row.name}
-        </button>
-        <button type="button" className="btn ghost" onClick={onDone}>
+        </Button>
+        <Button variant="outline" type="button" onClick={onDone}>
           Keep it
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -334,14 +334,9 @@ export function Catalogue() {
         title="Catalogue"
         lead="What the kitchen serves and when. The menu puts these on days; prices come after."
         actions={
-          <button
-            type="button"
-            className="btn small"
-            disabled={!ws.writable}
-            onClick={() => setAdding("item")}
-          >
+          <Button size="sm" type="button" disabled={!ws.writable} onClick={() => setAdding("item")}>
             Add an item
-          </button>
+          </Button>
         }
       />
       <Problem error={items.error} />
@@ -349,14 +344,14 @@ export function Catalogue() {
         <SectionHead
           title={liveServices.length > 1 ? "Services" : "Service"}
           actions={
-            <button
+            <Button
+              size="sm"
               type="button"
-              className="btn small"
               disabled={!ws.writable}
               onClick={() => setAdding("service")}
             >
               Add a service
-            </button>
+            </Button>
           }
         />
         {services.length === 0 ? (

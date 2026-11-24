@@ -45,11 +45,12 @@
   --code-function: #cfe3a0;
   /* Shape: four steps and a pill. A card is the large one. */
   --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
   --radius-pill: 999px;
-  --radius: var(--radius-lg);
+  --radius: var(--radius-xl);
   /* Type: eight sizes. Headings are fluid and say so where they are set. */
   --text-2xs: 0.6875rem;
   --text-xs: 0.75rem;
@@ -112,6 +113,9 @@
   --elev-menu:
     0 0 0 1px rgb(8 22 15 / 0.05), 0 2px 6px rgb(8 22 15 / 0.12),
     0 12px 24px -8px rgb(8 22 15 / 0.24);
+  /* A control rests on the page: a raised one with a light edge along its top, a plain one with a hairline of shade. */
+  --elev-raised: inset 0 1px var(--lift-inner), 0 1px 2px var(--lift-edge);
+  --elev-edge: 0 1px 2px var(--lift-edge);
   --elev-toast: 0 2px 6px rgb(8 22 15 / 0.16), 0 14px 28px -10px rgb(8 22 15 / 0.38);
   --elev-dialog: 0 2px 6px rgb(8 22 15 / 0.14), 0 28px 64px -16px rgb(8 22 15 / 0.45);
   --serif: "Young Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
@@ -283,11 +287,12 @@ a {
 /* ---------- Buttons and fields -------------------------------------------- */
 .btn {
   appearance: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  padding: 12px 22px;
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-lg);
+  padding: 10px 16px;
   min-height: var(--control);
-  font: 600 var(--text-md) / 1 var(--sans);
+  font: 500 var(--text-md) / 1 var(--sans);
+  box-shadow: var(--elev-raised);
   cursor: pointer;
   background: var(--brand);
   color: var(--brand-ink);
@@ -311,15 +316,18 @@ a {
   transform: none;
 }
 .btn.ghost {
-  background: transparent;
+  background: var(--card);
   color: var(--ink);
-  border-color: var(--ink-2);
+  border-color: var(--input);
+  box-shadow: var(--elev-edge);
 }
 .btn.accent {
+  border-color: transparent;
   background: var(--accent);
   color: var(--accent-ink);
 }
 .btn.danger {
+  border-color: var(--bad);
   background: var(--bad);
   color: var(--bad-ink);
 }
@@ -349,8 +357,8 @@ a {
 }
 .field > label,
 .field > .label {
-  font: 600 var(--text-sm) / 1.2 var(--sans);
-  color: var(--ink-2);
+  font: 500 var(--text-sm) / 1.2 var(--sans);
+  color: var(--ink);
 }
 .field .hint {
   font-size: var(--text-sm);
@@ -362,8 +370,9 @@ textarea {
   font: inherit;
   color: var(--ink);
   background: var(--card);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-edge);
   padding: 10px 12px;
   min-height: var(--control);
   width: 100%;
@@ -468,9 +477,14 @@ select {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 3px solid var(--focus);
+  outline: 3px solid color-mix(in srgb, var(--focus) 28%, transparent);
   outline-offset: 0;
-  border-color: transparent;
+  border-color: var(--ring);
+}
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: color-mix(in srgb, var(--bad) 60%, transparent);
 }
 .form {
   display: grid;
@@ -619,9 +633,9 @@ label.row > input[type="radio"] {
 .chip {
   display: inline-flex;
   align-items: center;
-  border-radius: var(--radius-pill);
-  padding: 4px 10px;
-  font: 600 var(--text-xs) / 1.4 var(--sans);
+  border-radius: var(--radius-md);
+  padding: 2px 8px;
+  font: 500 var(--text-xs) / 1.4 var(--sans);
   background: var(--paper-2);
   color: var(--ink-2);
   white-space: nowrap;

@@ -9,6 +9,7 @@ import type {
 import { must } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../api.ts";
+import { Button } from "../components/ui/button.tsx";
 import { Chip, Field, Form, Problem, toast, useAction } from "../components/ui.tsx";
 import {
   applyPlan,
@@ -204,13 +205,9 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
             </label>
           ))}
         </fieldset>
-        <button
-          type="submit"
-          className="btn"
-          disabled={check.busy || chosen.length === 0 || nothingChosen}
-        >
+        <Button type="submit" disabled={check.busy || chosen.length === 0 || nothingChosen}>
           {check.busy ? "Looking…" : "See what would be added"}
-        </button>
+        </Button>
       </Form>
 
       {plans ? (
@@ -222,9 +219,8 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
             </div>
           ))}
           <Problem error={copy.error} />
-          <button
+          <Button
             type="button"
-            className="btn"
             disabled={copy.busy || !anyToAdd}
             onClick={() =>
               void copy.run(async () => {
@@ -251,7 +247,7 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
             }
           >
             {copy.busy ? "Copying…" : `Copy to ${count(chosen.length, "kitchen")}`}
-          </button>
+          </Button>
         </div>
       ) : null}
 

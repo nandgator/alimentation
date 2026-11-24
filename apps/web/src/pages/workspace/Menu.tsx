@@ -9,6 +9,7 @@ import {
 import { useState } from "react";
 import { getJson, postJson } from "../../api.ts";
 import { inOrder, itemName, liveOn, offerable, serviceName } from "../../catalogue.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
   Field,
@@ -167,9 +168,9 @@ function MenuForm({
         <input id="mnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
       <div>
-        <button type="submit" className="btn" disabled={act.busy || unserved.length > 0}>
+        <Button type="submit" disabled={act.busy || unserved.length > 0}>
           Add menu
-        </button>
+        </Button>
       </div>
     </Form>
   );
@@ -250,14 +251,14 @@ export function Menu() {
         <SectionHead
           title="Menus"
           actions={
-            <button
+            <Button
+              size="sm"
               type="button"
-              className="btn small"
               disabled={!ws.writable || !hasMeals}
               onClick={() => setOpen(true)}
             >
               New menu
-            </button>
+            </Button>
           }
         />
         {!hasMeals ? (

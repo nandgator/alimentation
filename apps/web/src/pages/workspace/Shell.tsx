@@ -5,6 +5,7 @@ import { api, setActingAs } from "../../api.ts";
 import { retiredBy } from "../../catalogue.ts";
 import { AppBar, RequireSignIn } from "../../components/Chrome.tsx";
 import { ThemeSwitch } from "../../components/ThemeSwitch.tsx";
+import { Button } from "../../components/ui/button.tsx";
 import { Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { useMedia } from "../../home/motion.tsx";
 import { nextStep } from "../../setup.ts";
@@ -297,16 +298,18 @@ function Loaded({
             wide
             lead={
               pinned ? null : (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="menu-toggle"
                   ref={menuButton}
                   type="button"
-                  className="btn ghost small menu-toggle"
                   aria-expanded={drawer}
                   aria-controls="side"
                   onClick={() => setDrawer((d) => !d)}
                 >
                   Menu
-                </button>
+                </Button>
               )
             }
           />

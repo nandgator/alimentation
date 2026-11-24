@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { type Capacity, getJson } from "../api.ts";
 import { Mark } from "../components/Mark.tsx";
 import { ThemeSwitch } from "../components/ThemeSwitch.tsx";
+import { Button } from "../components/ui/button.tsx";
 import { Defs, HeroScene } from "../home/art.tsx";
 import { Dock } from "../home/Dock.tsx";
 import { Month } from "../home/Month.tsx";
@@ -112,9 +113,9 @@ export function Home() {
             </a>
             <a href="/guides/">Guides</a>
           </nav>
-          <Link href={start} className="btn ghost small">
+          <Button variant="outline" size="sm" render={<Link href={start} />}>
             {signedIn ? "Open your kitchens" : "Sign in"}
-          </Link>
+          </Button>
         </div>
       </header>
 
@@ -131,9 +132,9 @@ export function Home() {
                 every payment, and what each person still owes.
               </p>
               <div className="actions load" style={{ ["--d" as string]: "500ms" }}>
-                <Link href={start} className="btn accent big">
+                <Button variant="accent" size="lg" render={<Link href={start} />}>
                   {signedIn ? "Open your kitchens" : "Start your kitchen"}
-                </Link>
+                </Button>
                 <a href="#try" className="textlink">
                   See how it works
                 </a>

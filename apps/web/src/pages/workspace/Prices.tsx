@@ -2,6 +2,7 @@ import type { MenuVersion, RateCard } from "@alimentation/core";
 import { useState } from "react";
 import { getJson, postJson } from "../../api.ts";
 import { itemName, serviceName } from "../../catalogue.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
   Field,
@@ -151,9 +152,9 @@ function CardForm({
         <input id="rnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
       <div>
-        <button type="submit" className="btn" disabled={act.busy || items.length === 0}>
+        <Button type="submit" disabled={act.busy || items.length === 0}>
           Add prices
-        </button>
+        </Button>
       </div>
     </Form>
   );
@@ -217,14 +218,14 @@ export function Prices() {
         <SectionHead
           title="Rate cards"
           actions={
-            <button
+            <Button
+              size="sm"
               type="button"
-              className="btn small"
               disabled={!ws.writable || !menus.data}
               onClick={() => setOpen(true)}
             >
               New prices
-            </button>
+            </Button>
           }
         />
         {cards.loading && !cards.data ? <Spinner /> : null}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Chip,
   CopyButton,
@@ -78,9 +79,9 @@ export function AgentKeys() {
                 Its address for software that speaks MCP is <code>{location.origin}/mcp</code>, with
                 the key as a bearer token.
               </p>
-              <button type="button" className="btn ghost small" onClick={() => setFresh(null)}>
+              <Button variant="outline" size="sm" type="button" onClick={() => setFresh(null)}>
                 I have copied it
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -138,9 +139,9 @@ export function AgentKeys() {
               onChange={(e) => setDays(Number(e.target.value))}
             />
           </Field>
-          <button type="submit" className="btn" disabled={act.busy}>
+          <Button type="submit" disabled={act.busy}>
             Make a key
-          </button>
+          </Button>
         </Form>
         {keys.length > 0 ? (
           <div
@@ -180,9 +181,10 @@ export function AgentKeys() {
                       </td>
                       <td className="r">
                         {ended ? null : (
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             type="button"
-                            className="btn ghost small"
                             disabled={act.busy}
                             onClick={() =>
                               void act.run(async () => {
@@ -193,7 +195,7 @@ export function AgentKeys() {
                             }
                           >
                             End it
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>

@@ -2,6 +2,7 @@ import { GRACE_DAYS } from "@alimentation/core";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { getJson, postJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import { Field, Form, PageHead, Problem, toast, useAction, useLoad } from "../../components/ui.tsx";
 import { date } from "../../format.ts";
 import { bytesWords, monthWords, type Retention } from "../../retention.ts";
@@ -113,9 +114,9 @@ function ArchiveBanner() {
             {r.span ? `, which frees about ${bytesWords(r.span.estimatedBytes)}` : ""}. It is the
             quickest way to get well inside the free allowance again.
           </span>
-          <Link className="btn small" href={`/w/${ws.slug}/retention`}>
+          <Button size="sm" render={<Link href={`/w/${ws.slug}/retention`} />}>
             Archive older months
-          </Link>
+          </Button>
         </div>
       </div>
     </section>
@@ -165,9 +166,7 @@ function Move() {
           removed.
         </p>
         {done.movedTo ? (
-          <a className="btn" href={done.movedTo}>
-            Open it at the new address
-          </a>
+          <Button render={<a href={done.movedTo} />}>Open it at the new address</Button>
         ) : null}
       </section>
     );
@@ -262,9 +261,9 @@ function Move() {
           </Field>
         ) : null}
         <div>
-          <button type="submit" className="btn ghost" disabled={check.busy || !ws.writable}>
+          <Button variant="outline" type="submit" disabled={check.busy || !ws.writable}>
             Check it first
-          </button>
+          </Button>
         </div>
       </Form>
 
@@ -303,13 +302,9 @@ function Move() {
                 />
               </Field>
               <div>
-                <button
-                  type="submit"
-                  className="btn accent"
-                  disabled={go.busy || confirm !== ws.slug}
-                >
+                <Button variant="accent" type="submit" disabled={go.busy || confirm !== ws.slug}>
                   Move now
-                </button>
+                </Button>
               </div>
             </Form>
           </div>
@@ -339,9 +334,9 @@ function Export() {
       </p>
       <Problem error={act.error} />
       <div>
-        <button
+        <Button
+          variant="outline"
           type="button"
-          className="btn ghost"
           disabled={act.busy}
           onClick={() =>
             void act.run(async () => {
@@ -357,7 +352,7 @@ function Export() {
           }
         >
           Download everything
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -381,9 +376,9 @@ function Wipe() {
           receipt: <a href={`/receipt/${receipt}`}>/receipt/{receipt.slice(0, 8)}…</a>. It names no
           one.
         </p>
-        <button type="button" className="btn" onClick={() => navigate("/app")}>
+        <Button type="button" onClick={() => navigate("/app")}>
           Back to your kitchens
-        </button>
+        </Button>
       </section>
     );
   return (
@@ -421,9 +416,9 @@ function Wipe() {
           />
         </Field>
         <div>
-          <button type="submit" className="btn danger" disabled={act.busy || confirm !== ws.slug}>
+          <Button variant="destructive" type="submit" disabled={act.busy || confirm !== ws.slug}>
             Delete this kitchen
-          </button>
+          </Button>
         </div>
       </Form>
     </section>

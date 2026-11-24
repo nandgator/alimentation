@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Link, Route, Switch } from "wouter";
+import { Button } from "./components/ui/button.tsx";
 import { Toaster } from "./components/ui.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Join } from "./pages/Join.tsx";
@@ -28,9 +29,7 @@ function NotFound() {
     <div className="narrow solo">
       <h1>Nothing here</h1>
       <p className="muted">That address does not lead anywhere.</p>
-      <Link href="/" className="btn">
-        Home
-      </Link>
+      <Button render={<Link href="/" />}>Home</Button>
     </div>
   );
 }

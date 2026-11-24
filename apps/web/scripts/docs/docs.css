@@ -907,6 +907,9 @@ html:has(.docs) {
 .r-lg {
   border-radius: var(--radius-lg);
 }
+.r-xl {
+  border-radius: var(--radius-xl);
+}
 .r-pill {
   border-radius: var(--radius-pill);
 }

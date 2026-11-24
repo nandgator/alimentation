@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { api, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
+import { Button } from "../components/ui/button.tsx";
 import {
   Chip,
   Dialog,
@@ -184,14 +185,15 @@ function SignupSection({ mode, onChange }: { mode: string; onChange: () => void 
                   </td>
                   <td>
                     {r.approvedAt ? null : (
-                      <button
+                      <Button
+                        variant="outline"
+                        size="sm"
                         type="button"
-                        className="btn ghost small"
                         disabled={act.busy}
                         onClick={() => void approve(r.email)}
                       >
                         Approve
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -210,9 +212,9 @@ function SignupSection({ mode, onChange }: { mode: string; onChange: () => void 
             onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
-        <button type="submit" className="btn small" disabled={act.busy}>
+        <Button size="sm" type="submit" disabled={act.busy}>
           Approve
-        </button>
+        </Button>
       </Form>
     </section>
   );
@@ -296,12 +298,12 @@ function LimitsDialog({
           {field("requestsPerDay", "Requests a day", maxima.requestsPerDay)}
           {field("bytes", "Storage (MB)", Math.floor(maxima.bytes / MB))}
           <div className="row">
-            <button type="submit" className="btn" disabled={act.busy}>
+            <Button type="submit" disabled={act.busy}>
               Save
-            </button>
-            <button type="button" className="btn ghost" onClick={onClose}>
+            </Button>
+            <Button variant="outline" type="button" onClick={onClose}>
               Cancel
-            </button>
+            </Button>
           </div>
         </Form>
       ) : null}
@@ -321,9 +323,10 @@ export function Operator() {
         <Page
           title="Operator"
           actions={
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               type="button"
-              className="btn ghost small"
               disabled={act.busy}
               onClick={() =>
                 void act.run(async () => {
@@ -334,7 +337,7 @@ export function Operator() {
               }
             >
               Run housekeeping
-            </button>
+            </Button>
           }
         >
           <Problem error={act.error ?? list.error} />
@@ -394,18 +397,20 @@ export function Operator() {
                         <td>
                           <div className="row">
                             {w.state === "ACTIVE" && !list.data?.capacity.dedicated ? (
-                              <button
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 type="button"
-                                className="btn ghost small"
                                 onClick={() => setEditing(w)}
                               >
                                 Edit limits
-                              </button>
+                              </Button>
                             ) : null}
                             {w.state === "MIGRATING" ? (
-                              <button
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 type="button"
-                                className="btn ghost small"
                                 onClick={() =>
                                   void act.run(async () => {
                                     await api.post(`/api/platform/workspaces/${w.slug}/release`);
@@ -415,7 +420,7 @@ export function Operator() {
                                 }
                               >
                                 Release
-                              </button>
+                              </Button>
                             ) : null}
                           </div>
                         </td>

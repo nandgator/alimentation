@@ -2,6 +2,7 @@ import { type PersonDto, peopleToCsv, type Role } from "@alimentation/core";
 import { useState } from "react";
 import { api, postJson } from "../../api.ts";
 import { inOrder, liveOn, serviceName } from "../../catalogue.ts";
+import { Button } from "../../components/ui/button.tsx";
 import { Chip, Dialog, Field, Form, PageHead, toast, useAction } from "../../components/ui.tsx";
 import { rowsAfter, type Slot, sameRows, slotOf, takenOn } from "../../enrolment.ts";
 import { date } from "../../format.ts";
@@ -172,9 +173,9 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
         </p>
       ) : null}
       <div>
-        <button type="submit" className="btn" disabled={act.busy}>
+        <Button type="submit" disabled={act.busy}>
           Save
-        </button>
+        </Button>
       </div>
       {person ? (
         <div className="dlg-foot">
@@ -183,9 +184,10 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
               ? "Disabling keeps their history and stops new entries."
               : "Disabled: their history is kept and no new entries can be made."}
           </p>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             type="button"
-            className="btn ghost small"
             disabled={act.busy}
             onClick={() =>
               void act.run(async () => {
@@ -199,7 +201,7 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
             }
           >
             {person.status === "ACTIVE" ? "Disable" : "Enable"} {person.name}
-          </button>
+          </Button>
         </div>
       ) : null}
     </Form>
@@ -223,13 +225,13 @@ function Invite({ person }: { person: PersonDto }) {
         onFocus={(e) => e.currentTarget.select()}
         aria-label="Invitation link"
       />
-      <button
+      <Button
+        variant="outline"
         type="button"
-        className="btn ghost"
         onClick={() => void navigator.clipboard?.writeText(link).then(() => toast("Copied."))}
       >
         Copy
-      </button>
+      </Button>
     </div>
   ) : (
     <Form
@@ -253,9 +255,9 @@ function Invite({ person }: { person: PersonDto }) {
         />
       </Field>
       <div>
-        <button type="submit" className="btn" disabled={act.busy}>
+        <Button type="submit" disabled={act.busy}>
           Make a link
-        </button>
+        </Button>
       </div>
     </Form>
   );
@@ -274,29 +276,24 @@ export function People() {
         lead="Everyone you feed, and the people who help run the kitchen."
         actions={
           <>
-            <button
+            <Button
+              variant="outline"
               type="button"
-              className="btn ghost"
               onClick={() => downloadCsv("people.csv", peopleToCsv(ws.boot.people))}
             >
               Export CSV
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
               type="button"
-              className="btn ghost"
               disabled={!ws.writable}
               onClick={() => setImporting(true)}
             >
               Import
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!ws.writable}
-              onClick={() => setEdit("new")}
-            >
+            </Button>
+            <Button type="button" disabled={!ws.writable} onClick={() => setEdit("new")}>
               Add a person
-            </button>
+            </Button>
           </>
         }
       />

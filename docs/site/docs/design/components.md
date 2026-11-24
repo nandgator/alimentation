@@ -32,9 +32,10 @@ One button, four tones. **A screen has at most one primary button;** the others 
 | Danger  | `btn danger` | Only what cannot be undone, and always behind a confirmation that names it. |
 | Small   | `btn small`  | Inside a row of text or a table. Still 36px high.                           |
 
-A button says what it does (_Save the rates_, _Close the month_), never _OK_ or _Submit_. It shrinks
-slightly on press and answers a pointer only where there is one. A disabled button is for a request
-in flight, never for a rule the person has not been told about: tell them instead.
+A button says what it does (_Save the rates_, _Close the month_), never _OK_ or _Submit_. It has a
+hairline edge, a light line along the top of a raised one and a ring for focus (after coss/ui), and
+it shrinks slightly on press and answers a pointer only where there is one. A disabled button is for
+a request in flight, never for a rule the person has not been told about: tell them instead.
 
 ## Fields and forms
 

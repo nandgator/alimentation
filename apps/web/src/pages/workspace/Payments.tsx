@@ -8,6 +8,7 @@ import {
 } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Chip,
   Dialog,
@@ -138,9 +139,9 @@ function NewClaim({ onDone }: { onDone: () => void }) {
           <input id="cref" maxLength={300} value={ref} onChange={(e) => setRef(e.target.value)} />
         </Field>
         <div>
-          <button type="submit" className="btn" disabled={act.busy || !ws.writable}>
+          <Button type="submit" disabled={act.busy || !ws.writable}>
             Claim payment
-          </button>
+          </Button>
         </div>
       </Form>
     </section>
@@ -195,12 +196,12 @@ function Decide({
         />
       </Field>
       <div className="row">
-        <button type="submit" className="btn danger" disabled={act.busy || !reason.trim()}>
+        <Button variant="destructive" type="submit" disabled={act.busy || !reason.trim()}>
           {mode === "dispute" ? "Dispute" : "Reverse"}
-        </button>
-        <button className="btn ghost" type="button" onClick={onClose}>
+        </Button>
+        <Button variant="outline" type="button" onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       </div>
     </Form>
   );
@@ -257,22 +258,23 @@ export function Payments() {
               </div>
               {decider ? (
                 <div className="row">
-                  <button
+                  <Button
+                    size="sm"
                     type="button"
-                    className="btn small"
                     disabled={!ws.writable}
                     onClick={() => void confirm(c)}
                   >
                     Confirm
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
-                    className="btn ghost small"
                     disabled={!ws.writable}
                     onClick={() => setDialog({ claim: c, mode: "dispute" })}
                   >
                     Dispute
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </div>
@@ -330,9 +332,10 @@ export function Payments() {
                     </td>
                     <td>
                       {c.status === "Pending" && ws.role !== "supplier" && ws.writable ? (
-                        <button
+                        <Button
+                          variant="outline"
+                          size="sm"
                           type="button"
-                          className="btn ghost small"
                           onClick={() =>
                             void api.del(`${ws.api}/claims/${c.id}`).then(
                               () => {
@@ -345,18 +348,19 @@ export function Payments() {
                           }
                         >
                           Withdraw
-                        </button>
+                        </Button>
                       ) : null}
                       {ws.role === "admin" &&
                       (c.status === "Confirmed" || c.status === "Disputed") &&
                       ws.writable ? (
-                        <button
+                        <Button
+                          variant="outline"
+                          size="sm"
                           type="button"
-                          className="btn ghost small"
                           onClick={() => setDialog({ claim: c, mode: "reverse" })}
                         >
                           Reverse
-                        </button>
+                        </Button>
                       ) : null}
                     </td>
                   </tr>

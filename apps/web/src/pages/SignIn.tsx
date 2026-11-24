@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { postJson } from "../api.ts";
 import { AppBar } from "../components/Chrome.tsx";
+import { Button } from "../components/ui/button.tsx";
 import { Field, Form, useAction } from "../components/ui.tsx";
 import { useSession } from "../session.tsx";
 
@@ -29,9 +30,9 @@ export function SignIn() {
             <h1>Sign in</h1>
           </div>
           {me?.signInWithProvider ? (
-            <a className="btn" href={`/auth/login?returnTo=${encodeURIComponent(next)}`}>
+            <Button render={<a href={`/auth/login?returnTo=${encodeURIComponent(next)}`} />}>
               Continue with your account
-            </a>
+            </Button>
           ) : null}
           {me?.authDev ? (
             <Form
@@ -64,9 +65,9 @@ export function SignIn() {
                   onChange={(e) => setName(e.target.value)}
                 />
               </Field>
-              <button type="submit" className="btn" disabled={act.busy}>
+              <Button type="submit" disabled={act.busy}>
                 Sign in
-              </button>
+              </Button>
             </Form>
           ) : null}
           {me && !me.signInWithProvider && !me.authDev ? (

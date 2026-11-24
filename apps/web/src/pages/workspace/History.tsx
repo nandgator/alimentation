@@ -1,6 +1,7 @@
 import type { HistoryEventDto } from "@alimentation/core";
 import { useState } from "react";
 import { getJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import { PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { useWorkspace } from "./context.tsx";
 
@@ -95,14 +96,9 @@ export function History() {
       ))}
       {cursor !== null ? (
         <div>
-          <button
-            type="button"
-            className="btn ghost"
-            disabled={busy}
-            onClick={() => void loadOlder()}
-          >
+          <Button variant="outline" type="button" disabled={busy} onClick={() => void loadOlder()}>
             Older
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

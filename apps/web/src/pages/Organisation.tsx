@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useParams } from "wouter";
 import { api, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
+import { Button } from "../components/ui/button.tsx";
 import {
   Chip,
   CopyButton,
@@ -147,9 +148,10 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
                     </td>
                   )}
                   <td className="r">
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       type="button"
-                      className="btn ghost small"
                       disabled={act.busy}
                       onClick={() =>
                         void act.run(async () => {
@@ -162,7 +164,7 @@ function Kitchens({ data, onChange }: { data: OrganisationDto; onChange: () => v
                       }
                     >
                       Remove
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -212,9 +214,9 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
               ))}
             </select>
           </Field>
-          <button type="submit" className="btn" disabled={act.busy}>
+          <Button type="submit" disabled={act.busy}>
             Add it
-          </button>
+          </Button>
         </Form>
       ) : (
         <p className="muted">There is no other kitchen of yours to add.</p>
@@ -226,9 +228,9 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
         {data.organisation.name}, and choose to share. It works for seven days.
       </p>
       <div>
-        <button
+        <Button
+          variant="outline"
           type="button"
-          className="btn ghost"
           disabled={act.busy}
           onClick={() =>
             void act.run(async () => {
@@ -240,7 +242,7 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
           }
         >
           Make a link
-        </button>
+        </Button>
       </div>
       {link ? (
         <Field label="The link" id="join-link" hint="Select it all and copy it.">
@@ -271,9 +273,10 @@ function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () =>
             {m.name ?? m.email}
             {m.name ? <span className="muted"> · {m.email}</span> : null}{" "}
             {data.members.length > 1 ? (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 type="button"
-                className="btn ghost small"
                 disabled={act.busy}
                 onClick={() =>
                   void act.run(async () => {
@@ -285,7 +288,7 @@ function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () =>
                 }
               >
                 {m.accountId === me?.account?.id ? "Leave" : "Remove"}
-              </button>
+              </Button>
             ) : null}
           </li>
         ))}
@@ -309,9 +312,9 @@ function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () =>
             onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
-        <button type="submit" className="btn ghost" disabled={act.busy}>
+        <Button variant="outline" type="submit" disabled={act.busy}>
           Add
-        </button>
+        </Button>
       </Form>
     </section>
   );

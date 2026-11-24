@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import { postCsv } from "../../api.ts";
 import { liveOn } from "../../catalogue.ts";
+import { Button } from "../../components/ui/button.tsx";
 import { Chip, Dialog, Field, Problem, toast, useAction } from "../../components/ui.tsx";
 import { useWorkspace } from "./context.tsx";
 
@@ -113,13 +114,14 @@ export function ImportPeopleDialog({ open, onClose }: { open: boolean; onClose: 
               }}
             />
           </Field>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             type="button"
-            className="btn ghost small"
             onClick={() => downloadCsv("people-template.csv", peopleCsvTemplate())}
           >
             Download a template
-          </button>
+          </Button>
         </div>
         <fieldset className="stack choices" style={{ ["--gap" as string]: "8px" }}>
           <legend>If a person is already there</legend>
@@ -197,9 +199,9 @@ export function ImportPeopleDialog({ open, onClose }: { open: boolean; onClose: 
         ) : null}
         <Problem error={act.error} />
         <div className="row">
-          <button
+          <Button
+            variant="outline"
             type="button"
-            className="btn ghost"
             disabled={act.busy || text.trim() === ""}
             onClick={() =>
               void act.run(async () => {
@@ -208,10 +210,9 @@ export function ImportPeopleDialog({ open, onClose }: { open: boolean; onClose: 
             }
           >
             Preview
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn"
             disabled={act.busy || !ws.writable || !preview || refused > 0 || work === 0}
             onClick={() =>
               void act.run(async () => {
@@ -227,10 +228,10 @@ export function ImportPeopleDialog({ open, onClose }: { open: boolean; onClose: 
             }
           >
             Confirm
-          </button>
-          <button type="button" className="btn ghost" onClick={close}>
+          </Button>
+          <Button variant="outline" type="button" onClick={close}>
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     </Dialog>

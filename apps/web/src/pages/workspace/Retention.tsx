@@ -1,6 +1,7 @@
 import { describeCut } from "@alimentation/core";
 import { useState } from "react";
 import { getJson, postFile, postForFile, postJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
   Field,
@@ -104,13 +105,13 @@ function Window({ status, reload }: { status: Status; reload: () => void }) {
           />
         </Field>
         <div>
-          <button
+          <Button
+            variant="outline"
             type="submit"
-            className="btn ghost"
             disabled={act.busy || !valid || !ws.writable || n === status.window.keepMonths}
           >
             Save
-          </button>
+          </Button>
         </div>
       </Form>
     </section>
@@ -175,14 +176,14 @@ function Choose({ status, reload }: { status: Status; reload: () => void }) {
             </Field>
           ) : null}
           <div>
-            <button
+            <Button
+              variant="accent"
               type="button"
-              className="btn accent"
               disabled={!ws.writable}
               onClick={() => setAsking(true)}
             >
               Download these months
-            </button>
+            </Button>
           </div>
         </>
       ) : (
@@ -215,9 +216,9 @@ function Choose({ status, reload }: { status: Status; reload: () => void }) {
         </p>
         <Problem error={act.error} />
         <div className="row">
-          <button
+          <Button
+            variant="accent"
             type="button"
-            className="btn accent"
             disabled={act.busy || !through}
             onClick={() =>
               void act.run(async () => {
@@ -235,10 +236,10 @@ function Choose({ status, reload }: { status: Status; reload: () => void }) {
             }
           >
             Download and keep the file
-          </button>
-          <button type="button" className="btn ghost" onClick={() => setAsking(false)}>
+          </Button>
+          <Button variant="outline" type="button" onClick={() => setAsking(false)}>
             Not now
-          </button>
+          </Button>
         </div>
       </Dialog>
     </section>
@@ -291,12 +292,12 @@ function Upload({ status, reload }: { status: Status; reload: () => void }) {
           />
         </Field>
         <div className="row">
-          <button type="submit" className="btn accent" disabled={act.busy || !file || !ws.writable}>
+          <Button variant="accent" type="submit" disabled={act.busy || !file || !ws.writable}>
             Check the file
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
             type="button"
-            className="btn ghost"
             disabled={drop.busy}
             onClick={() =>
               void drop.run(async () => {
@@ -306,7 +307,7 @@ function Upload({ status, reload }: { status: Status; reload: () => void }) {
             }
           >
             Start again
-          </button>
+          </Button>
         </div>
       </Form>
       <Problem error={drop.error} />
@@ -341,17 +342,17 @@ function Apply({
         this kitchen. {KEEP_THIS}
       </p>
       <div className="row">
-        <button
+        <Button
+          variant="destructive"
           type="button"
-          className="btn danger"
           disabled={!ws.writable}
           onClick={() => setAsking(true)}
         >
           Remove these months
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           type="button"
-          className="btn ghost"
           disabled={drop.busy}
           onClick={() =>
             void drop.run(async () => {
@@ -361,7 +362,7 @@ function Apply({
           }
         >
           Start again
-        </button>
+        </Button>
       </div>
       <Problem error={drop.error} />
       <Dialog
@@ -398,16 +399,16 @@ function Apply({
             />
           </Field>
           <div className="row">
-            <button
+            <Button
+              variant="destructive"
               type="submit"
-              className="btn danger"
               disabled={act.busy || !typedMatches(typed, offer.throughMonth)}
             >
               Remove for good
-            </button>
-            <button type="button" className="btn ghost" onClick={() => setAsking(false)}>
+            </Button>
+            <Button variant="outline" type="button" onClick={() => setAsking(false)}>
               Not now
-            </button>
+            </Button>
           </div>
         </Form>
       </Dialog>
@@ -448,9 +449,9 @@ export function Retention() {
                 The months are being removed. The kitchen is read-only for a moment.
               </p>
               <div>
-                <button type="button" className="btn ghost" onClick={res.reload}>
+                <Button variant="outline" type="button" onClick={res.reload}>
                   Look again
-                </button>
+                </Button>
               </div>
             </section>
           ) : null}

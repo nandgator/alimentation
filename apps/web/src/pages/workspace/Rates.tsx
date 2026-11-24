@@ -8,6 +8,7 @@ import {
 } from "@alimentation/core";
 import { useState } from "react";
 import { getJson, postJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
   Field,
@@ -263,9 +264,9 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
         ) : null}
       </div>
       <div>
-        <button type="submit" className="btn" disabled={act.busy || p.workingDays.length === 0}>
+        <Button type="submit" disabled={act.busy || p.workingDays.length === 0}>
           Save rules
-        </button>
+        </Button>
       </div>
     </Form>
   );
@@ -298,14 +299,9 @@ export function Rates() {
         <SectionHead
           title="Rules for this kitchen"
           actions={
-            <button
-              type="button"
-              className="btn small"
-              disabled={!ws.writable}
-              onClick={() => setOpen(true)}
-            >
+            <Button size="sm" type="button" disabled={!ws.writable} onClick={() => setOpen(true)}>
               Change rules
-            </button>
+            </Button>
           }
         />
         <div className="card">

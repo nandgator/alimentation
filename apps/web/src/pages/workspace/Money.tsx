@@ -10,6 +10,7 @@ import {
 } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Chip,
   Dialog,
@@ -97,17 +98,17 @@ export function Holidays() {
             Confirmed (a meal is not served and not billed)
           </label>
           <div className="row">
-            <button type="submit" className="btn" disabled={act.busy || !ws.writable}>
+            <Button type="submit" disabled={act.busy || !ws.writable}>
               Add
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
               type="button"
-              className="btn ghost"
               disabled={!ws.writable}
               onClick={() => setImporting(true)}
             >
               Import
-            </button>
+            </Button>
           </div>
         </Form>
       </section>
@@ -141,9 +142,10 @@ export function Holidays() {
                   </td>
                   <td>
                     <div className="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
-                      <button
+                      <Button
+                        variant="outline"
+                        size="sm"
                         type="button"
-                        className="btn ghost small"
                         disabled={!ws.writable}
                         onClick={() =>
                           void api
@@ -152,10 +154,11 @@ export function Holidays() {
                         }
                       >
                         {h.confirmed ? "Make tentative" : "Confirm"}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         type="button"
-                        className="btn ghost small"
                         disabled={!ws.writable}
                         onClick={() =>
                           void api
@@ -164,7 +167,7 @@ export function Holidays() {
                         }
                       >
                         Remove
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -321,9 +324,9 @@ function ImportHolidaysDialog({ open, onClose }: { open: boolean; onClose: () =>
         ) : null}
         <Problem error={act.error} />
         <div className="row">
-          <button
+          <Button
+            variant="outline"
             type="button"
-            className="btn ghost"
             disabled={act.busy || text.trim() === ""}
             onClick={() =>
               void act.run(async () => {
@@ -334,10 +337,9 @@ function ImportHolidaysDialog({ open, onClose }: { open: boolean; onClose: () =>
             }
           >
             Preview
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn"
             disabled={
               act.busy ||
               !ws.writable ||
@@ -362,10 +364,10 @@ function ImportHolidaysDialog({ open, onClose }: { open: boolean; onClose: () =>
             }
           >
             Confirm
-          </button>
-          <button type="button" className="btn ghost" onClick={close}>
+          </Button>
+          <Button variant="outline" type="button" onClick={close}>
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     </Dialog>
@@ -465,9 +467,9 @@ export function Settlements() {
             />
           </Field>
           <div>
-            <button type="submit" className="btn" disabled={act.busy || !ws.writable}>
+            <Button type="submit" disabled={act.busy || !ws.writable}>
               Record
-            </button>
+            </Button>
           </div>
         </Form>
       </section>
@@ -610,9 +612,10 @@ export function CloseMonths() {
                   ) : null}
                   <td>
                     {s.closed ? (
-                      <button
+                      <Button
+                        variant="outline"
+                        size="sm"
                         type="button"
-                        className="btn ghost small"
                         disabled={act.busy || !ws.writable}
                         onClick={() =>
                           void act.run(async () => {
@@ -623,11 +626,11 @@ export function CloseMonths() {
                         }
                       >
                         Reopen
-                      </button>
+                      </Button>
                     ) : (
-                      <button
+                      <Button
+                        size="sm"
                         type="button"
-                        className="btn small"
                         disabled={act.busy || !ws.writable}
                         onClick={() =>
                           void act.run(async () => {
@@ -641,7 +644,7 @@ export function CloseMonths() {
                         }
                       >
                         Close
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -659,14 +662,13 @@ export function CloseMonths() {
       ) : null}
       {open.length > 1 ? (
         <div>
-          <button
+          <Button
             type="button"
-            className="btn"
             disabled={act.busy || !ws.writable}
             onClick={() => setConfirm("all")}
           >
             Close {monthLabel(selected)} for everyone
-          </button>
+          </Button>
         </div>
       ) : null}
       <Dialog
@@ -682,9 +684,8 @@ export function CloseMonths() {
             : ""}
         </p>
         <div className="row">
-          <button
+          <Button
             type="button"
-            className="btn"
             onClick={() =>
               void act.run(async () => {
                 await postJson(`${ws.api}/closes`, { month: selected });
@@ -695,10 +696,10 @@ export function CloseMonths() {
             }
           >
             Close them
-          </button>
-          <button type="button" className="btn ghost" onClick={() => setConfirm(null)}>
+          </Button>
+          <Button variant="outline" type="button" onClick={() => setConfirm(null)}>
             Cancel
-          </button>
+          </Button>
         </div>
       </Dialog>
     </div>

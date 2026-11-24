@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, postJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import { Field, Form, toast, useAction } from "../../components/ui.tsx";
 import { useWorkspace } from "./context.tsx";
 
@@ -25,9 +26,9 @@ export function HeadOffice() {
           No names, contacts or notes. Everyone in the kitchen can see this.
         </p>
         <div>
-          <button
+          <Button
+            variant="outline"
             type="button"
-            className="btn ghost"
             disabled={act.busy || !ws.writable}
             onClick={() =>
               void act.run(async () => {
@@ -38,7 +39,7 @@ export function HeadOffice() {
             }
           >
             Stop sharing
-          </button>
+          </Button>
         </div>
       </section>
     );
@@ -75,9 +76,9 @@ export function HeadOffice() {
             />
           </Field>
           {asked ? null : (
-            <button type="submit" className="btn ghost">
+            <Button variant="outline" type="submit">
               See who it is for
-            </button>
+            </Button>
           )}
         </Form>
         {asked ? (
@@ -86,9 +87,8 @@ export function HeadOffice() {
               This link is for <strong>{asked}</strong>.
             </p>
             <div>
-              <button
+              <Button
                 type="button"
-                className="btn"
                 disabled={act.busy}
                 onClick={() =>
                   void act.run(async () => {
@@ -101,7 +101,7 @@ export function HeadOffice() {
                 }
               >
                 Share this kitchen's totals with {asked}
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}

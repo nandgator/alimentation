@@ -17,6 +17,7 @@ import {
   menuStartsAfter,
   serviceName,
 } from "../../catalogue.ts";
+import { Button } from "../../components/ui/button.tsx";
 import {
   Chip,
   Field,
@@ -255,13 +256,9 @@ export function LogPage() {
             </div>
           ))}
           <div>
-            <button
-              type="submit"
-              className="btn"
-              disabled={act.busy || blocked || !ws.writable || !view.action}
-            >
+            <Button type="submit" disabled={act.busy || blocked || !ws.writable || !view.action}>
               Add
-            </button>
+            </Button>
           </div>
         </Form>
       </section>
@@ -321,9 +318,10 @@ export function LogPage() {
                     </td>
                     <td>
                       {ws.writable ? (
-                        <button
+                        <Button
+                          variant="outline"
+                          size="sm"
                           type="button"
-                          className="btn ghost small"
                           onClick={() =>
                             void api.del(`${ws.api}/log/${e.id}`).then(
                               () => {
@@ -336,7 +334,7 @@ export function LogPage() {
                           }
                         >
                           Remove
-                        </button>
+                        </Button>
                       ) : null}
                     </td>
                   </tr>

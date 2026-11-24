@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { Button } from "../components/ui/button.tsx";
 import { useSession } from "../session.tsx";
 import { Mark } from "./Mark.tsx";
 import { PageHead } from "./ui.tsx";
@@ -34,13 +35,14 @@ export function AppBar({
             <span className="muted small account who" title={me.account.email}>
               {me.account.name ?? me.account.email}
             </span>
-            <button
-              className="btn ghost small"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => void signOut().then(() => go("/"))}
               type="button"
             >
               Sign out
-            </button>
+            </Button>
           </>
         ) : null}
       </div>

@@ -149,18 +149,21 @@ roomier by stepping around the scale.
 
 ## Shape
 
-Anything round is a pill. Everything else uses one of five radii.
+Anything round is a pill. Everything else uses one of five radii, the steps of coss/ui: one base
+(`lg`, 10px) with the others set from it.
 
 <div class="shapes">
 <div class="shape r-xs">xs 4px</div>
-<div class="shape r-sm">sm 8px</div>
-<div class="shape r-md">md 12px</div>
-<div class="shape r-lg">lg 16px</div>
+<div class="shape r-sm">sm 6px</div>
+<div class="shape r-md">md 8px</div>
+<div class="shape r-lg">lg 10px</div>
+<div class="shape r-xl">xl 14px</div>
 <div class="shape r-pill">pill</div>
 </div>
 
-Buttons, chips and the search field are pills. Cards, tiles, tables and dialogs are `lg` or `md`.
-Small details inside them are `sm` or `xs`.
+Buttons, fields, chips and the search field are `lg` or `md`. Cards, tiles, tables and dialogs are
+`xl`. Small details inside them are `sm` or `xs`. Only a thing that is round by nature, such as a
+dot or a switch, is a pill.
 
 ## Elevation
 

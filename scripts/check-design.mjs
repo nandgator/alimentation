@@ -24,7 +24,7 @@ const CSS = [
 const NUMBER = String.raw`-?\d*\.?\d+`;
 export const SCALES = {
   // The radii a shape may have. Anything round is a pill.
-  radius: new Set(["0", "4px", "8px", "12px", "16px", "999px", "50%"]),
+  radius: new Set(["0", "4px", "6px", "8px", "10px", "12px", "14px", "16px", "999px", "50%"]),
   // Space is on a grid of two pixels up to 24, then these.
   space: new Set([28, 32, 40, 48, 56, 64, 80, 96]),
   // Type: rem steps, or something fluid, or a size taken from its parent.

@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { api, type Capacity, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
+import { Button } from "../components/ui/button.tsx";
 import { Chip, Field, Form, Problem, Tile, toast, useAction } from "../components/ui.tsx";
 import { money } from "../format.ts";
 import { figuresOf, isRunning, type KitchenFigures, totalsOf } from "../kitchens.ts";
@@ -96,9 +97,8 @@ function AskForAPlace({ requested }: { requested: boolean }) {
           You have asked for a place. There is nothing more to do until it is approved.
         </div>
       ) : (
-        <button
+        <Button
           type="button"
-          className="btn"
           disabled={act.busy}
           onClick={() =>
             void act.run(async () => {
@@ -109,7 +109,7 @@ function AskForAPlace({ requested }: { requested: boolean }) {
           }
         >
           Ask for a place
-        </button>
+        </Button>
       )}
       <Problem error={act.error} />
     </div>
@@ -266,13 +266,9 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
               here.
             </p>
           )}
-          <button
-            type="submit"
-            className="btn"
-            disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}
-          >
+          <Button type="submit" disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}>
             Create
-          </button>
+          </Button>
         </Form>
       ) : null}
     </section>
@@ -303,9 +299,9 @@ export function Places() {
     <>
       <AppBar>
         {me?.operator ? (
-          <Link href="/operator" className="btn ghost small">
+          <Button variant="outline" size="sm" render={<Link href="/operator" />}>
             Operator
-          </Link>
+          </Button>
         ) : null}
       </AppBar>
       <RequireSignIn>
@@ -350,13 +346,13 @@ export function Places() {
                         {w.state === "MOVED" ? <Chip tone="warn">Moved</Chip> : null}
                         {w.state === "MIGRATING" ? <Chip tone="warn">Moving</Chip> : null}
                         {w.state === "MOVED" && w.movedTo ? (
-                          <a className="btn small" href={w.movedTo}>
+                          <Button size="sm" render={<a href={w.movedTo} />}>
                             Open at its new address
-                          </a>
+                          </Button>
                         ) : (
-                          <Link className="btn small" href={`/w/${w.slug}`}>
+                          <Button size="sm" render={<Link href={`/w/${w.slug}`} />}>
                             Open
-                          </Link>
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -380,9 +376,9 @@ export function Places() {
                             : `${o.kitchens} kitchen${o.kitchens === 1 ? "" : "s"} share their totals`}
                         </p>
                       </div>
-                      <Link className="btn small" href={`/org/${o.id}`}>
+                      <Button size="sm" render={<Link href={`/org/${o.id}`} />}>
                         Open
-                      </Link>
+                      </Button>
                     </div>
                   </li>
                 ))}

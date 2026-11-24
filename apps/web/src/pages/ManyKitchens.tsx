@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { postJson } from "../api.ts";
+import { Button } from "../components/ui/button.tsx";
 import { Field, Form, useAction } from "../components/ui.tsx";
 import { useSession } from "../session.tsx";
 import { CopySetup } from "./CopySetup.tsx";
@@ -37,9 +38,9 @@ function NewOrganisation({ first }: { first: boolean }) {
             onChange={(e) => setName(e.target.value)}
           />
         </Field>
-        <button type="submit" className="btn" disabled={act.busy}>
+        <Button type="submit" disabled={act.busy}>
           Start it
-        </button>
+        </Button>
       </Form>
     </section>
   );

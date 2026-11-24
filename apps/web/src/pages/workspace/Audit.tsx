@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getJson } from "../../api.ts";
+import { Button } from "../../components/ui/button.tsx";
 import { Chip, PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { useWorkspace } from "./context.tsx";
 
@@ -91,14 +92,14 @@ export function Audit() {
       </div>
       {more ? (
         <div>
-          <button
+          <Button
+            variant="outline"
             type="button"
-            className="btn ghost"
             disabled={res.loading}
             onClick={() => setBefore(seen.at(-1)?.id ?? null)}
           >
             Older entries
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

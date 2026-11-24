@@ -309,12 +309,13 @@ test.describe("the home page", () => {
       expect(shadows.stage).toBe(shadows.board);
       expect(shadows.stepCard).toBe(shadows.board);
       expect(shadows.receipt).toContain("drop-shadow");
-      // Nothing flat is lifted: a button and a day tile stay on the surface.
-      const flat = await page.evaluate(() => [
-        getComputedStyle(document.querySelector(".btn")!).boxShadow,
+      // A button is raised a hair, as coss/ui draws it, and a day tile stays flat on the surface.
+      const [button, day] = await page.evaluate(() => [
+        getComputedStyle(document.querySelector('[data-slot="button"]')!).boxShadow,
         getComputedStyle(document.querySelector(".day")!).boxShadow,
       ]);
-      expect(flat).toEqual(["none", "none"]);
+      expect(button).not.toBe("none");
+      expect(day).toBe("none");
     });
   }
 
