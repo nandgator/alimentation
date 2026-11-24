@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
 import { inOrder, retiredBy } from "../../catalogue.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Input } from "../../components/ui/input.tsx";
 import {
   Chip,
   Dialog,
@@ -43,7 +44,7 @@ function AddService({ onDone }: { onDone: () => void }) {
         takes what under People.
       </p>
       <Field label="Name" id="svc-name" hint="For example Breakfast, Lunch or Dinner.">
-        <input
+        <Input
           id="svc-name"
           required
           maxLength={40}
@@ -120,7 +121,7 @@ function AddItem({ onDone }: { onDone: () => void }) {
       </fieldset>
       <div className="pair">
         <Field label="Name" id="item-name">
-          <input
+          <Input
             id="item-name"
             required
             maxLength={60}
@@ -129,7 +130,7 @@ function AddItem({ onDone }: { onDone: () => void }) {
           />
         </Field>
         <Field label="Counted in" id="item-unit" hint="For example plate, piece or cup.">
-          <input
+          <Input
             id="item-unit"
             required
             maxLength={20}
@@ -139,7 +140,7 @@ function AddItem({ onDone }: { onDone: () => void }) {
         </Field>
         {kind === "addon" ? (
           <Field label="Most in one entry" id="item-max">
-            <input
+            <Input
               id="item-max"
               type="number"
               min={1}
@@ -181,7 +182,7 @@ function Rename({ target, onDone }: { target: NonNullable<Target>; onDone: () =>
         item, not its name.
       </p>
       <Field label="Name" id="rename">
-        <input
+        <Input
           id="rename"
           required
           maxLength={target.what === "service" ? 40 : 60}

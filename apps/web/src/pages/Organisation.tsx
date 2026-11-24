@@ -5,6 +5,8 @@ import { Link, useParams } from "wouter";
 import { api, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { Input } from "../components/ui/input.tsx";
+import { Select } from "../components/ui/select.tsx";
 import {
   Chip,
   CopyButton,
@@ -202,7 +204,7 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
           }
         >
           <Field label="A kitchen you run" id="add-kitchen">
-            <select
+            <Select
               id="add-kitchen"
               value={slug || must(mine[0]).slug}
               onChange={(e) => setSlug(e.target.value)}
@@ -212,7 +214,7 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
                   {w.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Button type="submit" disabled={act.busy}>
             Add it
@@ -247,7 +249,7 @@ function AddKitchen({ data, onChange }: { data: OrganisationDto; onChange: () =>
       {link ? (
         <Field label="The link" id="join-link" hint="Select it all and copy it.">
           <span className="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
-            <input id="join-link" readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+            <Input id="join-link" readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
             <CopyButton text={link} label="Copy the link" />
           </span>
         </Field>
@@ -304,7 +306,7 @@ function HeadOffice({ data, onChange }: { data: OrganisationDto; onChange: () =>
         }
       >
         <Field label="Add someone" id="member-email" hint="They must have signed in here once.">
-          <input
+          <Input
             id="member-email"
             type="email"
             required

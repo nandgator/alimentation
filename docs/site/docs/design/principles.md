@@ -46,8 +46,9 @@ would be a bug.
 
 A card lies on the page, held by a hairline. A shadow means _this is above the page_: a menu, a
 toast, a dialog. The deeper the layer, the longer the shadow. There are three, and they are tokens
-(`--elev-menu`, `--elev-toast`, `--elev-dialog`). The home page has its own idea of depth for things
-hung on a wall.
+(`--elev-menu`, `--elev-toast`, `--elev-dialog`). A control rests on the page with a hairline and,
+if raised, a light line along its top (`--elev-raised`, `--elev-edge`); that is not a layer. The
+home page has its own idea of depth for things hung on a wall.
 
 ### 5. Motion explains; it never decorates
 

@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { getJson, postJson } from "../../api.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Card } from "../../components/ui/card.tsx";
+import { Input } from "../../components/ui/input.tsx";
 import { Field, Form, PageHead, Problem, toast, useAction, useLoad } from "../../components/ui.tsx";
 import { date } from "../../format.ts";
 import { bytesWords, monthWords, type Retention } from "../../retention.ts";
@@ -42,7 +44,7 @@ function Usage() {
   const tone =
     m.state === "OVER" ? "bad" : m.state === "ASK" ? "warn" : m.state === "WATCH" ? "warn" : "";
   return (
-    <section className="card stack" aria-label="Usage">
+    <Card className="stack" role="region" aria-label="Usage">
       <h2>Free tier</h2>
       {m.state === "OK" ? <p className="muted">Well within the free tier.</p> : null}
       {m.state === "WATCH" ? (
@@ -86,7 +88,7 @@ function Usage() {
         );
       })}
       <p className="muted small">{tone ? "" : "The meter warns you well before anything stops."}</p>
-    </section>
+    </Card>
   );
 }
 
@@ -105,7 +107,7 @@ function ArchiveBanner() {
   const r = res.data;
   if (!near || !r?.eligibleThrough) return null;
   return (
-    <section className="card stack" aria-label="Archive older months">
+    <Card className="stack" role="region" aria-label="Archive older months">
       <h2>Archive older months</h2>
       <div className="banner warn">
         <div className="stack" style={{ ["--gap" as string]: "8px" }}>
@@ -119,7 +121,7 @@ function ArchiveBanner() {
           </Button>
         </div>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -148,7 +150,7 @@ function Move() {
 
   if (done)
     return (
-      <section className="card stack" aria-label="Moved">
+      <Card className="stack" role="region" aria-label="Moved">
         <h2>Moved</h2>
         <div className="banner good">
           {done.target === "database"
@@ -168,11 +170,11 @@ function Move() {
         {done.movedTo ? (
           <Button render={<a href={done.movedTo} />}>Open it at the new address</Button>
         ) : null}
-      </section>
+      </Card>
     );
 
   return (
-    <section className="card stack" aria-label="Move">
+    <Card className="stack" role="region" aria-label="Move">
       <h2>Move to a place of your own</h2>
       <p className="muted">
         Nothing changes here until the copy has been checked. Everyone signs in as before, with the
@@ -216,7 +218,7 @@ function Move() {
               : "https://kitchen.example.org"
           }
         >
-          <input
+          <Input
             id="murl"
             required
             value={url}
@@ -246,7 +248,7 @@ function Move() {
         ) : null}
         {kind === "instance" ? (
           <Field label="Token" id="mtoken" hint="The migration token set on that instance.">
-            <input
+            <Input
               id="mtoken"
               type="password"
               required
@@ -294,7 +296,7 @@ function Move() {
               }
             >
               <Field label={`Type ${ws.slug} to confirm`} id="mconfirm">
-                <input
+                <Input
                   id="mconfirm"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
@@ -318,7 +320,7 @@ function Move() {
           </div>
         )
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -326,7 +328,7 @@ function Export() {
   const ws = useWorkspace();
   const act = useAction();
   return (
-    <section className="card stack" aria-label="Export">
+    <Card className="stack" role="region" aria-label="Export">
       <h2>Take a copy</h2>
       <p className="muted">
         Everything in this kitchen, in an open format, with a checksum. It works at any time,
@@ -354,7 +356,7 @@ function Export() {
           Download everything
         </Button>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -366,7 +368,7 @@ function Wipe() {
   const act = useAction();
   if (receipt)
     return (
-      <section className="card stack" aria-label="Deleted">
+      <Card className="stack" role="region" aria-label="Deleted">
         <h2>Deleted</h2>
         <div className="banner good">
           The keys are destroyed and the kitchen is gone. Nothing of it can be read.
@@ -379,10 +381,10 @@ function Wipe() {
         <Button type="button" onClick={() => navigate("/app")}>
           Back to your kitchens
         </Button>
-      </section>
+      </Card>
     );
   return (
-    <section className="card stack danger" aria-label="Delete">
+    <Card className="stack danger" role="region" aria-label="Delete">
       <h2>Delete everything</h2>
       <p>
         The keys are destroyed first, so from that moment nothing in this kitchen can be read by
@@ -408,7 +410,7 @@ function Wipe() {
         }
       >
         <Field label={`Type ${ws.slug} to confirm`} id="wconfirm">
-          <input
+          <Input
             id="wconfirm"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
@@ -421,7 +423,7 @@ function Wipe() {
           </Button>
         </div>
       </Form>
-    </section>
+    </Card>
   );
 }
 

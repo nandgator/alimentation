@@ -261,5 +261,7 @@ test("a rename shows everywhere and an item in use cannot be retired out from un
   await expectAccessible(page, "retire");
   await retire.getByRole("button", { name: "Retire Dal thali" }).click();
   await expect(retire.getByRole("alert")).toBeVisible();
+  // While the dialog is open the page behind it is hidden from assistive technology; closed, it is read again.
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("cell", { name: /^In use$/ }).first()).toBeVisible();
 });

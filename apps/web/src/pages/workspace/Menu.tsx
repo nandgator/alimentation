@@ -10,6 +10,8 @@ import { useState } from "react";
 import { getJson, postJson } from "../../api.ts";
 import { inOrder, itemName, liveOn, offerable, serviceName } from "../../catalogue.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import { Select } from "../../components/ui/select.tsx";
 import {
   Dialog,
   Field,
@@ -81,7 +83,7 @@ function MenuForm({
         the kitchen cooks needs a meal{several ? " in at least one service" : ""}.
       </p>
       <Field label="Applies from" id="mfrom">
-        <input
+        <Input
           id="mfrom"
           type="date"
           required
@@ -110,7 +112,7 @@ function MenuForm({
                 <th scope="row">{dayName(d)}</th>
                 {services.map((sv) => (
                   <td key={sv.id}>
-                    <select
+                    <Select
                       aria-label={several ? `${dayName(d)}, ${sv.name}` : `Menu on ${dayName(d)}`}
                       value={grid.cells[sv.id]?.[d] ?? NOT_SERVED}
                       onChange={(e) => setGrid(setCell(grid, sv.id, d, e.target.value))}
@@ -121,7 +123,7 @@ function MenuForm({
                           {m.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                 ))}
               </tr>
@@ -165,7 +167,7 @@ function MenuForm({
         );
       })}
       <Field label="Note (optional)" id="mnote">
-        <input id="mnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+        <Input id="mnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
       <div>
         <Button type="submit" disabled={act.busy || unserved.length > 0}>

@@ -2,6 +2,9 @@ import { describeCut } from "@alimentation/core";
 import { useState } from "react";
 import { getJson, postFile, postForFile, postJson } from "../../api.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Card } from "../../components/ui/card.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import { Select } from "../../components/ui/select.tsx";
 import {
   Dialog,
   Field,
@@ -44,7 +47,7 @@ const HONEST_LIMIT =
 function Done({ done, arrears }: { done: Applied; arrears: number }) {
   const ws = useWorkspace();
   return (
-    <section className="card stack" aria-label="Handed over">
+    <Card className="stack" role="region" aria-label="Handed over">
       <h2>Handed over</h2>
       <div className="banner good" role="status">
         Everything through {monthWords(done.throughMonth)} has been removed from this kitchen.
@@ -62,7 +65,7 @@ function Done({ done, arrears }: { done: Applied; arrears: number }) {
         Checksum <code>{done.checksum}</code>. Keep the file you saved: it is the only copy.
         {done.compacted ? "" : " The space will be freed shortly."}
       </p>
-    </section>
+    </Card>
   );
 }
 
@@ -73,7 +76,7 @@ function Window({ status, reload }: { status: Status; reload: () => void }) {
   const n = Number(months);
   const valid = Number.isInteger(n) && n >= status.window.min && n <= status.window.max;
   return (
-    <section className="card stack" aria-label="How long months stay">
+    <Card className="stack" role="region" aria-label="How long months stay">
       <h2>How long months stay</h2>
       <p className="muted">
         The last {status.window.keepMonths} months always stay, as does the current one. Older
@@ -94,7 +97,7 @@ function Window({ status, reload }: { status: Status; reload: () => void }) {
           id="keepmonths"
           hint={`Between ${status.window.min} and ${status.window.max}. Usually ${status.window.default}.`}
         >
-          <input
+          <Input
             id="keepmonths"
             type="number"
             inputMode="numeric"
@@ -114,7 +117,7 @@ function Window({ status, reload }: { status: Status; reload: () => void }) {
           </Button>
         </div>
       </Form>
-    </section>
+    </Card>
   );
 }
 
@@ -129,7 +132,7 @@ function Choose({ status, reload }: { status: Status; reload: () => void }) {
   // Too much for one hand-over: an earlier month may be chosen, and the rest done in steps.
   const choices = newest ? ws.boot.months.filter((m) => m <= newest) : [];
   return (
-    <section className="card stack" aria-label="Hand over">
+    <Card className="stack" role="region" aria-label="Hand over">
       <h2>Hand over older months</h2>
       {newest ? (
         <>
@@ -162,7 +165,7 @@ function Choose({ status, reload }: { status: Status; reload: () => void }) {
           ) : null}
           {status.span?.tooLarge ? (
             <Field label="Hand over everything through" id="throughmonth">
-              <select
+              <Select
                 id="throughmonth"
                 value={through ?? ""}
                 onChange={(e) => setPicked(e.target.value)}
@@ -172,7 +175,7 @@ function Choose({ status, reload }: { status: Status; reload: () => void }) {
                     {monthWords(m)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           ) : null}
           <div>
@@ -242,7 +245,7 @@ function Choose({ status, reload }: { status: Status; reload: () => void }) {
           </Button>
         </div>
       </Dialog>
-    </section>
+    </Card>
   );
 }
 
@@ -254,7 +257,7 @@ function Upload({ status, reload }: { status: Status; reload: () => void }) {
   const drop = useAction();
   if (!offer) return null;
   return (
-    <section className="card stack" aria-label="Upload the saved file">
+    <Card className="stack" role="region" aria-label="Upload the saved file">
       <h2>Upload the file you saved</h2>
       <p>
         The months through {monthWords(offer.throughMonth)} have been downloaded (checksum{" "}
@@ -311,7 +314,7 @@ function Upload({ status, reload }: { status: Status; reload: () => void }) {
         </div>
       </Form>
       <Problem error={drop.error} />
-    </section>
+    </Card>
   );
 }
 
@@ -332,7 +335,7 @@ function Apply({
   const drop = useAction();
   if (!offer) return null;
   return (
-    <section className="card stack" aria-label="Remove the months">
+    <Card className="stack" role="region" aria-label="Remove the months">
       <h2>Remove the months</h2>
       <div className="banner good" role="status">
         That is the file that was downloaded, intact. The records in it are as they were.
@@ -390,7 +393,7 @@ function Apply({
           }
         >
           <Field label={`Type ${monthWords(offer.throughMonth)} to confirm`} id="typedmonth">
-            <input
+            <Input
               id="typedmonth"
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
@@ -412,7 +415,7 @@ function Apply({
           </div>
         </Form>
       </Dialog>
-    </section>
+    </Card>
   );
 }
 
@@ -443,7 +446,7 @@ export function Retention() {
             />
           ) : null}
           {step === "running" ? (
-            <section className="card stack" aria-label="Removing">
+            <Card className="stack" role="region" aria-label="Removing">
               <h2>Removing the months</h2>
               <p role="status">
                 The months are being removed. The kitchen is read-only for a moment.
@@ -453,12 +456,12 @@ export function Retention() {
                   Look again
                 </Button>
               </div>
-            </section>
+            </Card>
           ) : null}
         </>
       ) : null}
       {status ? (
-        <section className="card stack" aria-label="Handed over so far">
+        <Card className="stack" role="region" aria-label="Handed over so far">
           <h2>Handed over so far</h2>
           {status.cuts.length === 0 ? (
             <p className="muted">Nothing yet. Every month is still kept here.</p>
@@ -476,7 +479,7 @@ export function Retention() {
               ))}
             </ol>
           )}
-        </section>
+        </Card>
       ) : null}
       {status && step === "choose" ? <Window status={status} reload={res.reload} /> : null}
       <p className="muted small">{HONEST_LIMIT}</p>

@@ -172,7 +172,7 @@ test.describe("the controls as drawn", () => {
       });
       expect(painted.open, "the list is open").toBe(true);
       expect(painted.background, "the list is on the card colour").toBe(painted.card);
-      expect(painted.radius, "the list has the medium radius").toBe("12px");
+      expect(painted.radius, "the list has the medium radius").toBe("8px");
       expect(painted.shadow, "the list floats, so it has a shadow").not.toBe("none");
       expect(painted.chosenBackground, "the chosen option is in the brand colour").toBe(
         painted.brand,

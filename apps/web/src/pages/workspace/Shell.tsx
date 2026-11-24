@@ -5,7 +5,9 @@ import { api, setActingAs } from "../../api.ts";
 import { retiredBy } from "../../catalogue.ts";
 import { AppBar, RequireSignIn } from "../../components/Chrome.tsx";
 import { ThemeSwitch } from "../../components/ThemeSwitch.tsx";
+import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { Select } from "../../components/ui/select.tsx";
 import { Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { useMedia } from "../../home/motion.tsx";
 import { nextStep } from "../../setup.ts";
@@ -95,9 +97,10 @@ function Acting({
   reload: () => void;
 }) {
   return roles.length > 1 ? (
-    <label className="acting">
+    <label className="acting" htmlFor="acting-as">
       <span>Acting as</span>
-      <select
+      <Select
+        id="acting-as"
         value={role}
         onChange={(e) => {
           localStorage.setItem(roleKey(slug), e.target.value);
@@ -110,10 +113,10 @@ function Acting({
             {ROLE_LABEL[r]}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   ) : (
-    <span className="chip">{ROLE_LABEL[role]}</span>
+    <Badge>{ROLE_LABEL[role]}</Badge>
   );
 }
 

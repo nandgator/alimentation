@@ -18,6 +18,9 @@ import {
   serviceName,
 } from "../../catalogue.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Card } from "../../components/ui/card.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import { Select } from "../../components/ui/select.tsx";
 import {
   Chip,
   Field,
@@ -102,7 +105,7 @@ export function LogPage() {
   return (
     <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead title={mayManage ? "Log" : "My log"} />
-      <section className="card stack" aria-label="Add an entry">
+      <Card className="stack" role="region" aria-label="Add an entry">
         <Form
           error={act.error}
           onSubmit={() =>
@@ -118,17 +121,17 @@ export function LogPage() {
           <div className="pair">
             {mayManage && !wholeFor ? (
               <Field label="For" id="who">
-                <select id="who" value={who} onChange={(e) => setWho(e.target.value)}>
+                <Select id="who" value={who} onChange={(e) => setWho(e.target.value)}>
                   {consumers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
             ) : null}
             <Field label="Date" id="day" hint={menuStart ? beforeMenuWords(menuStart) : undefined}>
-              <input
+              <Input
                 id="day"
                 type="date"
                 required
@@ -138,7 +141,7 @@ export function LogPage() {
             </Field>
             {view.action ? (
               <Field label="Change" id="change">
-                <select
+                <Select
                   id="change"
                   value={view.action}
                   onChange={(e) =>
@@ -148,12 +151,12 @@ export function LogPage() {
                   {view.actions.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
-                </select>
+                </Select>
               </Field>
             ) : null}
             {view.showScope ? (
               <Field label="Applies to" id="scope">
-                <select
+                <Select
                   id="scope"
                   value={view.serviceId ?? WHOLE_DAY}
                   onChange={(e) =>
@@ -169,12 +172,12 @@ export function LogPage() {
                       {sv === null ? "Whole day" : serviceName(boot, sv)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
             ) : null}
             {view.showService ? (
               <Field label="Service" id="service">
-                <select
+                <Select
                   id="service"
                   value={view.serviceId ?? ""}
                   onChange={(e) =>
@@ -190,12 +193,12 @@ export function LogPage() {
                       {serviceName(boot, sv)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
             ) : null}
             {view.action === "Switch" || view.action === "Extra" ? (
               <Field label={view.action === "Switch" ? "Switch to" : "Item"} id="item">
-                <select
+                <Select
                   id="item"
                   value={view.itemId ?? ""}
                   onChange={(e) =>
@@ -212,12 +215,12 @@ export function LogPage() {
                       {itemName(boot, id)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
             ) : null}
             {needsQty ? (
               <Field label="How many" id="qty">
-                <input
+                <Input
                   id="qty"
                   type="number"
                   min={1}
@@ -238,7 +241,7 @@ export function LogPage() {
             <p className="muted small">A day the kitchen is off applies to everyone.</p>
           ) : null}
           <Field label="Note (optional)" id="note">
-            <input
+            <Input
               id="note"
               maxLength={500}
               value={note}
@@ -261,7 +264,7 @@ export function LogPage() {
             </Button>
           </div>
         </Form>
-      </section>
+      </Card>
 
       <section className="stack">
         <h2>Recent entries</h2>

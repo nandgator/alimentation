@@ -67,6 +67,17 @@ sits on that line or the one before. A waiver must begin `design:` and say **why
 reason is a departure with extra steps, and review should treat it so. The list of waivers is short
 enough to read: `grep -rn "design:" apps/web`.
 
+## What it does not read
+
+The checker reads the three stylesheets above and the inline `style` of every component. It does not
+read `theme.css`, which only names tokens, and it does not read Tailwind utility classes in a `.tsx`
+file, so `shadow-md` or `rounded-3xl` would pass. The components in `components/ui/` are held to the
+system by their roles (`bg-primary`, `border-input`, `rounded-lg`) and by review. Because the older
+sheets win over utilities, a rule written there that the checker passes is still the one in force.
+Two things keep this honest: Tailwind's theme is mapped only onto kitchen tokens, so a utility can
+name nothing else, and the 44px control height is measured in the browser by
+`apps/web/e2e/layout.spec.ts`.
+
 ## What it cannot check
 
 A script can tell that a value is a token. It cannot tell that the token is right. These are judged

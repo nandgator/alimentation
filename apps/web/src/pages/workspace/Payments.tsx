@@ -9,6 +9,9 @@ import {
 import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Card } from "../../components/ui/card.tsx";
+import { Input, Textarea } from "../../components/ui/input.tsx";
+import { Select } from "../../components/ui/select.tsx";
 import {
   Chip,
   Dialog,
@@ -52,7 +55,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
   const act = useAction();
   const paise = toPaise(amount);
   return (
-    <section className="card stack" aria-label="Claim a payment">
+    <Card className="stack" role="region" aria-label="Claim a payment">
       <h2>I paid</h2>
       <Form
         error={act.error}
@@ -79,17 +82,17 @@ function NewClaim({ onDone }: { onDone: () => void }) {
         <div className="pair">
           {ws.role !== "consumer" ? (
             <Field label="For" id="cwho">
-              <select id="cwho" value={who} onChange={(e) => setWho(e.target.value)}>
+              <Select id="cwho" value={who} onChange={(e) => setWho(e.target.value)}>
                 {consumers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           ) : null}
           <Field label="For month" id="cmonth">
-            <select
+            <Select
               id="cmonth"
               value={forMonth}
               onChange={(e) => setForMonth(e.target.value as typeof forMonth)}
@@ -99,10 +102,10 @@ function NewClaim({ onDone }: { onDone: () => void }) {
                   {monthLabel(m)}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Amount (₹)" id="camount">
-            <input
+            <Input
               id="camount"
               inputMode="decimal"
               required
@@ -111,7 +114,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
             />
           </Field>
           <Field label="Method" id="cmethod">
-            <select
+            <Select
               id="cmethod"
               value={method}
               onChange={(e) => setMethod(e.target.value as PayMethod)}
@@ -119,10 +122,10 @@ function NewClaim({ onDone }: { onDone: () => void }) {
               {PAY_METHODS.map((m) => (
                 <option key={m}>{m}</option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Paid on" id="cpaid">
-            <input
+            <Input
               id="cpaid"
               type="date"
               required
@@ -136,7 +139,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
           id="cref"
           hint="A UPI reference, or a note to remember it by."
         >
-          <input id="cref" maxLength={300} value={ref} onChange={(e) => setRef(e.target.value)} />
+          <Input id="cref" maxLength={300} value={ref} onChange={(e) => setRef(e.target.value)} />
         </Field>
         <div>
           <Button type="submit" disabled={act.busy || !ws.writable}>
@@ -144,7 +147,7 @@ function NewClaim({ onDone }: { onDone: () => void }) {
           </Button>
         </div>
       </Form>
-    </section>
+    </Card>
   );
 }
 
@@ -187,7 +190,7 @@ function Decide({
         id="reason"
         hint="Recorded in the audit trail."
       >
-        <textarea
+        <Textarea
           id="reason"
           required
           maxLength={500}
@@ -247,7 +250,7 @@ export function Payments() {
             </p>
           ) : null}
           {pending.map((c) => (
-            <div key={c.id} className="card row between">
+            <Card key={c.id} className="row between">
               <div>
                 <b>{ws.nameOf(c.consumerId)}</b> · {monthLabel(c.forMonth)} ·{" "}
                 <b className="num">{money(c.amount)}</b>
@@ -277,7 +280,7 @@ export function Payments() {
                   </Button>
                 </div>
               ) : null}
-            </div>
+            </Card>
           ))}
         </section>
       ) : null}

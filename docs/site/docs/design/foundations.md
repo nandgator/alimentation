@@ -122,6 +122,9 @@ with a style attribute, which the content-security policy forbids.
 
 ### Size of a control
 
+The components set by Tailwind utilities keep to the same two sizes: a button, an input, a select
+and a checkbox's row are at least 44px high (`min-h-11`), and the layout tests require it.
+
 | Token          | Value | For                                                   |
 | -------------- | ----- | ----------------------------------------------------- |
 | `--control`    | 44px  | Every button and field. The least a thumb should hit. |
@@ -165,6 +168,27 @@ Buttons, fields, chips and the search field are `lg` or `md`. Cards, tiles, tabl
 `xl`. Small details inside them are `sm` or `xs`. Only a thing that is round by nature, such as a
 dot or a switch, is a pill.
 
+## Roles
+
+Components brought over from coss/ui are written against the names that library uses (`background`,
+`foreground`, `primary`, `muted`, `border`, `input`, `ring`, `destructive` and so on), not against
+the kitchen's colours. `apps/web/src/theme.css` gives each name to a kitchen token and nothing else,
+so the palette stays the kitchen's and a component that says `bg-primary` is the right green in
+light and in dark with nothing more said.
+
+| Role                                | Is the kitchen's                                              |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `background`, `foreground`          | `--bg`, `--ink`                                               |
+| `primary`, `primary-foreground`     | `--brand`, `--brand-ink`                                      |
+| `muted`, `secondary`, `accent`      | A few percent of ink over the page, so they follow the theme. |
+| `muted-foreground`                  | `--ink-2`                                                     |
+| `destructive`, `success`, `warning` | `--bad`, `--good`, `--warn`                                   |
+| `border`, `input`                   | Ink at 12 and 16 percent, a hairline that is never a colour.  |
+| `ring`                              | `--focus`                                                     |
+
+Radius in the roles is derived from one base, `--radius-base` (10px): `sm` is the base less 4px,
+`md` less 2px, `lg` the base, `xl` plus 4px. They land on the same steps as the five radii above.
+
 ## Elevation
 
 A card does not cast a shadow; it lies on the page, held by a hairline. **Only a layer that rises
@@ -177,6 +201,11 @@ tokens.
 <div class="layer lay-toast">--elev-toast<br>a note</div>
 <div class="layer lay-dialog">--elev-dialog<br>a dialog</div>
 </div>
+
+A control rests on the page rather than floating over it, so it has two quieter tokens of its own.
+`--elev-raised` is a light line along the top of a raised control (the primary button) with a
+hairline of shade under it; `--elev-edge` is the hairline of shade alone, for a plain one (a field,
+a ghost button). Neither is a layer: they do not lift anything off the page.
 
 In dark mode a shadow barely shows, so each of the three also gains a hairline edge of light. The
 home page has its own two, `--lift` for boxes and `--lift-cut` for shapes with a cut edge (the

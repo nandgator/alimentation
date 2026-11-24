@@ -3,6 +3,7 @@ import { Link, useLocation, useSearch } from "wouter";
 import { postJson } from "../api.ts";
 import { AppBar } from "../components/Chrome.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { Input } from "../components/ui/input.tsx";
 import { Field, Form, useAction } from "../components/ui.tsx";
 import { useSession } from "../session.tsx";
 
@@ -48,7 +49,7 @@ export function SignIn() {
                 Development sign-in: anyone can enter any email. It is off in production.
               </div>
               <Field label="Email" id="email">
-                <input
+                <Input
                   id="email"
                   type="email"
                   required
@@ -58,7 +59,7 @@ export function SignIn() {
                 />
               </Field>
               <Field label="Name" id="name">
-                <input
+                <Input
                   id="name"
                   autoComplete="name"
                   value={name}

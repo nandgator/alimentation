@@ -9,6 +9,8 @@ import {
 import { useState } from "react";
 import { getJson, postJson } from "../../api.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import { Select } from "../../components/ui/select.tsx";
 import {
   Dialog,
   Field,
@@ -50,7 +52,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
         rules they were {ws.money ? "billed" : "counted"} under.
       </p>
       <Field label="Applies from" id="pfrom2">
-        <input
+        <Input
           id="pfrom2"
           type="date"
           required
@@ -82,7 +84,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
       </div>
       <div className="pair">
         <Field label="Holidays that cancel a meal" id="pol-h">
-          <select
+          <Select
             id="pol-h"
             value={p.holidays.count}
             onChange={(e) =>
@@ -91,7 +93,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
           >
             <option value="confirmed">Only confirmed holidays</option>
             <option value="all">All listed holidays</option>
-          </select>
+          </Select>
         </Field>
         {full ? (
           <>
@@ -100,7 +102,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
               id="pol-l"
               hint="Share of the day’s meal price."
             >
-              <input
+              <Input
                 id="pol-l"
                 type="number"
                 min={0}
@@ -117,7 +119,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
               id="pol-e"
               hint="Days with a meal needed in the month; none means no monthly fee."
             >
-              <input
+              <Input
                 id="pol-e"
                 type="number"
                 min={0}
@@ -133,14 +135,14 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
               />
             </Field>
             <Field label="Payments" id="pol-p">
-              <select
+              <Select
                 id="pol-p"
                 value={full.payments}
                 onChange={(e) => setP({ ...full, payments: e.target.value as Policy["payments"] })}
               >
                 <option value="claim_confirm">Member claims, supplier confirms</option>
                 <option value="direct">Recorded directly</option>
-              </select>
+              </Select>
             </Field>
           </>
         ) : null}
@@ -151,7 +153,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
           id="pol-c"
           hint="The window for everyone to catch up. After it, meals and leave freeze; payments carry on."
         >
-          <select
+          <Select
             id="pol-c"
             value={close.mode}
             onChange={(e) =>
@@ -169,11 +171,11 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
             <option value="off">Never closed</option>
             <option value="manual">Closed by the admin</option>
             <option value="auto">Closes by itself</option>
-          </select>
+          </Select>
         </Field>
         {close.mode === "auto" ? (
           <Field label="Days after month end" id="pol-cd">
-            <input
+            <Input
               id="pol-cd"
               type="number"
               min={0}
@@ -187,7 +189,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
         ) : null}
         {close.mode !== "off" ? (
           <Field label="Entries after close" id="pol-ca">
-            <select
+            <Select
               id="pol-ca"
               value={close.afterClose}
               onChange={(e) =>
@@ -199,12 +201,12 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
             >
               <option value="flag">Allowed, and flagged</option>
               <option value="block">Not allowed</option>
-            </select>
+            </Select>
           </Field>
         ) : null}
         {full ? (
           <Field label="Rate cards may start" id="pol-b">
-            <select
+            <Select
               id="pol-b"
               value={full.rateCards.backdating}
               onChange={(e) =>
@@ -217,7 +219,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
               <option value="none">Only from today</option>
               <option value="current_month">From the start of this month</option>
               <option value="unrestricted">Any date</option>
-            </select>
+            </Select>
           </Field>
         ) : null}
       </div>
@@ -227,7 +229,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
           id="pol-x"
           hint="Empty means any time. Anything added after its day is always marked late."
         >
-          <input
+          <Input
             id="pol-x"
             type="number"
             min={0}
@@ -249,7 +251,7 @@ function PolicyForm({ current, onDone }: { current: PolicyView; onDone: () => vo
         </Field>
         {p.exceptionCutoff ? (
           <Field label="By this time" id="pol-xt">
-            <input
+            <Input
               id="pol-xt"
               type="time"
               value={p.exceptionCutoff.time}

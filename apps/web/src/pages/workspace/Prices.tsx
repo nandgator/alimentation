@@ -3,6 +3,7 @@ import { useState } from "react";
 import { getJson, postJson } from "../../api.ts";
 import { itemName, serviceName } from "../../catalogue.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Input } from "../../components/ui/input.tsx";
 import {
   Dialog,
   Field,
@@ -75,7 +76,7 @@ function CardForm({
         Prices are never changed after the fact: new prices apply from their date onwards.
       </p>
       <Field label="Applies from" id="rfrom">
-        <input
+        <Input
           id="rfrom"
           type="date"
           required
@@ -92,7 +93,7 @@ function CardForm({
           return (
             <div key={it.id} className="stack">
               <Field label={`${it.name} (₹ per ${it.unit})`} id={`r-${it.id}`}>
-                <input
+                <Input
                   id={`r-${it.id}`}
                   inputMode="decimal"
                   required
@@ -113,7 +114,7 @@ function CardForm({
                         id={`r-${it.id}-${sv}`}
                         hint="Leave empty for the price above."
                       >
-                        <input
+                        <Input
                           id={`r-${it.id}-${sv}`}
                           inputMode="decimal"
                           value={fields.override[it.id]?.[sv] ?? ""}
@@ -141,7 +142,7 @@ function CardForm({
         id="r-fee"
         hint="Charged once a month when the rules say so. Zero for none."
       >
-        <input
+        <Input
           id="r-fee"
           inputMode="decimal"
           value={fields.fee}
@@ -149,7 +150,7 @@ function CardForm({
         />
       </Field>
       <Field label="Note (optional)" id="rnote">
-        <input id="rnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+        <Input id="rnote" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
       <div>
         <Button type="submit" disabled={act.busy || items.length === 0}>

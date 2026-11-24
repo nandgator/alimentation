@@ -3,6 +3,8 @@ import { useState } from "react";
 import { api, postJson } from "../../api.ts";
 import { inOrder, liveOn, serviceName } from "../../catalogue.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Input } from "../../components/ui/input.tsx";
+import { Select } from "../../components/ui/select.tsx";
 import { Chip, Dialog, Field, Form, PageHead, toast, useAction } from "../../components/ui.tsx";
 import { rowsAfter, type Slot, sameRows, slotOf, takenOn } from "../../enrolment.ts";
 import { date } from "../../format.ts";
@@ -63,7 +65,7 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
       }
     >
       <Field label="Name" id="pname">
-        <input
+        <Input
           id="pname"
           required
           maxLength={120}
@@ -73,13 +75,13 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
       </Field>
       {!person ? (
         <Field label="Role" id="prole">
-          <select id="prole" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+          <Select id="prole" value={role} onChange={(e) => setRole(e.target.value as Role)}>
             {ROLES.map((r) => (
               <option key={r} value={r}>
                 {LABEL[r]}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       ) : null}
       <Field
@@ -87,7 +89,7 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
         id="pcontact"
         hint="Only you can see this. It is stored encrypted."
       >
-        <input
+        <Input
           id="pcontact"
           maxLength={200}
           value={contact}
@@ -103,7 +105,7 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
             : "Your own code for this person, such as a room or staff number. A file you import later finds them by it. Once set it cannot be changed. Letters, digits and . _ : / # - only; not a name, email or phone number."
         }
       >
-        <input
+        <Input
           id="pkey"
           maxLength={64}
           pattern="[A-Za-z0-9][A-Za-z0-9._:\/#\-]*"
@@ -115,10 +117,10 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
       {role === "consumer" ? (
         <div className="pair">
           <Field label="Eating from" id="pfrom">
-            <input id="pfrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input id="pfrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           </Field>
           <Field label="Until (optional)" id="pto">
-            <input id="pto" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <Input id="pto" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </Field>
         </div>
       ) : null}
@@ -144,7 +146,7 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
                 {slot.on ? (
                   <>
                     <Field label={`${sv.name} from`} id={`sv-from-${sv.id}`}>
-                      <input
+                      <Input
                         id={`sv-from-${sv.id}`}
                         type="date"
                         required
@@ -153,7 +155,7 @@ function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () =
                       />
                     </Field>
                     <Field label={`${sv.name} until (optional)`} id={`sv-to-${sv.id}`}>
-                      <input
+                      <Input
                         id={`sv-to-${sv.id}`}
                         type="date"
                         value={slot.to}
@@ -219,7 +221,7 @@ function Invite({ person }: { person: PersonDto }) {
         Send this link to {person.name}. It works once, for 7 days, and only with the email you
         typed.
       </p>
-      <input
+      <Input
         readOnly
         value={link}
         onFocus={(e) => e.currentTarget.select()}
@@ -246,7 +248,7 @@ function Invite({ person }: { person: PersonDto }) {
       }
     >
       <Field label={`${person.name}’s email`} id="iemail" hint="They sign in with this address.">
-        <input
+        <Input
           id="iemail"
           type="email"
           required

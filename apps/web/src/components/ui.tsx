@@ -1,15 +1,9 @@
-import {
-  type FormEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { ApiFailure } from "../api.ts";
 import { month as monthLabel } from "../format.ts";
 import { archivedWords } from "../retention.ts";
+import { Badge } from "./ui/badge.tsx";
+import { Modal } from "./ui/dialog.tsx";
 
 /** Runs a loader and keeps its result. `reload` fetches again without blanking the screen. */
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
@@ -151,33 +145,13 @@ export function Form({
 }
 
 /** A modal that returns focus where it came from and closes on Escape. */
-export function Dialog({
-  open,
-  onClose,
-  title,
-  children,
-}: {
+export function Dialog(props: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
-  return (
-    <dialog ref={ref} onClose={onClose} aria-labelledby={titleId}>
-      <div className="stack" style={{ ["--gap" as string]: "16px" }}>
-        <h3 id={titleId}>{title}</h3>
-        {open ? children : null}
-      </div>
-    </dialog>
-  );
+  return <Modal {...props} />;
 }
 
 type ToastTone = "good" | "bad";
@@ -241,7 +215,7 @@ export const Chip = ({
 }: {
   tone?: "good" | "warn" | "bad";
   children: ReactNode;
-}) => <span className={`chip ${tone ?? ""}`}>{children}</span>;
+}) => <Badge tone={tone}>{children}</Badge>;
 
 /** One figure. The few that answer “where do I stand?” are `lead` and sit larger above the rest. */
 export const Tile = ({

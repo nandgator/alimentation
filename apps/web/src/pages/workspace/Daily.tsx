@@ -9,6 +9,7 @@ import {
 import { Fragment, useState } from "react";
 import { getJson } from "../../api.ts";
 import { everSeveral, groupByDate, itemName, serviceName } from "../../catalogue.ts";
+import { Select } from "../../components/ui/select.tsx";
 import { Chip, MonthPicker, PageHead, Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { date, money } from "../../format.ts";
 import { bodyProblem } from "../../setup.ts";
@@ -48,7 +49,7 @@ export function Daily() {
         actions={
           <>
             {ws.role !== "consumer" ? (
-              <select
+              <Select
                 aria-label="Person"
                 value={person}
                 onChange={(e) => setPerson(e.target.value)}
@@ -59,7 +60,7 @@ export function Daily() {
                     {c.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : null}
             <MonthPicker
               months={boot.months.length ? boot.months : [boot.currentMonth]}

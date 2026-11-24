@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Input } from "../../components/ui/input.tsx";
 import {
   Chip,
   CopyButton,
@@ -67,7 +68,7 @@ export function AgentKeys() {
                 <strong>{fresh.name}</strong>: copy this key now. It will not be shown again.
               </p>
               <span className="row" style={{ ["--gap" as string]: "var(--space-2)" }}>
-                <input
+                <Input
                   aria-label="The key"
                   readOnly
                   value={fresh.token}
@@ -106,7 +107,7 @@ export function AgentKeys() {
             id="agent-name"
             hint="What it is for, so you know which to end later."
           >
-            <input
+            <Input
               id="agent-name"
               required
               maxLength={80}
@@ -130,7 +131,7 @@ export function AgentKeys() {
             ))}
           </fieldset>
           <Field label="Days it lasts" id="agent-days" hint="Up to 365.">
-            <input
+            <Input
               id="agent-days"
               type="number"
               min={1}

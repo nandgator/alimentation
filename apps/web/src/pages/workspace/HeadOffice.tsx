@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { api, postJson } from "../../api.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Card } from "../../components/ui/card.tsx";
+import { Input } from "../../components/ui/input.tsx";
 import { Field, Form, toast, useAction } from "../../components/ui.tsx";
 import { useWorkspace } from "./context.tsx";
 
@@ -18,7 +20,7 @@ export function HeadOffice() {
 
   if (mine)
     return (
-      <section className="card stack" aria-labelledby="ho-h">
+      <Card className="stack" role="region" aria-labelledby="ho-h">
         <h2 id="ho-h">Head office</h2>
         <p>
           This kitchen shares its totals with <strong>{mine.name}</strong>: how many people it
@@ -41,7 +43,7 @@ export function HeadOffice() {
             Stop sharing
           </Button>
         </div>
-      </section>
+      </Card>
     );
 
   return (
@@ -65,7 +67,7 @@ export function HeadOffice() {
           }
         >
           <Field label="The link their head office sent you" id="ho-link">
-            <input
+            <Input
               id="ho-link"
               required
               value={link}

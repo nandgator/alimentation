@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { getJson } from "../../api.ts";
 import { priceWords, shownItems } from "../../catalogue.ts";
 import { BarChart } from "../../components/Chart.tsx";
+import { Card } from "../../components/ui/card.tsx";
 import {
   Chip,
   MonthPicker,
@@ -205,7 +206,7 @@ function MealsDashboard() {
         </div>
       ) : null}
       {series.length > 0 ? (
-        <section className="card stack" aria-label="Meals each month">
+        <Card className="stack" role="region" aria-label="Meals each month">
           <h2>Meals each month</h2>
           <BarChart
             counts
@@ -220,7 +221,7 @@ function MealsDashboard() {
                 : "Meals for each person in each of the last months"
             }
           />
-        </section>
+        </Card>
       ) : null}
     </div>
   );
@@ -405,7 +406,7 @@ function MoneyDashboard() {
       ) : null}
 
       {series.length > 0 ? (
-        <section className="card stack" aria-label="Monthly bill">
+        <Card className="stack" role="region" aria-label="Monthly bill">
           <h2>Monthly bill</h2>
           <BarChart
             categories={range}
@@ -419,7 +420,7 @@ function MoneyDashboard() {
                 : "Each person’s bill for each of the last months"
             }
           />
-        </section>
+        </Card>
       ) : null}
       {rateLine ? <p className="muted small">{rateLine}</p> : null}
     </div>

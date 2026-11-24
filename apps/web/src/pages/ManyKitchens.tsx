@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { postJson } from "../api.ts";
 import { Button } from "../components/ui/button.tsx";
+import { Input } from "../components/ui/input.tsx";
 import { Field, Form, useAction } from "../components/ui.tsx";
 import { useSession } from "../session.tsx";
 import { CopySetup } from "./CopySetup.tsx";
@@ -30,7 +31,7 @@ function NewOrganisation({ first }: { first: boolean }) {
         }
       >
         <Field label="Name" id="org-name" hint="What the group of kitchens is called.">
-          <input
+          <Input
             id="org-name"
             required
             maxLength={120}

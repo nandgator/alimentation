@@ -11,6 +11,9 @@ import {
 import { useState } from "react";
 import { api, getJson, postJson } from "../../api.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Card } from "../../components/ui/card.tsx";
+import { Input, Textarea } from "../../components/ui/input.tsx";
+import { Select } from "../../components/ui/select.tsx";
 import {
   Chip,
   Dialog,
@@ -39,7 +42,7 @@ export function Holidays() {
   return (
     <div className="stack" style={{ ["--gap" as string]: "20px" }}>
       <PageHead title="Holidays" />
-      <section className="card stack">
+      <Card className="stack">
         <Form
           error={act.error}
           onSubmit={() =>
@@ -58,7 +61,7 @@ export function Holidays() {
         >
           <div className="pair">
             <Field label="Name" id="hname">
-              <input
+              <Input
                 id="hname"
                 required
                 maxLength={120}
@@ -67,7 +70,7 @@ export function Holidays() {
               />
             </Field>
             <Field label="Date" id="hdate">
-              <input
+              <Input
                 id="hdate"
                 type="date"
                 required
@@ -81,7 +84,7 @@ export function Holidays() {
             id="hend"
             hint="For several days in a row: one holiday is added for each day from the date to this one, weekends too."
           >
-            <input
+            <Input
               id="hend"
               type="date"
               min={day}
@@ -111,7 +114,7 @@ export function Holidays() {
             </Button>
           </div>
         </Form>
-      </section>
+      </Card>
       <ImportHolidaysDialog open={importing} onClose={() => setImporting(false)} />
       {list.length === 0 ? <p className="muted">No holidays yet.</p> : null}
       {list.length > 0 ? (
@@ -220,7 +223,7 @@ function ImportHolidaysDialog({ open, onClose }: { open: boolean; onClose: () =>
             </>
           }
         >
-          <textarea
+          <Textarea
             id="himport"
             value={text}
             spellCheck={false}
@@ -391,7 +394,7 @@ export function Settlements() {
         title="Settlements"
         lead="An admin’s own entries: payments taken outside the app, queries raised, queries resolved. They are added, never changed."
       />
-      <section className="card stack">
+      <Card className="stack">
         <Form
           error={act.error}
           onSubmit={() =>
@@ -415,16 +418,16 @@ export function Settlements() {
         >
           <div className="pair">
             <Field label="Who" id="swho">
-              <select id="swho" value={who} onChange={(e) => setWho(e.target.value)}>
+              <Select id="swho" value={who} onChange={(e) => setWho(e.target.value)}>
                 {consumers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Month" id="smonth">
-              <select
+              <Select
                 id="smonth"
                 value={forMonth}
                 onChange={(e) => setForMonth(e.target.value as typeof forMonth)}
@@ -434,10 +437,10 @@ export function Settlements() {
                     {monthLabel(m)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Type" id="stype">
-              <select
+              <Select
                 id="stype"
                 value={type}
                 onChange={(e) => setType(e.target.value as SettlementType)}
@@ -445,11 +448,11 @@ export function Settlements() {
                 {SETTLEMENT_TYPES.map((t) => (
                   <option key={t}>{t}</option>
                 ))}
-              </select>
+              </Select>
             </Field>
             {needsAmount ? (
               <Field label="Amount (₹)" id="samount">
-                <input
+                <Input
                   id="samount"
                   inputMode="decimal"
                   value={amount}
@@ -459,7 +462,7 @@ export function Settlements() {
             ) : null}
           </div>
           <Field label="Note" id="snote">
-            <input
+            <Input
               id="snote"
               maxLength={500}
               value={note}
@@ -472,7 +475,7 @@ export function Settlements() {
             </Button>
           </div>
         </Form>
-      </section>
+      </Card>
       <Problem error={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data && list.data.length > 0 ? (

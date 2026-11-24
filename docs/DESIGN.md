@@ -1166,6 +1166,16 @@ curve, a breakpoint, or a `style` attribute that decides how something looks. A 
 that begins `design:` and gives its reason. At the time of writing there are three. The checker is
 run by the test suite and by the compose test run.
 
+The component set follows coss/ui: Base UI primitives, Tailwind utilities, hairline borders drawn
+from alpha tokens, a radius derived from a 10px base and quiet depth with a ring for focus. Only the
+shape is taken; the palette stays the kitchen's. `apps/web/src/theme.css` names coss/ui's roles
+(`primary`, `muted`, `border`, `ring`) over the kitchen's tokens, so they follow light and dark, and
+the utilities sit in a cascade layer under the older stylesheets, which win until the rule they
+carry is removed. Controls stay 44px high. The checker reads the stylesheets, not the utility
+classes in components, so those are held to the roles by review (the conformance page says so).
+Components in `components/ui/` keep the `card`, `chip`, `btn` and tone classes, which the end-to-end
+specs, the documentation and the static guides select on.
+
 ## 12. Documentation
 
 Two sites, built from `docs/site` by `apps/web/scripts/build-docs.mjs` into the web build and served

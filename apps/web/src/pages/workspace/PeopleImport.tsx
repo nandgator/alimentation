@@ -9,6 +9,7 @@ import { useState } from "react";
 import { postCsv } from "../../api.ts";
 import { liveOn } from "../../catalogue.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { Textarea } from "../../components/ui/input.tsx";
 import { Chip, Dialog, Field, Problem, toast, useAction } from "../../components/ui.tsx";
 import { useWorkspace } from "./context.tsx";
 
@@ -88,7 +89,7 @@ export function ImportPeopleDialog({ open, onClose }: { open: boolean; onClose: 
             </>
           }
         >
-          <textarea
+          <Textarea
             id="pimport"
             value={text}
             spellCheck={false}

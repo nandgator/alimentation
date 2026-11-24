@@ -32,12 +32,22 @@ One button, four tones. **A screen has at most one primary button;** the others 
 | Danger  | `btn danger` | Only what cannot be undone, and always behind a confirmation that names it. |
 | Small   | `btn small`  | Inside a row of text or a table. Still 36px high.                           |
 
+Every button is the one `Button` (`components/ui/button.tsx`), brought over from coss/ui and set
+with the kitchen's tokens. `btn` and its tones are the classes it keeps, so a selector, a guide or a
+stylesheet that names them still finds it.
+
 A button says what it does (_Save the rates_, _Close the month_), never _OK_ or _Submit_. It has a
 hairline edge, a light line along the top of a raised one and a ring for focus (after coss/ui), and
 it shrinks slightly on press and answers a pointer only where there is one. A disabled button is for
 a request in flight, never for a rule the person has not been told about: tell them instead.
 
 ## Fields and forms
+
+The input, textarea and select are in `components/ui/` (`input.tsx`, `select.tsx`); checkboxes and
+radios stay the browser's own, set by the sheet. They share one look: a hairline `input` edge, the
+`lg` radius, a light `--elev-edge` shadow, a ring for focus and a red ring while the value is
+invalid (`aria-invalid`). The select is the browser's own, so its arrow and open list are drawn as
+described below.
 
 A label above, a hint below, one column on a phone. Fields are 44px high. A select draws its own
 arrow, 16px in from the right edge and in the ink colour, so it follows the theme; a rule that sets
@@ -68,6 +78,8 @@ it.
 <span class="chip warn">Late</span>
 <span class="chip bad">Disputed</span>
 </div>
+
+In code it is a `Badge` (`components/ui/badge.tsx`), which keeps the `chip` and tone classes.
 
 ## Banners
 
@@ -102,10 +114,11 @@ is `projected`, set lighter and in italics, so it never looks settled.
 
 ## Cards and tables
 
-A card lies flat on the page, held by a hairline (never a shadow). A table sits in a `tablewrap`,
-which scrolls sideways inside itself on a narrow screen rather than pushing the page wider, and
-which can be focused so the keyboard can scroll it. Figures are right-aligned with tabular numerals
-(`.num`). A cell that opens something is a real button inside the cell.
+A card lies flat on the page, held by a hairline (never a shadow). In code it is `Card`
+(`components/ui/card.tsx`), and it keeps the `card` class. A table sits in a `tablewrap`, which
+scrolls sideways inside itself on a narrow screen rather than pushing the page wider, and which can
+be focused so the keyboard can scroll it. Figures are right-aligned with tabular numerals (`.num`).
+A cell that opens something is a real button inside the cell.
 
 <div class="demo">
 <div class="card">A card holds one thing that belongs together: a form, a statement, a list.</div>
@@ -120,10 +133,11 @@ the things to do here on the right. Inside a screen, a `SectionHead` introduces 
 
 ## Dialog
 
-A modal `<dialog>` with a title, used for a decision that needs the whole screen's attention:
-confirming something that cannot be undone, or a short form that would crowd the page. It traps
-focus, closes with Escape, and is the only thing besides the toast that casts the deepest shadow
-(`--elev-dialog`). A dialog says what will happen and has a button that names it.
+A modal (Base UI's dialog, `components/ui/dialog.tsx`, behind the app's `Dialog`) with a title, used
+for a decision that needs the whole screen's attention: confirming something that cannot be undone,
+or a short form that would crowd the page. It traps focus, closes with Escape, returns focus to what
+opened it, and is the only thing besides the toast that casts the deepest shadow (`--elev-dialog`).
+A dialog says what will happen and has a button that names it.
 
 ## Toast
 
@@ -222,6 +236,15 @@ bun run build
 
 The colours are tokens (`--board`, `--board-ink`, `--board-dim` and the `--code-*` set), so a
 listing follows a change of theme without being drawn again.
+
+## How the pieces are built
+
+New pieces follow coss/ui: Base UI supplies the behaviour (focus, keyboard, ARIA), Tailwind
+utilities supply the look, and `components/ui/cn.ts` joins class names. The utilities come from
+`apps/web/src/theme.css`, load without Tailwind's reset, and sit in a cascade layer **below** the
+older stylesheets. A rule in `styles.css` has no layer, so it wins over a utility until that rule is
+removed along with the screen that needed it. To restyle a piece brought over, change its utilities
+or the role in `theme.css`; do not add a rule to `styles.css` that fights it.
 
 ## Rules for using the pieces
 

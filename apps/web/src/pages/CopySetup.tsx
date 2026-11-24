@@ -10,6 +10,7 @@ import { must } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../api.ts";
 import { Button } from "../components/ui/button.tsx";
+import { Select } from "../components/ui/select.tsx";
 import { Chip, Field, Form, Problem, toast, useAction } from "../components/ui.tsx";
 import {
   applyPlan,
@@ -147,7 +148,7 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
         }
       >
         <Field label="Copy from" id="copy-from">
-          <select
+          <Select
             id="copy-from"
             value={from}
             onChange={(e) => {
@@ -161,7 +162,7 @@ export function CopySetup({ kitchens }: { kitchens: Kitchen[] }) {
                 {k.name}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <fieldset className="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
           <legend>Copy to</legend>

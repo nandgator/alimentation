@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { api, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { Input } from "../components/ui/input.tsx";
 import {
   Chip,
   Dialog,
@@ -204,7 +205,7 @@ function SignupSection({ mode, onChange }: { mode: string; onChange: () => void 
       ) : null}
       <Form error={null} onSubmit={() => approve(email)}>
         <Field label="Approve an email in advance" id="pre-email" hint="Before they have asked.">
-          <input
+          <Input
             id="pre-email"
             type="email"
             required
@@ -250,7 +251,7 @@ function LimitsDialog({
     setVals((v) => (v ? { ...v, [k]: e.target.value } : v));
   const field = (k: keyof Limits, label: string, max: number, hint?: string) => (
     <Field label={label} id={`lim-${k}`} hint={hint ?? `Up to ${max.toLocaleString("en-IN")}`}>
-      <input
+      <Input
         id={`lim-${k}`}
         type="number"
         required

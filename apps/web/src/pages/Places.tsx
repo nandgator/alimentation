@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { api, type Capacity, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { Input } from "../components/ui/input.tsx";
 import { Chip, Field, Form, Problem, Tile, toast, useAction } from "../components/ui.tsx";
 import { money } from "../format.ts";
 import { figuresOf, isRunning, type KitchenFigures, totalsOf } from "../kitchens.ts";
@@ -187,7 +188,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
           }
         >
           <Field label="Name" id="kname" hint="What your people call it.">
-            <input
+            <Input
               id="kname"
               required
               maxLength={120}
@@ -203,7 +204,7 @@ function NewKitchen({ cap }: { cap: Capacity | null }) {
             id="kslug"
             hint="Letters, numbers and dashes. This is what the link will say: /w/…"
           >
-            <input
+            <Input
               id="kslug"
               required
               minLength={3}
