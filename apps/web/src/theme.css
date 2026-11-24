@@ -1,0 +1,81 @@
+/* The theme the components are written against: the names coss/ui uses (background, primary, muted, border,
+   ring, destructive and so on) given to the kitchen's own tokens in styles.css, which already change with the
+   theme, so a component that says `bg-primary` is the right green in light and in dark with nothing more said.
+
+   Tailwind is loaded without its reset: the pages written before it keep their own base, and a component
+   brought over to it is set by utilities alone. Utilities sit in a layer, so a rule of the older sheets,
+   which has none, wins over them until that rule is removed along with the screen that needed it. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --font-sans: var(--sans);
+  --font-heading: var(--serif);
+  --font-mono: var(--mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-fill);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--good);
+  --color-success-foreground: var(--good);
+  --color-warning: var(--warn);
+  --color-warning-foreground: var(--warn);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius-base) - 4px);
+  --radius-md: calc(var(--radius-base) - 2px);
+  --radius-lg: var(--radius-base);
+  --radius-xl: calc(var(--radius-base) + 4px);
+  --radius-2xl: calc(var(--radius-base) + 8px);
+}
+
+:root {
+  --radius-base: 10px;
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-ink);
+  --secondary: color-mix(in srgb, var(--ink) 5%, transparent);
+  --muted: color-mix(in srgb, var(--ink) 5%, transparent);
+  --muted-foreground: var(--ink-2);
+  --accent-fill: color-mix(in srgb, var(--ink) 6%, transparent);
+  --destructive: var(--bad);
+  --destructive-foreground: var(--bad);
+  --info: #2f5f86;
+  --border: color-mix(in srgb, var(--ink) 12%, transparent);
+  --input: color-mix(in srgb, var(--ink) 16%, transparent);
+  --ring: var(--focus);
+  /* The hairline of light along the top of a raised control, and the lift under it. */
+  --lift-inner: rgb(255 255 255 / 0.16);
+  --lift-edge: rgb(0 0 0 / 0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --info: #8ab8dc;
+    --lift-inner: rgb(255 255 255 / 0.08);
+    --lift-edge: rgb(255 255 255 / 0.06);
+  }
+}
+:root[data-theme="dark"] {
+  --info: #8ab8dc;
+  --lift-inner: rgb(255 255 255 / 0.08);
+  --lift-edge: rgb(255 255 255 / 0.06);
+}
