@@ -155,12 +155,6 @@
     text-decoration-color: currentColor;
   }
 }
-.btn.big {
-  min-height: 56px;
-  padding: 0.9rem 1.8rem;
-  font-size: 1.1rem;
-}
-
 /* ---------- Bar -------------------------------------------------------------- */
 .hnav {
   position: sticky;
@@ -202,7 +196,7 @@
   .hnav nav {
     display: none;
   }
-  .hnav .btn {
+  .hnav [data-slot="button"] {
     margin-left: auto;
   }
 }
