@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { api, getJson, postJson } from "../api.ts";
 import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
-import { Button } from "../components/ui/button.tsx";
-import { Input } from "../components/ui/input.tsx";
+import { Button } from "../components/legacy/button.tsx";
+import { Input } from "../components/legacy/input.tsx";
 import {
   Chip,
   Dialog,

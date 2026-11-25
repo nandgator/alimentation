@@ -1,31 +1,28 @@
-// Draws the app icons from one design: a tiffin carrier (handle, lid, three tiers, side clips) on
-// curry-leaf green.
+// Draws the app icons from one design: the ledger of the mark (see src/components/Mark.tsx), cream on indigo,
+// with a saffron tick. The colours are the sRGB of the theme's tokens (src/theme.css, light):
+// --primary, --background and --highlight.
 //   node scripts/make-icons.mjs
 
 import { writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
-const GREEN = "#1F4D3A";
-const TILE = "#EEF1EC";
-const TURMERIC = "#F0B323";
+const INDIGO = "#3442a6";
+const PAPER = "#fbfaf7";
+const SAFFRON = "#f98f3a";
 
 // `inset` shrinks the drawing so a maskable icon keeps it inside the safe zone.
 const svg = ({ rounded, inset }) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" ${rounded ? 'rx="112"' : ""} fill="${GREEN}"/>
+  <title>Alimentation</title>
+  <rect width="512" height="512" ${rounded ? 'rx="112"' : ""} fill="${INDIGO}"/>
   <g transform="translate(256 256) scale(${inset * 17}) translate(-12 -12.5)">
-    <g fill="${TILE}">
-      <rect x="7" y="2.4" width="10" height="1.8" rx="0.9"/>
-      <rect x="8.6" y="3.8" width="1.6" height="3.2"/>
-      <rect x="13.8" y="3.8" width="1.6" height="3.2"/>
-      <rect x="4.6" y="6.8" width="14.8" height="3" rx="1.5"/>
-      <rect x="5.6" y="10.8" width="12.8" height="3.4" rx="1.7"/>
-      <rect x="5.6" y="15.2" width="12.8" height="3.4" rx="1.7"/>
-      <rect x="5.6" y="19.6" width="12.8" height="3" rx="1.5"/>
+    <rect x="3.6" y="2.4" width="16.8" height="20.2" rx="2.6" fill="${PAPER}"/>
+    <g fill="${INDIGO}" opacity="0.85">
+      <rect x="6.4" y="7.6" width="6.6" height="1.6" rx="0.8"/>
+      <rect x="6.4" y="11.6" width="11.2" height="1.8" rx="0.9"/>
+      <rect x="6.4" y="16" width="11.2" height="1.8" rx="0.9"/>
+      <rect x="6.4" y="20.3" width="11.2" height="1.6" rx="0.8"/>
     </g>
-    <g fill="${TURMERIC}">
-      <rect x="3.6" y="7" width="1.8" height="14.4" rx="0.9"/>
-      <rect x="18.6" y="7" width="1.8" height="14.4" rx="0.9"/>
-    </g>
+    <path d="M14.8 2.4h3.2v7.6l-1.6-1.4-1.6 1.4z" fill="${SAFFRON}"/>
   </g>
 </svg>`;
 

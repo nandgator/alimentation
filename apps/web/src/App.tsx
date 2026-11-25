@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Link, Route, Switch } from "wouter";
-import { Button } from "./components/ui/button.tsx";
+import { Button } from "./components/legacy/button.tsx";
 import { Toaster } from "./components/ui.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Join } from "./pages/Join.tsx";

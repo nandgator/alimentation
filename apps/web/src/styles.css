@@ -1,6 +1,3 @@
-@import "@fontsource/young-serif/index.css";
-@import "@fontsource-variable/figtree/index.css";
-
 /* ---------- Tokens ---------------------------------------------------------
    A kitchen: tile-white walls, curry-leaf green, turmeric, steel. Dark mode keeps
    the same character on a deep green-black ground. Every pair of text and ground
@@ -239,7 +236,7 @@ a {
   border-radius: var(--radius-xs);
 }
 ::selection {
-  background: var(--accent);
+  background: var(--highlight);
   color: var(--accent-ink);
 }
 .sr {
@@ -323,7 +320,7 @@ a {
 }
 .btn.accent {
   border-color: transparent;
-  background: var(--accent);
+  background: var(--highlight);
   color: var(--accent-ink);
 }
 .btn.danger {
@@ -340,7 +337,7 @@ a {
     background: var(--paper-2);
   }
   .btn.accent:hover {
-    background: color-mix(in srgb, var(--accent) 86%, white);
+    background: color-mix(in srgb, var(--highlight) 86%, white);
   }
   .btn.danger:hover {
     background: color-mix(in srgb, var(--bad) 85%, black);
@@ -1401,7 +1398,7 @@ dialog::backdrop,
   padding: 0 6px;
   margin-left: 8px;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--highlight);
   color: var(--accent-ink);
   font: 700 var(--text-xs) / 1 var(--sans);
 }
@@ -1611,7 +1608,7 @@ dialog::backdrop,
   fill: var(--brand);
 }
 .chart .s1 {
-  fill: var(--accent);
+  fill: var(--highlight);
 }
 .chart .s2 {
   fill: var(--ink-2);
@@ -1633,7 +1630,7 @@ dialog::backdrop,
   background: var(--brand);
 }
 .legend i.s1 {
-  background: var(--accent);
+  background: var(--highlight);
 }
 .legend i.s2 {
   background: var(--ink-2);
@@ -1805,7 +1802,7 @@ dialog::backdrop,
   display: inline-block;
   min-width: 100%;
   background:
-    linear-gradient(var(--accent), var(--accent)) left / 3px 100% no-repeat,
+    linear-gradient(var(--highlight), var(--highlight)) left / 3px 100% no-repeat,
     color-mix(in srgb, var(--board-ink) 10%, transparent);
 }
 

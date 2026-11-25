@@ -125,7 +125,7 @@ html:has(.docs) {
   fill: var(--brand-ink);
 }
 .docs-mark .mark-clip {
-  fill: var(--accent);
+  fill: var(--highlight);
 }
 
 /* From one page to the next the bar and the contents stay where they are and only the page changes, where the
@@ -758,7 +758,7 @@ html:has(.docs) {
   background: var(--brand);
 }
 .sw-accent i {
-  background: var(--accent);
+  background: var(--highlight);
 }
 .sw-accent-soft i {
   background: var(--accent-soft);

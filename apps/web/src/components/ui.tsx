@@ -2,8 +2,8 @@ import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useStat
 import { ApiFailure } from "../api.ts";
 import { month as monthLabel } from "../format.ts";
 import { archivedWords } from "../retention.ts";
-import { Badge } from "./ui/badge.tsx";
-import { Modal } from "./ui/dialog.tsx";
+import { Badge } from "./legacy/badge.tsx";
+import { Modal } from "./legacy/dialog.tsx";
 
 /** Runs a loader and keeps its result. `reload` fetches again without blanking the screen. */
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {

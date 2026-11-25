@@ -1,81 +1,300 @@
-/* The theme the components are written against: the names coss/ui uses (background, primary, muted, border,
-   ring, destructive and so on) given to the kitchen's own tokens in styles.css, which already change with the
-   theme, so a component that says `bg-primary` is the right green in light and in dark with nothing more said.
+/* biome-ignore-all lint/complexity/noImportantStyles: under reduced motion the cut to nothing must win over any rule */
+/* The theme: "Bahi", indigo ink on warm ledger paper (docs/research/ui-rewrite-plan.md, section 2).
 
-   Tailwind is loaded without its reset: the pages written before it keep their own base, and a component
-   brought over to it is set by utilities alone. Utilities sit in a layer, so a rule of the older sheets,
-   which has none, wins over them until that rule is removed along with the screen that needed it. */
-@layer theme, base, components, utilities;
+   The names are shadcn/ui's, so any block drops in without recolouring. Every colour in the application is
+   written here and nowhere else; a component says `bg-primary`, not a colour.
+
+   Layers, lowest first. `legacy` holds the stylesheets of the screens not yet rewritten (styles.css and
+   home.css); it sits above the reset so those screens keep their own look, and below the components and
+   utilities so a screen that has been brought over wins over it. WP11 deletes it. */
+@layer theme, base, legacy, components, utilities;
+
+@import "@fontsource-variable/figtree/index.css";
+@import "@fontsource-variable/noto-sans-devanagari/index.css";
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+@import "./styles.css" layer(legacy);
+@import "./home.css" layer(legacy);
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* A mouse or a trackpad: controls are 36px high there and 44px under a finger. */
+@custom-variant pointer-fine (@media (pointer: fine));
 
 @theme inline {
-  --font-sans: var(--sans);
-  --font-heading: var(--serif);
-  --font-mono: var(--mono);
+  --font-sans: var(--font-stack);
+  --font-heading: var(--font-stack);
+  --font-mono: var(--font-mono-stack);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
-  --color-card-foreground: var(--foreground);
-  --color-popover: var(--card);
-  --color-popover-foreground: var(--foreground);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent-fill);
-  --color-accent-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--good);
-  --color-success-foreground: var(--good);
-  --color-warning: var(--warn);
-  --color-warning-foreground: var(--warn);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius-base) - 4px);
-  --radius-md: calc(var(--radius-base) - 2px);
-  --radius-lg: var(--radius-base);
-  --radius-xl: calc(var(--radius-base) + 4px);
-  --radius-2xl: calc(var(--radius-base) + 8px);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-foreground: var(--info-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  --radius-base: 10px;
-  --background: var(--bg);
-  --foreground: var(--ink);
-  --primary: var(--brand);
-  --primary-foreground: var(--brand-ink);
-  --secondary: color-mix(in srgb, var(--ink) 5%, transparent);
-  --muted: color-mix(in srgb, var(--ink) 5%, transparent);
-  --muted-foreground: var(--ink-2);
-  --accent-fill: color-mix(in srgb, var(--ink) 6%, transparent);
-  --destructive: var(--bad);
-  --destructive-foreground: var(--bad);
-  --info: #2f5f86;
-  --border: color-mix(in srgb, var(--ink) 12%, transparent);
-  --input: color-mix(in srgb, var(--ink) 16%, transparent);
-  --ring: var(--focus);
-  /* The hairline of light along the top of a raised control, and the lift under it. */
-  --lift-inner: rgb(255 255 255 / 0.16);
-  --lift-edge: rgb(0 0 0 / 0.05);
+  color-scheme: light dark;
+  /* One sans family. Noto Sans Devanagari answers for Devanagari text and the rupee sign. */
+  --font-stack: "Figtree Variable", "Noto Sans Devanagari Variable", system-ui, sans-serif;
+  --font-mono-stack: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Motion (section 6). */
+  --dur-1: 100ms;
+  --dur-2: 150ms;
+  --dur-3: 250ms;
+  /* The dissolve between themes (public/theme.js, styles.css). */
+  --dur-4: 600ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --radius: 0.625rem;
+  --background: oklch(0.985 0.004 90);
+  --foreground: oklch(0.22 0.02 268);
+  --card: oklch(0.998 0.002 90);
+  --card-foreground: oklch(0.22 0.02 268);
+  --popover: oklch(0.998 0.002 90);
+  --popover-foreground: oklch(0.22 0.02 268);
+  --primary: oklch(0.43 0.16 272);
+  --primary-foreground: oklch(0.985 0.004 90);
+  --secondary: oklch(0.955 0.008 85);
+  --secondary-foreground: oklch(0.26 0.02 268);
+  --muted: oklch(0.965 0.007 85);
+  --muted-foreground: oklch(0.49 0.02 268);
+  --accent: oklch(0.95 0.025 272);
+  --accent-foreground: oklch(0.34 0.12 272);
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.915 0.008 85);
+  --input: oklch(0.62 0.015 265);
+  --ring: oklch(0.55 0.17 272);
+  --highlight: oklch(0.75 0.16 55);
+  --highlight-foreground: oklch(0.25 0.04 55);
+  --success: oklch(0.52 0.12 155);
+  --success-soft: oklch(0.96 0.04 155);
+  --success-foreground: oklch(0.46 0.11 155);
+  --warning: oklch(0.7 0.15 75);
+  --warning-soft: oklch(0.96 0.05 90);
+  --warning-foreground: oklch(0.45 0.11 60);
+  --info: oklch(0.5 0.13 225);
+  --info-soft: oklch(0.96 0.03 225);
+  --info-foreground: oklch(0.45 0.12 225);
+  --chart-1: oklch(0.43 0.16 272);
+  --chart-2: oklch(0.62 0.11 195);
+  --chart-3: oklch(0.6 0.17 330);
+  --chart-4: oklch(0.55 0.03 268);
+  --chart-5: oklch(0.64 0.1 300);
+  --sidebar: oklch(0.975 0.006 88);
+  --sidebar-foreground: oklch(0.26 0.02 268);
+  --sidebar-primary: oklch(0.43 0.16 272);
+  --sidebar-primary-foreground: oklch(0.985 0.004 90);
+  --sidebar-accent: oklch(0.94 0.012 85);
+  --sidebar-accent-foreground: oklch(0.22 0.02 268);
+  --sidebar-border: oklch(0.91 0.008 85);
+  --sidebar-ring: oklch(0.55 0.17 272);
+
+  /* ---- Legacy bridge (delete with styles.css and home.css, WP10 and WP11) ------------------------------
+     The screens not yet rewritten read the kitchen's old token names; these give them the new colours, in
+     both themes, from the tokens above. The home page's own fields (--field-*, --board) are not bridged:
+     they stay as drawn until WP10. */
+  --bg: var(--background);
+  --paper: var(--background);
+  --paper-2: var(--muted);
+  --ink: var(--foreground);
+  --ink-2: var(--muted-foreground);
+  --hair: var(--border);
+  --brand: var(--primary);
+  --brand-ink: var(--primary-foreground);
+  --focus: var(--ring);
+  --good: var(--success-foreground);
+  --good-soft: var(--success-soft);
+  --warn: var(--warning-foreground);
+  --warn-soft: var(--warning-soft);
+  --bad: var(--destructive);
+  --bad-soft: color-mix(in oklch, var(--destructive) 8%, var(--background));
+  --bad-ink: var(--destructive-foreground);
+  --accent-soft: color-mix(in oklch, var(--highlight) 25%, var(--background));
+  --accent-ink: var(--highlight-foreground);
+  --sans: var(--font-stack);
+  --serif: var(--font-stack);
+}
+
+/* The same values go in two blocks: the chosen theme, and the system's when none is chosen. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.17 0.015 268);
+  --foreground: oklch(0.96 0.005 90);
+  --card: oklch(0.21 0.017 268);
+  --card-foreground: oklch(0.96 0.005 90);
+  --popover: oklch(0.24 0.018 268);
+  --popover-foreground: oklch(0.96 0.005 90);
+  --primary: oklch(0.76 0.12 272);
+  --primary-foreground: oklch(0.2 0.04 270);
+  --secondary: oklch(0.27 0.015 268);
+  --secondary-foreground: oklch(0.96 0.005 90);
+  --muted: oklch(0.26 0.015 268);
+  --muted-foreground: oklch(0.72 0.02 268);
+  --accent: oklch(0.3 0.05 272);
+  --accent-foreground: oklch(0.92 0.04 272);
+  --destructive: oklch(0.7 0.19 22);
+  --destructive-foreground: oklch(0.2 0.03 25);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 35%);
+  --ring: oklch(0.7 0.13 272);
+  --highlight: oklch(0.8 0.15 60);
+  --highlight-foreground: oklch(0.22 0.04 55);
+  --success: oklch(0.75 0.14 155);
+  --success-soft: oklch(0.28 0.05 155);
+  --success-foreground: oklch(0.8 0.13 155);
+  --warning: oklch(0.82 0.14 85);
+  --warning-soft: oklch(0.3 0.05 80);
+  --warning-foreground: oklch(0.85 0.13 85);
+  --info: oklch(0.75 0.11 225);
+  --info-soft: oklch(0.28 0.04 225);
+  --info-foreground: oklch(0.8 0.1 225);
+  --chart-1: oklch(0.76 0.12 272);
+  --chart-2: oklch(0.75 0.11 195);
+  --chart-3: oklch(0.72 0.16 330);
+  --chart-4: oklch(0.7 0.03 268);
+  --chart-5: oklch(0.78 0.09 300);
+  --sidebar: oklch(0.2 0.016 268);
+  --sidebar-foreground: oklch(0.96 0.005 90);
+  --sidebar-primary: oklch(0.76 0.12 272);
+  --sidebar-primary-foreground: oklch(0.2 0.04 270);
+  --sidebar-accent: oklch(0.27 0.015 268);
+  --sidebar-accent-foreground: oklch(0.96 0.005 90);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.7 0.13 272);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --info: #8ab8dc;
-    --lift-inner: rgb(255 255 255 / 0.08);
-    --lift-edge: rgb(255 255 255 / 0.06);
+    --background: oklch(0.17 0.015 268);
+    --foreground: oklch(0.96 0.005 90);
+    --card: oklch(0.21 0.017 268);
+    --card-foreground: oklch(0.96 0.005 90);
+    --popover: oklch(0.24 0.018 268);
+    --popover-foreground: oklch(0.96 0.005 90);
+    --primary: oklch(0.76 0.12 272);
+    --primary-foreground: oklch(0.2 0.04 270);
+    --secondary: oklch(0.27 0.015 268);
+    --secondary-foreground: oklch(0.96 0.005 90);
+    --muted: oklch(0.26 0.015 268);
+    --muted-foreground: oklch(0.72 0.02 268);
+    --accent: oklch(0.3 0.05 272);
+    --accent-foreground: oklch(0.92 0.04 272);
+    --destructive: oklch(0.7 0.19 22);
+    --destructive-foreground: oklch(0.2 0.03 25);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 35%);
+    --ring: oklch(0.7 0.13 272);
+    --highlight: oklch(0.8 0.15 60);
+    --highlight-foreground: oklch(0.22 0.04 55);
+    --success: oklch(0.75 0.14 155);
+    --success-soft: oklch(0.28 0.05 155);
+    --success-foreground: oklch(0.8 0.13 155);
+    --warning: oklch(0.82 0.14 85);
+    --warning-soft: oklch(0.3 0.05 80);
+    --warning-foreground: oklch(0.85 0.13 85);
+    --info: oklch(0.75 0.11 225);
+    --info-soft: oklch(0.28 0.04 225);
+    --info-foreground: oklch(0.8 0.1 225);
+    --chart-1: oklch(0.76 0.12 272);
+    --chart-2: oklch(0.75 0.11 195);
+    --chart-3: oklch(0.72 0.16 330);
+    --chart-4: oklch(0.7 0.03 268);
+    --chart-5: oklch(0.78 0.09 300);
+    --sidebar: oklch(0.2 0.016 268);
+    --sidebar-foreground: oklch(0.96 0.005 90);
+    --sidebar-primary: oklch(0.76 0.12 272);
+    --sidebar-primary-foreground: oklch(0.2 0.04 270);
+    --sidebar-accent: oklch(0.27 0.015 268);
+    --sidebar-accent-foreground: oklch(0.96 0.005 90);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.7 0.13 272);
   }
 }
-:root[data-theme="dark"] {
-  --info: #8ab8dc;
-  --lift-inner: rgb(255 255 255 / 0.08);
-  --lift-edge: rgb(255 255 255 / 0.06);
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+  html {
+    font-family: var(--font-stack);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+  /* Every control speaks in the page's own voice (VIS-01). */
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    letter-spacing: inherit;
+  }
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: var(--font-mono-stack);
+  }
+}
+
+/* Under reduced motion nothing moves: transitions and animations are cut to nothing. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

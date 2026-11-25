@@ -70,6 +70,7 @@ function builtPages(): Plugin {
 }
 
 export default defineConfig({
+  resolve: { alias: { "@": join(import.meta.dirname, "src") } },
   plugins: [
     tailwindcss(),
     react(),
@@ -87,8 +88,8 @@ export default defineConfig({
         start_url: "/app",
         scope: "/",
         display: "standalone",
-        background_color: "#EEF1EC",
-        theme_color: "#1F4D3A",
+        background_color: "#fbfaf7",
+        theme_color: "#3442a6",
         icons: [
           { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -104,8 +105,12 @@ export default defineConfig({
         // A classic script, which is how it is registered. The module build the plugin offers by default passes an
         // option that the bundler now deprecates, so the warning is removed by not using it, not by hiding it.
         rollupFormat: "iife",
-        // Only the Latin letters of the fonts are kept for offline use.
-        globPatterns: ["**/*.{js,css,html,svg,png}", "**/*-latin-*.woff2"],
+        // Only the Latin letters of the fonts are kept for offline use, and the Devanagari ones that carry the rupee sign.
+        globPatterns: [
+          "**/*.{js,css,html,svg,png}",
+          "**/*-latin-*.woff2",
+          "**/noto-sans-devanagari-devanagari-*.woff2",
+        ],
       },
       devOptions: { enabled: false },
     }),

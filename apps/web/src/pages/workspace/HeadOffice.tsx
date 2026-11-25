@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { api, postJson } from "../../api.ts";
-import { Button } from "../../components/ui/button.tsx";
-import { Card } from "../../components/ui/card.tsx";
-import { Input } from "../../components/ui/input.tsx";
+import { Button } from "../../components/legacy/button.tsx";
+import { Card } from "../../components/legacy/card.tsx";
+import { Input } from "../../components/legacy/input.tsx";
 import { Field, Form, toast, useAction } from "../../components/ui.tsx";
 import { useWorkspace } from "./context.tsx";
 

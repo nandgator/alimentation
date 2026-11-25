@@ -9,8 +9,8 @@ import type {
 import { must } from "@alimentation/core";
 import { useState } from "react";
 import { api, getJson, postJson } from "../api.ts";
-import { Button } from "../components/ui/button.tsx";
-import { Select } from "../components/ui/select.tsx";
+import { Button } from "../components/legacy/button.tsx";
+import { Select } from "../components/legacy/select.tsx";
 import { Chip, Field, Form, Problem, toast, useAction } from "../components/ui.tsx";
 import {
   applyPlan,

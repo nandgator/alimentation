@@ -16,7 +16,10 @@ export async function expectAccessible(page: Page, where: string) {
     .analyze();
   const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(
-    bad.map((v) => `${where}: ${v.id} (${v.nodes.length}): ${v.nodes[0]?.html.slice(0, 120)}`),
+    bad.map(
+      (v) =>
+        `${where}: ${v.id} (${v.nodes.length}): ${v.nodes[0]?.html.slice(0, 120)} ${v.nodes[0]?.any[0]?.message ?? ""}`,
+    ),
     "accessibility",
   ).toEqual([]);
 }

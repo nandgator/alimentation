@@ -120,6 +120,45 @@ test.describe("the theme choice", () => {
     expect(await page.evaluate(() => localStorage.getItem("docs-theme"))).toBeNull();
   });
 
+  test("is applied before the first paint, so a chosen theme never flashes the other one", async ({
+    page,
+  }) => {
+    // The page is light by the system's setting, and the person chose dark. The attribute must be set once, by
+    // the script in the head, before anything is drawn, and never changed back and forth.
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript(() => {
+      localStorage.setItem("theme", "dark");
+      const seen: string[] = [];
+      (window as unknown as { seen: string[] }).seen = seen;
+      new MutationObserver(() =>
+        seen.push(document.documentElement.dataset.theme ?? "none"),
+      ).observe(document, { attributes: true, attributeFilter: ["data-theme"], subtree: true });
+    });
+    await page.goto("/signin");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { seen: string[] }).seen)).toEqual([
+      "dark",
+    ]);
+    // The ground is the dark one: its lightness is low, in sRGB terms well under a third.
+    const ground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const [r = 255, g = 255, b = 255] = (ground.match(/[\d.]+/g) ?? []).map(Number);
+    expect(Math.max(r, g, b)).toBeLessThan(80);
+  });
+
+  test("answers to the system's setting until a choice is made, and to the choice after", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    await page.goto("/signin");
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+    const dark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    await page.evaluate(() => localStorage.setItem("theme", "light"));
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    const light = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(light, "a chosen light theme beats a dark system").not.toBe(dark);
+  });
+
   test("can be changed inside a kitchen, whatever the screen", async ({ page, isMobile }, info) => {
     const slug = `col-${Date.now().toString(36)}`;
     await signIn(page, `owner-${slug}@example.org`, "Owner");
@@ -127,15 +166,37 @@ test.describe("the theme choice", () => {
       data: { slug, name: `Theme ${slug}`, alsoSupplier: true },
     });
     await page.goto(`/w/${slug}`);
-    if (isMobile) await page.getByRole("button", { name: "More" }).click();
-    const theme = page.getByRole("group", { name: "Theme", exact: true });
-    await expect(theme).toBeVisible();
-    await theme.getByRole("radio", { name: "Dark" }).check();
+    // The control is a Theme group in the kitchen's menu: under More on a phone in the old shell, and in the
+    // account menu (the name in the sidebar's foot, or the avatar in the top bar) in the new one.
+    const group = page.getByRole("group", { name: "Theme", exact: true });
+    const choose = async (label: "Light" | "Dark" | "Auto") => {
+      if (await group.isVisible()) return group.getByRole("radio", { name: label }).check();
+      if (isMobile) {
+        const more = page.getByRole("button", { name: "More" });
+        if (await more.isVisible()) await more.click();
+      }
+      if (!(await group.isVisible())) {
+        await page
+          .getByRole("button", { name: /^(Account|Owner)/ })
+          .first()
+          .click();
+      }
+      const name = label === "Auto" ? /^(Auto|System)$/ : label;
+      const option = page
+        .getByRole("menuitemradio", { name })
+        .or(page.getByRole("radio", { name }))
+        .first();
+      await option.click();
+    };
+    await choose("Dark");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await overAndStill(page);
     await expectAccessible(page, "a kitchen in the dark");
     await shot(page, info, "theme-kitchen-dark");
-    await theme.getByRole("radio", { name: "Auto" }).check();
+    // The choice outlasts a reload, inside the kitchen as on the home page.
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await choose("Auto");
     await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
   });
 });

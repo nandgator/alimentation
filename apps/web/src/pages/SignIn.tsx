@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { postJson } from "../api.ts";
 import { AppBar } from "../components/Chrome.tsx";
-import { Button } from "../components/ui/button.tsx";
-import { Input } from "../components/ui/input.tsx";
+import { Button } from "../components/legacy/button.tsx";
+import { Input } from "../components/legacy/input.tsx";
 import { Field, Form, useAction } from "../components/ui.tsx";
 import { useSession } from "../session.tsx";
 

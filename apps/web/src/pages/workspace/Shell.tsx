@@ -4,27 +4,24 @@ import { Link, Route, Switch, useLocation, useParams } from "wouter";
 import { api, setActingAs } from "../../api.ts";
 import { retiredBy } from "../../catalogue.ts";
 import { AppBar, RequireSignIn } from "../../components/Chrome.tsx";
+import { Badge } from "../../components/legacy/badge.tsx";
+import { Button } from "../../components/legacy/button.tsx";
+import { Select } from "../../components/legacy/select.tsx";
 import { ThemeSwitch } from "../../components/ThemeSwitch.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { Select } from "../../components/ui/select.tsx";
 import { Problem, Spinner, useLoad } from "../../components/ui.tsx";
 import { useMedia } from "../../home/motion.tsx";
 import { nextStep } from "../../setup.ts";
-import { Audit } from "./Audit.tsx";
-import { Catalogue } from "./Catalogue.tsx";
+import { Audit } from "./books/Audit.tsx";
+import { CloseMonths } from "./books/MonthEnd.tsx";
+import { Retention } from "./books/Retention.tsx";
+import { Settlements } from "./books/Settlements.tsx";
+import { YourData } from "./books/YourData.tsx";
 import { type Workspace, WorkspaceProvider } from "./context.tsx";
-import { Daily } from "./Daily.tsx";
-import { Dashboard } from "./Dashboard.tsx";
-import { History } from "./History.tsx";
-import { LogPage } from "./LogPage.tsx";
-import { Menu } from "./Menu.tsx";
-import { CloseMonths, Holidays, Settlements } from "./Money.tsx";
-import { Payments } from "./Payments.tsx";
-import { People } from "./People.tsx";
-import { Prices } from "./Prices.tsx";
-import { Rates } from "./Rates.tsx";
-import { Retention } from "./Retention.tsx";
+import { History } from "./history/History.tsx";
+import { Dashboard } from "./home/Dashboard.tsx";
+import { LogPage } from "./meals/LogPage.tsx";
+import { Payments } from "./payments/Payments.tsx";
+import { People } from "./people/People.tsx";
 import {
   groupsFor,
   hrefOf,
@@ -34,7 +31,12 @@ import {
   type SectionKey,
   sectionsFor,
 } from "./sections.ts";
-import { YourData } from "./YourData.tsx";
+import { Catalogue } from "./setup/Catalogue.tsx";
+import { Holidays } from "./setup/Holidays.tsx";
+import { Menu } from "./setup/Menu.tsx";
+import { Prices } from "./setup/Prices.tsx";
+import { Rates } from "./setup/Rates.tsx";
+import { Daily } from "./today/Daily.tsx";
 
 const ROLE_LABEL: Record<Role, string> = {
   admin: "Admin",

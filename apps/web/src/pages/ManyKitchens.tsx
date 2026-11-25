@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { postJson } from "../api.ts";
-import { Button } from "../components/ui/button.tsx";
-import { Input } from "../components/ui/input.tsx";
+import { Button } from "../components/legacy/button.tsx";
+import { Input } from "../components/legacy/input.tsx";
 import { Field, Form, useAction } from "../components/ui.tsx";
 import { useSession } from "../session.tsx";
 import { CopySetup } from "./CopySetup.tsx";

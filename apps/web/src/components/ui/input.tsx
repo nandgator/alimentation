@@ -1,28 +1,19 @@
-import { Input as BaseInput } from "@base-ui/react/input";
-import type { ComponentProps } from "react";
-import { cn } from "./cn.ts";
+import { Input as InputPrimitive } from "@base-ui/react/input";
+import type * as React from "react";
+import { cn } from "@/lib/utils";
 
-/** The control anatomy shared by the text controls: a hairline edge, ten pixels of radius, a ring for focus and a ring in red when invalid. */
-export const controlClass =
-  "w-full min-h-11 rounded-lg border border-input bg-card px-3 py-2.5 text-foreground shadow-xs outline-none transition-shadow placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive/60 aria-invalid:focus-visible:ring-destructive/30 disabled:opacity-60";
-
-/** A text input. It keeps the `input` element, so a label, a name and a form work as they always did. */
-export function Input({ className, ...props }: ComponentProps<typeof BaseInput>) {
+function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
-    <BaseInput
+    <InputPrimitive
+      type={type}
       data-slot="input"
-      className={cn(controlClass, typeof className === "string" ? className : undefined)}
+      className={cn(
+        "h-11 pointer-fine:h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+        className,
+      )}
       {...props}
     />
   );
 }
 
-export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
-  return (
-    <textarea
-      data-slot="textarea"
-      className={cn(controlClass, "min-h-[84px] resize-y", className)}
-      {...props}
-    />
-  );
-}
+export { Input };

@@ -369,7 +369,7 @@ test.describe("the home page", () => {
     const manifest = await (await request.get("/manifest.webmanifest")).json();
     expect(manifest.display).toBe("standalone");
     expect(manifest.start_url).toBe("/app");
-    expect(manifest.theme_color).toBe("#1F4D3A");
+    expect(manifest.theme_color).toBe("#3442a6");
     const sizes = manifest.icons.map(
       (i: { sizes: string; purpose?: string }) => `${i.sizes}${i.purpose ? `:${i.purpose}` : ""}`,
     );

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Button } from "../components/ui/button.tsx";
+import { Button } from "../components/legacy/button.tsx";
 import { useSession } from "../session.tsx";
 import { Mark } from "./Mark.tsx";
 import { PageHead } from "./ui.tsx";
