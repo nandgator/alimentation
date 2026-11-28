@@ -60,9 +60,12 @@ test("a person in several kitchens sees each one with its figures, and the figur
 
   const card = (name: string) =>
     page.getByRole("listitem").filter({ has: page.getByRole("heading", { name, level: 3 }) });
+  // The address of a kitchen is not shown: the list is by name.
+  await expect(page.getByText(`/w/${north}`)).toHaveCount(0);
   await expect(card("North Mess")).toContainText(/₹[\d,]+(\.\d\d)? owed/);
   await expect(card("South Mess")).toContainText("Needs setting up");
   await expect(card("South Mess")).toContainText("Nothing owed");
+  await expect(card("North Mess")).toContainText("Admin");
 
   // Two kitchens, so there is a line across both; and it says what the first one says.
   const across = page.getByRole("region", { name: "Across your 2 kitchens" });
@@ -217,16 +220,18 @@ test("a head office sees its kitchens added up, and a kitchen can join, and stop
   await expect(page.getByRole("heading", { name: "Hall Group", level: 1 })).toBeVisible();
   await expect(page.getByText("No kitchen shares its totals")).toBeVisible();
 
-  // They run both, so they add them.
+  // They run both, so they add them. On a wide screen the kitchens are a table, on a phone a list.
+  const kitchens = page
+    .getByRole("table", { name: "Kitchens", exact: true })
+    .or(page.getByRole("list", { name: "Kitchens", exact: true }));
   for (const name of ["North Hall", "South Hall"]) {
     await page.getByLabel("A kitchen you run").selectOption({ label: name });
     await page.getByRole("button", { name: "Add it" }).click();
-    await expect(page.getByRole("cell", { name })).toBeVisible();
+    await expect(kitchens.getByText(name, { exact: true })).toBeVisible();
   }
   await expect(page.getByText("Owed", { exact: true }).first()).toBeVisible();
-  const table = page.getByRole("region", { name: /^Table/ });
-  await expect(table).toContainText("North Hall");
-  await expect(table).toContainText("South Hall");
+  await expect(kitchens).toContainText("North Hall");
+  await expect(kitchens).toContainText("South Hall");
   // Nothing in the page names a person.
   await expect(page.getByText("Secret Eater")).toHaveCount(0);
   await expectAccessible(page, "an organisation");
@@ -242,7 +247,7 @@ test("a head office sees its kitchens added up, and a kitchen can join, and stop
 
   // And it can join again with a link its head office made, after being told whom it is for.
   await page.goto("/app");
-  await page.getByRole("link", { name: "Open" }).last().click();
+  await page.getByRole("button", { name: "Open" }).last().click();
   await page.getByRole("button", { name: "Make a link" }).click();
   const link = await page.getByLabel("The link", { exact: true }).inputValue();
   expect(link.length).toBeGreaterThan(20);
@@ -252,6 +257,54 @@ test("a head office sees its kitchens added up, and a kitchen can join, and stop
   await page.getByRole("button", { name: "See who it is for" }).click();
   await expect(page.getByText("This link is for")).toBeVisible();
   await expect(page.getByText("Hall Group", { exact: true }).last()).toBeVisible();
-  await page.getByRole("button", { name: /^Share this kitchen's totals with/ }).click();
+  await page.getByRole("button", { name: "Share this kitchen's totals with Hall Group" }).click();
   await expect(page.getByRole("button", { name: "Stop sharing" })).toBeVisible();
+});
+
+test("the operator's page has its kitchens, people and settings, and is not for anyone else", async ({
+  page,
+  browser,
+}, info) => {
+  const problems = watchPage(page);
+  await signIn(page, "operator@example.org", "Operator");
+  await page.goto("/app/operator");
+  await expect(page.getByRole("heading", { name: "Operator", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run housekeeping" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Kitchens" })).toBeVisible();
+  await expect(page.getByLabel("Search addresses")).toBeVisible();
+  await expectAccessible(page, "operator kitchens");
+  await shot(page, info, "operator-kitchens");
+
+  await page.getByRole("tab", { name: "People" }).click();
+  await expect(page.getByRole("heading", { name: "Approve an email in advance" })).toBeVisible();
+  await page.getByLabel("Email").fill("not an email");
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(page.getByText("That does not look like an email")).toBeVisible();
+  await expectAccessible(page, "operator people");
+
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await expect(page.getByRole("heading", { name: "Capacity" })).toBeVisible();
+  await expectAccessible(page, "operator settings");
+  await expectNoSidewaysScroll(page, "operator settings");
+
+  // Anyone else is told it is not theirs, in words, with a way out.
+  const other = await browser.newContext();
+  const stranger = await other.newPage();
+  await signIn(stranger, `stranger-${Date.now().toString(36)}@example.org`, "Stranger");
+  await stranger.goto("/app/operator");
+  await expect(stranger.getByRole("heading", { name: "This is for the operator" })).toBeVisible();
+  await stranger.getByRole("button", { name: "Go to your kitchens" }).click();
+  await expect(stranger.getByRole("heading", { name: "Your kitchens" })).toBeVisible();
+
+  // An organisation that is not theirs, and an invitation that is not good, are said in words.
+  await stranger.goto("/app/org/00000000-0000-4000-8000-000000000000");
+  await expect(stranger.getByRole("heading", { name: "Organisation not found" })).toBeVisible();
+  await stranger.goto("/join/not-a-real-invitation");
+  await stranger.getByRole("button", { name: "Join", exact: true }).click();
+  await expect(stranger.getByRole("heading", { name: "This invite has expired" })).toBeVisible();
+  await expect(
+    stranger.getByText("This invite has expired. Ask your admin for a new one."),
+  ).toBeVisible();
+  await other.close();
+  expect(problems).toEqual([]);
 });

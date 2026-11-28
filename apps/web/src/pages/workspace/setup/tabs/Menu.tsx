@@ -365,7 +365,7 @@ export function MenuTab() {
         }
       >
         <PageSkeleton loading={loading} variant="table">
-          {!hasMeals ? (
+          {(menus.error ?? pols.error) && !menus.data ? null : !hasMeals ? (
             <EmptyState
               title="Add what you serve first"
               description="A menu puts meals on days, so it needs a service and a meal."

@@ -46,7 +46,7 @@ const STATUS: Record<Status, { label: string; icon: LucideIcon; tone: string }> 
     tone: "border-destructive/40 bg-background text-destructive",
   },
   projected: { label: "Projected", icon: CircleDashedIcon, tone: "bg-muted text-muted-foreground" },
-  active: { label: "Active", icon: ZapIcon, tone: "bg-success-soft text-success-foreground" },
+  active: { label: "Active", icon: ZapIcon, tone: "bg-muted text-foreground" },
   invited: { label: "Invited", icon: MailIcon, tone: "bg-info-soft text-info-foreground" },
   disabled: { label: "Disabled", icon: BanIcon, tone: "bg-muted text-muted-foreground" },
 };

@@ -168,7 +168,7 @@ function BillsPage() {
           <PageSkeleton loading variant="stats" />
           <PageSkeleton loading variant="table" />
         </div>
-      ) : mine.length === 0 ? (
+      ) : error && mine.length === 0 ? null : mine.length === 0 ? (
         <EmptyState
           title={`No bills for ${monthShort(month)}`}
           description="Nobody was eating in this month, so there is nothing to bill."

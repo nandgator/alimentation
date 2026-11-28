@@ -46,6 +46,8 @@ export interface FormDialogProps {
   dirty?: boolean;
   /** Called after the person confirms discarding, before the dialog closes. Reset the form here. */
   onDiscard?: () => void;
+  /** Focus starts on the title on a wide screen too, for a form whose first control opens a picker. */
+  focusTitle?: boolean;
 }
 
 /**
@@ -69,6 +71,7 @@ export function FormDialog({
   cancelLabel = "Cancel",
   dirty = false,
   onDiscard,
+  focusTitle = false,
 }: FormDialogProps) {
   const narrow = useIsNarrow();
   const [asking, setAsking] = useState(false);
@@ -125,6 +128,7 @@ export function FormDialog({
   }, [open, token]);
 
   const footer = (
+    // design: the footer keeps clear of the home indicator, which only the browser can measure
     <div className="flex flex-col-reverse gap-2 border-t bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
       <Button type="button" variant="outline" onClick={() => request(false)}>
         {cancelLabel}
@@ -182,9 +186,14 @@ export function FormDialog({
         </Sheet>
       ) : (
         <Dialog open={open} onOpenChange={request}>
-          <DialogContent className="flex max-h-[85dvh] flex-col gap-0 p-0 sm:max-w-lg">
+          <DialogContent
+            className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+            initialFocus={focusTitle ? titleRef : undefined}
+          >
             <DialogHeader className="p-4 pr-14">
-              <DialogTitle className="text-lg">{title}</DialogTitle>
+              <DialogTitle ref={titleRef} tabIndex={-1} className="text-lg outline-none">
+                {title}
+              </DialogTitle>
               {description ? <DialogDescription>{description}</DialogDescription> : null}
             </DialogHeader>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">{children}</div>

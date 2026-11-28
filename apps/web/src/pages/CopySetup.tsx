@@ -302,7 +302,7 @@ export function CopySetupDialog({
               <section key={slug} className="flex flex-col gap-2" aria-label={nameOf(slug)}>
                 <h3 className="text-sm font-semibold">{nameOf(slug)}</h3>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="bg-success-soft text-success-foreground">
+                  <Badge variant="secondary" className="bg-muted text-foreground">
                     <CheckIcon aria-hidden="true" /> Added {r.added}
                   </Badge>
                   {r.refused.length > 0 ? (

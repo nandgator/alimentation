@@ -54,7 +54,7 @@ export function Month({ now }: { now?: Date }) {
           Everyone gets the day’s meal unless they say otherwise. Days gone by are frozen; tap a day
           to come to change it.
         </p>
-        <p className="muted small" data-reveal>
+        <p className="muted text-sm text-muted-foreground" data-reveal>
           A made-up kitchen with made-up prices, run on the same rules as the real thing, on today’s
           real calendar. Payments work like this too: you say you paid, the cook confirms, and from
           then on it cannot be changed.

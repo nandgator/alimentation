@@ -6,7 +6,15 @@ import { type Capacity, getJson } from "../api.ts";
 import { Defs, HeroScene } from "../home/art.tsx";
 import { Dock } from "../home/Dock.tsx";
 import { Month } from "../home/Month.tsx";
-import { Figure, Lines, useChapter, useLight, useLive, useReveal } from "../home/motion.tsx";
+import {
+  cssVars,
+  Figure,
+  Lines,
+  useChapter,
+  useLight,
+  useLive,
+  useReveal,
+} from "../home/motion.tsx";
 import { SiteHeader } from "../home/SiteHeader.tsx";
 import { Stage } from "../home/Stage.tsx";
 import { ThemeChoice } from "../home/ThemeChoice.tsx";
@@ -122,11 +130,11 @@ export function Home() {
           <div className="hwrap hero-grid">
             <div className="hero-copy">
               <Lines as="h1" first lines={["Who ate, what it", "cost, who paid"]} />
-              <p className="lead load" style={{ ["--d" as string]: "420ms" }}>
+              <p className="lead load" style={cssVars({ "--d": "420ms" })}>
                 Alimentation keeps the accounts for small mess and tiffin kitchens: every meal,
                 every payment, and what each person still owes.
               </p>
-              <div className="actions load" style={{ ["--d" as string]: "500ms" }}>
+              <div className="actions load" style={cssVars({ "--d": "500ms" })}>
                 <Button size="lg" className="btn-field" render={<Link href={start} />}>
                   {signedIn ? "Open your kitchen" : "Start your kitchen"}
                 </Button>
@@ -134,7 +142,7 @@ export function Home() {
                   See how it works
                 </a>
               </div>
-              <p className="cap load" style={{ ["--d" as string]: "580ms" }} aria-live="polite">
+              <p className="cap load" style={cssVars({ "--d": "580ms" })} aria-live="polite">
                 {cap ? (
                   cap.dedicated ? (
                     <>This is a private copy of Alimentation, with no free-tier limits.</>
@@ -236,18 +244,18 @@ export function Home() {
                 this order, and it ends with a receipt.
               </p>
               <ol className="wipe">
-                <li data-reveal style={{ ["--d" as string]: "0ms" }}>
+                <li data-reveal style={cssVars({ "--d": "0ms" })}>
                   <b>We lock the keys away for good.</b> From that moment nothing in your book can
                   be read, by anyone.
                 </li>
-                <li data-reveal style={{ ["--d" as string]: "80ms" }}>
+                <li data-reveal style={cssVars({ "--d": "80ms" })}>
                   <b>We delete your book.</b> Every meal, payment and note.
                 </li>
-                <li data-reveal style={{ ["--d" as string]: "160ms" }}>
+                <li data-reveal style={cssVars({ "--d": "160ms" })}>
                   <b>We delete the list of who was in your kitchen.</b> Members, invitations and
                   usage.
                 </li>
-                <li data-reveal style={{ ["--d" as string]: "240ms" }}>
+                <li data-reveal style={cssVars({ "--d": "240ms" })}>
                   <b>We hand you a receipt.</b> It says what was removed and names no one.
                 </li>
               </ol>
@@ -308,11 +316,7 @@ export function Home() {
             </p>
             <ol className="promises">
               {PROMISES.map((p, i) => (
-                <li
-                  key={p.title}
-                  data-reveal="row"
-                  style={{ ["--d" as string]: `${(i % 4) * 70}ms` }}
-                >
+                <li key={p.title} data-reveal="row" style={cssVars({ "--d": `${(i % 4) * 70}ms` })}>
                   <h3>{p.title}</h3>
                   <div>
                     <p>{p.how}</p>
@@ -330,21 +334,21 @@ export function Home() {
           <div className="hwrap">
             <Lines lines={["For whoever", "sets it up"]} id="runs-title" />
             <div className="three">
-              <article data-reveal style={{ ["--d" as string]: "0ms" }}>
+              <article data-reveal style={cssVars({ "--d": "0ms" })}>
                 <h3>Our shared service</h3>
                 <p>
                   Cloudflare serves the app. Each kitchen gets its own Neon Postgres project, so one
                   kitchen’s heavy month is never another’s slow one.
                 </p>
               </article>
-              <article data-reveal style={{ ["--d" as string]: "90ms" }}>
+              <article data-reveal style={cssVars({ "--d": "90ms" })}>
                 <h3>Your own storage</h3>
                 <p>
                   Give us the connection address of an empty Postgres database, from any provider.
                   We install our tables, and remove only our tables if you ever go.
                 </p>
               </article>
-              <article data-reveal style={{ ["--d" as string]: "180ms" }}>
+              <article data-reveal style={cssVars({ "--d": "180ms" })}>
                 <h3>Your own server</h3>
                 <p>
                   One Docker command starts everything, with its own Postgres. Moving there is the

@@ -88,7 +88,14 @@ export function DecideDialog({
           label={dispute ? "Why is it disputed? (required)" : "Why is it reversed? (required)"}
           description="Recorded in the audit trail."
         >
-          {(f) => <Textarea {...f} maxLength={500} rows={3} />}
+          {(f) => (
+            <>
+              <Textarea {...f} maxLength={500} rows={3} />
+              <p className="text-right text-xs text-muted-foreground tabular-nums">
+                {String(f.value ?? "").length} of 500
+              </p>
+            </>
+          )}
         </FormField>
       </AppForm>
     </FormDialog>

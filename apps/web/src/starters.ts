@@ -62,7 +62,7 @@ export const STARTERS: readonly Starter[] = [
   {
     id: "blank",
     title: "Blank",
-    about: "Nothing yet. Add your own services and items under Catalogue.",
+    about: "Nothing yet. Add your own services and items under What you serve.",
     services: [],
     items: [],
   },

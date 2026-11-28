@@ -45,8 +45,8 @@ describe("what is shown", () => {
     expect(balance(-58000)).toBe("\u2212₹580");
     expect(monthLong("2026-11")).toBe("November 2026");
     expect(money(334500)).toBe("₹3,345");
-    expect(date("2026-10-24")).toBe("24-Oct-2026");
-    expect(month("2026-10")).toBe("Oct-26");
+    expect(date("2026-10-24")).toBe("24 Oct 2026");
+    expect(month("2026-10")).toBe("Oct 2026");
   });
 
   it("says how long ago in plain words", () => {

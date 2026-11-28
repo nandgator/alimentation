@@ -464,7 +464,11 @@ export function Retention() {
     <>
       <PageHeader
         title="Older months"
-        description="Months older than the window can be handed over to you as a file, then removed from here. Balances carry over to the paisa."
+        description={
+          ws.money
+            ? "Months older than the window can be handed over to you as a file, then removed from here. Balances carry over to the paisa."
+            : "Months older than the window can be handed over to you as a file, then removed from here."
+        }
       />
       <LoadProblem error={res.error} onRetry={res.reload} />
       <PageSkeleton loading={res.loading && !status && !res.error} variant="list">

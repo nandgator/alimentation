@@ -59,10 +59,16 @@ export function PayDialog({
       z.object({
         consumerId: z.string().min(1, "Choose who paid."),
         forMonth: z.string().min(1, "Choose the month it is for."),
-        amount: z.string().refine((v) => {
-          const p = toPaise(v);
-          return p !== null && p > 0;
-        }, "Enter the amount in rupees, like 450 or 450.50."),
+        amount: z
+          .string()
+          .refine((v) => {
+            const p = toPaise(v);
+            return p !== null && p > 0;
+          }, "Enter the amount in rupees, like 450 or 450.50.")
+          .refine((v) => {
+            const p = toPaise(v);
+            return p === null || p <= 10_000_000_000;
+          }, "That amount is too large. Check the figure."),
         method: z.enum(PAY_METHODS),
         paidAt: z
           .string()

@@ -1,5 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { ApiFailure } from "@/api";
+import { type ReactNode, useCallback, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -10,30 +9,7 @@ import { archivedWords } from "../../../retention.ts";
  * for a refusal, an inline error with "Try again", and a card with a real heading.
  */
 
-/** Runs a loader and keeps its result. `reload` fetches again without blanking the screen. */
-export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {
-  const [state, setState] = useState<{ data?: T; error?: ApiFailure; loading: boolean }>({
-    loading: true,
-  });
-  const seq = useRef(0);
-  const run = useCallback(() => {
-    const mine = ++seq.current;
-    setState((s) => ({ ...s, loading: true }));
-    load().then(
-      (data) => mine === seq.current && setState({ data, loading: false }),
-      (e) =>
-        mine === seq.current &&
-        setState((s) => ({
-          ...s,
-          error: e instanceof ApiFailure ? e : new ApiFailure(0, "error", String(e)),
-          loading: false,
-        })),
-    );
-    // biome-ignore lint/correctness/useExhaustiveDependencies: the caller names what the load depends on
-  }, deps);
-  useEffect(run, [run]);
-  return { ...state, reload: run };
-}
+export { useLoad } from "../../../hooks/use-load.ts";
 
 /** What a refusal says, in words meant to be read: a handed-over month is explained, nothing is a code. */
 export const refusalWords = (e: unknown): string =>

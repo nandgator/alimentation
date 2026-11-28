@@ -1,4 +1,5 @@
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
+import { InsideHub } from "@/components/app";
 import { useWorkspace } from "../pages/workspace/context.tsx";
 import {
   denial,
@@ -8,7 +9,7 @@ import {
   sectionsFor,
   tabsFor,
 } from "../pages/workspace/sections.ts";
-import { HubTabs } from "./HubTabs.tsx";
+import { HubHeader } from "./HubTabs.tsx";
 import { Unavailable } from "./Unavailable.tsx";
 import { DETAIL, TAB_VIEW, VIEW } from "./views.tsx";
 
@@ -29,16 +30,18 @@ function HubPage({ hub }: { hub: HubKey }) {
   const View = tab ? TAB_VIEW[tab.key] : undefined;
   if (!tab || !View) return <NothingHere />;
   return (
-    <>
-      <HubTabs
+    <div className="flex flex-col">
+      <HubHeader
         base={ws.base}
         hub={hub}
         active={tab}
         money={ws.money}
         priced={Boolean(ws.boot.rateCard)}
       />
-      <View />
-    </>
+      <InsideHub.Provider value={true}>
+        <View />
+      </InsideHub.Provider>
+    </div>
   );
 }
 

@@ -328,7 +328,7 @@ function navHtml(site, current) {
     .join("");
 }
 
-function pageHtml(site, page, css, index) {
+function pageHtml(site, page, css, index, fonts = []) {
   const { site: meta } = site;
   const prev = site.pages[index - 1];
   const next = site.pages[index + 1];
@@ -363,6 +363,7 @@ function pageHtml(site, page, css, index) {
 <meta name="theme-color" content="#3442a6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d0f16" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+${fonts.map((f) => `<link rel="preload" href="${f}" as="font" type="font/woff2" crossorigin>`).join("\n")}
 <link rel="stylesheet" href="${css}">
 <link rel="stylesheet" href="${ASSETS}docs.css">
 <script src="/theme.js"></script>
@@ -374,7 +375,7 @@ function pageHtml(site, page, css, index) {
 <header class="docs-top">
   <div class="docs-top-in">
     ${home ? "" : '<button type="button" class="docs-menu" aria-expanded="false" aria-controls="docs-nav">Menu</button>'}
-    <a class="docs-brand" href="${meta.base}">${MARK}<span>Alimentation <b>${meta.brand}</b></span></a>
+    <a class="docs-brand" href="${meta.base}">${MARK}<span>Alimentation <b class="docs-which">${SITES.map((x) => `<span${x.dir === meta.dir ? "" : ' aria-hidden="true"'}>${x.brand}</span>`).join("")}</b></span></a>
     ${switcher}
     <div class="docs-search" role="search">
       <label class="sr" for="docs-q">Search the ${meta.brand}</label>
@@ -417,6 +418,16 @@ function appStylesheet(dist) {
   const m = /href="(\/assets\/[^"]+\.css)"/.exec(readFileSync(index, "utf8"));
   if (!m) throw new Error("the web build has no stylesheet to share");
   return m[1];
+}
+
+/**
+ * The font files every page needs before it can be drawn (the Latin cut of the one sans family), fetched with the
+ * page and not when the stylesheet is read, so the words do not move when the font arrives.
+ */
+function firstFonts(dist) {
+  return readdirSync(join(dist, "assets"))
+    .filter((f) => /^figtree-latin-wght-normal-.*\.woff2$/.test(f))
+    .map((f) => `/assets/${f}`);
 }
 
 /** What a page says about itself to a reader that is a program: a line in `llms.txt`. */
@@ -489,6 +500,7 @@ export function buildDocs({
   const sites = SITES.map((site) => loadSite(src, site, blocks));
   checkLinks(sites.flatMap((x) => x.pages));
   const css = appStylesheet(dist);
+  const fonts = firstFonts(dist);
   const assets = join(dist, ASSETS);
   rmSync(assets, { recursive: true, force: true });
   mkdirSync(assets, { recursive: true });
@@ -509,7 +521,7 @@ export function buildDocs({
     site.pages.forEach((p, i) => {
       const dir = p.slug === "index" ? out : join(out, p.slug);
       mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, "index.html"), pageHtml(site, p, css, i));
+      writeFileSync(join(dir, "index.html"), pageHtml(site, p, css, i, fonts));
       written.push(p.url);
     });
     writeFileSync(join(out, "search-index.json"), JSON.stringify(site.pages.map(searchEntry)));

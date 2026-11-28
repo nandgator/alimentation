@@ -253,11 +253,12 @@ test("a new kitchen starts from a home lunch, a mess or nothing, set up with ord
   await signIn(page, `starter-${info.project.name}-${stamp}@example.org`, "Owner");
 
   const start = async (slug: string, name: string, choice: RegExp) => {
-    await page.goto("/app");
-    await page.getByLabel("Name", { exact: true }).fill(name);
+    await page.goto("/app/new");
+    await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
     await page.getByLabel("Address").fill(slug);
-    await page.getByLabel(choice).check();
-    await page.getByRole("button", { name: "Create" }).click();
+    await page.getByRole("radio", { name: choice }).check();
+    await page.getByRole("radio", { name: /^Track money/ }).check();
+    await page.getByRole("button", { name: "Create kitchen" }).click();
     await page.waitForURL(`**/w/${slug}`);
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
   };
@@ -335,6 +336,9 @@ test("a rename shows everywhere and an item in use cannot be retired out from un
   await rowAction(page, "Dal thali", "Retire");
   const retire = page.getByRole("alertdialog", { name: "Retire Dal thali?" });
   await expectAccessible(page, "retire");
+  // Keep it holds the focus, and the destructive button waits for the box.
+  await expect(retire.getByRole("button", { name: "Keep it" })).toBeFocused();
+  await expect(retire.getByRole("button", { name: "Retire Dal thali" })).toBeDisabled();
   await retire.getByRole("checkbox", { name: /I understand this name stays taken/ }).check();
   await retire.getByRole("button", { name: "Retire Dal thali" }).click();
   await expect(retire.getByRole("alert")).toBeVisible();
@@ -342,4 +346,13 @@ test("a rename shows everywhere and an item in use cannot be retired out from un
   await page.keyboard.press("Escape");
   await expect(retire).toBeHidden();
   await expect(page.getByRole("main").getByText("In use", { exact: true }).first()).toBeVisible();
+});
+
+test("the rules dialog opens with its footer in view", async ({ page }, info) => {
+  const { slug } = await kitchen(page, `rul-${info.project.name}`, []);
+  await page.goto(`/w/${slug}/setup/rules`);
+  await page.getByRole("button", { name: "Change the rules" }).click();
+  const dlg = page.getByRole("dialog", { name: "Change the rules" });
+  await expect(dlg.getByRole("button", { name: "Save rules" })).toBeInViewport();
+  await expect(dlg.getByLabel("Applies from").first()).not.toBeFocused();
 });

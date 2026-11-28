@@ -97,7 +97,7 @@ test("[P8] older months are handed over: prepare, download, upload, type the mon
       await route.fulfill({ response: res, json: body });
     });
     await page.goto(`/w/${slug}/books/data`);
-    await expect(page.getByRole("heading", { name: "Your data", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your data", level: 2 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Archive older months" })).toBeVisible();
     await expect(
       page.getByText(`Everything through ${inWords(cut)} can be handed over`),
@@ -112,7 +112,7 @@ test("[P8] older months are handed over: prepare, download, upload, type the mon
     await expectAccessible(page, "your data with the archive banner");
     await page.context().unroute(`**${w}/bootstrap`);
     await page.getByRole("link", { name: "Archive older months" }).click();
-    await expect(page.getByRole("heading", { name: "Older months", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Older months", level: 2 })).toBeVisible();
   });
 
   await test.step("the screen says what can go, what it frees and who owes", async () => {

@@ -75,7 +75,7 @@ describe("who did it, as the reader may know them", () => {
     const member = as("jovial");
     expect(whoLabel("jovial", member)).toBe("You");
     expect(whoLabel("admin", member)).toBe("The admin");
-    expect(whoLabel("maple", member)).toBe("The supplier");
+    expect(whoLabel("maple", member)).toBe("The cook");
     expect(whoLabel("smruti", member)).toBe("Someone");
     expect(whoLabel("smruti", as("maple", ["jovial", "smruti"]))).toBe("Smruti");
     expect(whoLabel(null, member)).toBe("The kitchen’s rules");
@@ -133,10 +133,10 @@ describe("the trail in words", () => {
   it("words a day the kitchen was off", () => {
     const off = { ...entry, person_id: null, all_consumers: true, action: "Supplier Off" };
     expect(describeAudit(row({ actor: "maple", after: off }), me)).toBe(
-      "The supplier marked the kitchen off on 14-Oct-2026.",
+      "The cook marked the kitchen off on 14-Oct-2026.",
     );
     expect(describeAudit(row({ actor: "maple", action: "DELETE", before: off }), me)).toBe(
-      "The supplier removed the kitchen-off day on 14-Oct-2026.",
+      "The cook removed the kitchen-off day on 14-Oct-2026.",
     );
   });
 
@@ -159,10 +159,10 @@ describe("the trail in words", () => {
     const decided = (decision: string) =>
       row({ table: "claim_decision", rowId: "c1", actor: "maple", after: { decision } });
     expect(describeAudit(decided("Confirmed"), me)).toBe(
-      "The supplier confirmed your claim of ₹1,000 for Oct-26.",
+      "The cook confirmed your claim of ₹1,000 for Oct-26.",
     );
     expect(describeAudit(decided("Disputed"), me)).toBe(
-      "The supplier disputed your claim of ₹1,000 for Oct-26.",
+      "The cook disputed your claim of ₹1,000 for Oct-26.",
     );
     expect(
       describeAudit(row({ table: "claim_reversal", rowId: "c1", actor: "admin", after: {} }), me),
@@ -359,17 +359,17 @@ describe("the trail in words", () => {
         service_id,
       });
       expect(describeAudit(row({ actor: "maple", after: off("dinner") }), many)).toBe(
-        "The supplier marked the kitchen off for Dinner on 14-Oct-2026.",
+        "The cook marked the kitchen off for Dinner on 14-Oct-2026.",
       );
       expect(describeAudit(row({ actor: "maple", after: off("dinner") }), one)).toBe(
-        "The supplier marked the kitchen off on 14-Oct-2026.",
+        "The cook marked the kitchen off on 14-Oct-2026.",
       );
       expect(describeAudit(row({ actor: "maple", after: off(null) }), many)).toBe(
-        "The supplier marked the kitchen off on 14-Oct-2026.",
+        "The cook marked the kitchen off on 14-Oct-2026.",
       );
       expect(
         describeAudit(row({ actor: "maple", action: "DELETE", before: off("dinner") }), many),
-      ).toBe("The supplier removed the kitchen-off day for Dinner on 14-Oct-2026.");
+      ).toBe("The cook removed the kitchen-off day for Dinner on 14-Oct-2026.");
     });
     it("shows the current name for an item or service it cannot find as a plain noun", () => {
       const lost = at({ action: "Extra", service_id: "gone", item_id: "gone", qty: 1 });

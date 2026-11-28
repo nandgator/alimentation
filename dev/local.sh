@@ -44,7 +44,7 @@ pg_start() {
   pw="$(cat "$STATE/pg_password")"
   if [ -z "$(ctr ps -aq --filter "name=^$PG_NAME\$")" ]; then
     say "Starting Postgres in a container ($PG_NAME, on 127.0.0.1:$PG_PORT)"
-    ctr run -d --name "$PG_NAME" -p "127.0.0.1:$PG_PORT:5432" -e POSTGRES_PASSWORD="$pw" \
+    ctr run -d --name "$PG_NAME" --shm-size=512m -p "127.0.0.1:$PG_PORT:5432" -e POSTGRES_PASSWORD="$pw" \
       -v "$PG_NAME:/var/lib/postgresql" "$PG_IMAGE" >/dev/null
   elif [ "$(ctr inspect --format '{{.State.Running}}' "$PG_NAME")" != true ]; then
     say "Starting Postgres ($PG_NAME)"
@@ -133,6 +133,8 @@ case "$cmd" in
     export APP_ORIGIN="${APP_ORIGIN:-http://localhost:5173}"
     export API_ORIGIN="http://localhost:$PORT"
     export REFERENCE_ORIGIN="http://127.0.0.1:$REFERENCE_PORT"
+    # The API's own port would show the last build, whose writes the API refuses: it sends a browser to the live page.
+    export WEB_AT="$APP_ORIGIN"
     run_all
     start bun run dev:api
     start bun run dev:web

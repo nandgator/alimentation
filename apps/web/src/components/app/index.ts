@@ -26,7 +26,7 @@ export { Money } from "./Money";
 export { MoneyInput, moneyInputPaise } from "./MoneyInput";
 export { MonthPicker, shiftMonth, UrlMonthPicker } from "./MonthPicker";
 export { NotAvailable } from "./NotAvailable";
-export { PageHeader } from "./PageHeader";
+export { InsideHub, PageHeader } from "./PageHeader";
 export { type Status, StatusBadge } from "./StatusBadge";
 export {
   FormSkeleton,

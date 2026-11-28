@@ -30,7 +30,7 @@ async function go(p: Page, name: string | RegExp) {
 /** A tab of Setup or Books: a link in the row under the page's title. */
 const tab = (p: Page, name: string) =>
   p
-    .getByRole("navigation", { name: /^(Setup|Books)$/ })
+    .getByRole("navigation", { name: /^(Setup|Books) sections$/ })
     .getByRole("link", { name, exact: true })
     .or(p.getByRole("tab", { name, exact: true }))
     .first();
@@ -106,12 +106,16 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
     await test.step("the owner starts a kitchen", async () => {
       await signIn(page, "owner@example.org", "Owner");
       await expect(page.getByRole("heading", { name: "Your kitchens" })).toBeVisible();
-      await page.getByLabel("Name", { exact: true }).fill("Test Kitchen");
+      await expect(page.getByText("You are not in a kitchen yet")).toBeVisible();
+      await page.getByRole("button", { name: "New kitchen" }).first().click();
+      await expect(page.getByRole("heading", { name: "New kitchen", level: 1 })).toBeVisible();
+      await page.getByRole("textbox", { name: "Name", exact: true }).fill("Test Kitchen");
       await page.getByLabel("Address").fill(slug);
       // A kitchen can start from a home lunch, a mess or nothing; this one starts from nothing, and is built by hand.
-      await expect(page.getByLabel(/^Home lunch/)).toBeChecked();
-      await page.getByLabel(/^Blank/).check();
-      await page.getByRole("button", { name: "Create" }).click();
+      await expect(page.getByRole("radio", { name: /^Home lunch/ })).toBeChecked();
+      await page.getByRole("radio", { name: /^Blank/ }).check();
+      await page.getByRole("radio", { name: /^Track money/ }).check();
+      await page.getByRole("button", { name: "Create kitchen" }).click();
       await page.waitForURL(`**/w/${slug}`);
       await expect(page.getByRole("heading", { name: "Test Kitchen", level: 1 })).toBeVisible();
       // The first screen is a checklist of the four steps, with the first of them still to do.
@@ -358,7 +362,7 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       await expect(jovial.getByText(/The admin removed your Leave entry for /)).toBeVisible();
       await expect(jovial.getByText(/You claimed ₹1,000 for \w{3} \d{4} \(UPI\)\./)).toBeVisible();
       await expect(
-        jovial.getByText(/The supplier confirmed your claim of ₹1,000 for \w{3} \d{4}\./),
+        jovial.getByText(/The cook confirmed your claim of ₹1,000 for \w{3} \d{4}\./),
       ).toBeVisible();
       // Nothing about anyone else, and no name but their own.
       await expect(jovial.getByRole("main")).not.toContainText(/Owner|Maple|owner@/);
@@ -394,7 +398,7 @@ test("a kitchen from its first day to its last: set up, use, go offline, move, a
       target.pathname = `/${external}`;
       await go(page, "Books");
       await tab(page, "Your data").click();
-      await expect(page.getByRole("heading", { name: "Your data", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Your data", level: 2 })).toBeVisible();
       await shot(page, info, "8-your-data");
       await page.getByLabel("Connection string of an empty Postgres").fill(target.toString());
       await page.getByRole("button", { name: "Check it first" }).click();

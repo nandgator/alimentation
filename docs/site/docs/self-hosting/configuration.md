@@ -85,11 +85,12 @@ the same step that makes the kitchen, so a rush of sign-ups cannot take more tha
 
 ## The process
 
-| Setting    | What it is                                                                                                        |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV` | `development`, `test` or `production`. Production turns on the refusals listed above.                             |
-| `PORT`     | Node only. The port the server listens on. Default `8787`.                                                        |
-| `WEB_DIR`  | Node only. The built web app to serve with the API. Default `../web/dist`; when it is missing, only the API runs. |
+| Setting    | What it is                                                                                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV` | `development`, `test` or `production`. Production turns on the refusals listed above.                                                                                              |
+| `PORT`     | Node only. The port the server listens on. Default `8787`.                                                                                                                         |
+| `WEB_DIR`  | Node only. The built web app to serve with the API. Default `../web/dist`; when it is missing, only the API runs.                                                                  |
+| `WEB_AT`   | Node only. The address the web app is served from when it is not served here (Vite, while developing): a browser asking this server for a page is sent there. Unset in production. |
 
 ## What the server refuses
 

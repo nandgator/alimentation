@@ -408,11 +408,7 @@ export function LogDialog({
         <FormField name="date" label="Which day?">
           {(f) => (
             <div className="flex flex-col gap-2">
-              <div
-                role="group"
-                aria-label="Days"
-                className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
-              >
+              <div role="group" aria-label="Days" className="flex flex-wrap gap-2">
                 {chips.map((c) => (
                   <Button
                     key={c.iso}

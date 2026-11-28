@@ -10,7 +10,7 @@ try {
 }
 
 // A theme chosen by hand dissolves into the other instead of switching: the browser keeps a picture of the page as
-// it was and fades it into the page as it is (the length of the fade is `--dur-4`, see styles.css). Where the
+// it was and fades it into the page as it is (the length of the fade is `--dur-4`, see theme.css). Where the
 // browser cannot, or motion is reduced, the colours simply change. Every control that changes the theme goes
 // through this, so the home page, the app, the guides and the docs all change colour the same way.
 window.fadeTheme = (apply) => {

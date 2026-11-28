@@ -76,7 +76,7 @@ export function MonthlyChart({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {anyProjected ? "* projected: the month is not over yet." : "Each month, as billed."}
+          {anyProjected ? "* projected: the month is not over yet." : "Each month."}
         </p>
         <Button
           type="button"

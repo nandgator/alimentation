@@ -8,3 +8,5 @@ export interface Problem {
 export function check(): Problem[];
 export function checkCssText(text: string, file?: string, rules?: string): Problem[];
 export function checkTsxText(text: string, file?: string): Problem[];
+export function checkSpecText(text: string, file?: string): Problem[];
+export function checkPageText(text: string, file?: string): Problem[];

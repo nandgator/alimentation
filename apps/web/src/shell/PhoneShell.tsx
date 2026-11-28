@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, EllipsisIcon } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
-import { Link } from "wouter";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,9 +34,17 @@ function BottomSheet({
   children: ReactNode;
 }) {
   useBackClosesSheet(open, () => onOpenChange(false));
+  // Leaving by a link: the page's heading takes focus (RouteEffects), so the sheet must not give it back to its opener.
+  const [where] = useLocation();
+  const openedAt = useRef(where);
+  if (!open) openedAt.current = where;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="shell-sheet gap-2 rounded-t-xl">
+      <SheetContent
+        side="bottom"
+        className="shell-sheet gap-2 rounded-t-xl"
+        finalFocus={() => openedAt.current === where}
+      >
         <div
           aria-hidden="true"
           className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-muted-foreground/30"
@@ -121,6 +129,7 @@ export function PhoneShell({ children }: { children: ReactNode }) {
       <main
         id="main"
         tabIndex={-1}
+        // design: the page ends above the bottom bar, whose height is a token
         className="min-w-0 flex-1 px-4 pt-4 pb-[calc(var(--bottom-bar)+1rem)] outline-none [view-transition-name:page]"
       >
         {children}
@@ -146,7 +155,7 @@ export function PhoneShell({ children }: { children: ReactNode }) {
               <span className="relative">
                 <sec.icon />
                 {badge ? (
-                  <span className="absolute -top-1.5 left-3 min-w-4 rounded-full bg-primary px-1 text-center text-xs leading-4 text-primary-foreground tabular-nums">
+                  <span className="absolute -top-1.5 left-3 min-w-4 rounded-full whitespace-nowrap bg-primary px-1 text-center text-xs leading-4 text-primary-foreground tabular-nums">
                     {badge.text}
                     {badge.sr ? <span className="sr-only"> {badge.sr}</span> : null}
                   </span>
@@ -181,7 +190,7 @@ export function PhoneShell({ children }: { children: ReactNode }) {
         title="More"
         description="The rest of the screens of this kitchen."
       >
-        <nav aria-label="More sections" className="flex flex-col gap-1 px-2 pb-4">
+        <nav aria-label="More sections" className="flex flex-col gap-2 px-3 pb-4">
           {s.nav.more.map((sec) => (
             <Link
               key={sec.key}
@@ -190,7 +199,9 @@ export function PhoneShell({ children }: { children: ReactNode }) {
               aria-current={s.isActive(sec) ? "page" : undefined}
               className={cn(
                 "flex min-h-12 items-center gap-3 rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                s.isActive(sec) ? "bg-accent text-accent-foreground" : "hover:bg-muted",
+                s.isActive(sec)
+                  ? "bg-accent text-accent-foreground"
+                  : "pointer-fine:hover:bg-muted",
               )}
             >
               <sec.icon className="size-5" />

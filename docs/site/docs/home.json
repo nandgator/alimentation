@@ -2,7 +2,7 @@
   "hero": {
     "name": "Alimentation",
     "text": "Documentation",
-    "tagline": "How it is built, how to run it, and what it promises about your data. For whoever runs, extends or audits a kitchen's server.",
+    "tagline": "How it is built, how to run it, and what it promises about your data, for whoever runs or audits a server.",
     "actions": [
       {
         "text": "Run it yourself",

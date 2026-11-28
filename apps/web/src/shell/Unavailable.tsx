@@ -20,12 +20,15 @@ export function Unavailable({
   home = "/app",
   homeLabel = "Go to your home",
   showKitchens = true,
+  onRetry,
 }: {
   title: string;
   reason: string;
   home?: string;
   homeLabel?: string;
   showKitchens?: boolean;
+  /** For a fault that may pass: a way to ask again. */
+  onRetry?: () => void;
 }) {
   return (
     <Empty className="mx-auto max-w-lg py-16">
@@ -42,8 +45,17 @@ export function Unavailable({
         </h1>
         <EmptyDescription>{reason}</EmptyDescription>
       </EmptyHeader>
-      <EmptyContent className="flex-row justify-center">
-        <Button nativeButton={false} render={<Link href={home} />}>
+      <EmptyContent className="flex-row flex-wrap justify-center">
+        {onRetry ? (
+          <Button type="button" onClick={onRetry}>
+            Try again
+          </Button>
+        ) : null}
+        <Button
+          variant={onRetry ? "outline" : "default"}
+          nativeButton={false}
+          render={<Link href={home} />}
+        >
           {homeLabel}
         </Button>
         {showKitchens ? (

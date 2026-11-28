@@ -147,7 +147,7 @@ const NAV: Record<Role, { side: SectionKey[]; bar: SectionKey[] }> = {
   },
 };
 
-const shown = (
+export const shown = (
   s: { money?: true; needsPrices?: true },
   moneyEnabled: boolean,
   priced: boolean,

@@ -128,7 +128,11 @@ function AddHoliday({ onClose, onDone }: { onClose: () => void; onDone: () => vo
         checked={confirmed}
         onChange={(c) => form.setValue("confirmed", c, { shouldDirty: true })}
         title="Confirmed"
-        description="A meal is not served and not billed. Leave it off for a holiday that may change."
+        description={
+          ws.money
+            ? "A meal is not served and not billed. Leave it off for a holiday that may change."
+            : "A meal is not served. Leave it off for a holiday that may change."
+        }
       />
     </FormModal>
   );
@@ -373,7 +377,11 @@ export function HolidaysTab() {
     <div className="flex flex-col gap-4">
       <Section
         title="Holidays"
-        description="Days with no meal. Confirmed holidays are not served and not billed."
+        description={
+          ws.money
+            ? "Days with no meal. Confirmed holidays are not served and not billed."
+            : "Days with no meal. Confirmed holidays are not served."
+        }
         actions={
           <>
             <Button

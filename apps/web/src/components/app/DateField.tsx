@@ -99,7 +99,7 @@ export function DateField({
       type="button"
       variant="outline"
       className={cn(
-        "w-full justify-start font-normal tabular-nums",
+        "w-full justify-start bg-transparent font-normal tabular-nums",
         !value && "text-muted-foreground",
         className,
       )}

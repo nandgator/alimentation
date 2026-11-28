@@ -49,18 +49,44 @@ test("a kitchen made from a starter has one next step, a menu from the first of 
   await signIn(page, `first-${info.project.name}-${stamp}@example.org`, "Owner");
 
   await test.step("the create screen puts each control on one row with its words", async () => {
-    await page.goto("/app");
-    await expect(page.getByRole("heading", { name: "Start a kitchen" })).toBeVisible();
+    await page.goto("/app/new");
+    await expect(page.getByRole("heading", { name: "New kitchen", level: 1 })).toBeVisible();
     await expectControlsBesideWords(page, "create a kitchen");
     await expectAccessible(page, "create a kitchen");
     await shot(page, info, "after-create-kitchen");
   });
 
-  await test.step("it is made from the home lunch starter", async () => {
-    await page.getByLabel("Name", { exact: true }).fill(`Willow ${stamp}`);
+  await test.step("the address is checked as it is typed, and the money choice has no default", async () => {
+    await page.getByRole("textbox", { name: "Name", exact: true }).fill(`Willow ${stamp}`);
     await page.getByLabel("Address").fill(slug);
+    await expect(page.getByText("Available", { exact: true })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Track money/ })).not.toBeChecked();
+    await expect(page.getByRole("radio", { name: /^Meals only/ })).not.toBeChecked();
+    // Without a choice the form says so, beside the choice, and makes nothing.
+    await page.getByRole("button", { name: "Create kitchen" }).click();
+    await expect(page.getByText("Choose whether this kitchen tracks money").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/new$/);
+  });
+
+  await test.step("a taken address says so, with another to use", async () => {
+    const first = await page.request.post("/api/workspaces", {
+      data: { slug: `taken-${info.project.name}-${stamp}`, name: "Taken" },
+    });
+    expect(first.status()).toBe(201);
+    await page.getByLabel("Address").fill(`taken-${info.project.name}-${stamp}`);
+    await expect(page.getByText(/^Taken\. Try /)).toBeVisible();
+    await page
+      .getByRole("button", { name: new RegExp(`taken-${info.project.name}-${stamp}-2`) })
+      .click();
+    await expect(page.getByLabel("Address")).toHaveValue(`taken-${info.project.name}-${stamp}-2`);
+    await page.getByLabel("Address").fill(slug);
+    await expect(page.getByText("Available", { exact: true })).toBeVisible();
+  });
+
+  await test.step("it is made from the home lunch starter", async () => {
     await page.getByRole("radio", { name: /Home lunch/ }).check();
-    await page.getByRole("button", { name: "Create" }).click();
+    await page.getByRole("radio", { name: /^Track money/ }).check();
+    await page.getByRole("button", { name: "Create kitchen" }).click();
     await page.waitForURL(`**/w/${slug}`);
   });
 
@@ -131,7 +157,7 @@ test("a kitchen made from a starter has one next step, a menu from the first of 
       .click();
     await expect(
       dlg.getByText(
-        /Your menu starts on 01-.*, so days before that are not counted\. Set an earlier start under Menu\./,
+        /Your menu starts on 1 \w+ \d{4}, so days before that are not counted\. Set an earlier start under Menu\./,
       ),
     ).toBeVisible();
     await expect(dlg).not.toContainText(/SERVICE_NOT_SERVED|is not served/);

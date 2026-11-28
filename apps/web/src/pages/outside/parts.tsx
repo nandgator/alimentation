@@ -1,4 +1,4 @@
-import { CircleAlertIcon } from "lucide-react";
+import { CheckIcon, CircleAlertIcon, CopyIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiFailure, getJson } from "@/api";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,6 +11,7 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -191,5 +192,42 @@ export function RadioCards<V extends string>({
         </FieldLabel>
       ))}
     </RadioGroup>
+  );
+}
+
+/** A read-only value to select and copy, such as a link to send: the field, and a button that copies it. */
+export function CopyField({
+  label,
+  value,
+  copyLabel,
+}: {
+  label: string;
+  value: string;
+  copyLabel: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        readOnly
+        value={value}
+        aria-label={label}
+        onFocus={(e) => e.currentTarget.select()}
+        className="min-w-0 grow font-mono"
+      />
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          void navigator.clipboard?.writeText(value).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          })
+        }
+      >
+        {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
+        {copied ? "Copied" : copyLabel}
+      </Button>
+    </div>
   );
 }

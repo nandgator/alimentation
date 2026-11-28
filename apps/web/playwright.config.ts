@@ -54,6 +54,8 @@ export default defineConfig({
         INSTANCE_DIR: mkdtempSync(join(tmpdir(), "alim-e2e-")),
         PLACEMENT_ADMIN_URL: PG,
         OPERATOR_EMAILS: "operator@example.org",
+        // The journey is a whole kitchen's life in one sitting: more requests than the free day of 1,000.
+        FREE_LIMITS_JSON: JSON.stringify({ requestsPerDay: 5000 }),
       },
     },
     {

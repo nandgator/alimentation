@@ -112,8 +112,14 @@ export function History() {
         title="History"
         description={
           ws.role === "consumer"
-            ? "Everything done to your meals, payments and bills, and by whom. It cannot be changed or removed."
-            : "Everything done to the meals, payments and bills you can see, and by whom. It cannot be changed or removed."
+            ? (ws.money
+                ? "Everything done to your meals, payments and bills, and by whom."
+                : "Everything done to your meals, and by whom.") +
+              " It cannot be changed or removed."
+            : (ws.money
+                ? "Everything done to the meals, payments and bills you can see, and by whom."
+                : "Everything done to the meals you can see, and by whom.") +
+              " It cannot be changed or removed."
         }
       />
 

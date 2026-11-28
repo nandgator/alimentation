@@ -4,7 +4,7 @@ import { type CSSProperties, useId } from "react";
 /*
  * Steam over a lid. A wisp is one long S-curve, anchored behind the lid, along which a stretch of line travels up
  * and thins into the air: it is never a shape that comes loose and floats, which is what makes steam look drawn
- * on. The curve is made here from a few numbers; the stylesheet moves the travelling stretch (`.wisp` in home.css).
+ * on. The curve is made here from a few numbers; the stylesheet moves the travelling stretch (`.wisp` in home/art.css).
  *
  * What keeps it from looking mechanical: it starts behind the lid, so it comes out of something; each wisp has its
  * own length, thickness, lean and sway, so no two are alike; and it thins by a mask fixed to the scene, so a stretch

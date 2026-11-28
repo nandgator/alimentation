@@ -1,168 +1,204 @@
 /// <reference types="node" />
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { check, checkCssText, checkTsxText } from "../../../scripts/check-design.mjs";
+import {
+  check,
+  checkCssText,
+  checkPageText,
+  checkSpecText,
+  checkTsxText,
+} from "../../../scripts/check-design.mjs";
 
-const rulesBroken = (css: string) => [...new Set(checkCssText(css).map((p) => p.rule))].sort();
+const rules = (problems: { rule: string }[]) => [...new Set(problems.map((p) => p.rule))].sort();
+const tsx = (code: string, file = "src/pages/A.tsx") => rules(checkTsxText(code, file));
+const css = (code: string, set = "all") => rules(checkCssText(code, "a.css", set));
 
 describe("the application keeps to its design system", () => {
   it("has no departure from it anywhere", () => {
     expect(check().map((p) => `${p.file}:${p.line} [${p.rule}] ${p.why}`)).toEqual([]);
   });
+
+  it("has left the old stylesheets, the old controls and the token bridge behind", () => {
+    const src = join(import.meta.dirname);
+    for (const gone of ["styles.css", "home.css", "components/ui.tsx", "components/legacy"])
+      expect(existsSync(join(src, gone)), gone).toBe(false);
+  });
 });
 
-describe("the design checker notices what it is for", () => {
-  it("accepts a rule written in tokens", () => {
+describe("the checker notices what it is for", () => {
+  it("accepts a screen written in tokens", () => {
     expect(
-      rulesBroken(`
-        .a {
-          color: var(--ink);
-          background: color-mix(in srgb, var(--brand) 80%, white);
-          border-radius: var(--radius-md);
-          box-shadow: var(--elev-menu);
-          z-index: var(--z-bar);
-          font: 600 var(--text-sm)/1.2 var(--sans);
-          font-size: var(--text-lg);
-          padding: 8px 12px 24px;
-          margin: 0 auto;
-          transition: opacity var(--dur-2) var(--ease-out);
-        }
-        @media (max-width: 720px) { .a { gap: 96px; } }
-      `),
-    ).toEqual([]);
-  });
-
-  it("notices a colour that is not a token, in any notation", () => {
-    for (const c of ["#123456", "#abc", "rgb(1 2 3)", "rgba(0, 0, 0, 0.5)", "hsl(120 40% 40%)"])
-      expect(rulesBroken(`.a { color: ${c}; }`), c).toEqual(["colour"]);
-    // A token may name a colour: that is where colours are made.
-    expect(rulesBroken(`:root { --brand: #1f4d3a; }`)).toEqual([]);
-  });
-
-  it("notices a shadow that is not on the scale, and one pushed through a filter", () => {
-    expect(rulesBroken(".a { box-shadow: 0 1px 2px black; }")).toEqual(["shadow"]);
-    expect(rulesBroken(".a { filter: drop-shadow(0 2px 3px black); }")).toEqual(["shadow"]);
-    expect(rulesBroken(".a { box-shadow: none; }")).toEqual([]);
-  });
-
-  it("notices a layer that is not on the scale, but allows a few inside a component", () => {
-    expect(rulesBroken(".a { z-index: 999; }")).toEqual(["layer"]);
-    expect(rulesBroken(".a { z-index: 1; }")).toEqual([]);
-    expect(rulesBroken(".a { z-index: calc(var(--z-drawer) - 1); }")).toEqual([]);
-  });
-
-  it("notices motion that does not use the shared durations and curves", () => {
-    expect(rulesBroken(".a { transition: opacity 300ms var(--ease-out); }")).toEqual(["motion"]);
-    expect(rulesBroken(".a { animation: x 1s cubic-bezier(0, 0, 1, 1); }")).toEqual(["motion"]);
-    expect(rulesBroken(".a { transition: opacity var(--dur-1) ease; }")).toEqual([]);
-    // Reduced motion is the one place that turns it down to nothing.
-    expect(
-      rulesBroken(
-        "@media (prefers-reduced-motion: reduce) { .a { transition-duration: 0.001ms !important; } }",
+      tsx(
+        `<div className="flex gap-4 rounded-xl border bg-card p-4 text-sm text-muted-foreground shadow-md">
+           <Button variant="outline">Save</Button>
+         </div>`,
       ),
     ).toEqual([]);
   });
 
-  it("notices a font, a size, a radius and a space that are off their scales", () => {
-    expect(rulesBroken(".a { font-family: Arial; }")).toEqual(["font"]);
-    expect(rulesBroken(".a { font-size: 13px; }")).toEqual(["type"]);
-    expect(rulesBroken(".a { font: 600 0.8rem/1.2 var(--sans); }")).toEqual(["type"]);
-    expect(rulesBroken(".a { border-radius: 7px; }")).toEqual(["radius"]);
-    expect(rulesBroken(".a { padding: 7px; }")).toEqual(["space"]);
-    expect(rulesBroken(".a { gap: 26px; }")).toEqual(["space"]);
-    // A rem is the pixels it comes to, so stepping round the grid in rem does not get past.
-    expect(rulesBroken(".a { margin: 1.2rem 0; }")).toEqual(["space"]);
-    expect(rulesBroken(".a { padding: 0.4rem; }")).toEqual(["space"]);
-    expect(rulesBroken(".a { margin: 0.5rem 1.5rem 3rem; }")).toEqual([]);
-  });
-
-  it("notices !important outside reduced motion, and a breakpoint that is not one of ours", () => {
-    expect(rulesBroken(".a { color: var(--ink) !important; }")).toEqual(["important"]);
-    expect(rulesBroken("@media (max-width: 777px) { .a { gap: 4px; } }")).toEqual(["breakpoint"]);
-  });
-
-  describe("a select draws its own arrow, and keeps room for it", () => {
-    const shared = "input, select, textarea { padding: 10px 12px; }";
-    const arrow = `select { appearance: none; padding-right: 40px; background-image: linear-gradient(to top right, transparent, var(--ink-2)); }`;
-    const why = (css: string) => checkCssText(css).map((p) => `${p.rule}: ${p.why}`);
-
-    it("accepts the shared arrow, and a narrower select that leaves its room alone", () => {
-      expect(
-        why(`${shared}\n${arrow}\n.acting select { padding-block: 4px; padding-left: 10px; }`),
-      ).toEqual([]);
-      expect(why(".a { color: var(--ink); }")).toEqual([]);
+  describe("colour", () => {
+    it("notices a raw colour in a class, in a string and in a stylesheet, in any notation", () => {
+      for (const c of [
+        "#123456",
+        "#abc",
+        "rgb(1 2 3)",
+        "rgba(0, 0, 0, 0.5)",
+        "hsl(120 40% 40%)",
+        "oklch(0.5 0.1 200)",
+      ]) {
+        expect(tsx(`<p className="bg-[${c}]">x</p>`), c).toContain("colour");
+        expect(tsx(`const c = "${c}";`), c).toContain("colour");
+        expect(css(`.a { color: ${c}; }`), c).toEqual(["colour"]);
+      }
     });
-
-    it("accepts drawing the open list as well, where the browser allows it", () => {
+    it("lets a colour be mixed from tokens, and a link keep its anchor", () => {
       expect(
-        why(
-          `${shared}\n${arrow}\n@supports (appearance: base-select) { select, ::picker(select) { appearance: base-select; } select::picker-icon { display: none; } }`,
+        css(".a { background: color-mix(in oklch, var(--primary) 20%, transparent); }"),
+      ).toEqual([]);
+      expect(tsx(`<a href="#main">Skip</a>`)).toEqual([]);
+      expect(tsx(`<p className="bg-primary/10 text-primary">x</p>`)).toEqual([]);
+    });
+  });
+
+  describe("shadow and radius", () => {
+    it("notices a shadow or a radius that is not a token", () => {
+      expect(css(".a { box-shadow: 0 1px 2px var(--x); }")).toEqual(["shadow"]);
+      expect(css(".a { filter: drop-shadow(0 2px 3px black); }")).toEqual(["shadow"]);
+      expect(css(".a { border-radius: 7px; }")).toEqual(["radius"]);
+      expect(tsx(`<p className="shadow-[0_1px_3px_black]">x</p>`)).toEqual(["shadow"]);
+      expect(tsx(`<p className="rounded-[7px]">x</p>`)).toEqual(["radius"]);
+    });
+    it("accepts none, a token, a pill and a circle", () => {
+      expect(css(".a { box-shadow: none; border-radius: var(--radius); }")).toEqual([]);
+      expect(css(".a { box-shadow: var(--lift); border-radius: 50%; }")).toEqual([]);
+      expect(css(".a { filter: drop-shadow(var(--x)); border-radius: 999px; }")).toEqual([]);
+      expect(tsx(`<p className="rounded-lg shadow-md">x</p>`)).toEqual([]);
+    });
+  });
+
+  describe("arbitrary values", () => {
+    it("notices an arbitrary length, except in the shadcn components", () => {
+      expect(tsx(`<p className="w-[13px]">x</p>`)).toEqual(["arbitrary"]);
+      expect(tsx(`<p className="md:min-h-[2.5rem] -mt-[3px]">x</p>`)).toEqual(["arbitrary"]);
+      expect(tsx(`<p className="w-[13px]">x</p>`, "src/components/ui/card.tsx")).toEqual([]);
+    });
+    it("accepts a value that is not a length, or is a token", () => {
+      expect(
+        tsx(
+          `<p className="grid-cols-[1fr_auto] w-[var(--sidebar-width)] font-[650] [&_svg]:size-4">x</p>`,
         ),
       ).toEqual([]);
-      // But a select cannot be handed back to the browser's own drawing.
-      expect(why(`${shared}\n${arrow}\nselect.fit { appearance: auto; }`).join("|")).toMatch(
-        /appearance stays none/,
-      );
     });
+  });
 
-    it("notices the browser being left to draw the arrow, wherever it likes", () => {
-      expect(why(`${shared}\nselect { min-height: 44px; }`).join("|")).toMatch(/appearance none/);
-      expect(why(`${shared}\nselect { appearance: auto; padding-right: 40px; }`).join("|")).toMatch(
-        /appearance none/,
-      );
+  describe("native controls", () => {
+    it("notices a native number, date, checkbox, radio or file input, and a select", () => {
+      for (const t of ["number", "date", "checkbox", "radio", "file"])
+        expect(tsx(`<input type="${t}" />`), t).toEqual(["control"]);
+      expect(tsx(`<select><option>a</option></select>`)).toEqual(["control"]);
     });
-
-    it("notices selects that are styled with no rule to draw their arrow", () => {
-      expect(why(`${shared}\n.acting select { padding-block: 4px; }`).join("|")).toMatch(
-        /no `select` rule that draws their arrow/,
-      );
+    it("lets the kit itself use them, and a text field alone", () => {
+      expect(tsx(`<input type="number" />`, "src/components/app/CountInput.tsx")).toEqual([]);
+      expect(tsx(`<input type="date" />`, "src/components/ui/calendar.tsx")).toEqual([]);
+      expect(tsx(`<input type="text" /><input type="email" />`)).toEqual([]);
     });
+  });
 
-    it("notices an arrow with no room: the mistake that put it against the edge", () => {
+  it("notices a page reload", () => {
+    expect(tsx(`onClick={() => window.location.reload()}`)).toEqual(["reload"]);
+    expect(tsx(`location.reload();`)).toEqual(["reload"]);
+    expect(tsx(`const reload = () => load();`)).toEqual([]);
+  });
+
+  describe("icons", () => {
+    it("notices another icon set, and an inline svg outside the places that draw", () => {
+      expect(tsx(`import { FiX } from "react-icons/fi";`)).toEqual(["icon"]);
+      expect(tsx(`<svg viewBox="0 0 1 1" />`)).toEqual(["icon"]);
+    });
+    it("accepts lucide, and the drawn pictures", () => {
+      expect(tsx(`import { XIcon } from "lucide-react";`)).toEqual([]);
+      expect(tsx(`<svg viewBox="0 0 1 1" />`, "src/components/Mark.tsx")).toEqual([]);
+      expect(tsx(`<svg viewBox="0 0 1 1" />`, "src/home/art.tsx")).toEqual([]);
+    });
+  });
+
+  describe("role names", () => {
+    it("notices a role written out in the words a person reads", () => {
+      expect(tsx(`<p>Ask your Supplier</p>`)).toEqual(["role"]);
+      expect(tsx(`const t = "Members";`)).toEqual(["role"]);
+      expect(tsx("toast(`Added a Member`)")).toEqual(["role"]);
+    });
+    it("leaves the label table, comments and code alone", () => {
+      expect(tsx(`const ROLE_LABEL = { supplier: "Cook" };`)).toEqual([]);
+      expect(tsx(`// a Supplier in the old words\nconst role = "supplier";`)).toEqual([]);
       expect(
-        why(`${shared}\n${arrow}\n.acting select { padding: 0.3rem 0.6rem; }`).join("|"),
-      ).toMatch(/leave 40px at the right/);
-      expect(why(`${shared}\n${arrow}\nselect.fit { padding-right: 8px; }`).join("|")).toMatch(
-        /leave 40px at the right/,
+        tsx(`export const ROLE_LABEL = { admin: "Member" };`, "src/pages/workspace/sections.ts"),
+      ).toEqual([]);
+    });
+  });
+
+  describe("inline styles", () => {
+    it("notices a style that is not explained", () => {
+      expect(tsx(`<p style={{ marginTop: 16 }}>x</p>`)).toEqual(["inline"]);
+      expect(tsx(`<i style={{ ["--pct" as string]: pct }} />`)).toEqual(["inline"]);
+    });
+    it("accepts one that says why, on its line or the line above", () => {
+      expect(tsx(`<i style={{ ["--pct" as string]: pct }} /> // design: the bar's width`)).toEqual(
+        [],
+      );
+      expect(tsx(`// design: a place from the scroll\n<g style={{ transform: world }} />`)).toEqual(
+        [],
       );
       expect(
-        why(
-          `${shared}\nselect { appearance: none; padding-right: 12px; background-image: linear-gradient(red, blue); }`,
-        ).join("|"),
-      ).toMatch(/padding-right of 40px or more/);
+        tsx(`{/* design: a place from the scroll */}\n<g style={{ transform: world }} />`),
+      ).toEqual([]);
     });
-
-    it("notices the select rule coming before the shared one, which would then undo its room", () => {
-      expect(why(`${arrow}\n${shared}`).join("|")).toMatch(/must come after the shared/);
+    it("does not take a comment mark inside a string for a comment", () => {
+      expect(tsx(`const u = "https://example.org"; const c = "#123456";`)).toEqual(["colour"]);
+    });
+    it("reads a waiver only as far as the next line", () => {
+      expect(tsx(`// design: why\nconst a = 1;\n<p style={{ margin: 1 }} />`)).toEqual(["inline"]);
     });
   });
 
-  it("lets a line say why it is the exception, on that line only", () => {
-    expect(
-      rulesBroken(".a { color: #123456; /* design: a brand mark that must not change */ }"),
-    ).toEqual([]);
-    expect(rulesBroken(".a { color: #123456; }\n.b { color: #654321; /* design: why */ }")).toEqual(
-      ["colour"],
-    );
+  it("notices a small filled dot standing for a status", () => {
+    expect(tsx(`<span className="size-2 rounded-full bg-success" />`)).toEqual(["status"]);
+    expect(tsx(`<span className="size-3 rounded-full bg-warning" />`)).toEqual(["status"]);
+    expect(tsx(`<span className="size-8 rounded-full bg-muted" />`)).toEqual([]);
+    expect(tsx(`<StatusBadge tone="success">Paid</StatusBadge>`)).toEqual([]);
   });
 
-  it("exempts the pictures of the home page from shape and space, and from nothing else", () => {
-    const css = ".a { border-radius: 3px; padding: 7px; color: #123456; }";
-    expect(
-      checkCssText(css, "home.css", "colour shadow layer important font").map((p) => p.rule),
-    ).toEqual(["colour"]);
+  describe("tests find things by what a person sees", () => {
+    it("notices a selector by class", () => {
+      expect(rules(checkSpecText(`page.locator(".card")`))).toEqual(["selector"]);
+      expect(rules(checkSpecText(`page.locator("div.row > span")`))).toEqual(["selector"]);
+      expect(rules(checkSpecText(`el.querySelector('[class*="tone"]')`))).toEqual(["selector"]);
+    });
+    it("accepts role, label, text, test ids and attributes", () => {
+      expect(
+        checkSpecText(
+          `page.getByRole("button", { name: "Save" });\npage.locator("[data-sonner-toast]");\npage.locator("main h1");\npage.locator("a[href='/x.y']");`,
+        ),
+      ).toEqual([]);
+    });
+    it("lets a line say why", () => {
+      expect(checkSpecText(`// design: why\nel.querySelector(".hljs")`)).toEqual([]);
+    });
   });
 
-  it("notices styling done inline, and allows handing a value to the stylesheet", () => {
-    expect(checkTsxText(`<p style={{ marginTop: 16 }}>x</p>`).map((p) => p.rule)).toEqual([
-      "inline",
-    ]);
-    expect(checkTsxText(`<p style={{ color: ok ? 'red' : 'blue' }}>x</p>`)).toHaveLength(1);
-    expect(checkTsxText(`<i style={{ ['--pct' as string]: \`\${pct}%\` }} />`)).toEqual([]);
-    expect(checkTsxText(`<div style={{ ['--gap' as string]: 'var(--space-2)' }}>x</div>`)).toEqual(
-      [],
-    );
-    expect(
-      checkTsxText(`// design: a place from the scroll\n<g style={{ transform: world }} />`),
-    ).toEqual([]);
+  describe("every screen has a title", () => {
+    it("notices a screen with no PageHeader or NotAvailable", () => {
+      expect(rules(checkPageText(`export function P() { return <div>hello</div>; }`))).toEqual([
+        "title",
+      ]);
+      expect(checkPageText(`return <PageHeader title="A" />;`)).toEqual([]);
+      expect(checkPageText(`return <NotAvailable />;`)).toEqual([]);
+    });
+  });
+
+  it("checks the stylesheets of the home page for colour and shadow only", () => {
+    const sheet = ".a { border-radius: 3px; padding: 7px; color: #123456; }";
+    expect(checkCssText(sheet, "art.css", "colour shadow").map((p) => p.rule)).toEqual(["colour"]);
   });
 });

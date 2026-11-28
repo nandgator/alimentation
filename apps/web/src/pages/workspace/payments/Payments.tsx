@@ -188,26 +188,28 @@ function PaymentsScreen() {
         </Card>
         <h2 className="mb-2 text-lg font-semibold">Your payments</h2>
         <PageSkeleton loading={claims.loading && !claims.data} variant="table">
-          <ClaimsTable
-            claims={mine}
-            actions={actions}
-            showPerson={false}
-            canDecide={false}
-            empty={
-              <EmptyState
-                icon={IndianRupeeIcon}
-                title="No payments yet"
-                description="When you pay, tell the kitchen here. It shows as pending until the cook confirms it."
-                action={
-                  canPay ? (
-                    <Button type="button" onClick={() => setPaying(true)}>
-                      I paid
-                    </Button>
-                  ) : undefined
-                }
-              />
-            }
-          />
+          {claims.error && !claims.data ? null : (
+            <ClaimsTable
+              claims={mine}
+              actions={actions}
+              showPerson={false}
+              canDecide={false}
+              empty={
+                <EmptyState
+                  icon={IndianRupeeIcon}
+                  title="No payments yet"
+                  description="When you pay, tell the kitchen here. It shows as pending until the cook confirms it."
+                  action={
+                    canPay ? (
+                      <Button type="button" onClick={() => setPaying(true)}>
+                        I paid
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              }
+            />
+          )}
         </PageSkeleton>
         {dialogs}
       </>
@@ -222,7 +224,7 @@ function PaymentsScreen() {
         description={
           decider
             ? "Confirm what people say they paid, or dispute it with a reason."
-            : "What people have paid. Only the cook confirms a payment."
+            : "What people have paid."
         }
         actions={
           canPay ? (
@@ -230,9 +232,16 @@ function PaymentsScreen() {
           ) : null
         }
         tabs={
-          <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+          <TabsList
+            variant="line"
+            className="w-full justify-start overflow-x-auto rounded-none border-b p-0"
+          >
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="flex-none px-3">
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className="h-full flex-none px-3 after:bottom-0!"
+              >
                 {t.label}
                 {t.value === "to-confirm" && waiting.length > 0 ? (
                   <Badge variant="secondary">
@@ -268,29 +277,31 @@ function PaymentsScreen() {
       {TABS.map((t) => (
         <TabsContent key={t.value} value={t.value} className="flex flex-col gap-3">
           <PageSkeleton loading={claims.loading && !claims.data} variant="table">
-            <ClaimsTable
-              claims={list.filter((c) => inTab(t.value, c))}
-              actions={actions}
-              showPerson
-              canDecide={decider}
-              empty={
-                <EmptyState
-                  icon={IndianRupeeIcon}
-                  title={
-                    t.value === "to-confirm"
-                      ? "Nothing waiting"
-                      : t.value === "all"
-                        ? "No payments yet"
-                        : `No ${t.label.toLowerCase()} payments`
-                  }
-                  description={
-                    t.value === "all"
-                      ? "Payments appear here once someone says they paid."
-                      : "Nothing is in this list."
-                  }
-                />
-              }
-            />
+            {claims.error && !claims.data ? null : (
+              <ClaimsTable
+                claims={list.filter((c) => inTab(t.value, c))}
+                actions={actions}
+                showPerson
+                canDecide={decider}
+                empty={
+                  <EmptyState
+                    icon={IndianRupeeIcon}
+                    title={
+                      t.value === "to-confirm"
+                        ? "Nothing waiting"
+                        : t.value === "all"
+                          ? "No payments yet"
+                          : `No ${t.label.toLowerCase()} payments`
+                    }
+                    description={
+                      t.value === "all"
+                        ? "Payments appear here once someone says they paid."
+                        : "Nothing is in this list."
+                    }
+                  />
+                }
+              />
+            )}
           </PageSkeleton>
         </TabsContent>
       ))}

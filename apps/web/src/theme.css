@@ -4,10 +4,9 @@
    The names are shadcn/ui's, so any block drops in without recolouring. Every colour in the application is
    written here and nowhere else; a component says `bg-primary`, not a colour.
 
-   Layers, lowest first. `legacy` holds the stylesheets of the screens not yet rewritten (styles.css and
-   home.css); it sits above the reset so those screens keep their own look, and below the components and
-   utilities so a screen that has been brought over wins over it. WP11 deletes it. */
-@layer theme, base, legacy, components, utilities;
+   Layers, lowest first: Tailwind's theme, the reset and our base rules, then the home page's drawn pictures
+   (home/art.css), then the utilities, which win over everything else. */
+@layer theme, base, components, utilities;
 
 @import "@fontsource-variable/figtree/index.css";
 @import "@fontsource-variable/noto-sans-devanagari/index.css";
@@ -15,10 +14,9 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
-@import "./styles.css" layer(legacy);
-/* The home page's drawn pictures and motion (WP10). In `legacy` and not `components`: the order of the layers above is
-   only kept if this file is the first stylesheet the bundle meets, and the markup's utilities win over it either way. */
-@import "./home/art.css" layer(legacy);
+/* The home page's drawn pictures and motion. The order of the layers above is only kept if this file is the first
+   stylesheet the bundle meets; the markup's utilities win over art.css either way. */
+@import "./home/art.css" layer(components);
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 /* A mouse or a trackpad: controls are 36px high there and 44px under a finger. */
@@ -90,7 +88,7 @@
   --dur-1: 100ms;
   --dur-2: 150ms;
   --dur-3: 250ms;
-  /* The dissolve between themes (public/theme.js, styles.css). */
+  /* The dissolve between themes (public/theme.js). */
   --dur-4: 600ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
@@ -139,31 +137,60 @@
   --sidebar-accent-foreground: oklch(0.22 0.02 268);
   --sidebar-border: oklch(0.91 0.008 85);
   --sidebar-ring: oklch(0.55 0.17 272);
+}
 
-  /* ---- Legacy bridge (delete with styles.css and home.css, WP10 and WP11) ------------------------------
-     The screens not yet rewritten read the kitchen's old token names; these give them the new colours, in
-     both themes, from the tokens above. The home page's own fields (--field-*, --board) are not bridged:
-     they stay as drawn until WP10. */
-  --bg: var(--background);
-  --paper: var(--background);
-  --paper-2: var(--muted);
-  --ink: var(--foreground);
-  --ink-2: var(--muted-foreground);
-  --hair: var(--border);
-  --brand: var(--primary);
-  --brand-ink: var(--primary-foreground);
-  --focus: var(--ring);
-  --good: var(--success-foreground);
-  --good-soft: var(--success-soft);
-  --warn: var(--warning-foreground);
-  --warn-soft: var(--warning-soft);
-  --bad: var(--destructive);
-  --bad-soft: color-mix(in oklch, var(--destructive) 8%, var(--background));
-  --bad-ink: var(--destructive-foreground);
-  --accent-soft: color-mix(in oklch, var(--highlight) 25%, var(--background));
-  --accent-ink: var(--highlight-foreground);
-  --sans: var(--font-stack);
-  --serif: var(--font-stack);
+/* The browser draws its own parts (autofill, scrollbars, pickers) for the theme chosen, not the system's. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/*
+ * A field the browser has filled in, or is showing a suggestion in, keeps the theme's colours: left to itself the
+ * browser paints it a grey-blue of its own, which reads as a field that is turned off.
+ */
+@layer base {
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:autofill {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    box-shadow: 0 0 0 1000px var(--card) inset;
+    transition: background-color 9999s;
+  }
+}
+
+/*
+ * A theme chosen by hand dissolves into the other, on every page (public/theme.js holds a picture of the page as it
+ * was while the colours change). The old picture stays as it is and the new colours fade in over it, so the page
+ * never shows through half-way; each part with a name of its own in a transition (the app's page, the home page's
+ * bar) dissolves the same way and at the same pace, and does not slide. Unlayered, so it wins over the app's page
+ * transitions, which are for moving between pages and not for this.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  :root.theme-fading::view-transition-group(*) {
+    animation-duration: var(--dur-4);
+    animation-timing-function: ease-in-out;
+  }
+  :root.theme-fading::view-transition-old(*) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  :root.theme-fading::view-transition-new(*) {
+    animation: theme-in var(--dur-4) ease-in-out both;
+    mix-blend-mode: normal;
+  }
+}
+@keyframes theme-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Selected words, everywhere (the app, the home page and the guides): the brand's indigo, light enough to read through. */
+::selection {
+  background: color-mix(in oklch, var(--primary) 26%, transparent);
+  color: inherit;
 }
 
 /* The same values go in two blocks: the chosen theme, and the system's when none is chosen. */
@@ -272,6 +299,10 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Money wants figures of one height. */
+    font-variant-numeric: lining-nums;
   }
   /* Every control speaks in the page's own voice (VIS-01). */
   button,

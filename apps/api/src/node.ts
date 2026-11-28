@@ -10,7 +10,7 @@ import { PgDatabasePlacement } from "./placement/pgdatabase.ts";
 import { createRuntime } from "./runtime.ts";
 
 /**
- * The Node server: the API, and the built web app from WEB_DIR when it exists.
+ * The Node server: the API, and the built web app from WEB_DIR when it exists (or, with WEB_AT, a way to it).
  * The same application runs on Cloudflare Workers through `worker.ts`.
  */
 const env = await selfHost(process.env);
@@ -28,7 +28,17 @@ const root = new Hono();
 root.route("/", app);
 
 const webDir = resolve(env.WEB_DIR ?? "../web/dist");
-if (existsSync(webDir)) {
+if (env.WEB_AT) {
+  // The page is served somewhere else (by Vite, while developing): a browser that asks this server for a page is sent
+  // there, where the page is current and its writes are its own site's, and not shown an old build whose every
+  // write would be refused as coming from another site.
+  const at = env.WEB_AT;
+  root.get("*", (c) => {
+    const url = new URL(c.req.url);
+    if (/^\/(api|auth)(\/|$)/.test(url.pathname)) return c.notFound();
+    return c.redirect(new URL(url.pathname + url.search, at).href, 302);
+  });
+} else if (existsSync(webDir)) {
   const rel = relative(process.cwd(), webDir) || ".";
   root.use("*", serveStatic({ root: rel }));
   root.get("*", serveStatic({ root: rel, path: "index.html" })); // the app routes itself

@@ -9,6 +9,8 @@
  * transform, opacity or clip-path.
  */
 .home {
+  /* What the travelling carrier is set in (see .flyer). */
+  position: relative;
   --margin: clamp(1rem, 2.6vw, 2.5rem);
   --section: clamp(88px, 11vw, 184px);
   --seam: clamp(28px, 4vw, 64px);
@@ -84,10 +86,6 @@
 .leaving :focus-visible,
 .hfoot :focus-visible {
   outline-color: var(--field-ink);
-}
-.home ::selection {
-  background: var(--highlight);
-  color: var(--highlight-foreground);
 }
 /* The dark theme, written twice as the tokens are: the chosen theme, and the system's when none is chosen. */
 :root[data-theme="dark"] .home {
@@ -358,8 +356,9 @@ main > section.section:not(.hero) {
 
 /* The carrier on its way from the first screen's shelf to the bar (see Dock.tsx): drawn from the scroll alone, above
    the bar, and never in the way. While it is away the shelf shows no carrier, and its steam goes with it. */
+/* Set in the page (see Dock.tsx), so the browser scrolls it with the words it stands on. */
 .flyer {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   z-index: calc(var(--z-bar) + 1);

@@ -62,7 +62,7 @@ export function whoLabel(actor: string | null, c: HistoryContext): string {
   if (actor === c.viewerId) return "You";
   const role = c.roleOf(actor);
   if (role === "admin") return "The admin";
-  if (role === "supplier") return "The supplier";
+  if (role === "supplier") return "The cook";
   return c.nameOf(actor) ?? "Someone";
 }
 

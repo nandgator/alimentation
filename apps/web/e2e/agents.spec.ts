@@ -23,7 +23,7 @@ test("an admin gives an agent a key, sees it once, uses it, and ends it", async 
   ).toBe(201);
 
   await page.goto(`/w/${slug}/books/data`);
-  await expect(page.getByRole("heading", { name: "Your data", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your data", level: 2 })).toBeVisible();
   await page.getByRole("button", { name: "New key" }).click();
   const form = page.getByRole("dialog", { name: "New key" });
   await form.getByLabel("Name for the key").fill("Lunch bot");

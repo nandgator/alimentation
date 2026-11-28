@@ -207,8 +207,9 @@ export function ruleCards(current: PolicyView, money: boolean): RuleCard[] {
   cards.push({
     id: "close",
     title: "Month end",
-    description:
-      "The window for everyone to catch up. After it, meals and leave freeze; payments carry on.",
+    description: money
+      ? "The window for everyone to catch up. After it, meals and leave freeze; payments carry on."
+      : "The window for everyone to catch up. After it, meals and leave freeze.",
     value:
       close.mode === "off"
         ? "Months are never closed"

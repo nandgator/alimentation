@@ -67,6 +67,7 @@ import { acceptInvite, claimAutoInvites, createInvite } from "./platform/invites
 import {
   capacityDetail,
   capacityNow,
+  checkSlug,
   createWorkspace,
   MAX_WAITING,
   type PlatformDeps,
@@ -462,6 +463,28 @@ export function buildApp(deps: AppDeps): Hono<{ Variables: Vars }> {
       throw forbidden("This instance is private. Ask whoever runs it to add a workspace.");
     const b = await parse(c, CreateWorkspace);
     return c.json(await createWorkspace(deps.platform, asRow(a), b), 201);
+  });
+
+  // Whether an address is free, asked as it is typed so the answer is there before "Create kitchen" is pressed. It
+  // says only what making the kitchen would say (`slug_taken`), and passes the same rate limit as any request.
+  app.get("/api/workspaces/address/:slug", async (c) => {
+    const a = needAccount(c);
+    const wait = deps.gate.throttle(`address:${a.id}`);
+    if (wait !== null) {
+      c.header("retry-after", String(wait));
+      throw new ApiError(429, "rate_limited", "Slow down a little.");
+    }
+    const slug = c.req.param("slug");
+    const problem = checkSlug(slug);
+    if (problem) return c.json({ available: false, reason: problem, suggestion: null });
+    if (!(await deps.control.workspaceBySlug(slug))) return c.json({ available: true });
+    let suggestion: string | null = null;
+    for (let n = 2; n <= 9 && suggestion === null; n++) {
+      const tail = `-${n}`;
+      const next = `${slug.slice(0, 40 - tail.length).replace(/-+$/, "")}${tail}`;
+      if (!checkSlug(next) && !(await deps.control.workspaceBySlug(next))) suggestion = next;
+    }
+    return c.json({ available: false, reason: "That address is taken.", suggestion });
   });
 
   // Asking for a place, on an instance where kitchens are by invitation. The email is the signed-in account's own

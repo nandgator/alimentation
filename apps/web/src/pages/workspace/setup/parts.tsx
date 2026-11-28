@@ -218,6 +218,7 @@ export function FormModal<V extends FieldValues, O = V>({
   onSubmit,
   serverFields,
   changed = false,
+  focusTitle,
   children,
 }: {
   form: UseFormReturn<V, unknown, O>;
@@ -230,6 +231,7 @@ export function FormModal<V extends FieldValues, O = V>({
   onSubmit: (values: O) => undefined | boolean | Promise<undefined | boolean>;
   serverFields?: Record<string, FieldPath<V>>;
   changed?: boolean;
+  focusTitle?: boolean;
   children: ReactNode;
 }) {
   const id = useId();
@@ -247,6 +249,7 @@ export function FormModal<V extends FieldValues, O = V>({
       busyLabel={busyLabel}
       submitting={form.formState.isSubmitting}
       dirty={form.formState.isDirty || changed}
+      focusTitle={focusTitle}
     >
       <AppForm
         id={formId}

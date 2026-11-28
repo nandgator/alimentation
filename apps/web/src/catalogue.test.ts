@@ -108,7 +108,7 @@ describe("what a kitchen calls things", () => {
     expect(menuStartsAfter(menus, "2026-12-01")).toBeNull();
     expect(menuStartsAfter([], "2026-11-04")).toBeNull();
     expect(beforeMenuWords("2026-11-12")).toBe(
-      "Your menu starts on 12-Nov-2026, so days before that are not counted. Set an earlier start under Menu.",
+      "Your menu starts on 12 Nov 2026, so days before that are not counted. Set an earlier start under Menu.",
     );
   });
 

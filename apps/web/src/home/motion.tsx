@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type ElementType,
   Fragment,
   type RefObject,
@@ -6,6 +7,14 @@ import {
   useLayoutEffect,
   useState,
 } from "react";
+
+/**
+ * Hands numbers to the stylesheet as custom properties: a delay, a place in a sequence. The only inline style of the
+ * home page, and what it says is a value, never a look (the content-security policy forbids a style tag, so a
+ * value that changes per element has to travel in the attribute).
+ */
+export const cssVars = (vars: Record<string, string | number>): CSSProperties =>
+  vars as unknown as CSSProperties;
 
 /** Whether a media query matches, kept current. False until the browser says otherwise. */
 export function useMedia(query: string): boolean {
@@ -82,7 +91,7 @@ export function Lines({
       {lines.map((line, i) => (
         <Fragment key={line}>
           <span className="line">
-            <span className="line-in" style={{ ["--i" as string]: i }}>
+            <span className="line-in" style={cssVars({ "--i": i })}>
               {line}
             </span>
           </span>{" "}
@@ -100,7 +109,7 @@ export function Figure({ value }: { value: string }) {
   let n = 0;
   return (
     <span className="roll" data-reveal="roll">
-      <span className="sr">{value}</span>
+      <span className="sr-only">{value}</span>
       <span className="roll-digits" aria-hidden="true">
         {[...value].map((ch, k) =>
           /\d/.test(ch) ? (
@@ -109,10 +118,7 @@ export function Figure({ value }: { value: string }) {
               // biome-ignore lint/suspicious/noArrayIndexKey: a character is its place in the string
               key={k}
             >
-              <span
-                className="roll-strip"
-                style={{ ["--d" as string]: ch, ["--i" as string]: n++ }}
-              >
+              <span className="roll-strip" style={cssVars({ "--d": ch, "--i": n++ })}>
                 {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
                   <span key={d}>{d}</span>
                 ))}

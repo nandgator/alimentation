@@ -103,8 +103,8 @@ describe("copying a kitchen setup to another", () => {
     expect(plan.already).toBe(0);
     expect(plan.left).toEqual([]);
     expect(plan.steps.filter((s) => s.kind === "holiday").map((s) => s.label)).toEqual([
-      "Founders day, 20-Nov-2026",
-      "Christmas, 25-Dec-2026",
+      "Founders day, 20 Nov 2026",
+      "Christmas, 25 Dec 2026",
     ]);
     expect(plan.notes.join(" ")).toMatch(/1 holidays before .* not copied/);
   });
@@ -191,9 +191,9 @@ describe("copying a kitchen setup to another", () => {
     const plan = planCopy(source, target, { ...NONE, menu: true, prices: true });
     expect(plan.steps.some((s) => s.kind === "menu" || s.kind === "prices")).toBe(false);
     expect(plan.left.map((l) => l.label)).toEqual([
-      "Menu, from 01-Apr-2026",
-      "Prices, from 01-Apr-2026",
-      "Prices, from 01-Nov-2026",
+      "Menu, from 1 Apr 2026",
+      "Prices, from 1 Apr 2026",
+      "Prices, from 1 Nov 2026",
     ]);
     expect(plan.left[0]?.why).toMatch(/Veg as an add-on counted in bowl/);
   });
@@ -225,9 +225,9 @@ describe("copying a kitchen setup to another", () => {
     expect(plan.steps).toEqual([]);
     expect(plan.already).toBe(1); // the November prices are the same
     expect(plan.left.map((l) => l.label)).toEqual([
-      "Rules, from 01-Nov-2026",
-      "Rules, from 01-Jan-2027",
-      "Prices, from 01-Apr-2026",
+      "Rules, from 1 Nov 2026",
+      "Rules, from 1 Jan 2027",
+      "Prices, from 1 Apr 2026",
     ]);
     for (const l of plan.left) expect(l.why).toMatch(/different|differ/);
   });
@@ -247,8 +247,8 @@ describe("copying a kitchen setup to another", () => {
     };
     const plan = planCopy(withLunchOverride(100), withLunchOverride(200), only("prices"));
     expect(plan.left.map((l) => l.label)).toEqual([
-      "Prices, from 01-Apr-2026",
-      "Prices, from 01-Nov-2026",
+      "Prices, from 1 Apr 2026",
+      "Prices, from 1 Nov 2026",
     ]);
     expect(planCopy(withLunchOverride(100), withLunchOverride(100), only("prices")).already).toBe(
       2,
@@ -272,7 +272,7 @@ describe("copying a kitchen setup to another", () => {
     };
     const plan = planCopy(source, changed, only("menu"));
     expect(plan.steps).toEqual([]);
-    expect(plan.left.map((l) => l.label)).toEqual(["Menu, from 01-Apr-2026"]);
+    expect(plan.left.map((l) => l.label)).toEqual(["Menu, from 1 Apr 2026"]);
   });
 
   it("offers prices only between kitchens that track money, and still copies the menu and the rules", () => {
@@ -348,7 +348,7 @@ describe("copying a kitchen setup to another", () => {
     });
     const plan = planCopy(source, other, only("holidays"));
     expect(plan.already).toBe(1);
-    expect(plan.steps.map((s) => s.label)).toEqual(["Christmas, 25-Dec-2026"]);
+    expect(plan.steps.map((s) => s.label)).toEqual(["Christmas, 25 Dec 2026"]);
   });
 
   it("copies only what was asked for, and says when the first kitchen has no rules of its own", () => {
@@ -365,7 +365,7 @@ describe("copying a kitchen setup to another", () => {
     const early = planCopy(source, kitchen({ today: d("2026-12-02") }), ALL);
     expect(early.steps[0]).toMatchObject({ body: { effectiveFrom: "2026-12-01" } });
     expect(early.steps.filter((s) => s.kind === "holiday").map((s) => s.label)).toEqual([
-      "Christmas, 25-Dec-2026",
+      "Christmas, 25 Dec 2026",
     ]);
   });
 });
@@ -417,7 +417,7 @@ describe("doing a copy", () => {
     expect(card.monthlyFee).toBe(4000);
     expect(out.added).toBe(7);
     expect(out.refused).toEqual([
-      { label: "Prices, from 01-Apr-2026", message: "Prices cannot start in a closed month." },
+      { label: "Prices, from 1 Apr 2026", message: "Prices cannot start in a closed month." },
     ]);
     // The other kitchen was asked once after its services and items went in, not before each step.
     expect(listed).toHaveLength(2);
@@ -437,7 +437,7 @@ describe("doing a copy", () => {
     );
     expect(posted).toEqual([]);
     expect(out.refused).toEqual([
-      { label: "Menu, from 01-Apr-2026", message: "That kitchen does not have Lunch." },
+      { label: "Menu, from 1 Apr 2026", message: "That kitchen does not have Lunch." },
     ]);
   });
 

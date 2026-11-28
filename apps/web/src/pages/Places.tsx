@@ -1,15 +1,27 @@
 import type { BootstrapDto } from "@alimentation/core";
+import { LandmarkIcon, PlusIcon } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { api, type Capacity, getJson, postJson } from "../api.ts";
-import { AppBar, Page, RequireSignIn } from "../components/Chrome.tsx";
-import { Button } from "../components/legacy/button.tsx";
-import { Input } from "../components/legacy/input.tsx";
-import { Chip, Field, Form, Problem, Tile, toast, useAction } from "../components/ui.tsx";
-import { money } from "../format.ts";
+import { Link } from "wouter";
+import { api } from "@/api";
+import { EmptyState, Money, PageHeader, StatusBadge } from "@/components/app";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
+import { Skeleton } from "@/components/ui/skeleton";
 import { figuresOf, isRunning, type KitchenFigures, totalsOf } from "../kitchens.ts";
 import { useSession } from "../session.tsx";
-import { applyStarter, STARTERS } from "../starters.ts";
+import { initials } from "../shell/account.tsx";
+import { OutsideLayout, SignedIn } from "./outside/Layout.tsx";
+import { StatCard } from "./workspace/bills/StatCard.tsx";
 
 // Needed only by someone who runs several kitchens, so everyone else does not download it.
 const ManyKitchens = lazy(() =>
@@ -47,241 +59,44 @@ function useFigures(slugs: string[]): Found {
   return found;
 }
 
+/** What a kitchen would say on opening it, in a line: what is owed, what waits, what is not set up. */
 function Figures({ f }: { f: KitchenFigures | "failed" | undefined }) {
-  if (f === undefined) return <p className="muted small">Reading the figures…</p>;
-  if (f === "failed") return <p className="muted small">The figures could not be read just now.</p>;
+  if (f === undefined) return <Skeleton className="h-4 w-40" />;
+  if (f === "failed")
+    return <span className="text-muted-foreground">The figures could not be read just now.</span>;
   const h = f.headline;
-  if (!f.moneyEnabled)
-    return (
-      <p className="row small" style={{ ["--gap" as string]: "var(--space-3)" }}>
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {!f.moneyEnabled ? (
         <span>{f.meals} meals this month</span>
-        {f.setup > 0 ? <Chip tone="warn">Needs setting up</Chip> : null}
-        {f.fromDevice ? <Chip>Saved on this device</Chip> : null}
-      </p>
-    );
-  return (
-    <p className="row small" style={{ ["--gap" as string]: "var(--space-3)" }}>
-      {isRunning(f.role) ? (
-        <span>{h.owed > 0 ? `${money(h.owed)} owed` : "Nothing owed"}</span>
+      ) : isRunning(f.role) ? (
+        h.owed > 0 ? (
+          <span>
+            <Money paise={h.owed} /> owed
+          </span>
+        ) : (
+          <span>Nothing owed</span>
+        )
+      ) : h.owed > 0 ? (
+        <span>
+          You owe <Money paise={h.owed} />
+        </span>
       ) : (
-        <span>{h.owed > 0 ? `You owe ${money(h.owed)}` : "You owe nothing"}</span>
+        <span>You owe nothing</span>
       )}
-      {isRunning(f.role) && h.toConfirm > 0 ? (
-        <Chip tone="warn">{h.toConfirm} to confirm</Chip>
+      {f.moneyEnabled && isRunning(f.role) && h.toConfirm > 0 ? (
+        <StatusBadge status="pending" label={`${h.toConfirm} to confirm`} />
       ) : null}
-      {f.setup > 0 ? <Chip tone="warn">Needs setting up</Chip> : null}
-      {f.fromDevice ? <Chip>Saved on this device</Chip> : null}
-    </p>
+      {f.setup > 0 ? <StatusBadge status="pending" label="Needs setting up" /> : null}
+      {f.fromDevice ? <Badge variant="secondary">Saved on this device</Badge> : null}
+    </span>
   );
 }
 
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-
-/** Where kitchens are by invitation: what that means, and a way to ask. */
-function AskForAPlace({ requested }: { requested: boolean }) {
-  const { refresh } = useSession();
-  const act = useAction();
-  return (
-    <div className="stack" style={{ ["--gap" as string]: "var(--space-3)" }}>
-      <p>
-        New kitchens here are by invitation, to keep the service from filling up. Ask for a place
-        with the email you signed in with, and whoever runs the service will approve it. Come back
-        here once they have: this page will then let you start your kitchen.
-      </p>
-      {requested ? (
-        <div className="banner info" role="status">
-          You have asked for a place. There is nothing more to do until it is approved.
-        </div>
-      ) : (
-        <Button
-          type="button"
-          disabled={act.busy}
-          onClick={() =>
-            void act.run(async () => {
-              await postJson("/api/waitlist");
-              await refresh();
-              toast("Asked. You will be able to start a kitchen once it is approved.");
-            })
-          }
-        >
-          Ask for a place
-        </Button>
-      )}
-      <Problem error={act.error} />
-    </div>
-  );
-}
-
-function NewKitchen({ cap }: { cap: Capacity | null }) {
-  const [, go] = useLocation();
-  const { me, refresh } = useSession();
-  const refusal = me?.signup?.refusal ?? null;
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [touched, setTouched] = useState(false);
-  const [supplier, setSupplier] = useState(true);
-  // Whether the kitchen puts a price on its meals. Chosen here and never changed, so it is asked here.
-  const moneyAllowed = me?.moneyAllowed !== false;
-  const [track, setTrack] = useState(true);
-  const [starter, setStarter] = useState<string>(STARTERS[0]?.id ?? "blank");
-  const act = useAction();
-  return (
-    <section className="card stack" aria-labelledby="new-h">
-      <h2 id="new-h">Start a kitchen</h2>
-      {refusal === "closed" ? (
-        <div className="banner info">
-          This service is not taking new kitchens right now. You can run your own instance and move
-          in later.
-        </div>
-      ) : refusal === "invite_only" ? (
-        <AskForAPlace requested={me?.signup?.requested ?? false} />
-      ) : refusal === "limit" ? (
-        <div className="banner info">
-          You already have the most kitchens one account can start here ({me?.signup?.maxWorkspaces}
-          ). Delete one you no longer use, or run your own instance and move in.
-        </div>
-      ) : null}
-      {refusal === null && cap && !cap.dedicated && !cap.open ? (
-        <div className="banner warn">
-          The free places are full for now. You can try again later, or run your own instance and
-          move in.
-        </div>
-      ) : null}
-      {refusal === null ? (
-        <Form
-          error={act.error}
-          onSubmit={() =>
-            act.run(async () => {
-              const made = await postJson<{ slug: string }>("/api/workspaces", {
-                slug,
-                name,
-                alsoSupplier: supplier,
-                moneyEnabled: moneyAllowed ? track : false,
-              });
-              // The starter is set up with the same calls as by hand. If one fails the kitchen is still made.
-              const chosen = STARTERS.find((x) => x.id === starter);
-              if (chosen) {
-                const base = `/api/w/${made.slug}`;
-                await applyStarter(
-                  {
-                    get: (path) => getJson(path),
-                    post: (path, body) => postJson(path, body),
-                    patch: (path, body) => api.patch(path, body),
-                  },
-                  base,
-                  chosen,
-                ).catch(() =>
-                  toast(
-                    "The kitchen is made, but its starting menu could not be added. Add it under Catalogue.",
-                    "bad",
-                  ),
-                );
-              }
-              await refresh();
-              go(`/w/${made.slug}`);
-            })
-          }
-        >
-          <Field label="Name" id="kname" hint="What your people call it.">
-            <Input
-              id="kname"
-              required
-              maxLength={120}
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (!touched) setSlug(slugify(e.target.value));
-              }}
-            />
-          </Field>
-          <Field
-            label="Address"
-            id="kslug"
-            hint="Letters, numbers and dashes. This is what the link will say: /w/…"
-          >
-            <Input
-              id="kslug"
-              required
-              minLength={3}
-              maxLength={40}
-              pattern="[a-z0-9][a-z0-9\-]*[a-z0-9]"
-              value={slug}
-              onChange={(e) => {
-                setTouched(true);
-                setSlug(slugify(e.target.value));
-              }}
-            />
-          </Field>
-          <label className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
-            <input
-              type="checkbox"
-              checked={supplier}
-              onChange={(e) => setSupplier(e.target.checked)}
-            />
-            <span>I also cook for them (add me as the supplier too)</span>
-          </label>
-          <fieldset className="choices stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
-            <legend>Start from</legend>
-            {STARTERS.map((x) => (
-              <label key={x.id} className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
-                <input
-                  type="radio"
-                  name="starter"
-                  checked={starter === x.id}
-                  onChange={() => setStarter(x.id)}
-                />
-                <span>
-                  <strong>{x.title}</strong>
-                  <span className="muted small"> {x.about}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
-          {moneyAllowed ? (
-            <fieldset className="stack" style={{ ["--gap" as string]: "var(--space-2)" }}>
-              <legend>Prices and bills</legend>
-              <label className="row" style={{ ["--gap" as string]: "var(--space-3)" }}>
-                <input
-                  type="checkbox"
-                  checked={track}
-                  onChange={(e) => setTrack(e.target.checked)}
-                  aria-describedby="track-hint"
-                />
-                <span>Track money in this kitchen</span>
-              </label>
-              <p id="track-hint" className="muted small">
-                {track
-                  ? "You set prices, each person gets a bill each month, and payments are recorded and confirmed. "
-                  : "The kitchen only counts meals: who ate, who was on leave, and the extras as numbers. There are no prices, bills or payments. "}
-                You choose this once, now. It cannot be changed later.
-              </p>
-            </fieldset>
-          ) : (
-            <p className="muted small">
-              This service keeps kitchens to counting meals. There are no prices, bills or payments
-              here.
-            </p>
-          )}
-          <Button type="submit" disabled={act.busy || (cap ? !cap.open && !cap.dedicated : false)}>
-            Create
-          </Button>
-        </Form>
-      ) : null}
-    </section>
-  );
-}
+const ROLE = { admin: "Admin", supplier: "Cook", consumer: "Consumer" } as const;
 
 export function Places() {
   const { me } = useSession();
-  const [cap, setCap] = useState<Capacity | null>(null);
-  useEffect(() => {
-    getJson<Capacity>("/api/public/capacity").then(setCap, () => setCap(null));
-  }, []);
   const list = me?.workspaces ?? [];
   const active = list.filter((w) => w.state === "ACTIVE");
   const adminOf = active.filter((w) => w.roles.includes("admin"));
@@ -296,110 +111,168 @@ export function Places() {
       ? totalsOf(counted)
       : null;
   const runsMany = adminOf.length >= 2 || organisations.length > 0 || !!me?.operator;
+  const [privateInstance, setPrivate] = useState(false);
+  useEffect(() => {
+    api.get<{ dedicated: boolean }>("/api/public/capacity").then(
+      (r) => setPrivate(r.data.dedicated),
+      () => setPrivate(false),
+    );
+  }, []);
+  const mayStart = !(privateInstance && !me?.operator);
+  const newKitchen = (
+    <Button nativeButton={false} render={<Link href="/app/new" />}>
+      <PlusIcon aria-hidden="true" data-icon="inline-start" />
+      New kitchen
+    </Button>
+  );
   return (
-    <>
-      <AppBar>
-        {me?.operator ? (
-          <Button variant="outline" size="sm" render={<Link href="/app/operator" />}>
-            Operator
-          </Button>
-        ) : null}
-      </AppBar>
-      <RequireSignIn>
-        <Page title="Your kitchens">
-          {list.length === 0 && organisations.length === 0 ? (
-            <p className="muted">
-              You are not in any kitchen yet. Start one below, or open the invitation link someone
-              sent you.
-            </p>
-          ) : list.length === 0 ? null : (
-            <div className="stack" style={{ ["--gap" as string]: "var(--space-4)" }}>
-              {totals ? (
-                <section className="stack" aria-labelledby="across-h">
-                  <h2 id="across-h" className="muted small">
-                    Across your {counted.length} kitchens
-                  </h2>
-                  <div className="tiles">
-                    {totals.running.kitchens > 0 ? (
-                      <>
-                        <Tile label="Owed to your kitchens" value={money(totals.running.owed)} />
-                        <Tile label="To confirm" value={totals.running.toConfirm || "-"} />
-                      </>
-                    ) : null}
-                    {totals.owe.kitchens > 0 ? (
-                      <Tile label="You owe" value={money(totals.owe.amount)} />
-                    ) : null}
-                  </div>
-                </section>
+    <OutsideLayout>
+      <SignedIn>
+        <PageHeader
+          title="Your kitchens"
+          actions={
+            <>
+              {runsMany ? (
+                <Suspense fallback={null}>
+                  <ManyKitchens kitchens={adminOf} organisations={organisations.length} />
+                </Suspense>
               ) : null}
-              <ul className="stack card-list" style={{ ["--gap" as string]: "var(--space-3)" }}>
-                {list.map((w) => (
-                  <li key={w.slug}>
-                    <div className="card row between">
-                      <div>
-                        <h3>{w.name}</h3>
-                        <p className="muted small">
-                          /w/{w.slug} · {w.roles.join(", ")}
-                        </p>
-                        {several && w.state === "ACTIVE" ? <Figures f={figures[w.slug]} /> : null}
-                      </div>
-                      <div className="row">
-                        {w.state === "MOVED" ? <Chip tone="warn">Moved</Chip> : null}
-                        {w.state === "MIGRATING" ? <Chip tone="warn">Moving</Chip> : null}
-                        {w.state === "MOVED" && w.movedTo ? (
-                          <Button size="sm" render={<a href={w.movedTo} />}>
-                            Open at its new address
-                          </Button>
-                        ) : (
-                          <Button size="sm" render={<Link href={`/w/${w.slug}`} />}>
-                            Open
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {organisations.length > 0 ? (
-            <section className="stack" aria-labelledby="head-office-h">
-              <h2 id="head-office-h">Head office</h2>
-              <ul className="stack card-list" style={{ ["--gap" as string]: "var(--space-3)" }}>
-                {organisations.map((o) => (
-                  <li key={o.id}>
-                    <div className="card row between">
-                      <div>
-                        <h3>{o.name}</h3>
-                        <p className="muted small">
-                          {o.kitchens === 0
-                            ? "No kitchen shares its totals yet"
-                            : `${o.kitchens} kitchen${o.kitchens === 1 ? "" : "s"} share their totals`}
-                        </p>
-                      </div>
-                      <Button size="sm" render={<Link href={`/app/org/${o.id}`} />}>
-                        Open
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              {mayStart ? newKitchen : null}
+            </>
+          }
+        />
+        <div className="flex flex-col gap-6">
+          {me?.operator ? (
+            <p className="text-sm">
+              <Link href="/app/operator" className="underline underline-offset-4">
+                Open the operator page
+              </Link>
+            </p>
+          ) : null}
+          {totals ? (
+            <section
+              className="flex flex-col gap-2"
+              aria-label={`Across your ${counted.length} kitchens`}
+            >
+              <h2 className="text-sm font-medium text-muted-foreground">
+                Across your {counted.length} kitchens
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {totals.running.kitchens > 0 ? (
+                  <>
+                    <StatCard label="Owed to your kitchens">
+                      <Money paise={totals.running.owed} />
+                    </StatCard>
+                    <StatCard label="To confirm">{totals.running.toConfirm || "-"}</StatCard>
+                  </>
+                ) : null}
+                {totals.owe.kitchens > 0 ? (
+                  <StatCard label="You owe">
+                    <Money paise={totals.owe.amount} />
+                  </StatCard>
+                ) : null}
+              </div>
             </section>
           ) : null}
-          {runsMany ? (
-            <Suspense fallback={null}>
-              <ManyKitchens kitchens={adminOf} organisations={organisations.length} />
-            </Suspense>
+          {list.length === 0 && organisations.length === 0 ? (
+            <EmptyState
+              title="You are not in a kitchen yet"
+              description="Start one, or open the invitation link someone sent you."
+              action={mayStart ? newKitchen : undefined}
+            />
           ) : null}
-          {cap?.dedicated && !me?.operator ? (
-            <div className="banner info">
-              This is a private instance. Ask whoever runs it to add a kitchen for you.
-            </div>
-          ) : (
-            <NewKitchen cap={cap} />
-          )}
-        </Page>
-      </RequireSignIn>
-    </>
+          {list.length > 0 ? (
+            <ItemGroup className="gap-2">
+              {list.map((w) => (
+                <Item key={w.slug} variant="outline" role="listitem">
+                  <ItemMedia>
+                    <Avatar>
+                      <AvatarFallback>{initials(w.name)}</AvatarFallback>
+                    </Avatar>
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle className="flex-wrap">
+                      <h3 className="font-medium">{w.name}</h3>
+                      {w.roles.map((r) => (
+                        <Badge key={r} variant="secondary">
+                          {ROLE[r]}
+                        </Badge>
+                      ))}
+                      {w.state === "MOVED" ? <Badge variant="outline">Moved</Badge> : null}
+                      {w.state === "MIGRATING" ? <Badge variant="outline">Moving</Badge> : null}
+                    </ItemTitle>
+                    {several && w.state === "ACTIVE" ? (
+                      <ItemDescription className="line-clamp-none">
+                        <Figures f={figures[w.slug]} />
+                      </ItemDescription>
+                    ) : null}
+                  </ItemContent>
+                  <ItemActions>
+                    {w.state === "MOVED" && w.movedTo ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        nativeButton={false}
+                        aria-label={`Open ${w.name} at its new address`}
+                        render={<a href={w.movedTo} />}
+                      >
+                        Open at its new address
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        nativeButton={false}
+                        aria-label={`Open ${w.name}`}
+                        render={<Link href={`/w/${w.slug}`} />}
+                      >
+                        Open
+                      </Button>
+                    )}
+                  </ItemActions>
+                </Item>
+              ))}
+            </ItemGroup>
+          ) : null}
+          {organisations.length > 0 ? (
+            <section className="flex flex-col gap-2" aria-labelledby="head-office-h">
+              <h2 id="head-office-h" className="text-base font-semibold">
+                Head office
+              </h2>
+              <ItemGroup className="gap-2">
+                {organisations.map((o) => (
+                  <Item key={o.id} variant="outline" role="listitem">
+                    <ItemMedia variant="icon">
+                      <LandmarkIcon aria-hidden="true" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>
+                        <h3 className="font-medium">{o.name}</h3>
+                      </ItemTitle>
+                      <ItemDescription>
+                        {o.kitchens === 0
+                          ? "No kitchen shares its totals yet"
+                          : `${o.kitchens} kitchen${o.kitchens === 1 ? "" : "s"} share their totals`}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        nativeButton={false}
+                        aria-label={`Open ${o.name}`}
+                        render={<Link href={`/app/org/${o.id}`} />}
+                      >
+                        Open
+                      </Button>
+                    </ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            </section>
+          ) : null}
+        </div>
+      </SignedIn>
+    </OutsideLayout>
   );
 }

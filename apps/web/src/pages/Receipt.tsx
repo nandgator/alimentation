@@ -1,10 +1,9 @@
 import { CheckIcon, PrinterIcon, XIcon } from "lucide-react";
-import { Link, useParams } from "wouter";
-import { EmptyState, PageHeader, PageSkeleton } from "@/components/app";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useParams } from "wouter";
+import { NotAvailable, PageHeader, PageSkeleton } from "@/components/app";
 import { Button } from "@/components/ui/button";
-// TODO(WP10): swap for the shared site header; it is the receipt's only chrome.
-import { AppBar } from "../components/Chrome.tsx";
+import { OutsideLayout } from "./outside/Layout.tsx";
+import { LoadProblem } from "./outside/parts.tsx";
 import { StatementFrame } from "./workspace/bills/StatementCard.tsx";
 import { useApi } from "./workspace/bills/useApi.ts";
 
@@ -51,39 +50,20 @@ export function ReceiptPage() {
   const { id = "" } = useParams();
   const r = useApi<Receipt>(`/api/receipts/${encodeURIComponent(id)}`);
   const data = r.data;
+  if (r.error?.status === 404 && !data)
+    return (
+      <OutsideLayout width="max-w-xl">
+        <NotAvailable title="Receipt not found" backTo="/" backLabel="Home">
+          There is no receipt with that address. Check the link, or ask whoever sent it.
+        </NotAvailable>
+      </OutsideLayout>
+    );
   return (
-    <>
-      <AppBar />
-      <main className="mx-auto w-full max-w-2xl px-4 py-6">
-        <PageHeader title="Wipe receipt" description="What was removed, and what was checked." />
-        {r.loading ? <PageSkeleton loading variant="form" /> : null}
-        {r.error ? (
-          <div className="flex flex-col gap-4">
-            {r.error.status === 404 ? (
-              <EmptyState
-                title="There is no receipt with that address"
-                description="Check the link, or ask whoever sent it."
-              />
-            ) : (
-              <Alert variant="destructive">
-                <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{r.error.message}</span>
-                  <Button type="button" variant="outline" size="sm" onClick={r.reload}>
-                    Try again
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-            <Button
-              variant="outline"
-              className="self-start"
-              render={<Link href="/" />}
-              nativeButton={false}
-            >
-              Home
-            </Button>
-          </div>
-        ) : null}
+    <OutsideLayout width="max-w-2xl">
+      <PageHeader title="Wipe receipt" description="What was removed, and what was checked." />
+      <div className="flex flex-col gap-4">
+        <PageSkeleton loading={r.loading} variant="form" />
+        <LoadProblem error={r.error} onRetry={r.reload} title="The receipt could not be read" />
         {data ? (
           <StatementFrame
             title={data.workspaceId}
@@ -130,7 +110,7 @@ export function ReceiptPage() {
             <p className="pt-3 text-sm font-medium">Names no one.</p>
           </StatementFrame>
         ) : null}
-      </main>
-    </>
+      </div>
+    </OutsideLayout>
   );
 }

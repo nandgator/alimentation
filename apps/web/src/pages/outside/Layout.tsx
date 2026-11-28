@@ -96,7 +96,7 @@ export function OutsideLayout({
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <SkipLink />
-      <header className="border-b bg-background">
+      <header className="border-b bg-background print:hidden">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4">
           <Link
             href={me?.account ? "/app" : "/"}

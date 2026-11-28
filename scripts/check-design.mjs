@@ -1,12 +1,25 @@
 // Does the application keep to its design system?  node scripts/check-design.mjs [--list]
 //
-// The system is written down in docs/site/docs/design/ (rendered at /docs/design/). This checks
-// the parts of it a machine can: that colour, shadow, layering, motion, type, shape and
-// spacing come from the shared tokens, that a select draws its own arrow with room left for it,
-// and that nothing is styled inline. (What a page looks like once drawn, such as how far an arrow sits
-// from an edge, is measured in the browser: apps/web/e2e/controls.spec.ts.) A line that
-// has a good reason to break a rule says so, in the same line: /* design: the reason */.
-// Run by `bun run design`, and by the test suite.
+// The system is written down in docs/research/ui-rewrite-plan.md (section 2, and section 7 for these rules) and
+// drawn from the tokens of apps/web/src/theme.css. This checks the parts of it a machine can:
+//
+//   colour      no raw colour (hex, rgb, hsl, oklch, lab, lch) outside theme.css: not in a stylesheet, not in a class
+//   shadow      no shadow of its own: a stylesheet uses `none` or a token, a class a shadow of the scale
+//   radius      no radius of its own: a stylesheet uses a token, `0`, a pill or a circle, a class one of the scale
+//   arbitrary   no arbitrary Tailwind length (`w-[13px]`) outside components/ui/
+//   control     no native number, date, checkbox, radio or file input and no <select> outside components/ui/ and
+//               components/app/: the kit's controls are used instead
+//   reload      no window.location.reload: a screen loads its data again, not the page
+//   title       a screen that is a route renders a PageHeader or a NotAvailable
+//   icon        no icon set but lucide-react, and no inline <svg> outside Mark, the home page and the charts
+//   role        no "Supplier" or "Member" in a string a person reads: the labels come from ROLE_LABEL
+//   inline      no style={{ ... }} without a reason
+//   status      no small filled dot beside a status: a status is a badge with words
+//   selector    no end-to-end test finds a thing by its class: they ask by role, label and visible text
+//
+// A line that has a good reason to break a rule says so, on that line or the one above it: `// design: the reason`,
+// `/* design: the reason */` or `{/* design: the reason */}`. (What a page looks like once drawn is measured in the
+// browser, in apps/web/e2e.) Run by `bun run design`, and by the test suite.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,312 +27,309 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const web = join(root, "apps", "web");
 
-/** What each file answers to. The home page's pictures are drawn, so shape and spacing are theirs. */
+/** The stylesheets, and the rules that apply to each. The home page's pictures are drawn, so shape is theirs. */
 const CSS = [
-  { file: "apps/web/src/styles.css", rules: "all" },
-  { file: "apps/web/scripts/docs/docs.css", rules: "all" },
-  { file: "apps/web/src/home/art.css", rules: "colour shadow layer important font" },
+  { file: "apps/web/src/shell/shell.css", rules: "colour shadow radius" },
+  { file: "apps/web/scripts/docs/docs.css", rules: "colour shadow radius" },
+  { file: "apps/web/src/home/art.css", rules: "colour shadow" },
 ];
 
-const NUMBER = String.raw`-?\d*\.?\d+`;
-export const SCALES = {
-  // The radii a shape may have. Anything round is a pill.
-  radius: new Set(["0", "4px", "6px", "8px", "10px", "12px", "14px", "16px", "999px", "50%"]),
-  // Space is on a grid of two pixels up to 24, then these.
-  space: new Set([28, 32, 40, 48, 56, 64, 80, 96]),
-  // Type: rem steps, or something fluid, or a size taken from its parent.
-  fontSize: /^(inherit|var\(--text-[a-z0-9]+\)|clamp\(.*\)|calc\(.*\)|[\d.]+em|[\d.]+%)$/,
-  // The widths at which the layout changes.
-  breakpoints: new Set([480, 560, 720, 959, 960, 1199, 1200]),
-  // How long things take, and how they move, are tokens; these are the plain exceptions.
-  easing: new Set(["ease", "linear", "ease-in", "ease-out", "ease-in-out"]),
-};
+const COLOUR_FN = /\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(/;
+const COLOUR_HEX = /(?<![\w&/#-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])/;
 
-/** The text of a stylesheet with comments blanked (so lengths and line numbers stay) and waivers noted. */
-function lines(text) {
+/** Where a file lives, as a path under apps/web with forward slashes. */
+const under = (file) =>
+  file
+    .replace(/\\/g, "/")
+    .replace(/^.*?apps\/web\//, "")
+    .replace(/^\.\//, "");
+
+/**
+ * The text of a source file with its comments blanked (lengths and line numbers stay) and the lines that are
+ * waived: the lines of a comment that says `design:`, and the one after it.
+ */
+function strip(text, { css = false } = {}) {
   const waived = new Set();
-  const stripped = text.replace(/\/\*([\s\S]*?)\*\//g, (m, body, offset) => {
-    if (/^\s*design:/.test(body)) {
-      const line = text.slice(0, offset).split("\n").length + m.split("\n").length - 1;
-      for (let l = text.slice(0, offset).split("\n").length; l <= line; l++) waived.add(l);
+  let out = "";
+  let line = 1;
+  const waive = (body) => {
+    if (!/\bdesign:/.test(body)) return;
+    const last = line + (body.match(/\n/g)?.length ?? 0);
+    for (let l = line; l <= last + 1; l++) waived.add(l);
+  };
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    const two = text.slice(i, i + 2);
+    if (two === "/*") {
+      const end = text.indexOf("*/", i + 2);
+      const stop = end < 0 ? text.length : end + 2;
+      const body = text.slice(i, stop);
+      waive(body);
+      out += body.replace(/[^\n]/g, " ");
+      line += body.match(/\n/g)?.length ?? 0;
+      i = stop;
+    } else if (!css && two === "//" && text[i - 1] !== ":") {
+      const end = text.indexOf("\n", i);
+      const stop = end < 0 ? text.length : end;
+      const body = text.slice(i, stop);
+      waive(body);
+      out += " ".repeat(body.length);
+      i = stop;
+    } else if (!css && (ch === '"' || ch === "'" || ch === "`")) {
+      // A string: copy it whole, so that `//` and `/*` inside it are not taken for comments.
+      let j = i + 1;
+      while (j < text.length && text[j] !== ch) {
+        if (text[j] === "\\") j++;
+        else if (ch !== "`" && text[j] === "\n") break;
+        j++;
+      }
+      const body = text.slice(i, j + 1);
+      out += body;
+      line += body.match(/\n/g)?.length ?? 0;
+      i = j + 1;
+    } else {
+      out += ch;
+      if (ch === "\n") line++;
+      i++;
     }
-    return m.replace(/[^\n]/g, " ");
-  });
-  return { rows: stripped.split("\n"), waived };
-}
-
-/** The statements of a stylesheet, each with the lines it spans: a rule's opening, a declaration, a closing brace. */
-function statements(text) {
-  const { rows, waived } = lines(text);
-  const out = [];
-  let current = "";
-  let start = 1;
-  rows.forEach((row, i) => {
-    for (const ch of row) {
-      if (!current.trim()) start = i + 1;
-      if (ch === "{" || ch === "}" || ch === ";") {
-        const body = current.trim();
-        if (body) out.push({ text: ch === ";" ? body : body, open: ch === "{", start, end: i + 1 });
-        if (ch === "}") out.push({ text: "}", close: true, start: i + 1, end: i + 1 });
-        current = "";
-      } else current += ch;
-    }
-    current += "\n";
-  });
-  const rest = current.trim();
-  if (rest) out.push({ text: rest, start, end: rows.length });
-  return { out, waived };
-}
-
-/** How far in from its right edge a select keeps its text, at least: the arrow's width and the gaps either side. */
-const SELECT_ROOM_PX = 40;
-
-/** The right padding a `padding` shorthand gives, in pixels, or null when it is not a plain length. */
-function rightPadding(value) {
-  const parts = value.trim().split(/\s+/);
-  const right = parts.length === 1 ? parts[0] : parts[1];
-  const m = /^(-?[\d.]+)(px|rem)$/.exec(right ?? "");
-  return m ? Number(m[1]) * (m[2] === "rem" ? 16 : 1) : null;
-}
-
-/** What a rule must do if it styles a select: draw the arrow, or leave the arrow's room alone. */
-function selectProblems(rule, shared) {
-  const sels = rule.selector.split(",").map((x) => x.trim());
-  const styles = sels.some((x) => /(^|[\s>+~])select(\.[\w-]+)*$/.test(x));
-  if (!styles) return [];
-  const d = rule.decls;
-  const bare = sels.length === 1 && sels[0] === "select";
-  const out = [];
-  if (bare && d.appearance === "base-select") return out; // the open list: the arrow rule above still draws the closed select
-  if (bare) {
-    if (d.appearance !== "none")
-      out.push(
-        "a select draws its own arrow: appearance none, so the browser does not put one where it likes",
-      );
-    if (!/gradient\(|url\(/.test(d["background-image"] ?? ""))
-      out.push("a select with no arrow of its own has none: give it a background-image");
-    const room = /^[\d.]+px$/.test(d["padding-right"] ?? "") ? parseFloat(d["padding-right"]) : 0;
-    if (room < SELECT_ROOM_PX)
-      out.push(
-        `the arrow needs padding-right of ${SELECT_ROOM_PX}px or more, so the text stays clear of it`,
-      );
-    if (shared && rule.start < shared.start)
-      out.push(
-        "the select rule must come after the shared input, select, textarea rule, or that padding wins",
-      );
-    return out;
   }
-  if (d.appearance && d.appearance !== "none" && d.appearance !== "base-select")
-    out.push("a select keeps the shared arrow: appearance stays none");
-  if (sels.length === 1) {
-    // A list that names several controls (input, select, textarea) is the shared rule; the select rule overrides its padding.
-    const px = d["padding-right"] ? rightPadding(`0 ${d["padding-right"]}`) : null;
-    const sh = d.padding ? rightPadding(d.padding) : null;
-    const right = px ?? sh;
-    if (right !== null && right < SELECT_ROOM_PX)
-      out.push(
-        `padding on a select must leave ${SELECT_ROOM_PX}px at the right for its arrow: use padding-block and padding-left`,
-      );
-  }
-  return out;
+  return { rows: out.split("\n"), waived };
 }
+
+const problem = (file, line, rule, why, text) => ({
+  file,
+  line,
+  rule,
+  why,
+  text: text.trim().replace(/\s+/g, " ").slice(0, 110),
+});
 
 /** The rules of one stylesheet's text. `rules` is `all`, or the names of those that apply. */
 export function checkCssText(text, file = "a.css", rules = "all") {
-  const problems = [];
   const want = (r) => rules === "all" || rules.split(" ").includes(r);
-  const { out, waived } = statements(text);
-  let depth = 0;
-  let reduced = 0; // the depth inside a reduced-motion block, while we are in one
-  const open = []; // the rules we are inside, with what each declares
-  const selectRules = [];
-  for (const st of out) {
-    if (st.close) {
-      depth--;
-      if (reduced && depth < reduced) reduced = 0;
-      const rule = open.pop();
-      if (
-        rule &&
-        want("control") &&
-        /^[^@]/.test(rule.selector) &&
-        /\bselect\b/.test(rule.selector)
-      )
-        selectRules.push(rule);
-      continue;
-    }
-    const line = st.text.replace(/\s+/g, " ");
-    if (st.open) {
-      depth++;
-      open.push({ selector: line, decls: {}, start: st.start });
-      if (/@media[^{]*prefers-reduced-motion:\s*reduce/.test(line)) reduced = depth;
-      const media = /@media\s*\(\s*(?:max|min)-width:\s*(\d+)px\s*\)/.exec(line);
-      let isWaived = false;
-      for (let l = st.start; l <= st.end; l++) isWaived ||= waived.has(l);
-      if (media && !isWaived && want("breakpoint") && !SCALES.breakpoints.has(Number(media[1])))
-        problems.push({
-          file,
-          line: st.start,
-          rule: "breakpoint",
-          why: `${media[1]}px is not one of ${[...SCALES.breakpoints].join(", ")}`,
-          text: line.slice(0, 110),
-        });
-      continue;
-    }
-    let isWaived = false;
-    for (let l = st.start; l <= st.end; l++) isWaived ||= waived.has(l);
-    if (isWaived) continue;
-    const decl = /^([a-z-]+|--[a-z0-9-]+)\s*:\s*(.*)$/.exec(line);
-    if (!decl) continue;
-    const add = (rule, why) =>
-      problems.push({ file, line: st.start, rule, why, text: line.slice(0, 110) });
-    const [, prop, value] = decl;
-    if (open.length) open[open.length - 1].decls[prop] = value.trim();
-    const isToken = prop.startsWith("--");
-    const inReduced = reduced > 0;
-
-    // Colour comes from a token. A token's own definition may name a colour; nothing else may.
-    if (
-      want("colour") &&
-      !isToken &&
-      /#[0-9a-fA-F]{3,8}\b|\b(rgb|rgba|hsl|hsla|oklch|lab)\(/.test(value)
-    )
-      add("colour", "a raw colour: use a colour token");
-    // What rises above the page casts a shadow from the scale; nothing else invents one.
-    if (
-      want("shadow") &&
-      !isToken &&
-      (prop === "box-shadow" || /drop-shadow\(/.test(value)) &&
-      !/^(none|var\(--[a-z-]+\))$/.test(value.trim())
-    )
-      add("shadow", "a shadow that is not a token");
-    if (
-      want("layer") &&
-      prop === "z-index" &&
-      !/^(-?[0-2]|var\(--z-[a-z]+\)|calc\(var\(--z-[a-z]+\) [-+] \d+\))$/.test(value.trim())
-    )
-      add("layer", "a z-index that is not on the scale");
-    if (want("important") && /!important/.test(value) && !inReduced)
-      add("important", "!important outside the reduced-motion block");
-    if (
-      want("font") &&
-      prop === "font-family" &&
-      !/^(inherit|var\(--(serif|sans|mono|font-sans|font-heading|font-mono|font-stack|font-mono-stack)\))$/.test(
-        value.trim(),
-      )
-    )
-      add("font", "a font that is not a token");
-    if (
-      want("font") &&
-      prop === "font" &&
-      !isToken &&
-      !/var\(--(serif|sans|mono|font-sans|font-heading|font-mono|font-stack|font-mono-stack)\)|^inherit$/.test(
-        value,
-      )
-    )
-      add("font", "a font shorthand with no font token");
-    if (want("type") && prop === "font-size" && !SCALES.fontSize.test(value.trim()))
-      add("type", `${value} is not a size on the type scale`);
-    if (want("type") && prop === "font" && !isToken) {
-      const size = /(?<![\w.#-])([\d.]+(?:rem|px))(?=\/|\s)/.exec(value);
-      if (size) add("type", `${size[1]} in a font shorthand is not on the type scale`);
-    }
-    if (
-      want("space") &&
-      /^(padding|margin|gap|row-gap|column-gap)(-[a-z]+)*$/.test(prop) &&
-      !isToken
-    ) {
-      // A `rem` is checked as the pixels it comes to at the browser's own size, so it cannot step round the grid.
-      for (const len of value.matchAll(/(?<![\w.#-])(-?\d+(?:\.\d+)?)(px|rem)\b/g)) {
-        const n = Math.round(Math.abs(Number(len[1])) * (len[2] === "rem" ? 16 : 1) * 1000) / 1000;
-        if (!(Number.isInteger(n) && ((n <= 24 && n % 2 === 0) || SCALES.space.has(n))))
-          add("space", `${len[1]}${len[2]} is off the two-pixel grid`);
+  const problems = [];
+  const { rows, waived } = strip(text, { css: true });
+  // A declaration may span lines: join to the semicolon, keeping the line it began on.
+  const decls = [];
+  let current = "";
+  let start = 0;
+  rows.forEach((row, i) => {
+    for (const piece of row.split(/([;{}])/)) {
+      if (piece === ";" || piece === "{" || piece === "}") {
+        if (piece === ";" && current.trim()) decls.push({ text: current, line: start });
+        current = "";
+      } else if (piece.trim()) {
+        if (!current.trim()) start = i + 1;
+        current += ` ${piece}`;
       }
     }
-    if (want("radius") && /^border(-[a-z]+)*-radius$/.test(prop)) {
+  });
+  for (const d of decls) {
+    if (waived.has(d.line)) continue;
+    const m = /^\s*([a-z-]+|--[a-z0-9-]+)\s*:\s*(.*)$/.exec(d.text);
+    if (!m) continue;
+    const [, prop, value] = m;
+    const add = (rule, why) => problems.push(problem(file, d.line, rule, why, d.text));
+    if (want("colour") && (COLOUR_FN.test(value) || COLOUR_HEX.test(value)))
+      add("colour", "a raw colour: colours are written in theme.css only");
+    const token = prop.startsWith("--");
+    if (want("shadow") && !token && (prop === "box-shadow" || /drop-shadow\(/.test(value))) {
+      const plain = /^(none|inherit|var\(--[a-z0-9-]+\))$/.test(value.trim());
+      if (!plain && !/^(filter|-webkit-filter)$/.test(prop))
+        add("shadow", "a shadow that is not none or a token");
+      if (/^(filter|-webkit-filter)$/.test(prop) && /drop-shadow\((?!var\()/.test(value))
+        add("shadow", "a shadow that is not a token");
+    }
+    if (want("radius") && !token && /^border(-[a-z]+)*-radius$/.test(prop)) {
       for (const part of value.split(/[\s/]+/))
-        if (part && !SCALES.radius.has(part) && !/^var\(|^inherit$|^calc\(/.test(part))
-          add("radius", `${part} is not a radius on the scale`);
+        if (part && !/^(0|inherit|50%|100%|999px|var\(.*\)|calc\(.*\))$/.test(part))
+          add("radius", `${part} is not a radius token`);
     }
-    if (want("motion") && /^(transition|animation)(-duration)?$/.test(prop) && !inReduced) {
-      const durations = value.match(new RegExp(`(?<![-\\w.])${NUMBER}m?s\\b`, "g")) ?? [];
-      const nonZero = durations.filter((d) => !/^0(\.0+)?m?s$/.test(d));
-      if (nonZero.length) add("motion", `${nonZero.join(", ")}: use a duration token`);
-      for (const word of value.match(/\b(ease-in-out|ease-in|ease-out|ease|linear)\b/g) ?? [])
-        if (!SCALES.easing.has(word)) add("motion", `${word} is not an easing`);
-      if (/cubic-bezier\(/.test(value)) add("motion", "an easing curve that is not a token");
-    }
-  }
-  if (selectRules.length) {
-    const shared = selectRules.find((r) => r.selector.split(",").length > 1 && r.decls.padding);
-    const bare = selectRules.find((r) => r.selector.trim() === "select");
-    if (!bare)
-      problems.push({
-        file,
-        line: selectRules[0].start,
-        rule: "control",
-        why: "selects are styled but there is no `select` rule that draws their arrow",
-        text: selectRules[0].selector.slice(0, 110),
-      });
-    for (const r of selectRules)
-      for (const why of selectProblems(r, shared))
-        problems.push({
-          file,
-          line: r.start,
-          rule: "control",
-          why,
-          text: r.selector.slice(0, 110),
-        });
   }
   return problems;
 }
 
-function checkCss({ file, rules }, problems) {
-  problems.push(...checkCssText(readFileSync(join(root, file), "utf8"), file, rules));
+/** A class string's arbitrary values: the `[...]` parts of utilities such as `w-[13px]` and `shadow-[...]`. */
+function arbitraryValues(row) {
+  const out = [];
+  const re =
+    /(?<![\w[\]-])(?:[a-z0-9&_>*:[\]()=.%-]+:)*!?-?([a-z][a-z0-9-]*)-\[((?:[^\][]|\[[^\]]*\])*)\]/g;
+  for (const m of row.matchAll(re)) out.push({ utility: m[1], value: m[2] });
+  return out;
 }
 
-/** TSX: no styling inline except to pass a value to the stylesheet. */
-function checkTsx(problems) {
-  const walk = (dir) =>
-    readdirSync(dir).flatMap((f) => {
-      const p = join(dir, f);
-      if (statSync(p).isDirectory()) return f === "node_modules" ? [] : walk(p);
-      return /\.tsx$/.test(f) && !/\.test\./.test(f) ? [p] : [];
-    });
-  for (const path of walk(join(web, "src")))
-    problems.push(...checkTsxText(readFileSync(path, "utf8"), relative(root, path)));
-}
-
-/** The inline styles in one component's text. */
+/** What a component, a page or a helper may not do. `file` is its path, which decides the rules that apply. */
 export function checkTsxText(text, file = "a.tsx") {
   const problems = [];
-  {
-    const rows = text.split("\n");
-    rows.forEach((row, i) => {
-      if (/design:/.test(row) || /design:/.test(rows[i - 1] ?? "")) return;
-      const m = /style=\{\{(.*)$/.exec(row);
-      if (!m) return;
-      // A single-line style object is fine only when every key hands a value to the stylesheet.
-      const keys = [...m[1].matchAll(/(?:\[\s*["'](--[a-z0-9-]+)["'][^\]]*\]|(\w+))\s*:/g)].map(
-        (k) => k[1] ?? k[2],
-      );
-      const loose = keys.filter((k) => !k.startsWith("--"));
-      if (!keys.length || loose.length)
-        problems.push({
-          file,
-          line: i + 1,
-          rule: "inline",
-          why: `inline style (${loose.join(", ") || "multi-line"}): use a class or a token`,
-          text: row.trim().slice(0, 110),
-        });
-    });
-  }
+  const where = under(file);
+  const { rows, waived } = strip(text);
+  const inUi = where.startsWith("src/components/ui/");
+  const inKit = inUi || where.startsWith("src/components/app/");
+  const isTsx = file.endsWith(".tsx");
+  const svgOk =
+    inUi ||
+    where.startsWith("src/home/") ||
+    /(^|\/)(Mark|MonthlyChart|chart)\.tsx$/.test(where) ||
+    where === "src/pages/Home.tsx";
+  const roleOk = /(^|\/)sections\.ts$/.test(where);
+  rows.forEach((row, i) => {
+    const n = i + 1;
+    if (waived.has(n)) return;
+    const add = (rule, why) => problems.push(problem(file, n, rule, why, row));
+
+    if (COLOUR_FN.test(row) || COLOUR_HEX.test(row))
+      add("colour", "a raw colour: use a colour token (bg-primary, text-muted-foreground, ...)");
+
+    if (!inUi)
+      for (const { utility, value } of arbitraryValues(row)) {
+        if (/^(shadow|inset-shadow|drop-shadow)$/.test(utility) && !/var\(--/.test(value))
+          add("shadow", `${utility}-[${value}] is a shadow of its own: use a shadow of the scale`);
+        else if (/^rounded(-[a-z]{1,2})?$/.test(utility) && !/var\(--/.test(value))
+          add("radius", `${utility}-[${value}] is a radius of its own: use a radius of the scale`);
+        else if (
+          /(?:^|[^\w.-])-?\d*\.?\d+(?:px|rem|em)\b/.test(value) &&
+          !/^(length|color|image|url):/.test(value)
+        )
+          add("arbitrary", `${utility}-[${value}]: use a size of the scale, or say why`);
+      }
+
+    if (!inKit) {
+      if (/\btype=(?:"number"|'number'|\{"number"\})/.test(row) || /\btype:\s*"number"/.test(row))
+        add("control", 'type="number": use CountInput or MoneyInput');
+      if (
+        /<input\b[^>]*\btype=(?:"|')?(date|checkbox|radio|file|datetime-local|month|time)\b/.test(
+          row,
+        )
+      )
+        add(
+          "control",
+          "a native input of this type: use the kit's DateField, Checkbox, RadioGroup or a file control",
+        );
+      if (/<select\b/.test(row))
+        add("control", "a native <select>: use Select, or ToggleGroup for a short choice");
+    }
+
+    if (/\b(?:window\.)?location\.reload\(/.test(row))
+      add("reload", "a page reload: load the data again instead");
+
+    if (
+      /from\s+["'](?:react-icons|@heroicons|@tabler\/icons|@phosphor-icons|@radix-ui\/react-icons|@remixicon|@fortawesome|@mui\/icons|@ant-design\/icons|iconoir|feather-icons|bootstrap-icons)/.test(
+        row,
+      )
+    )
+      add("icon", "an icon set other than lucide-react");
+    if (isTsx && !svgOk && /<svg\b/.test(row))
+      add("icon", "an inline <svg>: use a lucide-react icon");
+
+    if (isTsx && !roleOk) {
+      // A string literal, or the words of a JSX element: not an identifier, not an API value.
+      for (const s of row.matchAll(/"([^"\n]*)"|'([^'\n]*)'|`([^`\n]*)`|>([^<>{}\n]*)</g)) {
+        const t = s[1] ?? s[2] ?? s[3] ?? s[4] ?? "";
+        if (/\b(?:Supplier|Member)s?\b/.test(t))
+          add(
+            "role",
+            'a role name written out: take it from ROLE_LABEL (the words are "Admin", "Cook", "Consumer")',
+          );
+      }
+    }
+
+    if (isTsx && /style=\{\{/.test(row))
+      add("inline", "an inline style: use a class or a token, or say why with a design: comment");
+
+    if (
+      !inUi &&
+      /\brounded-full\b/.test(row) &&
+      /(?<![\w-])size-[23](?![\w.-])/.test(row) &&
+      /\bbg-[a-z]/.test(row)
+    )
+      add("status", "a small filled dot: a status is a badge with words (StatusBadge)");
+  });
   return problems;
+}
+
+/** What an end-to-end test may not do: find a thing by its class. */
+export function checkSpecText(text, file = "a.spec.ts") {
+  const problems = [];
+  const { rows, waived } = strip(text);
+  const call =
+    /(?:locator|querySelector(?:All)?|\$\$?|closest|matches)\s*(?:<[^>]*>)?\(\s*(["'`])((?:(?!\1).)*)\1/g;
+  rows.forEach((row, i) => {
+    if (waived.has(i + 1)) return;
+    for (const m of row.matchAll(call))
+      if (/(^|[\s>+~,(])[a-z0-9*]*\.[a-zA-Z_][\w-]*|\[class[~|^$*]?=/.test(m[2]))
+        problems.push(
+          problem(
+            file,
+            i + 1,
+            "selector",
+            "finds a thing by its class: ask by role, label or visible text",
+            row,
+          ),
+        );
+  });
+  return problems;
+}
+
+/** A screen that is a route renders a PageHeader or a NotAvailable (itself, or through the layout that does). */
+export function checkPageText(text, file = "Page.tsx") {
+  if (/\b(PageHeader|NotAvailable|Unavailable|NotFound)\b/.test(text)) return [];
+  return [
+    problem(
+      file,
+      1,
+      "title",
+      "a screen with no PageHeader or NotAvailable: it has no title to read or focus",
+      file,
+    ),
+  ];
+}
+
+/** Files the routers import that are not screens: the public site's home page (its own headline) and a provider. */
+const NOT_SCREENS = new Set(["src/pages/Home.tsx", "src/pages/workspace/context.tsx"]);
+
+const walk = (dir, keep) =>
+  readdirSync(dir).flatMap((f) => {
+    const p = join(dir, f);
+    if (statSync(p).isDirectory()) return f === "node_modules" || f === "dist" ? [] : walk(p, keep);
+    return keep(f) ? [p] : [];
+  });
+
+/** The files of src/pages that the routers name, which are the screens. */
+function routedPages() {
+  const files = new Set();
+  for (const router of ["src/App.tsx", "src/shell/Routes.tsx", "src/shell/WorkspaceShell.tsx"]) {
+    let text = "";
+    try {
+      text = readFileSync(join(web, router), "utf8");
+    } catch {
+      continue;
+    }
+    for (const m of text.matchAll(
+      /(?:from\s+|import\()\s*["']((?:\.{1,2}\/)+pages\/[^"']+?)(?:\.tsx)?["']/g,
+    ))
+      files.add(join(web, router, "..", `${m[1]}.tsx`));
+  }
+  return [...files];
 }
 
 export function check() {
   const problems = [];
-  for (const c of CSS) checkCss(c, problems);
-  checkTsx(problems);
+  for (const { file, rules } of CSS)
+    problems.push(...checkCssText(readFileSync(join(root, file), "utf8"), file, rules));
+  const sources = walk(join(web, "src"), (f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f));
+  for (const path of sources)
+    problems.push(...checkTsxText(readFileSync(path, "utf8"), relative(root, path)));
+  for (const path of walk(join(web, "e2e"), (f) => /\.spec\.ts$/.test(f)))
+    problems.push(...checkSpecText(readFileSync(path, "utf8"), relative(root, path)));
+  for (const path of routedPages()) {
+    if (NOT_SCREENS.has(under(path))) continue;
+    try {
+      problems.push(...checkPageText(readFileSync(path, "utf8"), relative(root, path)));
+    } catch {
+      // A route that names a file that is not there is the compiler's to report.
+    }
+  }
   return problems;
 }
 

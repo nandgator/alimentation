@@ -541,3 +541,68 @@ The table indexes each finding by the screen where it appears. Findings marked "
 - **Fix:** Draw disabled buttons in a neutral fill and give a reason in text next to them, or keep the button enabled and validate on submit.
 - **Principle:** Refactoring UI; Nielsen #1.
 - **Evidence:** `phone-light-admin-log-form-top.png`, `phone-light-payments-reverse-action.png`; `button.tsx:11`.
+
+## Closure
+
+Every finding, and what closed it. "Working tree" marks work built after `6633e4c` that is not committed yet; its commit goes in this column when it is made. The status of a finding is Closed when the plan's package for it is accepted and its end-to-end spec passes.
+
+| ID | Finding | Severity | Status | Closed by | Commit |
+| --- | --- | --- | --- | --- | --- |
+| FRM-01 | Retiring a catalogue item looks like adding one | Critical | Closed | WP7, the Setup hub, with the shared form parts of WP1 | `6633e4c` |
+| DAT-01 | Wide tables are cropped on phones | Critical | Closed | WP6, People | `6633e4c` |
+| NAV-01 | No screen has its own document title | High | Closed | WP2, the shell | `6633e4c` |
+| NAV-02 | A route change leaves focus and scroll where they were | High | Closed | WP2, the shell | `6633e4c` |
+| NAV-03 | The phone top bar has no page name, and Sign out is one tap away | High | Closed | WP2, the shell | `6633e4c` |
+| NAV-04 | The phone bottom bar and the More panel | High | Closed | WP2, the shell | `6633e4c` |
+| NAV-05 | The desktop sidebar cuts off its last items | High | Closed | WP2, the shell | `6633e4c` |
+| NAV-06 | There is no way to switch kitchen | High | Closed | WP2, the shell | `6633e4c` |
+| NAV-07 | Every role gets the admin's dashboard and the system's names for roles | High | Closed | WP2, the shell | `6633e4c` |
+| NAV-08 | Loading is a line of text, and the layout jumps | High | Closed | WP2, the shell | `6633e4c` |
+| FRM-02 | Errors are not tied to the fields they are about | High | Closed | WP1, the app kit (every form is an AppForm in a FormDialog) | `6633e4c` |
+| FRM-03 | Validation is left to the browser's bubble | High | Closed | WP1, the app kit (every form is an AppForm in a FormDialog) | `6633e4c` |
+| FRM-04 | Long dialogs hide their primary action and have no close button | High | Closed | WP7, the Setup hub, with the shared form parts of WP1 | `6633e4c` |
+| FRM-05 | Buttons have no consistent hierarchy or placement | High | Closed | WP1, the app kit (every form is an AppForm in a FormDialog) | `6633e4c` |
+| FRM-06 | Dates use the native input everywhere, with no limits and no shortcuts | High | Closed | WP7, the Setup hub, with the shared form parts of WP1 | `6633e4c` |
+| FRM-07 | Money and number inputs differ from screen to screen | High | Closed | WP7, the Setup hub, with the shared form parts of WP1 | `6633e4c` |
+| FRM-08 | The People import dialog overflows on a phone | High | Closed | WP6, People | `6633e4c` |
+| FRM-09 | `/app` buries "Start a kitchen" under two advanced forms | High | Closed | WP9, outside the workspace | working tree, WP9 |
+| FRM-10 | Busy and success states are weak, and toasts are a single slot | High | Closed | WP1, the app kit (every form is an AppForm in a FormDialog) | `6633e4c` |
+| DAT-02 | The dashboard table has ten equal columns | High | Closed | WP3, the homes and Bills | `6633e4c` |
+| DAT-03 | "Bills, line by line" repeats one table per person down the page | High | Closed | WP3, the homes and Bills | `6633e4c` |
+| DAT-04 | Money formatting is inconsistent | High | Closed | WP1, the app kit | `6633e4c` |
+| DAT-05 | Status badges rely on colour, are small and use green | High | Closed | WP1, the app kit | `6633e4c` |
+| DAT-06 | The audit trail cannot be searched or filtered | High | Closed | WP8, the Books hub | `6633e4c` |
+| DAT-07 | The monthly bill chart cannot be read | High | Closed | WP3, the homes and Bills | `6633e4c` |
+| VIS-01 | Controls do not inherit the app's font | High | Closed | WP0, the theme and base layer | `6633e4c` |
+| VIS-02 | Field edges are too faint to see | High | Closed | WP0, the theme and base layer | `6633e4c` |
+| VIS-03 | The green brand clashes with the vegetarian mark | High | Closed | WP0, the theme and base layer | `6633e4c` |
+| VIS-04 | Two design systems meet in every screen | High | Closed | WP11, the legacy stylesheets, controls and token bridge are deleted | working tree, WP11 |
+| NAV-09 | Changing role reloads the page and may land on a dead end | Medium | Closed | WP2, the shell | `6633e4c` |
+| NAV-10 | A restricted section and a 404 are different dead ends | Medium | Closed | WP2, the shell | `6633e4c` |
+| NAV-11 | Pages switch with no transition, and banners push content down | Medium | Closed | WP2, the shell | `6633e4c` |
+| NAV-12 | A new kitchen shows one hint at a time and empty tables | Medium | Closed | WP3, the homes and Bills | `6633e4c` |
+| NAV-13 | The account is plain text, not a menu | Medium | Closed | WP2, the shell | `6633e4c` |
+| NAV-14 | Sections are named for the system, not for the task | Medium | Closed | WP2, the shell | `6633e4c` |
+| FRM-11 | The Reverse dialog does not say why its button is disabled | Medium | Closed | WP5, Payments | `6633e4c` |
+| FRM-12 | Short choices are hidden in selects, and the selects misalign | Medium | Closed | WP7, the Setup hub, with the shared form parts of WP1 | `6633e4c` |
+| FRM-13 | "Optional" is marked unevenly, and long hints push the form down | Medium | Closed | WP6, People | `6633e4c` |
+| FRM-14 | Sign-in asks for a name on every visit | Medium | Closed | WP2 and WP9 (sign-in asks for a name only for a new account) | `6633e4c` |
+| FRM-15 | Irreversible actions are confirmed in different ways | Medium | Closed | WP8, the Books hub | `6633e4c` |
+| FRM-16 | Cooks and consumers fill in the admin's long forms | Medium | Closed | WP4, Today, Meals and History | `6633e4c` |
+| DAT-08 | The stat tiles have two sizes and no clear lead | Medium | Closed | WP3, the homes and Bills | `6633e4c` |
+| DAT-09 | The People table is noisy and duplicates accounts | Medium | Closed | WP6, People | `6633e4c` |
+| DAT-10 | Payments shows each claim twice | Medium | Closed | WP5, Payments | `6633e4c` |
+| DAT-11 | The history feed is hard to scan | Medium | Closed | WP4, Today, Meals and History | `6633e4c` |
+| DAT-12 | The bill statement does not show how a figure was reached | Medium | Closed | WP3, the homes and Bills | `6633e4c` |
+| DAT-13 | Dates appear in four or more formats | Medium | Closed | WP1, the app kit | `6633e4c` |
+| DAT-14 | Tables lack scroll cues, sticky columns and action headers | Medium | Closed | WP1, the app kit | `6633e4c` |
+| VIS-05 | There is no icon system | Medium | Closed | WP1, the app kit | `6633e4c` |
+| VIS-06 | Contrast falls short in dark mode, in charts and in secondary text | Medium | Closed | WP0, the theme and base layer | `6633e4c` |
+| NAV-15 | "Hide this menu" is easy to miss and its drawer does not trap focus | Low | Closed | WP2, the shell | `6633e4c` |
+| NAV-16 | View state is not kept in the URL | Low | Closed | WP2, the shell | `6633e4c` |
+| NAV-17 | Home, guides, docs and the app each have their own header | Low | Closed | WP2, the shell | `6633e4c` |
+| FRM-17 | Dialogs focus the first field when they open | Low | Closed | WP1, the app kit (every form is an AppForm in a FormDialog) | `6633e4c` |
+| FRM-18 | Dialogs have no description and generic titles | Low | Closed | WP1, the app kit (every form is an AppForm in a FormDialog) | `6633e4c` |
+| FRM-19 | Checkboxes and radios are raw inputs with small targets | Low | Closed | WP7, the Setup hub, with the shared form parts of WP1 | `6633e4c` |
+| FRM-20 | Text limits are invisible | Low | Closed | WP11, a count on the one long field (the reason in Reverse and Dispute) | working tree, WP11 |
+| FRM-21 | A disabled button is the normal button at 60% opacity | Low | Closed | WP11, a disabled button is a neutral fill, not a faded one | working tree, WP11 |

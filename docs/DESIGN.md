@@ -1159,12 +1159,13 @@ see what. The technical one is `docs/site/docs/concepts/trust-model.md`.
 ### 11.3 A design system that is checked (ADR-13)
 
 The tokens (colour, type, space, shape, elevation, layers, motion, breakpoints) are in
-`apps/web/src/styles.css` and are documented, with the real stylesheet, at `/docs/design/`.
-`scripts/check-design.mjs` (`bun run design`) fails the build when a stylesheet or component leaves
-them: a raw colour, a shadow, a z-index, a font, a size, a gap off the grid, a radius, a duration or
-curve, a breakpoint, or a `style` attribute that decides how something looks. A waiver is a comment
-that begins `design:` and gives its reason. At the time of writing there are three. The checker is
-run by the test suite and by the compose test run.
+`apps/web/src/theme.css` and are documented, with the real stylesheet, at `/docs/design/`.
+`scripts/check-design.mjs` (`bun run design`) fails the build when a stylesheet, a component or an
+end-to-end spec leaves them: a raw colour, a shadow or a radius of its own, an arbitrary Tailwind
+length, a native control the kit replaces, a page reload, a screen with no title, an icon that is
+not lucide's, a role written out in the system's words, an inline style, a status drawn as a dot, or
+a test that finds a thing by its class. A waiver is a comment that begins `design:` and gives its
+reason. The checker is run by the test suite and by the compose test run.
 
 The component set follows coss/ui: Base UI primitives, Tailwind utilities, hairline borders drawn
 from alpha tokens, a radius derived from a 10px base and quiet depth with a ring for focus. Only the
@@ -1207,11 +1208,10 @@ own page (`guides/start/overview`, `docs/overview/map`). The layout is imitated,
 
 **Theme.** One choice (Auto, Light or Dark) for the whole product, kept under the `theme` key in
 local storage. A four-line script, `apps/web/public/theme.js`, applies it before the first paint on
-every page, the app and both sites alike; `src/theme.ts` and `components/ThemeSwitch.tsx` are the
-control's side. The control sits in the sidebar, in the phone's More panel, at the end of the row
-under the top bar on a tablet, and in the home page's footer; the sites have the same choice as a
-button in the top bar. Auto leaves the system's setting in charge. The documentation's earlier
-`docs-theme` key is still read, once.
+every page, the app and both sites alike; `src/theme.ts` is the control's side. The control sits in
+the sidebar, in the phone's More panel, at the end of the row under the top bar on a tablet, and in
+the home page's footer; the sites have the same choice as a button in the top bar. Auto leaves the
+system's setting in charge. The documentation's earlier `docs-theme` key is still read, once.
 
 **Where the ideas came from.** The grouped, hideable menu, one list driving navigation and roles,
 the production checklist (`docs/site/docs/self-hosting/going-live.md`,

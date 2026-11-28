@@ -1,18 +1,33 @@
-import {
-  formatBalance,
-  formatDisplayDate,
-  formatDisplayMonth,
-  formatMoney,
-  type IsoDate,
-  type Month,
-} from "@alimentation/core";
+import { formatBalance, formatMoney } from "@alimentation/core";
 
 /** ₹0 for zero, a true minus for a negative; `fixed` gives two places on every amount so a column lines up. */
 export const money = (paise: number, opts?: { fixed?: boolean }) => formatMoney(paise, opts);
 /** A balance where positive is credit held: "Credit ₹580". */
 export const balance = (paise: number, opts?: { fixed?: boolean }) => formatBalance(paise, opts);
-export const date = (d: string) => formatDisplayDate(d as IsoDate);
-export const month = (m: string) => formatDisplayMonth(m as Month);
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+/** "24 Oct 2026" from "2026-10-24". */
+export const date = (d: string) => {
+  const [y, m, day] = d.split("-");
+  return `${Number(day)} ${SHORT_MONTHS[Number(m) - 1] ?? m} ${y}`;
+};
+/** "Oct 2026" from "2026-10". */
+export const month = (m: string) => {
+  const [y, n] = m.split("-");
+  return `${SHORT_MONTHS[Number(n) - 1] ?? m} ${y}`;
+};
 
 const MONTH_NAMES = [
   "January",

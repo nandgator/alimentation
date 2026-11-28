@@ -90,9 +90,13 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
     let hand: Hand = { gap: 0, speed: 0 };
 
     const draw = (d: Courier, at: number) => {
+      // The carrier is set in the page, not on the screen: standing on a heading, it is then where the page puts it,
+      // and the browser scrolls it with the heading's words. Set on the screen, it would be moved after the page had
+      // already moved, a frame behind the words, and would be seen to shake against them.
+      const page = home.getBoundingClientRect();
       fly.dataset.at = String(Math.round(at * 1000) / 1000);
       fly.style.opacity = String(Math.round(d.flyer * 1000) / 1000);
-      fly.style.transform = `translate(${d.box.left.toFixed(2)}px, ${d.box.top.toFixed(2)}px) scale(${(d.box.width / CARRIER_BOX.width).toFixed(4)}, ${(d.box.height / CARRIER_BOX.height).toFixed(4)})`;
+      fly.style.transform = `translate(${(d.box.left - page.left).toFixed(2)}px, ${(d.box.top - page.top).toFixed(2)}px) scale(${(d.box.width / CARRIER_BOX.width).toFixed(4)}, ${(d.box.height / CARRIER_BOX.height).toFixed(4)})`;
       mark.style.opacity = String(Math.round(d.mark * 1000) / 1000);
       hero.dataset.lifted = String(d.lifted);
       mark.classList.toggle("is-docked", d.docked);

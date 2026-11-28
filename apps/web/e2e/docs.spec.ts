@@ -445,6 +445,7 @@ test.describe("the documentation sites", () => {
     // Highlighted: a keyword is not the colour of the text around it.
     const colours = await block.evaluate((el) => ({
       text: getComputedStyle(el.querySelector("code")!).color,
+      // design: the highlighter names its tokens by class, and the docs are plain HTML with no role to ask by
       keyword: getComputedStyle(el.querySelector("code span[class*=hljs-keyword]")!).color,
     }));
     expect(colours.keyword).not.toBe(colours.text);

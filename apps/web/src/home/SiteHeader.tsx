@@ -25,7 +25,10 @@ export function SiteHeader({ chapters }: { chapters?: ReactNode }) {
   return (
     <header className="hnav sticky top-0 z-20 bg-background">
       <div className="hwrap flex min-h-16 items-center gap-3 sm:gap-6">
-        <Link href="/" className="brand inline-flex min-h-11 items-center gap-2 font-semibold">
+        <Link
+          href="/"
+          className="inline-flex min-h-11 items-center gap-2 font-semibold text-foreground no-underline"
+        >
           <Mark packing /> <span className="max-sm:sr-only">Alimentation</span>
         </Link>
         {chapters}

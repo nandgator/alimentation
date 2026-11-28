@@ -126,10 +126,6 @@ html:has(.docs) {
   outline-offset: 2px;
   border-radius: var(--radius-xs);
 }
-.docs ::selection {
-  background: var(--accent);
-  color: var(--accent-foreground);
-}
 .sr {
   position: absolute;
   width: 1px;
@@ -517,6 +513,17 @@ html:has(.docs) {
   font-weight: 450;
   color: var(--muted-foreground);
 }
+/* Both sites' names are laid in the same place and only the one being read is seen, so the bar is as wide on
+   either site and nothing after the name moves when the reader crosses between them. */
+.docs-which {
+  display: inline-grid;
+}
+.docs-which > span {
+  grid-area: 1 / 1;
+}
+.docs-which > span[aria-hidden="true"] {
+  visibility: hidden;
+}
 .docs-menu {
   display: none;
   min-height: var(--control-sm);
@@ -573,12 +580,12 @@ html:has(.docs) {
   color: var(--muted-foreground);
 }
 
-/* The mark in the bar is the ledger of the home page and the app: a book in the ink of the page with a saffron tick,
+/* The mark in the bar is the ledger of the home page and the app: a book in the brand indigo with a saffron tick,
    and a stripe over each of its rulings that is filled as the page is read (the same scroll-driven fill as the home
    page's bar). With no way to follow the scroll it simply stays empty. */
 .docs-mark {
   flex: none;
-  color: var(--foreground);
+  color: var(--primary, var(--foreground));
 }
 .docs-mark .mark-body {
   fill: currentColor;
@@ -1152,18 +1159,39 @@ html:has(.docs) {
 .home-text {
   display: block;
 }
-.home-tagline {
-  max-width: 34rem;
-  margin-top: var(--space-4);
+/* The two front pages are one page that the switch glides between, so the line under the title takes the same room
+   on both: as many lines as the longer of the two needs at that width, whatever this one's own words come to. */
+/* (Named with the hero, so it is not undone by `.docs p`, which sets every paragraph's margin to nothing.) */
+.home-hero .home-tagline {
+  max-width: 36rem;
+  min-height: 2lh;
+  margin-top: var(--space-5);
   font-size: var(--text-lg);
   line-height: 1.5;
   color: var(--muted-foreground);
 }
-.home-actions {
+@media (max-width: 599px) {
+  .home-hero .home-tagline {
+    min-height: 3lh;
+  }
+}
+@media (max-width: 399px) {
+  .home-hero .home-tagline {
+    min-height: 4lh;
+  }
+}
+/* Too narrow for the two buttons side by side on either page: one above the other on both. */
+@media (max-width: 359px) {
+  .home-hero .home-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+.home-hero .home-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
 }
 .home-features {
   display: grid;

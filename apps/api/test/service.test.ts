@@ -559,7 +559,7 @@ describe("seeing what has been done to you, and when it was done", () => {
       qty: null,
     });
     const seen = await fx.svc.listLog(jovial, { from: "2026-10-01", to: "2099-12-31" });
-    expect(seen.find((e) => e.action === "Supplier Off")!.by).toBe("The supplier");
+    expect(seen.find((e) => e.action === "Supplier Off")!.by).toBe("The cook");
     const bySupplier = await fx.svc.listLog(fx.supplier, { from: "2026-10-01", to: "2026-10-31" });
     expect(bySupplier.find((e) => e.note === "WFH")!.by).toBe("Smruti");
     const byAdmin = await fx.svc.listLog(fx.admin, { from: "2026-10-01", to: "2026-10-31" });
@@ -611,7 +611,7 @@ describe("seeing what has been done to you, and when it was done", () => {
     await fx.svc.decide(fx.supplier, id, "Confirmed", null);
     await fx.svc.reverse(fx.admin, id, "Counted twice");
     const text = await words(smruti);
-    expect(text).toContain("The supplier confirmed your claim of ₹250 for Oct-26.");
+    expect(text).toContain("The cook confirmed your claim of ₹250 for Oct-26.");
     expect(text).toContain(
       "The admin reversed the decision on your claim of ₹250 for Oct-26. It no longer counts.",
     );

@@ -88,6 +88,7 @@ function RulesForm({
       busyLabel="Saving…"
       onClose={onClose}
       serverFields={{ [ABOUT_DATE]: "from" }}
+      focusTitle
       onSubmit={async (values) => {
         try {
           await postJson(`${ws.api}/policies`, {
@@ -202,7 +203,11 @@ function RulesForm({
 
       <GroupField
         label="Month end"
-        description="The window for everyone to catch up. After it, meals and leave freeze; payments carry on."
+        description={
+          ws.money
+            ? "The window for everyone to catch up. After it, meals and leave freeze; payments carry on."
+            : "The window for everyone to catch up. After it, meals and leave freeze."
+        }
       >
         {(labelId) => (
           <Segmented

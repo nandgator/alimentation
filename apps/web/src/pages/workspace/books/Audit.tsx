@@ -56,7 +56,7 @@ const FETCH = 500;
 const PAGE = 50;
 
 const ACTION_LOOK: Record<ActionKey, { icon: typeof PlusIcon; tone: string }> = {
-  added: { icon: PlusIcon, tone: "bg-success-soft text-success-foreground" },
+  added: { icon: PlusIcon, tone: "bg-muted text-foreground" },
   changed: { icon: PencilIcon, tone: "bg-muted text-foreground" },
   removed: { icon: Trash2Icon, tone: "border-destructive/40 bg-background text-destructive" },
 };

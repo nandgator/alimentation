@@ -337,7 +337,7 @@ export function ItemsTab() {
   const priceOf = (i: CatalogueItemDto) => {
     if (!ws.money) return null;
     const base = i.prices?.find((p) => p.serviceId === null);
-    return base ? money(base.amount) : i.prices ? "Not priced" : null;
+    return base ? money(base.amount, { fixed: true }) : i.prices ? "Not priced" : null;
   };
   const kindWord = (i: CatalogueItemDto) => (i.kind === "meal" ? "Meal" : "Add-on");
 
@@ -405,7 +405,11 @@ export function ItemsTab() {
       <LoadError error={items.error} onRetry={items.reload} />
       <Section
         title="Meals and add-ons"
-        description="What the kitchen serves. The menu puts meals on days; prices come after."
+        description={
+          ws.money
+            ? "What the kitchen serves. The menu puts meals on days; prices come after."
+            : "What the kitchen serves. The menu puts meals on days."
+        }
         actions={
           <Button type="button" disabled={!ws.writable} onClick={() => setAdding("item")}>
             <PlusIcon aria-hidden="true" data-icon="inline-start" />

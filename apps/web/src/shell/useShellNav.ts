@@ -7,6 +7,7 @@ import {
   labelFor,
   navFor,
   type Section,
+  shown,
   titleFor,
   whereIs,
 } from "../pages/workspace/sections.ts";
@@ -48,11 +49,11 @@ export function useShellNav() {
   const record = at?.rest
     ? (ws.boot.people.find((p) => p.id === at.rest?.split("/")[0])?.name ?? null)
     : null;
-  const pageTitle = at
-    ? record
-      ? record
-      : (at.tab?.label ?? titleFor(at.section, ws.role))
-    : null;
+  // A screen this kitchen does not have (about money, in a kitchen without it) is a missing page, titled as one.
+  const exists =
+    !at || (shown(at.section, ws.money, priced) && (!at.tab || shown(at.tab, ws.money, priced)));
+  const pageTitle =
+    at && exists ? (record ? record : (at.tab?.label ?? titleFor(at.section, ws.role))) : null;
   return {
     ws,
     location,

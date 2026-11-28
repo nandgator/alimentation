@@ -407,7 +407,9 @@ export function DataTable<T extends RowData>({
                         key={col.id}
                         className={cn(
                           col.align === "end" && "text-right tabular-nums",
-                          stickyFirst && i === 0 && "sticky left-0 z-[1] bg-card",
+                          stickyFirst &&
+                            i === 0 &&
+                            "sticky left-0 z-[1] bg-background group-hover/row:bg-muted",
                           edges.left && i === 0 && "shadow-[1px_0_0_var(--border)]",
                           col.className,
                         )}

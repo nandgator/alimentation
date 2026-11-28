@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useParams, useSearch } from "wouter";
 import { api, setActingAs } from "../api.ts";
-import { useLoad } from "../components/ui.tsx";
 import { useMedia } from "../home/motion.tsx";
+import { useLoad } from "../hooks/use-load.ts";
 import { KitchenTitle } from "../hooks/use-page-title.ts";
 import { type Workspace, WorkspaceProvider } from "../pages/workspace/context.tsx";
 import { homeOf, ROLE_LABEL } from "../pages/workspace/sections.ts";
@@ -121,9 +121,17 @@ function Kitchen({ slug }: { slug: string }) {
 
   if (res.error && !res.data) {
     const status = res.error.status;
+    const fault = status === undefined || status >= 500;
     return (
       <Unavailable
-        title={status === 403 ? "You're not in this kitchen" : "Page not found"}
+        title={
+          status === 403
+            ? "You're not in this kitchen"
+            : fault
+              ? "The kitchen could not be loaded"
+              : "Page not found"
+        }
+        onRetry={fault ? reload : undefined}
         reason={
           status === 404
             ? "There is no kitchen at this address, or you are not in it."

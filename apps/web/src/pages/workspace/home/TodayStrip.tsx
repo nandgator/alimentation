@@ -1,4 +1,4 @@
-import type { LogEntryDto } from "@alimentation/core";
+import { type IsoDate, type LogEntryDto, weekdayOf } from "@alimentation/core";
 import { ArrowRightIcon } from "lucide-react";
 import { Link } from "wouter";
 import { PageSkeleton } from "@/components/app";
@@ -51,6 +51,8 @@ export function TodayStrip({ log }: { log: Fetched<LogEntryDto[]> }) {
           <PageSkeleton loading variant="list" />
         ) : !boot.menu ? (
           <p className="text-sm text-muted-foreground">No menu yet, so no meals are counted.</p>
+        ) : !boot.policy.workingDays.includes(weekdayOf(boot.today as IsoDate)) ? (
+          <p className="text-sm text-muted-foreground">Not a working day.</p>
         ) : slots.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing is served today.</p>
         ) : (

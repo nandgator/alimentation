@@ -2,10 +2,10 @@ import { lazy, Suspense } from "react";
 import { Route, Router, Switch, useLocation } from "wouter";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "./components/ui.tsx";
 import { useMedia } from "./home/motion.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Join } from "./pages/Join.tsx";
+import { NewKitchen } from "./pages/NewKitchen.tsx";
 import { Operator } from "./pages/Operator.tsx";
 import { Places } from "./pages/Places.tsx";
 import { ReceiptPage } from "./pages/Receipt.tsx";
@@ -79,8 +79,7 @@ export function App() {
             <Route path="/" component={Home} />
             <Route path="/signin" component={SignIn} />
             <Route path="/app" component={Places} />
-            {/* TODO(WP9): the new-kitchen page; until it exists the list of kitchens opens. */}
-            <Route path="/app/new" component={Places} />
+            <Route path="/app/new" component={NewKitchen} />
             <Route path="/app/operator" component={Operator} />
             <Route path="/app/org/:id" component={OrganisationRoute} />
             {KIT && (
@@ -96,8 +95,6 @@ export function App() {
             <Route component={NotFound} />
           </Switch>
         </Router>
-        {/* The legacy toaster serves the screens not yet ported; sonner serves the new ones. */}
-        <Toaster />
         <Sonner
           position={wide ? "bottom-right" : "bottom-center"}
           offset={wide ? undefined : { bottom: "5.5rem" }}

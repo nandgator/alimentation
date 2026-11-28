@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -91,6 +91,38 @@ function builtPages(): Plugin {
         });
       };
       build();
+      // A guide, a front page's cards, the docs' own stylesheet and script, or the builder itself changed: the pages
+      // are made again (only them, a second or so), and an open one reloads.
+      const sources = [
+        join(import.meta.dirname, "..", "..", "docs", "site"),
+        join(import.meta.dirname, "scripts", "docs"),
+        join(import.meta.dirname, "scripts", "build-docs.mjs"),
+        join(import.meta.dirname, "scripts", "docs-blocks.mjs"),
+      ];
+      server.watcher.add(sources);
+      let again = false;
+      let docs: ReturnType<typeof spawn> | null = null;
+      const rebuild = () => {
+        if (!ready()) return;
+        if (docs) {
+          again = true;
+          return;
+        }
+        docs = spawn("node", ["scripts/build-docs.mjs"], {
+          cwd: import.meta.dirname,
+          stdio: "inherit",
+        });
+        docs.on("exit", (code) => {
+          docs = null;
+          if (again) {
+            again = false;
+            rebuild();
+          } else if (code === 0) server.ws.send({ type: "full-reload", path: "*" });
+        });
+      };
+      server.watcher.on("all", (_event, file) => {
+        if (sources.some((s) => file === s || file.startsWith(`${s}/`))) rebuild();
+      });
       server.middlewares.use((req, res, next) => {
         const path = decodeURIComponent((req.url ?? "/").split("?")[0] ?? "/");
         if (!mine.test(path)) return next();
@@ -116,6 +148,14 @@ function builtPages(): Plugin {
           ".json": "application/json",
         };
         res.setHeader("content-type", types[extname(file)] ?? "application/octet-stream");
+        if (extname(file) === ".html") {
+          // The dev server's own client, so a page that is made again reloads itself.
+          const html = readFileSync(file, "utf8");
+          res.end(
+            html.replace("</head>", '<script type="module" src="/@vite/client"></script>\n</head>'),
+          );
+          return;
+        }
         createReadStream(file).pipe(res);
       });
     },

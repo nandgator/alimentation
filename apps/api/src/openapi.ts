@@ -403,6 +403,7 @@ const AGENT_ACCESS: Record<string, AgentScope> = {
  */
 export const PERSON_ONLY = new Set([
   "POST /api/waitlist",
+  "GET /api/workspaces/address/:slug",
   "GET /api/platform/signups",
   "POST /api/platform/signups/approve",
   "POST /api/platform/workspaces/:slug/limits",
@@ -659,6 +660,32 @@ export const OPERATIONS: Operation[] = [
       }),
     },
     errors: [401, 403, 409, 422, 503],
+  },
+  {
+    method: "get",
+    path: "/api/workspaces/address/:slug",
+    params: { slug: "The address to check." },
+    tag: "The platform",
+    summary: "Check an address for a new kitchen",
+    who: "Signed in",
+    description:
+      "Says whether a kitchen could be made at this address, so a form can tell its user while they type. It answers what `POST /api/workspaces` would answer to the address (`slug_taken`, or a refusal of its shape), and when the address is taken it offers a free one beside it. It passes the same rate limit as any request.",
+    ok: {
+      status: 200,
+      description: "Whether the address is free.",
+      schema: object(
+        {
+          available: { type: "boolean" },
+          reason: { type: "string", description: "Why not, in words for a person." },
+          suggestion: {
+            type: ["string", "null"],
+            description: "A free address near it, when it was taken.",
+          },
+        },
+        ["available"],
+      ),
+    },
+    errors: [401, 429],
   },
   {
     method: "post",
