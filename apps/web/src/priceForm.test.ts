@@ -1,6 +1,13 @@
 import type { CatalogueItem, MenuVersion, RateCard } from "@alimentation/core";
 import { describe, expect, it } from "vitest";
-import { fieldsFrom, itemsToPrice, priceBody, servicesOffering } from "./priceForm.ts";
+import {
+  earliestRateCard,
+  fieldsFrom,
+  itemsToPrice,
+  priceBody,
+  priceProblems,
+  servicesOffering,
+} from "./priceForm.ts";
 
 const cat = (id: string, archivedOn: string | null = null): CatalogueItem => ({
   id,
@@ -103,5 +110,31 @@ describe("the prices form", () => {
       ok: false,
       message: "Monthly fee: enter an amount in rupees.",
     });
+  });
+});
+
+describe("what is wrong with the price form", () => {
+  it("marks each field that is not an amount, and lets the optional ones be empty", () => {
+    const items = [cat("a"), cat("b")];
+    expect(
+      priceProblems(items, {
+        base: { a: "10", b: "" },
+        override: { a: { dinner: "x", lunch: "" } },
+        fee: "",
+      }).map((p) => p.path),
+    ).toEqual(["override.a.dinner", "base.b"]);
+    expect(priceProblems(items, { base: { a: "1", b: "2.50" }, override: {}, fee: "0" })).toEqual(
+      [],
+    );
+    expect(
+      priceProblems([cat("a")], { base: { a: "1" }, override: {}, fee: "1,5" }).map((p) => p.path),
+    ).toEqual(["fee"]);
+  });
+
+  it("finds the first day a rate card may start", () => {
+    expect(earliestRateCard("none", "2026-11-14")).toBe("2026-11-14");
+    expect(earliestRateCard("current_month", "2026-11-14")).toBe("2026-11-01");
+    expect(earliestRateCard("unrestricted", "2026-11-14")).toBeNull();
+    expect(earliestRateCard(undefined, "2026-11-14")).toBeNull();
   });
 });

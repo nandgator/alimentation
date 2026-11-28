@@ -18,7 +18,7 @@ const web = join(root, "apps", "web");
 const CSS = [
   { file: "apps/web/src/styles.css", rules: "all" },
   { file: "apps/web/scripts/docs/docs.css", rules: "all" },
-  { file: "apps/web/src/home.css", rules: "colour shadow layer important font" },
+  { file: "apps/web/src/home/art.css", rules: "colour shadow layer important font" },
 ];
 
 const NUMBER = String.raw`-?\d*\.?\d+`;
@@ -203,14 +203,18 @@ export function checkCssText(text, file = "a.css", rules = "all") {
     if (
       want("font") &&
       prop === "font-family" &&
-      !/^(inherit|var\(--(serif|sans|mono)\))$/.test(value.trim())
+      !/^(inherit|var\(--(serif|sans|mono|font-sans|font-heading|font-mono|font-stack|font-mono-stack)\))$/.test(
+        value.trim(),
+      )
     )
       add("font", "a font that is not a token");
     if (
       want("font") &&
       prop === "font" &&
       !isToken &&
-      !/var\(--(serif|sans|mono)\)|^inherit$/.test(value)
+      !/var\(--(serif|sans|mono|font-sans|font-heading|font-mono|font-stack|font-mono-stack)\)|^inherit$/.test(
+        value,
+      )
     )
       add("font", "a font shorthand with no font token");
     if (want("type") && prop === "font-size" && !SCALES.fontSize.test(value.trim()))

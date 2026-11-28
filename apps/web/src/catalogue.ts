@@ -15,6 +15,18 @@ export type Words = Pick<BootstrapDto, "catalogue" | "services">;
 export const retiredBy = (x: { archivedOn: IsoDate | null }, date: IsoDate): boolean =>
   x.archivedOn !== null && x.archivedOn <= date;
 
+/**
+ * Where a service or an item stands on `today`, for its status badge: in use, retiring on a date still ahead, or
+ * already retired (a retired thing keeps its name, and its row).
+ */
+export function standing(
+  x: { archivedOn: IsoDate | null },
+  today: IsoDate,
+): { state: "inUse" } | { state: "retiring" | "retired"; on: IsoDate } {
+  if (x.archivedOn === null) return { state: "inUse" };
+  return { state: retiredBy(x, today) ? "retired" : "retiring", on: x.archivedOn };
+}
+
 /** The things still offered on `date`. */
 export const liveOn = <T extends { archivedOn: IsoDate | null }>(xs: readonly T[], date: IsoDate) =>
   xs.filter((x) => !retiredBy(x, date));

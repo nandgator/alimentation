@@ -125,3 +125,82 @@ export function sumOrganisation(
         : null,
   };
 }
+
+/** An address made from a kitchen's name: lowercase letters, digits and single hyphens, at most 40. */
+export const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
+
+/** Addresses the service keeps for itself. The server holds the list; this is its copy, to say so before a submit. */
+const RESERVED = new Set([
+  "api",
+  "auth",
+  "app",
+  "www",
+  "admin",
+  "assets",
+  "static",
+  "login",
+  "logout",
+  "join",
+  "new",
+  "platform",
+  "health",
+  "status",
+  "docs",
+  "help",
+  "about",
+  "privacy",
+  "terms",
+  "pricing",
+  "blog",
+  "mail",
+  "ftp",
+  "root",
+  "support",
+]);
+
+/** Why an address cannot be used whatever the server holds, or null. The words match the server's own. */
+export function addressProblem(slug: string): string | null {
+  if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(slug))
+    return "Use 3 to 40 lowercase letters, digits or hyphens, starting and ending with a letter or digit.";
+  if (/--/.test(slug)) return "Do not use two hyphens in a row.";
+  if (RESERVED.has(slug)) return "That name is kept for the service.";
+  return null;
+}
+
+/** Other addresses to offer when one is taken: the same with 2, 3 and 4 after it, kept within 40 characters. */
+export function addressSuggestions(slug: string, count = 3): string[] {
+  const out: string[] = [];
+  for (let n = 2; out.length < count; n++) {
+    const tail = `-${n}`;
+    out.push(`${slug.slice(0, 40 - tail.length).replace(/-+$/, "")}${tail}`);
+  }
+  return out;
+}
+
+export type Availability = "available" | "taken" | "unknown";
+
+/**
+ * Whether an address is free, read from what the kitchen's own door says to this person: no such kitchen (404) means
+ * it is free; a kitchen that turns them away (401, 403) or has been deleted (410) means it is taken. Anything else
+ * (a busy server, no network) is "unknown", and the form then says nothing and lets the server decide on submit.
+ * TODO(API): a read-only `GET /api/public/address/:slug` would answer this without touching a kitchen's budget.
+ */
+export async function probeAddress(
+  slug: string,
+  status: (path: string) => Promise<number>,
+): Promise<Availability> {
+  try {
+    const s = await status(`/api/w/${slug}/bootstrap`);
+    if (s === 404) return "available";
+    if (s === 401 || s === 403 || s === 410 || s === 200) return "taken";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}

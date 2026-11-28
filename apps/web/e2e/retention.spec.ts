@@ -1,16 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { seedHome } from "./seed.ts";
 import { expectAccessible, shot, signIn, watchPage } from "./support.ts";
-
-/** Opens a screen from the menu, behind More on a phone. */
-async function go(p: Page, name: string | RegExp) {
-  const nav = p.getByRole("navigation", { name: "Sections" });
-  const link = nav.getByRole("link", { name });
-  await nav.getByRole("link").first().waitFor();
-  if (!(await link.isVisible())) await nav.getByRole("button", { name: "More" }).click();
-  await link.click();
-}
 
 /** The kitchen's own today, which is where the months are counted from. */
 const todayInKitchen = () =>
@@ -105,8 +96,8 @@ test("[P8] older months are handed over: prepare, download, upload, type the mon
       if (body.meter) body.meter = { ...body.meter, state: "ASK" };
       await route.fulfill({ response: res, json: body });
     });
-    await page.goto(`/w/${slug}`);
-    await go(page, "Your data");
+    await page.goto(`/w/${slug}/books/data`);
+    await expect(page.getByRole("heading", { name: "Your data", level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Archive older months" })).toBeVisible();
     await expect(
       page.getByText(`Everything through ${inWords(cut)} can be handed over`),
@@ -166,15 +157,23 @@ test("[P8] older months are handed over: prepare, download, upload, type the mon
 
   await test.step("apply: only the typed month removes them", async () => {
     await page.getByRole("button", { name: "Remove these months" }).click();
-    const dlg = page.getByRole("dialog", { name: `Remove everything through ${inWords(cut)}` });
+    const dlg = page.getByRole("alertdialog", {
+      name: `Remove everything through ${inWords(cut)}`,
+    });
     await expect(dlg).toContainText("Keep this file. There is no second copy.");
+    // The month to type is on screen, with a button that copies it, and the screen says whether what is typed matches.
+    await expect(dlg.getByRole("button", { name: "Copy" })).toBeVisible();
     const go = dlg.getByRole("button", { name: "Remove for good" });
+    const typed = dlg.getByLabel(`Type ${inWords(cut)} to confirm`);
     await expect(go).toBeDisabled();
-    await dlg.getByLabel(`Type ${inWords(cut)} to confirm`).fill(inWords(m1));
+    await typed.fill(inWords(m1));
+    await expect(dlg.getByText("Does not match yet")).toBeVisible();
     await expect(go).toBeDisabled();
     await expectAccessible(page, "apply dialog");
     await shot(page, info, "r4-apply-dialog");
-    await dlg.getByLabel(`Type ${inWords(cut)} to confirm`).fill(inWords(cut));
+    await typed.fill(inWords(cut));
+    await expect(dlg.getByText("Matches", { exact: true })).toBeVisible();
+    await expect(go).toBeEnabled();
     await go.click();
     await expect(page.getByRole("heading", { name: "Handed over", exact: true })).toBeVisible();
     await expect(page.getByText(/came out the same, to the paisa/)).toBeVisible();
@@ -199,35 +198,21 @@ test("[P8] older months are handed over: prepare, download, upload, type the mon
     const asMonth = (url: string, key: string, value: string) =>
       url.replace(new RegExp(`${key}=[^&]+`), `${key}=${value}`);
     // The pages never ask for these months; a stale address or an old link does. The server's answer is shown.
-    await page
-      .context()
-      .route(`**${w}/ledger?*`, (r) =>
-        r.continue({ url: asMonth(r.request().url(), "month", m0) }),
-      );
-    await page.goto(`/w/${slug}/daily`);
-    await expect(page.getByRole("alert")).toContainText(gone);
-    await expect(page.getByRole("alert")).not.toContainText(/archived_month|\d{4}-\d{2}/);
-    await shot(page, info, "r6-daily");
-    await page.context().unroute(`**${w}/ledger?*`);
+    const toOld = (r: {
+      request(): { url(): string };
+      continue(o: { url: string }): Promise<void>;
+    }) => r.continue({ url: asMonth(r.request().url(), "months", m0) });
+    await page.context().route(`**${w}/statements?*`, toOld);
+    await page.goto(`/w/${slug}/bills`);
+    await expect(page.getByRole("alert").first()).toContainText(gone);
+    await expect(page.getByRole("alert").first()).not.toContainText(/archived_month|\d{4}-\d{2}/);
+    await shot(page, info, "r6-bills");
 
-    await page
-      .context()
-      .route(`**${w}/statements?*`, (r) =>
-        r.continue({ url: asMonth(r.request().url(), "months", m0) }),
-      );
-    await page.goto(`/w/${slug}`);
+    await page.goto(`/w/${slug}/bills/${ids.Willow}`);
     await expect(page.getByRole("alert").first()).toContainText(gone);
     await page.context().unroute(`**${w}/statements?*`);
 
-    // The log asks for no old month either, but a day typed into it can be one.
-    await page.goto(`/w/${slug}/log`);
-    await page.getByLabel("Date", { exact: true }).fill(mondayOf(m0));
-    await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.getByRole("alert").first()).toContainText(
-      /Those records were handed over as a backup and are no longer kept here/,
-    );
-    await expect(page.getByRole("alert").first()).not.toContainText(/archived_month|\d{4}-\d{2}/);
-    await shot(page, info, "r7-log");
+    // A day typed into the meals form is checked by the meals spec (WP4); the write itself is checked below.
   });
 
   await test.step("a write into an archived month is refused with the same words", async () => {

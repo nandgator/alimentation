@@ -1,4 +1,5 @@
 import {
+  formatBalance,
   formatDisplayDate,
   formatDisplayMonth,
   formatMoney,
@@ -6,9 +7,33 @@ import {
   type Month,
 } from "@alimentation/core";
 
-export const money = (paise: number) => formatMoney(paise);
+/** ₹0 for zero, a true minus for a negative; `fixed` gives two places on every amount so a column lines up. */
+export const money = (paise: number, opts?: { fixed?: boolean }) => formatMoney(paise, opts);
+/** A balance where positive is credit held: "Credit ₹580". */
+export const balance = (paise: number, opts?: { fixed?: boolean }) => formatBalance(paise, opts);
 export const date = (d: string) => formatDisplayDate(d as IsoDate);
 export const month = (m: string) => formatDisplayMonth(m as Month);
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+/** "November 2026" from "2026-11". */
+export function monthLong(m: string): string {
+  const [y, n] = m.split("-");
+  const name = MONTH_NAMES[Number(n) - 1];
+  return name ? `${name} ${y}` : m;
+}
 
 /**
  * Rupees typed by a person, to paise. Returns null when it is not a sensible amount.

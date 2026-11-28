@@ -306,10 +306,11 @@ const searchEntry = (p) => ({
 });
 
 /**
- * The app's badge, drawn in the page and not as an image, so that its tiers can be filled as the page is read (see
- * `.mark-fill` in docs.css): the same tiffin as the mark in the home page's bar, on the brand's own green.
+ * The app's mark, drawn in the page and not as an image, so that its rulings can be filled as the page is read (see
+ * `.mark-fill` in docs.css): the same ledger, in the ink of the page with its saffron tick, as `Mark.tsx` draws on
+ * the home page and in the app.
  */
-const MARK = `<svg class="docs-mark" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="5.3" class="mark-badge"/><g transform="translate(12 12.4) scale(0.8) translate(-12 -12.5)"><g class="mark-body"><rect x="7" y="2.4" width="10" height="1.8" rx="0.9"/><rect x="8.6" y="3.8" width="1.6" height="3.2"/><rect x="13.8" y="3.8" width="1.6" height="3.2"/><rect x="4.6" y="6.8" width="14.8" height="3" rx="1.5"/><rect x="5.6" y="10.8" width="12.8" height="3.4" rx="1.7"/><rect x="5.6" y="15.2" width="12.8" height="3.4" rx="1.7"/><rect x="5.6" y="19.6" width="12.8" height="3" rx="1.5"/></g><g class="mark-clip"><rect x="3.6" y="7" width="1.8" height="14.4" rx="0.9"/><rect x="18.6" y="7" width="1.8" height="14.4" rx="0.9"/></g><rect class="mark-fill mark-fill-1" x="6.4" y="11.6" width="11.2" height="1.8" rx="0.9"/><rect class="mark-fill mark-fill-2" x="6.4" y="16" width="11.2" height="1.8" rx="0.9"/><rect class="mark-fill mark-fill-3" x="6.4" y="20.3" width="11.2" height="1.6" rx="0.8"/><rect class="mark-fill mark-fill-4" x="5.6" y="7.6" width="12.8" height="1.4" rx="0.7"/></g></svg>`;
+const MARK = `<svg class="docs-mark" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><rect class="mark-body" x="3.6" y="2.4" width="16.8" height="20.2" rx="2.6"/><rect class="mark-rule" x="6.4" y="7.6" width="6.6" height="1.6" rx="0.8"/><rect class="mark-rule" x="6.4" y="11.6" width="11.2" height="1.8" rx="0.9"/><rect class="mark-rule" x="6.4" y="16" width="11.2" height="1.8" rx="0.9"/><rect class="mark-rule" x="6.4" y="20.3" width="11.2" height="1.6" rx="0.8"/><path class="mark-tick" d="M14.8 2.4h3.2v7.6l-1.6-1.4-1.6 1.4z"/><rect class="mark-fill mark-fill-1" x="6.4" y="11.6" width="11.2" height="1.8" rx="0.9"/><rect class="mark-fill mark-fill-2" x="6.4" y="16" width="11.2" height="1.8" rx="0.9"/><rect class="mark-fill mark-fill-3" x="6.4" y="20.3" width="11.2" height="1.6" rx="0.8"/><rect class="mark-fill mark-fill-4" x="6.4" y="7.6" width="6.6" height="1.6" rx="0.8"/></svg>`;
 
 function navHtml(site, current) {
   return site.sections
@@ -345,12 +346,13 @@ function pageHtml(site, page, css, index) {
     page.slug === "index"
       ? `Alimentation ${meta.brand}`
       : `${page.title} · Alimentation ${meta.brand}`;
+  // The same two links as the home page's bar (Guides, Docs), with the one being read marked.
   const switcher = `<nav class="docs-switch" aria-label="Documentation">${SITES.map(
     (x) => `<a href="${x.base}"${x.dir === meta.dir ? ' aria-current="true"' : ""}>${x.name}</a>`,
   ).join("")}</nav>`;
   const home = page.layout === "home";
   const other = SITES.find((x) => x.dir !== meta.dir);
-  const foot = `<footer class="docs-foot"><p class="muted small">Alimentation keeps the accounts of small kitchens. <a href="/">Home</a> · <a href="/app">Open the app</a> · <a href="${other.base}">${other.name}</a>${meta.dir === "docs" ? ' · <a href="/reference/">API reference</a>' : ""}</p></footer>`;
+  const foot = `<footer class="docs-foot"><p class="muted small">Alimentation keeps the accounts of small kitchens. <a href="/">Home</a> · <a href="${other.base}">${other.name}</a>${meta.dir === "docs" ? ' · <a href="/reference/">API reference</a>' : ""}</p></footer>`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -358,7 +360,8 @@ function pageHtml(site, page, css, index) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(page.description)}">
-<meta name="theme-color" content="#1F4D3A">
+<meta name="theme-color" content="#3442a6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0f16" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="${css}">
 <link rel="stylesheet" href="${ASSETS}docs.css">
@@ -380,8 +383,9 @@ function pageHtml(site, page, css, index) {
     </div>
     <span class="grow"></span>
     <button type="button" class="docs-theme btn ghost small" aria-label="Theme: auto. Press to change.">Theme: Auto</button>
-    <a class="btn small docs-open" href="/app">Open the app</a>
+    <a class="btn small docs-open" href="/signin">Sign in</a>
   </div>
+  <p class="docs-back" hidden><a href="/app">Back to your kitchen</a></p>
 </header>
 ${
   home

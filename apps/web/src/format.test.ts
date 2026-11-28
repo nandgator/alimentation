@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { ago, date, money, month, plural, rupeesText, toPaise } from "./format.ts";
+import {
+  ago,
+  balance,
+  date,
+  money,
+  month,
+  monthLong,
+  plural,
+  rupeesText,
+  toPaise,
+} from "./format.ts";
 
 describe("amounts typed by a person", () => {
   it("become exact paise", () => {
@@ -24,8 +34,16 @@ describe("amounts typed by a person", () => {
 });
 
 describe("what is shown", () => {
-  it("follows the spec: ₹ with grouping, a dash for zero, dd-MMM-yyyy, MMM-yy", () => {
-    expect(money(0)).toBe("-");
+  it("follows the spec: ₹ with grouping, ₹0 for zero, a true minus, dd-MMM-yyyy, MMM-yy", () => {
+    expect(money(0)).toBe("₹0");
+    expect(money(-17000)).toBe("\u2212₹170");
+    expect(money(-17000)).not.toContain("-");
+    expect(money(15000, { fixed: true })).toBe("₹150.00");
+    expect(money(15050, { fixed: true })).toBe("₹150.50");
+    expect(balance(58000)).toBe("Credit ₹580");
+    expect(balance(0)).toBe("₹0");
+    expect(balance(-58000)).toBe("\u2212₹580");
+    expect(monthLong("2026-11")).toBe("November 2026");
     expect(money(334500)).toBe("₹3,345");
     expect(date("2026-10-24")).toBe("24-Oct-2026");
     expect(month("2026-10")).toBe("Oct-26");

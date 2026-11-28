@@ -103,9 +103,9 @@ describe("display formats from the spec", () => {
     expect(formatDisplayDate("2026-10-02")).toBe("02-Oct-2026");
     expect(formatDisplayMonth("2026-10")).toBe("Oct-26");
     expect(formatMoney(rupees(3260))).toBe("₹3,260");
-    expect(formatMoney(0)).toBe("-");
+    expect(formatMoney(0)).toBe("₹0");
     expect(formatMoney(rupees(1234567))).toBe("₹1,234,567");
-    expect(formatMoney(-rupees(170))).toBe("-₹170");
+    expect(formatMoney(-rupees(170))).toBe("\u2212₹170");
     expect(formatMoney(15050)).toBe("₹150.50");
   });
 

@@ -121,7 +121,8 @@ export function Stage() {
             <g ref={camera}>
               <StageWorld />
               <g ref={mover} className="mover">
-                <g ref={lifter}>
+                {/* The page's one carrier is put down here, and taken up again from here (see Dock.tsx). */}
+                <g ref={lifter} data-dock-into="">
                   <Steam vent={CARRIER_VENT} />
                   <Carrier clip="mine" />
                 </g>

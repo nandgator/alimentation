@@ -1,6 +1,6 @@
 ---
 title: Components
-description: The pieces every screen is made of, shown live, with the one rule for using each.
+description: The pieces every screen is made of, shown with the one rule for using each.
 ---
 
 # Components
@@ -8,188 +8,220 @@ description: The pieces every screen is made of, shown live, with the one rule f
 <!-- markdownlint-disable MD013 -->
 
 A screen is assembled from these pieces and nothing else. If a screen needs something that is not
-here, add it here first, with an example and a rule, then use it. The examples below are the
-application's own classes, rendered with its own stylesheet.
+here, add it here first, with an example and a rule, then use it. The examples below are drawn in
+plain HTML from the same tokens as the application, so they follow the theme; the real components
+are in `apps/web/src/components/ui/` and `apps/web/src/components/app/`.
+
+## Where they come from
+
+- **`components/ui/`** is **shadcn/ui, Base UI flavour**, put there by the shadcn command
+  (`bunx shadcn@latest add button`) and owned by the app. Base UI supplies the behaviour (focus,
+  keyboard, ARIA); Tailwind utilities supply the look; `cn` in `lib/utils.ts` joins class names.
+  Nothing in it is written by hand, so an upgrade is a re-run of the command.
+- **`components/app/`** is the **app kit**, built once on top of them: the pieces that carry the
+  kitchen's own rules (money, status, dates, forms, tables). A screen composes these and the ui
+  components, and restyles neither.
+- **Icons** are `lucide-react`, and nothing else. **Toasts** are sonner, **tables** TanStack Table,
+  **forms** react-hook-form with zod, **dates** react-day-picker, **charts** recharts through the
+  shadcn Chart, and the **command menu** cmdk through the shadcn Command.
+
+The Base UI flavour has no drawer. A sheet that comes from the bottom (`Sheet side="bottom"`) takes
+its place.
 
 ## Buttons
 
-One button, four tones. **A screen has at most one primary button;** the others are quiet.
+One button with six looks. **A page has one primary action;** the others are quiet.
 
 <div class="demo">
-<button type="button" class="btn">Save</button>
-<button type="button" class="btn accent">Pay now</button>
-<button type="button" class="btn ghost">Cancel</button>
-<button type="button" class="btn danger">Delete everything</button>
-<button type="button" class="btn small ghost">Small</button>
-<button type="button" class="btn" disabled>Disabled</button>
+<button type="button" class="ds-btn primary">Save the rates</button>
+<button type="button" class="ds-btn secondary">Import</button>
+<button type="button" class="ds-btn outline">Cancel</button>
+<button type="button" class="ds-btn ghost">Skip</button>
+<button type="button" class="ds-btn destructive">Retire Curd</button>
+<button type="button" class="ds-btn link">Show older</button>
+<button type="button" class="ds-btn primary" disabled>Disabled</button>
 </div>
 
-| Tone    | Class        | Use it for                                                                  |
-| ------- | ------------ | --------------------------------------------------------------------------- |
-| Primary | `btn`        | The one thing this form or screen is for.                                   |
-| Accent  | `btn accent` | A single call to attention. Rare.                                           |
-| Quiet   | `btn ghost`  | Everything else: cancel, back, a second action.                             |
-| Danger  | `btn danger` | Only what cannot be undone, and always behind a confirmation that names it. |
-| Small   | `btn small`  | Inside a row of text or a table. Still 36px high.                           |
+| Look        | Use it for                                                                  |
+| ----------- | --------------------------------------------------------------------------- |
+| Default     | The one thing this page or form is for.                                     |
+| Secondary   | A second action beside it.                                                  |
+| Outline     | Cancel, back, and an action in a toolbar.                                   |
+| Ghost       | An action inside a row or a menu.                                           |
+| Destructive | Only what cannot be undone, and always behind a confirmation that names it. |
+| Link        | A word that goes somewhere.                                                 |
 
-Every button is the one `Button` (`components/ui/button.tsx`), brought over from coss/ui and set
-with the kitchen's tokens. `btn` and its tones are the classes it keeps, so a selector, a guide or a
-stylesheet that names them still finds it.
-
-A button says what it does (_Save the rates_, _Close the month_), never _OK_ or _Submit_. It has a
-hairline edge, a light line along the top of a raised one and a ring for focus (after coss/ui), and
-it shrinks slightly on press and answers a pointer only where there is one. A disabled button is for
-a request in flight, never for a rule the person has not been told about: tell them instead.
+A button says what it does (_Save the rates_, _Close November 2026_), never _OK_ or _Submit_. It is
+44px high under a finger and 36px under a mouse. A button that is working has a `loading` state: a
+spinner before its label, the label changed to _Saving…_, and presses refused until it is done. A
+button is disabled for a request in flight, never for a rule the person has not been told about:
+tell them instead. A button that is a link keeps its own colour and has no underline.
 
 ## Fields and forms
 
-The input, textarea and select are in `components/ui/` (`input.tsx`, `select.tsx`); checkboxes and
-radios stay the browser's own, set by the sheet. They share one look: a hairline `input` edge, the
-`lg` radius, a light `--elev-edge` shadow, a ring for focus and a red ring while the value is
-invalid (`aria-invalid`). The select is the browser's own, so its arrow and open list are drawn as
-described below.
-
-A label above, a hint below, one column on a phone. Fields are 44px high. A select draws its own
-arrow, 16px in from the right edge and in the ink colour, so it follows the theme; a rule that sets
-a select's padding keeps the 40px at the right that the arrow needs. The open list is drawn from the
-same tokens too (surface, hairline, radius, menu shadow, the chosen option in the brand colour), in
-Chrome, Edge and Safari 27 and later, which let a page draw it; the select underneath is still the
-browser's own, so the keyboard and a phone's behaviour are unchanged. In Firefox, which has this
-only behind a flag, the list is the browser's own.
+Every field is a `Field`: a label above, the control, a hint or an error below. The input, textarea
+and select share one look: a one-pixel `--input` edge, the `md` radius, a ring for focus and a red
+ring while the value is invalid (`aria-invalid`).
 
 <div class="demo">
-<div class="field"><label for="demo-name">Name</label><input id="demo-name" type="text" autocomplete="off" value="Anita"><span class="hint">As you want it to show on the bill.</span></div>
-<div class="field"><label for="demo-day">Menu for Monday</label><select id="demo-day"><option>Thali</option><option>Khichdi</option></select></div>
+<div class="ds-field"><label for="demo-name">Name</label><input id="demo-name" class="ds-input" type="text" autocomplete="off" value="Asha Rao"><span class="hint">As you want it to show on the bill.</span></div>
+<div class="ds-field"><label for="demo-amount">Amount</label><span class="ds-group"><span class="ds-prefix" aria-hidden="true">₹</span><input id="demo-amount" class="ds-input" type="text" inputmode="decimal" autocomplete="off" value="1,250"></span><span class="hint">The amount due is filled in.</span></div>
+<div class="ds-field"><label for="demo-bad">Paid on</label><input id="demo-bad" class="ds-input" type="text" autocomplete="off" value="31 Nov 2026" aria-invalid="true" aria-describedby="demo-bad-err"><span id="demo-bad-err" class="ds-error">November has 30 days. Pick a date from the calendar.</span></div>
 </div>
 
-A hint says what the field is for or what shape it takes; an error says what is wrong and what to do
-(_Add a date in the last month_), next to the field when it can and in a banner above the form when
-it cannot. A form disables itself while it sends and shows what the server said when it refuses
-(`useAction`).
+The kit has the inputs a kitchen needs: `MoneyInput` (a ₹ prefix, the decimal keyboard, tidied when
+you leave it), `CountInput` (the numeric keyboard, never `type="number"`), `DateField` (a calendar
+in a popover on a desktop, in a sheet on a phone, with _Today_ and _Yesterday_ chips) and
+`MonthPicker` (written "November 2026", kept in the address as `?month=2026-11`).
 
-## Chips
+`AppForm` and `FormField` check on leaving a field, then on every change. An error sits under its
+field, says what is wrong and what to do, and is joined to the control with `aria-describedby`. A
+form of more than three fields shows a summary that takes focus when it is submitted with errors,
+and a refusal from the server is placed on its field (`mapServerError`). The browser's own checking
+is switched off (`noValidate`), so every error looks the same.
 
-A word with a colour behind it, for a status. The word carries the meaning; the colour agrees with
+## Status badges
+
+A status is an icon, a word and a colour. `StatusBadge` is the only way to draw one.
+
+<div class="demo">
+<span class="ds-badge success"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>Paid</span>
+<span class="ds-badge warning"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Owed</span>
+<span class="ds-badge destructive strong"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>Overdue</span>
+<span class="ds-badge neutral"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/></svg>Pending</span>
+<span class="ds-badge destructive"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Disputed</span>
+</div>
+
+The statuses are _paid_, _owed_, _overdue_, _pending_, _confirmed_, _disputed_, _projected_,
+_active_, _invited_ and _disabled_. A badge is never a filled dot, square or triangle, and is never
+drawn on or beside a meal row as a shape: see the
+[rules for colour](/docs/design/foundations/#rules-for-colour).
+
+## Alerts
+
+A sentence the person must not miss, in the flow of the page. An alert that reports an error is
+announced to a screen reader at once (`role="alert"`). On a page it is also how a failure to load
+looks: the message, a _Try again_ button, and the last data kept on screen.
+
+<div class="demo">
+<div class="ds-alert info">The month closes on 31 October. Until then anyone can still catch up.</div>
+<div class="ds-alert success">Your payment was confirmed by the cook.</div>
+<div class="ds-alert warning">This entry was added three days after the day itself.</div>
+<div class="ds-alert destructive">That month is closed. Ask the admin to add it for you: it will be marked late.</div>
+</div>
+
+## Money and stat cards
+
+`Money` is the only way to draw an amount: ₹0 for zero (never a dash), a true minus (−) for a
+negative number, and _Credit ₹580_ where a balance is in the person's favour. A column of amounts
+uses the same number of decimals in every row. A stat card is a figure and its name; the few that
+answer _where do I stand?_ sit larger and above the rest.
+
+<div class="demo">
+<div class="ds-stat"><div class="k">You owe</div><div class="v">₹1,250</div></div>
+<div class="ds-stat"><div class="k">Paid so far</div><div class="v">₹2,600</div></div>
+<div class="ds-stat"><div class="k">Balance</div><div class="v">Credit ₹580</div></div>
+<div class="ds-stat"><div class="k">Eating today</div><div class="v">18</div></div>
+</div>
+
+A figure that is a forecast carries a _Projected_ badge and the caption _Projected to month end_.
+Money is only ever drawn when the kitchen tracks money: every screen has a form that works without
 it.
 
-<div class="demo">
-<span class="chip">Open</span>
-<span class="chip good">Confirmed</span>
-<span class="chip warn">Late</span>
-<span class="chip bad">Disputed</span>
-</div>
+## Cards, tables and lists
 
-In code it is a `Badge` (`components/ui/badge.tsx`), which keeps the `chip` and tone classes.
-
-## Banners
-
-A sentence the person must not miss, in the flow of the page. A banner that reports an error is
-announced to a screen reader at once (`role="alert"`).
+A card lies flat on the page, held by a one-pixel border (never a shadow). A table is a `DataTable`
+on TanStack: sorting, a search box, filter chips, a pager that says _1-10 of 42_, a sticky header
+and first column, and a row-actions menu whose column header is hidden but named _Actions_. Amounts
+and counts are right-aligned with tabular numerals. **Below 768px the table becomes a list of
+items**, each row a card with the name first and the figure large.
 
 <div class="demo">
-<div class="banner info">The month closes on 31 October. Until then anyone can still catch up.</div>
-<div class="banner good">Your payment was confirmed by the supplier.</div>
-<div class="banner warn">This entry was added three days after the day itself.</div>
-<div class="banner bad">That month is closed. Ask the admin to add it for you: it will be marked late.</div>
-</div>
-
-## Tiles
-
-One figure and its name. The few that answer _where do I stand?_ are `lead` and sit larger above the
-rest; on a phone they stack as three rows with the figure at the right. A figure that is a forecast
-is `projected`, set lighter and in italics, so it never looks settled.
-
-<div class="demo">
-<div class="tiles lead">
-<div class="tile lead"><div class="k">You owe</div><div class="v">₹1,240</div></div>
-<div class="tile lead"><div class="k">Paid so far</div><div class="v">₹2,600</div></div>
-<div class="tile lead projected"><div class="k">This month, if it goes on</div><div class="v">₹3,840</div></div>
-</div>
-<div class="tiles">
-<div class="tile"><div class="k">Meals</div><div class="v">19</div></div>
-<div class="tile"><div class="k">Extras</div><div class="v">₹60</div></div>
-<div class="tile"><div class="k">Waiting</div><div class="v">1</div></div>
+<div class="tablewrap" tabindex="0" role="region" aria-label="An example table">
+<table><thead><tr><th>Person</th><th>Month</th><th class="r">Amount</th><th>Status</th></tr></thead><tbody>
+<tr><td>Kabir Nair</td><td>Nov 2026</td><td class="r">₹1,250</td><td><span class="ds-badge warning"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Owed</span></td></tr>
+<tr><td>Asha Rao</td><td>Nov 2026</td><td class="r">₹2,600</td><td><span class="ds-badge success"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>Paid</span></td></tr>
+</tbody></table>
 </div>
 </div>
 
-## Cards and tables
+## Dialogs and sheets
 
-A card lies flat on the page, held by a hairline (never a shadow). In code it is `Card`
-(`components/ui/card.tsx`), and it keeps the `card` class. A table sits in a `tablewrap`, which
-scrolls sideways inside itself on a narrow screen rather than pushing the page wider, and which can
-be focused so the keyboard can scroll it. Figures are right-aligned with tabular numerals (`.num`).
-A cell that opens something is a real button inside the cell.
+`FormDialog` is the one way to ask for something on top of a page. At 768px and wider it is a
+dialog; below that it is a full-height sheet from the bottom. Either way it has a title and a close
+button, a body that scrolls, and a footer that stays in view with the secondary action first and the
+primary after it. A form that has been changed asks _Discard changes?_ before it closes, and the
+Back button closes it instead of leaving the page.
 
-<div class="demo">
-<div class="card">A card holds one thing that belongs together: a form, a statement, a list.</div>
-<div class="card danger">A card with a red edge is for what cannot be undone.</div>
-</div>
+`ConfirmAction` is the ladder of seriousness for an action, from the lightest to the heaviest:
 
-## Page and section heads
+| Level     | What happens                                                                                                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `undo`    | It acts at once and shows a toast with _Undo_. For what can be put back: confirming a claim, skipping a meal.                                          |
+| `confirm` | An alert dialog names the thing and says what will happen, with the destructive button on the right and _Keep it_ focused.                             |
+| `typed`   | The person types an exact string (the kitchen's address, the month in words), which has a copy button and a live _Matches_. For what cannot come back. |
 
-Every screen starts with a `PageHead`: its name as the one `h1`, a line saying what it is for, and
-the things to do here on the right. Inside a screen, a `SectionHead` introduces each part with an
-`h2`. Headings go in order and never skip a level.
+A dialog says what will happen and has a button that names it: _Retire Curd_, not _Yes_.
 
-## Dialog
+## Toasts
 
-A modal (Base UI's dialog, `components/ui/dialog.tsx`, behind the app's `Dialog`) with a title, used
-for a decision that needs the whole screen's attention: confirming something that cannot be undone,
-or a short form that would crowd the page. It traps focus, closes with Escape, returns focus to what
-opened it, and is the only thing besides the toast that casts the deepest shadow (`--elev-dialog`).
-A dialog says what will happen and has a button that names it.
-
-## Toast
-
-A short note that something happened, which rises from the bottom and goes after a few seconds. A
-success is a quiet note (`toast(msg)`); a refusal is `toast(msg, 'bad')`, stays for six seconds and
-is announced at once. A toast is never the only record of something important: the thing it reports
-is also visible on the page.
+A short note that something happened, from sonner: `toast.success`, `toast.error`, `toast.info` and
+`toast.undo(message, fn)`. It stays six seconds, pauses while it is pointed at or focused, and has a
+close button. It sits at the bottom right on a desktop and at the bottom centre, above the bar, on a
+phone. A toast is never the only record of something important: the thing it reports is also visible
+on the page.
 
 ## Navigation
 
-The kitchen's screens are one list ([Layout and testing](/docs/contributing/layout-and-testing/));
-the menu is drawn from it in whichever form the width allows.
+Each role has its own home and its own menu, drawn from one list (`sections.ts`). On screen the
+roles are _Admin_, _Cook_ and _Consumer_.
 
-| Width           | Form                                                                                                                                                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 960px and wider | A sidebar in three groups (_Day to day_, _The kitchen_, _The books_). It can be hidden with **Hide this menu**; it then becomes a drawer behind **Menu** in the top bar, and the choice is remembered on that device. |
-| 720 to 959px    | A row of the screens under the top bar.                                                                                                                                                                               |
-| 720px and under | A fixed bottom bar with the five most used screens and **More**, which opens a panel with the rest, grouped, and **Help**.                                                                                            |
+| Role     | Sidebar, in order                                  | Phone bottom bar                    |
+| -------- | -------------------------------------------------- | ----------------------------------- |
+| Admin    | Home, Today, People, Payments, Bills, Setup, Books | Home, Today, Payments, People, More |
+| Cook     | Today, Meals, Payments, History                    | Today, Meals, Payments, History     |
+| Consumer | Home, Meals, Pay, History                          | Home, Meals, Pay, History           |
 
-The kitchen's name and the role being acted as (a switch, for someone who holds more than one role)
-belong to the menu, because they decide what every screen in it means. So they travel with it: at
-the head of the sidebar when there is one, and in the top bar when the menu is a row or a bottom
-bar. The top bar always holds what is about the person and the place: the mark, **Help** (which
-opens the guides), the account name and **Sign out**. The bar is sticky, so **Sign out** is always
-at the top right and never scrolls away, and on a phone the account name and Help give way to make
-room (Help is in the panel behind **More**).
+**On a desktop (1024px and wider)** the shell is the shadcn sidebar: a kitchen switcher at the head,
+the role's pages in one flat group, and the account menu at the foot. It folds to an icon rail (the
+shortcut is Ctrl or Cmd with B), and a search menu opens with Cmd or Ctrl and K, or `/`. **On a
+phone** a 56px top bar carries the page title, and a 64px bottom bar carries the pages, with the
+active one marked in the brand colour and a saffron bar. **More** opens a bottom sheet that traps
+focus and closes with Escape or Back.
 
-The menu hides and shows by sliding with `transform` and `opacity` only, is `inert` while hidden so
-the keyboard cannot reach what the eye cannot see, and does not move when motion is reduced.
+On every route change the page's title is set to _Page · Kitchen · Alimentation_, focus moves to the
+page's heading, the page scrolls to the top (unless it was Back or Forward), and a polite live
+region announces the title. A _Skip to content_ link is the first thing the keyboard reaches.
+
+## Page header, empty states and skeletons
+
+Every page starts with a `PageHeader`: its name as the one `h1`, a line saying what it is for, one
+primary action, and its tabs. A page with nothing to show uses an `EmptyState`: an icon, one
+sentence, and the action that fills it. While data is on its way a page shows a skeleton of its own
+layout, after 150ms and for at least 300ms, never the text _Loading…_. A refused page, a missing
+page and a kitchen the person is not in all use `NotAvailable`, with a reason and a way home.
 
 ## Theme choice
 
-`ThemeSwitch` is a group of three radio buttons (Auto, Light, Dark) in a pill. It is the one control
-for the theme, and the choice is kept under the `theme` key in local storage, so the app, the home
-page, the guides and the docs all answer to it. `public/theme.js` applies it before the first paint.
-Auto removes the `data-theme` attribute and the stylesheet follows the system again. The control
-sits at the foot of the sidebar, in the phone's More panel, at the end of the row under the top bar
-on a tablet, and in the home page's footer; the documentation sites have the same choice as one
-button in the top bar that steps through the three.
+The theme is **Auto, Light or Dark**. In the app it is in the account menu, on the home page it is a
+group of three radios in the footer, and on the guides and docs it is one button in the top bar that
+steps through the three. All of them keep the choice under the `theme` key, so every page answers to
+it. `public/theme.js` applies it before the first paint, and a change of theme dissolves instead of
+switching. Auto removes the `data-theme` attribute and the stylesheet follows the system again.
 
-## Charts
+## The site header
 
-A bar chart has a data table beside it, shown to a screen reader and available to everyone, and
-takes its colours from the same tokens. It measures its width before it draws, so it never flashes
-at the wrong size.
+The home page, the guides and the docs share one header: the brand mark, **Guides**, **Docs**, and
+then **Open your kitchen** for someone signed in or **Sign in** for anyone else. On the guides and
+docs, someone signed in also gets a **Back to** the kitchen they came from, under the bar. The
+guides and docs add a search field and the theme button; the home page adds the names of its own
+sections. Opening _Help_ from the app opens these pages in a new tab.
 
 ## Icon buttons
 
 A button that is only a picture, for an action everyone knows (copy, close). It is named for a
-screen reader (`aria-label`) and, with a pointer, by its `title`. It is as high as a small button,
-36px, so it can be hit. A picture alone is for an action that is obvious; anything that is not gets
-words, and a `btn`.
+screen reader (`aria-label`) and, with a pointer, by its tooltip. It is as high as any control, so
+it can be hit. A picture alone is for an action that is obvious; anything that is not gets words.
 
 <div class="demo">
 <button type="button" class="icon-btn" aria-label="Copy this" title="Copy"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
@@ -198,9 +230,9 @@ words, and a `btn`.
 
 ## Code
 
-A listing is on the chalkboard, dark in both themes, and it is a component like the rest: `.code`,
-with an optional bar (`.code-bar`) that says what it is, and the code in a `pre`. In the pages of
-these sites it is written as a fenced block
+A listing is on a board, dark in both themes, and it is a component like the rest: `.code`, with an
+optional bar (`.code-bar`) that says what it is, and the code in a `pre`. In the pages of these
+sites it is written as a fenced block
 ([how](/docs/contributing/layout-and-testing/#code-and-diagrams-in-the-pages)), and what is below is
 those blocks.
 
@@ -237,23 +269,17 @@ bun run build
 The colours are tokens (`--board`, `--board-ink`, `--board-dim` and the `--code-*` set), so a
 listing follows a change of theme without being drawn again.
 
-## How the pieces are built
-
-New pieces follow coss/ui: Base UI supplies the behaviour (focus, keyboard, ARIA), Tailwind
-utilities supply the look, and `components/ui/cn.ts` joins class names. The utilities come from
-`apps/web/src/theme.css`, load without Tailwind's reset, and sit in a cascade layer **below** the
-older stylesheets. A rule in `styles.css` has no layer, so it wins over a utility until that rule is
-removed along with the screen that needed it. To restyle a piece brought over, change its utilities
-or the role in `theme.css`; do not add a rule to `styles.css` that fights it.
-
 ## Rules for using the pieces
 
 1. **Compose; do not restyle.** A screen sets no colour, size or shadow of its own. If a piece does
    not fit, the piece is wrong: change it here.
-2. **Layout is classes, not styles.** Gaps and flow come from `stack`, `row`, `between`, `grow` and
-   `--gap`. A `style` attribute may only hand a value to the stylesheet
-   (`style={{ '--gap': '8px' }}`).
-3. **Words first.** A label, a button and a message are written for the person (see
+2. **Use the kit's control, not the browser's.** A number is a `CountInput` or a `MoneyInput`, a
+   date is a `DateField`, a choice is a select, a toggle group or a radio group. The checker refuses
+   `type="number"`, a native date, checkbox, radio or file input, and a bare `<select>` outside the
+   kit.
+3. **Every page has a `PageHeader` or a `NotAvailable`,** so no page can leave out its title or its
+   focus handling.
+4. **Words first.** A label, a button and a message are written for the person (see
    [Principles](/docs/design/principles/)).
-4. **Attribution stays visible.** A list of entries shows who added each and when it was late.
-5. **Both themes, every time.** Look at a new piece in light and dark before it is used.
+5. **Attribution stays visible.** A list of entries shows who added each and when it was late.
+6. **Both themes, every time.** Look at a new piece in light and dark before it is used.

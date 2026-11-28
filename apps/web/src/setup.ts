@@ -1,6 +1,7 @@
 /**
- * What a kitchen still has to set up is shown once, as a single banner above every screen, and only the next
- * step: the others would only be a list to feel behind on. The screens below it do not say it again.
+ * What a kitchen still has to set up: the server's hints, in the order to do them. The admin's Home shows them
+ * as a checklist (`setupChecklist`); the banner above the screens may show the first (`nextStep`). A screen
+ * does not say it again in its own body (`bodyProblem`).
  */
 export interface SetupHint {
   code: string;
@@ -26,13 +27,71 @@ export function bodyProblem(
   return code !== undefined && FROM_ENGINE.has(code) && hints.length > 0 ? null : error;
 }
 
-/** The line under the title: what the screen is for once there are bills, and what is missing before that. */
-export function billingLead(single: boolean, name: string, billable: boolean): string {
-  if (!billable)
-    return single
-      ? `Hello, ${name}. Your bill will show here once the kitchen is set up.`
-      : "Bills will show here once the kitchen has a menu, people and prices.";
-  return single
-    ? `Hello, ${name}. What you owe, and what you have paid.`
-    : "Who owes what, and what has been paid.";
+export interface SetupStep {
+  key: "people" | "serve" | "menu" | "prices";
+  label: string;
+  /** One line on what to do, or what is done. */
+  hint: string;
+  /** After the kitchen's own address. */
+  to: string;
+  done: boolean;
+}
+
+/** What the checklist needs of the kitchen: a slice of the bootstrap. */
+export interface SetupFacts {
+  money: boolean;
+  today: string;
+  hints: readonly SetupHint[];
+  services: readonly { archivedOn: string | null }[];
+  catalogue: readonly { kind: string; archivedOn: string | null }[];
+}
+
+/**
+ * The steps to a kitchen that can count meals (and bill them, where it tracks money), each done or not. People,
+ * what is served, the menu, and the prices. The server's hints say what is missing; what is served is read from
+ * the catalogue, since the one hint for it also covers the menu.
+ */
+export function setupChecklist(f: SetupFacts): SetupStep[] {
+  const missing = (code: string) => f.hints.some((h) => h.code === code);
+  const live = (x: { archivedOn: string | null }) =>
+    x.archivedOn === null || x.archivedOn > f.today;
+  const serves = f.services.some(live) && f.catalogue.some((i) => i.kind === "meal" && live(i));
+  const steps: SetupStep[] = [
+    {
+      key: "people",
+      label: "People",
+      hint: "Add the people you feed.",
+      to: "/people",
+      done: !missing("consumers"),
+    },
+    {
+      key: "serve",
+      label: "What you serve",
+      hint: "Add the meals and extras you cook.",
+      to: "/setup/items",
+      done: serves,
+    },
+    {
+      key: "menu",
+      label: "Menu",
+      hint: "Say what is cooked on each day.",
+      to: "/setup/menu",
+      done: serves && !missing("menu"),
+    },
+  ];
+  if (f.money)
+    steps.push({
+      key: "prices",
+      label: "Prices",
+      hint: "Price each item to start billing.",
+      to: "/setup/prices",
+      done: !missing("rate_card"),
+    });
+  return steps;
+}
+
+/** "2 of 4 done", or null once every step is done. */
+export function setupProgress(steps: readonly SetupStep[]): string | null {
+  const done = steps.filter((s) => s.done).length;
+  return done === steps.length ? null : `${done} of ${steps.length} done`;
 }

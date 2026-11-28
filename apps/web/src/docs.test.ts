@@ -388,7 +388,10 @@ describe("code and diagrams in the pages", () => {
 
   it("puts the numbers in the margin: attributes drawn by the stylesheet, not text that is copied", () => {
     const { html } = build(fence("ts numbers", "const a = 1;"));
-    const css = readFileSync(join(import.meta.dirname, "styles.css"), "utf8");
+    const css = readFileSync(
+      join(import.meta.dirname, "..", "scripts", "docs", "docs.css"),
+      "utf8",
+    );
     expect(html).not.toMatch(/<span class="line"[^>]*>\s*1\s/);
     expect(css).toMatch(
       /\.code\.numbered \.line::before\s*\{[^}]*content: attr\(data-n\)[^}]*user-select: none/s,
@@ -493,7 +496,7 @@ describe("code and diagrams in the pages", () => {
       "utf8",
     );
     const roles = /\.diagram-scroll svg \{([^}]*)\}/.exec(css)![1]!;
-    for (const role of ["--bg: var(--card)", "--fg: var(--ink)", "--accent: var(--brand)"])
+    for (const role of ["--bg: var(--card)", "--fg: var(--foreground)", "--accent: var(--primary)"])
       expect(roles).toContain(role);
     expect(roles).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
@@ -506,7 +509,10 @@ describe("code and diagrams in the pages", () => {
   });
 
   it("documents every colour the highlighting is drawn in", () => {
-    const tokens = readFileSync(join(import.meta.dirname, "..", "src", "styles.css"), "utf8");
+    const tokens = readFileSync(
+      join(import.meta.dirname, "..", "scripts", "docs", "docs.css"),
+      "utf8",
+    );
     const foundations = read("docs/design/foundations.md");
     const css = tokens;
     const names = [...tokens.matchAll(/^\s+(--code-[a-z]+):/gm)].map((m) => m[1]!);
@@ -653,10 +659,10 @@ describe("moving between the pages", () => {
     }
   });
 
-  it("puts the menu at the right on a phone, and the name, the switch and the theme where a thumb is", () => {
+  it("puts the menu at the right on a phone, and the name, the switch, the theme and the way in where a thumb is", () => {
     const phone = /@media \(max-width: 959px\)\s*\{([\s\S]*)$/.exec(css)![1]!;
     expect(phone).toMatch(
-      /grid-template-areas:\s*["']brand menu["']\s*["']switch theme["']\s*["']search search["']/,
+      /grid-template-areas:\s*["']brand menu menu["']\s*["']switch theme open["']\s*["']search search search["']/,
     );
     expect(phone).toMatch(/\.docs-menu\s*\{[^}]*grid-area: menu;[^}]*justify-self: end/);
   });

@@ -93,3 +93,45 @@ export function priceBody(
   if (fee === null) return { ok: false, message: "Monthly fee: enter an amount in rupees." };
   return { ok: true, prices, monthlyFee: fee };
 }
+
+/** One thing wrong with a field of the price form, with the field's path as the form names it. */
+export interface PriceProblem {
+  path: string;
+  message: string;
+}
+
+export const PRICE_HINT = "Enter a price in rupees, like 450 or 450.50.";
+
+/**
+ * Every field of the price form that is not an amount, so each can be marked where it is (FRM-02). A price is asked
+ * for every item; a different price in a service and the monthly fee are optional, and an empty one is fine.
+ */
+export function priceProblems(
+  items: readonly CatalogueItem[],
+  fields: PriceFields,
+): PriceProblem[] {
+  const out: PriceProblem[] = [];
+  for (const it of items) {
+    if (toPaise(fields.base[it.id] ?? "") === null)
+      out.push({ path: `base.${it.id}`, message: PRICE_HINT });
+    for (const [sv, text] of Object.entries(fields.override[it.id] ?? {}))
+      if (text.trim() !== "" && toPaise(text) === null)
+        out.push({ path: `override.${it.id}.${sv}`, message: PRICE_HINT });
+  }
+  if (fields.fee.trim() !== "" && toPaise(fields.fee) === null)
+    out.push({ path: "fee", message: "Enter an amount in rupees, or 0 for none." });
+  return out;
+}
+
+/**
+ * The first day a new rate card may start, by what the kitchen's rules allow, or null when any day will do. The
+ * date picker greys out what is earlier, so the refusal never has to be read.
+ */
+export function earliestRateCard(
+  backdating: "none" | "current_month" | "unrestricted" | undefined,
+  today: IsoDate,
+): IsoDate | null {
+  if (backdating === "none") return today;
+  if (backdating === "current_month") return `${today.slice(0, 7)}-01` as IsoDate;
+  return null;
+}

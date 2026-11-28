@@ -1,396 +1,300 @@
+import type { ClaimDto } from "@alimentation/core";
+import { AlertCircleIcon, IndianRupeeIcon } from "lucide-react";
+import { type ReactNode, useState } from "react";
+import { api, postJson } from "@/api";
 import {
-  type ClaimDto,
-  type ClaimStatus,
-  diffDays,
-  localNow,
-  PAY_METHODS,
-  type PayMethod,
-} from "@alimentation/core";
-import { useState } from "react";
-import { api, getJson, postJson } from "../../../api.ts";
-import { Button } from "../../../components/legacy/button.tsx";
-import { Card } from "../../../components/legacy/card.tsx";
-import { Input, Textarea } from "../../../components/legacy/input.tsx";
-import { Select } from "../../../components/legacy/select.tsx";
-import {
-  Chip,
-  Dialog,
-  Field,
-  Form,
-  PageHead,
-  Problem,
-  Spinner,
+  ConfirmAction,
+  EmptyState,
+  Money,
+  NotAvailable,
+  PageHeader,
+  PageSkeleton,
+  StatusBadge,
   toast,
-  useAction,
-  useLoad,
-} from "../../../components/ui.tsx";
-import { date, money, month as monthLabel, toPaise } from "../../../format.ts";
+} from "@/components/app";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { money, monthLong } from "@/format";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { useUrlState } from "@/hooks/use-url-state";
 import { useWorkspace } from "../context.tsx";
+import { ClaimsTable } from "./ClaimsTable.tsx";
+import { dueOf, inTab, isTab, TABS, type TabValue } from "./claims.ts";
+import { DecideDialog, type DecideMode } from "./DecideDialog.tsx";
+import { PayDialog } from "./PayDialog.tsx";
+import { useClaims } from "./useClaims.ts";
 
-/** How long a claim has waited for a decision, by the kitchen's own calendar. */
-const waited = (createdAt: string, today: string, timeZone: string): string => {
-  const n = diffDays(today, localNow(new Date(createdAt), timeZone).date);
-  if (n <= 0) return "waiting since today";
-  return n === 1 ? "waiting since yesterday" : `waiting ${n} days`;
-};
-
-const TONE: Record<ClaimStatus, "good" | "warn" | "bad" | undefined> = {
-  Pending: "warn",
-  Confirmed: "good",
-  Disputed: "bad",
-  Reversed: undefined,
-};
-
-function NewClaim({ onDone }: { onDone: () => void }) {
-  const ws = useWorkspace();
-  const consumers = ws.boot.people.filter((p) => p.role === "consumer");
-  const [who, setWho] = useState(
-    ws.role === "consumer" ? ws.boot.me.personId : (consumers[0]?.id ?? ""),
+/** The page's one primary action: in the header on a wide screen, above the bottom bar on a phone. */
+function PrimaryAction({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  const wide = useMediaQuery("(min-width: 1024px)");
+  const button = (
+    <Button type="button" onClick={onClick} className={wide ? undefined : "w-full"}>
+      <IndianRupeeIcon aria-hidden="true" data-icon="inline-start" />
+      {children}
+    </Button>
   );
-  const [forMonth, setForMonth] = useState(ws.boot.currentMonth);
-  const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<PayMethod>("UPI");
-  const [paidAt, setPaidAt] = useState(ws.boot.today);
-  const [ref, setRef] = useState("");
-  const act = useAction();
-  const paise = toPaise(amount);
+  if (wide) return button;
   return (
-    <Card className="stack" role="region" aria-label="Claim a payment">
-      <h2>I paid</h2>
-      <Form
-        error={act.error}
-        onSubmit={() =>
-          act.run(async () => {
-            if (paise === null || paise <= 0)
-              throw new Error("Enter the amount in rupees, for example 3200.");
-            await postJson(`${ws.api}/claims`, {
-              consumerId: who,
-              paidAt,
-              forMonth,
-              amount: paise,
-              method,
-              refNote: ref.trim() || null,
-            });
-            setAmount("");
-            setRef("");
-            toast("Claimed. It shows as pending until it is confirmed.");
-            onDone();
-            ws.reload();
-          })
-        }
-      >
-        <div className="pair">
-          {ws.role !== "consumer" ? (
-            <Field label="For" id="cwho">
-              <Select id="cwho" value={who} onChange={(e) => setWho(e.target.value)}>
-                {consumers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : null}
-          <Field label="For month" id="cmonth">
-            <Select
-              id="cmonth"
-              value={forMonth}
-              onChange={(e) => setForMonth(e.target.value as typeof forMonth)}
-            >
-              {[...ws.boot.months].reverse().map((m) => (
-                <option key={m} value={m}>
-                  {monthLabel(m)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Amount (₹)" id="camount">
-            <Input
-              id="camount"
-              inputMode="decimal"
-              required
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </Field>
-          <Field label="Method" id="cmethod">
-            <Select
-              id="cmethod"
-              value={method}
-              onChange={(e) => setMethod(e.target.value as PayMethod)}
-            >
-              {PAY_METHODS.map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Paid on" id="cpaid">
-            <Input
-              id="cpaid"
-              type="date"
-              required
-              value={paidAt}
-              onChange={(e) => setPaidAt(e.target.value)}
-            />
-          </Field>
-        </div>
-        <Field
-          label="Reference (optional)"
-          id="cref"
-          hint="A UPI reference, or a note to remember it by."
-        >
-          <Input id="cref" maxLength={300} value={ref} onChange={(e) => setRef(e.target.value)} />
-        </Field>
-        <div>
-          <Button type="submit" disabled={act.busy || !ws.writable}>
-            Claim payment
-          </Button>
-        </div>
-      </Form>
-    </Card>
-  );
-}
-
-function Decide({
-  claim,
-  mode,
-  onClose,
-  onDone,
-}: {
-  claim: ClaimDto;
-  mode: "dispute" | "reverse";
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const ws = useWorkspace();
-  const [reason, setReason] = useState("");
-  const act = useAction();
-  return (
-    <Form
-      error={act.error}
-      onSubmit={() =>
-        act.run(async () => {
-          if (mode === "dispute")
-            await postJson(`${ws.api}/claims/${claim.id}/decision`, {
-              decision: "Disputed",
-              note: reason,
-            });
-          else await postJson(`${ws.api}/claims/${claim.id}/reversal`, { reason });
-          onDone();
-          onClose();
-        })
-      }
-    >
-      <p className="muted">
-        {ws.nameOf(claim.consumerId)} · {monthLabel(claim.forMonth)} · {money(claim.amount)} ·{" "}
-        {claim.method}
-      </p>
-      <Field
-        label={mode === "dispute" ? "Why is it disputed?" : "Why is this decision being reversed?"}
-        id="reason"
-        hint="Recorded in the audit trail."
-      >
-        <Textarea
-          id="reason"
-          required
-          maxLength={500}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </Field>
-      <div className="row">
-        <Button variant="destructive" type="submit" disabled={act.busy || !reason.trim()}>
-          {mode === "dispute" ? "Dispute" : "Reverse"}
-        </Button>
-        <Button variant="outline" type="button" onClick={onClose}>
-          Cancel
-        </Button>
-      </div>
-    </Form>
+    <div className="fixed inset-x-0 bottom-[var(--bottom-bar)] z-20 border-t bg-background px-4 py-2">
+      {button}
+    </div>
   );
 }
 
 export function Payments() {
   const ws = useWorkspace();
-  const tz = ws.boot.workspace.timeZone;
-  const claims = useLoad(() => getJson<ClaimDto[]>(`${ws.api}/claims`), [ws.api]);
-  const [dialog, setDialog] = useState<{ claim: ClaimDto; mode: "dispute" | "reverse" } | null>(
-    null,
-  );
-  const decider = ws.role === "supplier"; // only the supplier decides; the admin can reverse a decision
-  const seesAll = ws.role !== "consumer";
-  const list = claims.data ?? [];
-  const pending = list.filter((c) => c.status === "Pending");
-
-  const confirm = (c: ClaimDto) =>
-    api.post(`${ws.api}/claims/${c.id}/decision`, { decision: "Confirmed" }).then(
-      () => {
-        toast(`Confirmed ${money(c.amount)} from ${ws.nameOf(c.consumerId)}.`);
-        claims.reload();
-        ws.reload();
-      },
-      (e: Error) => toast(e.message, "bad"),
+  if (!ws.money)
+    return (
+      <NotAvailable title="No payments here" backTo={ws.base} backLabel="Go to Home">
+        This kitchen tracks meals only, so there are no bills or payments.
+      </NotAvailable>
     );
+  return <PaymentsScreen />;
+}
 
-  return (
-    <div className="stack" style={{ ["--gap" as string]: "20px" }}>
-      <PageHead title={seesAll ? "Payments" : "My payments"} />
-      <Problem error={claims.error} />
+function PaymentsScreen() {
+  const ws = useWorkspace();
+  const claims = useClaims(ws.api);
+  const consumer = ws.role === "consumer";
+  const decider = ws.role === "supplier"; // only the cook decides; the admin can reverse a decision
+  const [tabParam, setTab] = useUrlState("tab", "to-confirm");
+  const tab: TabValue = isTab(tabParam) ? tabParam : "to-confirm";
 
-      {seesAll ? (
-        <section className="stack" aria-label="To confirm">
-          <h2>To confirm {pending.length ? `(${pending.length})` : ""}</h2>
-          {pending.length === 0 ? <p className="muted">Nothing is waiting for you.</p> : null}
-          {!decider && pending.length > 0 ? (
-            <p className="muted small">
-              Only the supplier confirms a payment.
-              {ws.boot.roles.includes("supplier")
-                ? " Switch to the supplier role at the top to do it yourself."
-                : ""}
+  const [paying, setPaying] = useState(false);
+  const [deciding, setDeciding] = useState<{ claim: ClaimDto; mode: DecideMode } | null>(null);
+  const [withdrawing, setWithdrawing] = useState<ClaimDto | null>(null);
+
+  const list = claims.data ?? [];
+  const mine = consumer ? list.filter((c) => c.consumerId === ws.boot.me.personId) : list;
+  const waiting = list.filter((c) => c.status === "Pending");
+  const direct = consumer && ws.boot.policy.payments === "direct";
+  const canPay = ws.writable && (consumer ? !direct : ws.role === "admin");
+
+  const refresh = () => {
+    claims.reload();
+    ws.reload();
+  };
+
+  const actions = {
+    confirm: (c: ClaimDto) =>
+      void postJson(`${ws.api}/claims/${c.id}/decision`, { decision: "Confirmed" }).then(
+        () => {
+          toast.success(`Confirmed ${money(c.amount)} from ${ws.nameOf(c.consumerId)}.`);
+          refresh();
+        },
+        (e: Error) => toast.error(e.message),
+      ),
+    dispute: (claim: ClaimDto) => setDeciding({ claim, mode: "dispute" }),
+    reverse: (claim: ClaimDto) => setDeciding({ claim, mode: "reverse" }),
+    withdraw: (c: ClaimDto) => setWithdrawing(c),
+  };
+
+  const failed = claims.error ? (
+    <Alert variant="destructive" className="mb-4">
+      <AlertCircleIcon aria-hidden="true" />
+      <AlertTitle>Payments could not be loaded</AlertTitle>
+      <AlertDescription>
+        {claims.data ? "What is shown may be out of date. " : ""}
+        {claims.error.message}
+      </AlertDescription>
+      <AlertAction>
+        <Button type="button" size="sm" variant="outline" onClick={claims.reload}>
+          Try again
+        </Button>
+      </AlertAction>
+    </Alert>
+  ) : null;
+
+  const dialogs = (
+    <>
+      {canPay ? <PayDialog open={paying} onOpenChange={setPaying} onDone={refresh} /> : null}
+      <DecideDialog
+        claim={deciding?.claim ?? null}
+        mode={deciding?.mode ?? "dispute"}
+        onClose={() => setDeciding(null)}
+        onDone={refresh}
+      />
+      <ConfirmAction
+        level="confirm"
+        open={withdrawing !== null}
+        onOpenChange={(o) => {
+          if (!o) setWithdrawing(null);
+        }}
+        title="Withdraw this claim?"
+        description={
+          withdrawing
+            ? `${ws.nameOf(withdrawing.consumerId)}'s ${monthLong(withdrawing.forMonth)} claim of ${money(withdrawing.amount)} is removed. It was never confirmed, so no bill changes.`
+            : undefined
+        }
+        confirmLabel="Withdraw"
+        cancelLabel="Keep it"
+        onConfirm={async () => {
+          if (!withdrawing) return;
+          await api.del(`${ws.api}/claims/${withdrawing.id}`);
+          toast.success("Claim withdrawn.");
+          setWithdrawing(null);
+          refresh();
+        }}
+      />
+    </>
+  );
+
+  if (consumer) {
+    const owing = dueOf(ws.boot.statements, ws.boot.me.personId);
+    const due = owing?.due ?? 0;
+    return (
+      <>
+        <PageHeader
+          title="Pay"
+          description="What you owe the kitchen, and the payments you have told it about."
+          actions={
+            canPay ? <PrimaryAction onClick={() => setPaying(true)}>I paid</PrimaryAction> : null
+          }
+        />
+        {failed}
+        <Card className="mb-6">
+          <CardContent className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {due > 0 ? <StatusBadge status="owed" /> : <StatusBadge status="paid" />}
+              <span className="text-sm text-muted-foreground">
+                {monthLong(ws.boot.currentMonth)} and earlier
+              </span>
+            </div>
+            <p className="text-3xl font-[650] tabular-nums">
+              {due > 0 ? (
+                <>
+                  You owe <Money paise={due} />
+                </>
+              ) : due < 0 ? (
+                <Money paise={-due} credit />
+              ) : (
+                "You're all paid up"
+              )}
             </p>
-          ) : null}
-          {pending.map((c) => (
-            <Card key={c.id} className="row between">
-              <div>
-                <b>{ws.nameOf(c.consumerId)}</b> · {monthLabel(c.forMonth)} ·{" "}
-                <b className="num">{money(c.amount)}</b>
-                <div className="muted small">
-                  {c.method} · paid {date(c.paidAt.slice(0, 10))}
-                  {c.refNote ? ` · ${c.refNote}` : ""} · {waited(c.createdAt, ws.boot.today, tz)}
-                </div>
-              </div>
-              {decider ? (
-                <div className="row">
-                  <Button
-                    size="sm"
-                    type="button"
-                    disabled={!ws.writable}
-                    onClick={() => void confirm(c)}
-                  >
-                    Confirm
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    disabled={!ws.writable}
-                    onClick={() => setDialog({ claim: c, mode: "dispute" })}
-                  >
-                    Dispute
-                  </Button>
-                </div>
-              ) : null}
-            </Card>
-          ))}
-        </section>
-      ) : null}
-
-      {ws.role === "consumer" || ws.role === "admin" ? <NewClaim onDone={claims.reload} /> : null}
-
-      <section className="stack" aria-label="All claims">
-        <h2>{seesAll ? "All claims" : "My claims"}</h2>
-        {claims.loading && !claims.data ? <Spinner /> : null}
-        {list.length === 0 && !claims.loading ? <p className="muted">No claims yet.</p> : null}
-        {list.length > 0 ? (
-          <div
-            className="tablewrap"
-            tabIndex={0}
-            role="region"
-            aria-label="Table; scrolls sideways when it is wider than the screen"
-          >
-            <table>
-              <thead>
-                <tr>
-                  {seesAll ? <th>Who</th> : null}
-                  <th>Month</th>
-                  <th className="r">Amount</th>
-                  <th>Method</th>
-                  <th>Paid on</th>
-                  <th>Status</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((c) => (
-                  <tr key={c.id}>
-                    {seesAll ? <td>{ws.nameOf(c.consumerId)}</td> : null}
-                    <td>{monthLabel(c.forMonth)}</td>
-                    <td className="r">{money(c.amount)}</td>
-                    <td>{c.method}</td>
-                    <td>{date(c.paidAt.slice(0, 10))}</td>
-                    <td>
-                      <Chip tone={TONE[c.status]}>{c.status}</Chip>
-                      {c.status === "Pending" ? (
-                        <span className="muted small">
-                          {" "}
-                          · {waited(c.createdAt, ws.boot.today, tz)}
-                        </span>
-                      ) : null}
-                      {c.decisionNote ? (
-                        <span className="muted small"> · {c.decisionNote}</span>
-                      ) : null}
-                      {c.reversalReason ? (
-                        <span className="muted small"> · reversed: {c.reversalReason}</span>
-                      ) : null}
-                    </td>
-                    <td>
-                      {c.status === "Pending" && ws.role !== "supplier" && ws.writable ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          type="button"
-                          onClick={() =>
-                            void api.del(`${ws.api}/claims/${c.id}`).then(
-                              () => {
-                                toast("Withdrawn.");
-                                claims.reload();
-                                ws.reload();
-                              },
-                              (e: Error) => toast(e.message, "bad"),
-                            )
-                          }
-                        >
-                          Withdraw
-                        </Button>
-                      ) : null}
-                      {ws.role === "admin" &&
-                      (c.status === "Confirmed" || c.status === "Disputed") &&
-                      ws.writable ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          type="button"
-                          onClick={() => setDialog({ claim: c, mode: "reverse" })}
-                        >
-                          Reverse
-                        </Button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </section>
-
-      <Dialog
-        open={!!dialog}
-        onClose={() => setDialog(null)}
-        title={dialog?.mode === "dispute" ? "Dispute this payment" : "Reverse this decision"}
-      >
-        {dialog ? (
-          <Decide
-            claim={dialog.claim}
-            mode={dialog.mode}
-            onClose={() => setDialog(null)}
-            onDone={() => {
-              claims.reload();
-              ws.reload();
-            }}
+            {owing && owing.claimed > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                <Money paise={owing.claimed} /> claimed and waiting for the cook to confirm.
+              </p>
+            ) : null}
+            {direct ? (
+              <p className="text-sm text-muted-foreground">
+                This kitchen records payments directly. Ask the cook when you have paid.
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+        <h2 className="mb-2 text-lg font-semibold">Your payments</h2>
+        <PageSkeleton loading={claims.loading && !claims.data} variant="table">
+          <ClaimsTable
+            claims={mine}
+            actions={actions}
+            showPerson={false}
+            canDecide={false}
+            empty={
+              <EmptyState
+                icon={IndianRupeeIcon}
+                title="No payments yet"
+                description="When you pay, tell the kitchen here. It shows as pending until the cook confirms it."
+                action={
+                  canPay ? (
+                    <Button type="button" onClick={() => setPaying(true)}>
+                      I paid
+                    </Button>
+                  ) : undefined
+                }
+              />
+            }
           />
-        ) : null}
-      </Dialog>
-    </div>
+        </PageSkeleton>
+        {dialogs}
+      </>
+    );
+  }
+
+  // The admin and the cook: one list, in tabs, one row per claim.
+  return (
+    <Tabs value={tab} onValueChange={(v) => setTab(String(v), { push: false })}>
+      <PageHeader
+        title="Payments"
+        description={
+          decider
+            ? "Confirm what people say they paid, or dispute it with a reason."
+            : "What people have paid. Only the cook confirms a payment."
+        }
+        actions={
+          canPay ? (
+            <PrimaryAction onClick={() => setPaying(true)}>Record a payment</PrimaryAction>
+          ) : null
+        }
+        tabs={
+          <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} className="flex-none px-3">
+                {t.label}
+                {t.value === "to-confirm" && waiting.length > 0 ? (
+                  <Badge variant="secondary">
+                    {waiting.length}
+                    <span className="sr-only"> waiting</span>
+                  </Badge>
+                ) : null}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        }
+      />
+      {failed}
+      {!decider && waiting.length > 0 && tab === "to-confirm" ? (
+        <p className="text-sm text-muted-foreground">
+          Only the cook confirms a payment.
+          {ws.boot.roles.includes("supplier") ? (
+            <>
+              {" "}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0"
+                onClick={() => ws.switchRole("supplier")}
+              >
+                View as Cook
+              </Button>{" "}
+              to do it yourself.
+            </>
+          ) : null}
+        </p>
+      ) : null}
+      {TABS.map((t) => (
+        <TabsContent key={t.value} value={t.value} className="flex flex-col gap-3">
+          <PageSkeleton loading={claims.loading && !claims.data} variant="table">
+            <ClaimsTable
+              claims={list.filter((c) => inTab(t.value, c))}
+              actions={actions}
+              showPerson
+              canDecide={decider}
+              empty={
+                <EmptyState
+                  icon={IndianRupeeIcon}
+                  title={
+                    t.value === "to-confirm"
+                      ? "Nothing waiting"
+                      : t.value === "all"
+                        ? "No payments yet"
+                        : `No ${t.label.toLowerCase()} payments`
+                  }
+                  description={
+                    t.value === "all"
+                      ? "Payments appear here once someone says they paid."
+                      : "Nothing is in this list."
+                  }
+                />
+              }
+            />
+          </PageSkeleton>
+        </TabsContent>
+      ))}
+      {dialogs}
+    </Tabs>
   );
 }

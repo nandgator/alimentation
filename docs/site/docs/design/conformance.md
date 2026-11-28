@@ -17,37 +17,35 @@ $ bun run design              # one line: kept, or how many places leave it
 $ node scripts/check-design.mjs --list    # every place, with its file, line, rule and text
 ```
 
-At the time of writing the app has **no departures** and **three waivers**.
-
 ## What it enforces
 
-| Rule         | What it refuses                                                                                                                                                                                                                                                                        | Use instead                                                   |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `colour`     | A hex, `rgb()`, `hsl()`, `oklch()` or `lab()` colour outside the definition of a token.                                                                                                                                                                                                | A colour token, or `color-mix()` of tokens.                   |
-| `shadow`     | A `box-shadow` or `drop-shadow()` that is not `none` or a token.                                                                                                                                                                                                                       | `--elev-menu`, `--elev-toast`, `--elev-dialog`.               |
-| `layer`      | A `z-index` outside `-2` to `2` (for a component's own parts) that is not a `--z-*` token, optionally plus or minus a small number.                                                                                                                                                    | `--z-nav`, `--z-bar`, `--z-drawer`, `--z-pop`, `--z-toast`.   |
-| `important`  | `!important`, anywhere but the `prefers-reduced-motion: reduce` block.                                                                                                                                                                                                                 | A selector that wins on its own.                              |
-| `font`       | A `font-family`, or a `font` shorthand, that does not use `--serif`, `--sans` or `--mono`.                                                                                                                                                                                             | The font tokens.                                              |
-| `type`       | A `font-size` that is not a `--text-*` token, `inherit`, `em` or `%`, `clamp()` or `calc()`; or a `rem`/`px` size inside a `font` shorthand.                                                                                                                                           | `--text-2xs` … `--text-2xl`.                                  |
-| `space`      | A `padding`, `margin` or `gap` in pixels off the two-pixel grid (to 24px), or not one of 28, 32, 40, 48, 56, 64, 80, 96. A `rem` is read as the pixels it comes to (16 to the `rem`), so it is held to the same grid.                                                                  | Multiples of two, or `--space-*`.                             |
-| `radius`     | A `border-radius` other than 0, 4, 6, 8, 10, 12, 14, 16, 999px, 50%, or a variable.                                                                                                                                                                                                    | `--radius-xs` … `--radius-xl`, `--radius-pill`.               |
-| `motion`     | A `transition` or `animation` with a duration in milliseconds, a `cubic-bezier()`, or an easing keyword outside `ease`, `ease-in`, `ease-out`, `ease-in-out`, `linear`.                                                                                                                | `--dur-1..3`, `--ease-*`.                                     |
-| `breakpoint` | An `@media (max-width)` or `min-width` that is not 480, 560, 720, 959, 960, 1199 or 1200.                                                                                                                                                                                              | One of those ([Foundations](/docs/design/foundations/)).      |
-| `control`    | A select that leaves the browser to draw its arrow (drawing the open list as well, with `appearance: base-select`, is allowed), a select rule with no arrow of its own, padding on a select that leaves under 40px at the right, or a select rule placed before the shared field rule. | The shared `select` rule; `padding-block` and `padding-left`. |
-| `inline`     | A `style={{ … }}` in a component that sets anything but a custom property. Multi-line style objects are refused.                                                                                                                                                                       | A class, or `style={{ '--gap': '8px' }}`.                     |
+The checker works on the utilities in the markup and on the tokens, which is how the app is now
+written. Its rules are:
 
-The last rule is also a requirement of the content-security policy, which forbids inline styles: a
-`style` attribute that sets how something looks would be blocked in production, so the check keeps
+| Rule        | What it refuses                                                                                                                                | Use instead                                       |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `colour`    | A hex, `rgb()`, `hsl()` or `oklch()` colour outside `src/theme.css`: in a stylesheet, in a class string, or in an arbitrary value (`bg-[#…]`). | A token: `bg-primary`, `text-muted-foreground`.   |
+| `arbitrary` | An arbitrary Tailwind length (`w-[13px]`) outside `src/components/ui/`.                                                                        | A step of the scale, or a waiver that says why.   |
+| `control`   | `type="number"`, a native date, checkbox, radio or file input, or a `<select>`, outside `components/ui/` and `components/app/`.                | `CountInput`, `MoneyInput`, `DateField`, the kit. |
+| `reload`    | `window.location.reload`.                                                                                                                      | Refetch the data.                                 |
+| `title`     | A page under `src/pages/` that renders neither a `PageHeader` nor a `NotAvailable`.                                                            | `PageHeader`.                                     |
+| `icon`      | An icon that is not from `lucide-react`; an inline `<svg>` outside `Mark.tsx`, `src/home/` and the chart.                                      | `lucide-react`.                                   |
+| `role-name` | A string in the interface that says _Supplier_ or _Member_.                                                                                    | `ROLE_LABEL`: _Cook_, _Consumer_.                 |
+| `inline`    | A `style={{ … }}` that sets anything but a custom property, which the charts and the sidebar need and which carries a waiver.                  | A class.                                          |
+| `status`    | A `rounded-full` element with a background fill, 8 or 12px across, beside status text: the no-dot rule.                                        | `StatusBadge`.                                    |
+
+The `inline` rule is also a requirement of the content-security policy, which forbids inline styles:
+a `style` attribute that sets how something looks would be blocked in production, so the check keeps
 the code from ever relying on one.
 
 ### Where each rule applies
 
-| File                                           | Rules                                                                                                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/web/src/styles.css`                      | All.                                                                                                                                       |
-| `apps/web/scripts/docs/docs.css` (these pages) | All.                                                                                                                                       |
-| `apps/web/src/home.css`                        | `colour`, `shadow`, `layer`, `important` and `font`. The home page's pictures are drawn, so their shape and spacing are the drawing's own. |
-| Every `.tsx` under `apps/web/src`              | `inline`.                                                                                                                                  |
+| File                                           | Rules                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------- |
+| Every `.tsx` and `.css` under `apps/web/src`   | All, except `colour` in `src/theme.css`, where the tokens are made. |
+| `apps/web/src/components/ui/`                  | All but `arbitrary` and `control`: they are the shadcn components.  |
+| `apps/web/src/home/` (the drawn pictures)      | All but `icon` for `<svg>`: the pictures are drawn.                 |
+| `apps/web/scripts/docs/docs.css` (these pages) | `colour`: every colour is a token or a mix of tokens.               |
 
 ## Waiving a rule
 
@@ -67,50 +65,36 @@ sits on that line or the one before. A waiver must begin `design:` and say **why
 reason is a departure with extra steps, and review should treat it so. The list of waivers is short
 enough to read: `grep -rn "design:" apps/web`.
 
-## What it does not read
-
-The checker reads the three stylesheets above and the inline `style` of every component. It does not
-read `theme.css`, which only names tokens, and it does not read Tailwind utility classes in a `.tsx`
-file, so `shadow-md` or `rounded-3xl` would pass. The components in `components/ui/` are held to the
-system by their roles (`bg-primary`, `border-input`, `rounded-lg`) and by review. Because the older
-sheets win over utilities, a rule written there that the checker passes is still the one in force.
-Two things keep this honest: Tailwind's theme is mapped only onto kitchen tokens, so a utility can
-name nothing else, and the 44px control height is measured in the browser by
-`apps/web/e2e/layout.spec.ts`.
-
 ## What it cannot check
 
 A script can tell that a value is a token. It cannot tell that the token is right. These are judged
 elsewhere:
 
-| Matter                                                                 | Where it is judged                                                                                                                                                                |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contrast, labels, focus, headings in order                             | axe in the end-to-end journey, in light and dark.                                                                                                                                 |
-| A layout that fits at 320 to 430px, a bar that is not off-screen       | `apps/web/e2e/layout.spec.ts`, which names the element that overflows.                                                                                                            |
-| Where a control's arrow lands, in light and dark, on desktop and phone | `apps/web/e2e/controls.spec.ts` finds the arrow in a picture of each select on every screen of a kitchen, and requires it to be 12 to 24px from the edge and level with the text. |
-| The right component for the job                                        | Review, against [Components](/docs/design/components/).                                                                                                                           |
-| Words a member would use                                               | Review, against [Principles](/docs/design/principles/).                                                                                                                           |
-| Only `transform` and `opacity` move                                    | Convention; reviewed.                                                                                                                                                             |
+| Matter                                                                        | Where it is judged                                                                      |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Contrast of every pair of colours, in both themes                             | `apps/web/src/tokens.test.ts`, which computes each pair and fails below its floor.      |
+| Contrast, labels, focus and headings in order on every page                   | axe in `apps/web/e2e/a11y.spec.ts`, for every route and role, in both themes and sizes. |
+| A layout that fits at 390 and at 1440, and a page that never scrolls sideways | The end-to-end specs, which run each at both sizes.                                     |
+| A control that is 44px under a finger, and uses the page's font               | `apps/web/e2e/controls.spec.ts`.                                                        |
+| A unique title for every route, and focus on the heading                      | `apps/web/e2e/navigation.spec.ts`.                                                      |
+| The right component for the job                                               | Review, against [Components](/docs/design/components/).                                 |
+| Words a person would use                                                      | Review, against [Principles](/docs/design/principles/).                                 |
+| Only `transform` and `opacity` move                                           | Convention; reviewed.                                                                   |
 
 ## Changing the system
 
-1. Change the token or the component in `styles.css`, in light and dark.
-2. Update the page here that shows it. The examples use the real stylesheet, so they change with it;
+1. Change the token in `theme.css`, in light and dark, and run `tokens.test.ts`. If a pair fails,
+   change only the lightness of the failing token.
+2. To change a component, run `bunx shadcn@latest add` again for a ui component, or change the app
+   kit's one component; never restyle it in a screen.
+3. Update the page here that shows it. The examples use the real tokens, so they change with them;
    the words beside them may not.
-3. If a rule of the check needs to move (a new breakpoint, a new radius), change the scale in
-   `scripts/check-design.mjs`, add a case to `design.test.ts`, and say why in the commit.
-4. Run `bun run design` and the end-to-end tests.
+4. If a rule of the check needs to move, change it in `scripts/check-design.mjs`, add a case to
+   `design.test.ts`, and say why in the commit.
+5. Run `bun run design` and the end-to-end tests.
 
 ## The checker is itself tested
 
 `apps/web/src/design.test.ts` runs the check over the real application and requires an empty list.
-It also feeds the checker small stylesheets that break each rule, in each notation, and requires it
-to notice; and feeds it ones written in tokens and requires it to stay quiet. The checker reads
-statements, not lines, so a `transition` spread over several lines is read as one.
-
-A rule that reads declarations cannot see a picture. A browser's own arrow on a select sits where
-the browser puts it, a few pixels from the edge, and nothing in the stylesheet says so; that is why
-the `control` rule makes the stylesheet draw the arrow itself, and why `controls.spec.ts` measures
-the pixels. That test was first run against the stylesheet from before the arrow was drawn, and
-failed in both themes (the arrow was 4px from the edge), which is how to know it would have caught
-it.
+It also feeds the checker small files that break each rule, in each notation, and requires it to
+notice; and feeds it ones written in tokens and requires it to stay quiet.

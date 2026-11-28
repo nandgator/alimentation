@@ -300,7 +300,7 @@ export function Places() {
     <>
       <AppBar>
         {me?.operator ? (
-          <Button variant="outline" size="sm" render={<Link href="/operator" />}>
+          <Button variant="outline" size="sm" render={<Link href="/app/operator" />}>
             Operator
           </Button>
         ) : null}
@@ -377,7 +377,7 @@ export function Places() {
                             : `${o.kitchens} kitchen${o.kitchens === 1 ? "" : "s"} share their totals`}
                         </p>
                       </div>
-                      <Button size="sm" render={<Link href={`/org/${o.id}`} />}>
+                      <Button size="sm" render={<Link href={`/app/org/${o.id}`} />}>
                         Open
                       </Button>
                     </div>

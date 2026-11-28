@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { expectAccessible, expectNoSidewaysScroll, shot, watchPage } from "./support.ts";
 
 interface Row {
@@ -61,23 +61,75 @@ test.describe("the documentation sites", () => {
     page,
   }, info) => {
     await page.goto("/docs/design/foundations/");
-    await expect(page.locator(".swatch")).toHaveCount(23);
-    const colour = (sel: string) =>
-      page.locator(sel).evaluate((el) => getComputedStyle(el).backgroundColor);
-    const brandLight = await colour(".sw-brand i");
-    expect(brandLight).not.toBe("rgba(0, 0, 0, 0)");
+    await expect(page.locator("b", { hasText: /^--/ })).toHaveCount(28);
+    const swatch = (token: string) =>
+      page
+        .getByText(token, { exact: true })
+        .locator("xpath=preceding-sibling::i")
+        .evaluate((el) => getComputedStyle(el).backgroundColor);
+    const primaryLight = await swatch("--primary");
+    expect(primaryLight).not.toBe("rgba(0, 0, 0, 0)");
     await shot(page, info, "docs-foundations-light");
     await page.emulateMedia({ colorScheme: "dark" });
-    expect(await colour(".sw-brand i"), "the swatch follows the theme").not.toBe(brandLight);
+    expect(await swatch("--primary"), "the swatch follows the theme").not.toBe(primaryLight);
 
     await page.goto("/docs/design/components/");
-    await expect(page.locator(".demo .btn.danger")).toBeVisible();
-    await expect(page.locator(".demo .tile.lead")).toHaveCount(3);
+    await expect(page.getByRole("button", { name: "Retire Curd" })).toBeVisible();
+    for (const word of ["Paid", "Owed", "Overdue", "Pending", "Disputed"])
+      await expect(page.getByText(word, { exact: true }).first()).toBeVisible();
     const height = await page
-      .locator(".demo .btn")
-      .first()
+      .getByRole("button", { name: "Save the rates" })
       .evaluate((el) => el.getBoundingClientRect().height);
     expect(height, "a button is at least 44px high, as the system says").toBeGreaterThanOrEqual(44);
+  });
+
+  test("has the same site header as the home page, and a way back for someone signed in", async ({
+    page,
+  }) => {
+    await page.goto("/guides/");
+    const header = page.getByRole("banner");
+    await expect(header.getByRole("link", { name: /^Alimentation/ })).toHaveAttribute(
+      "href",
+      "/guides/",
+    );
+    await expect(
+      header.getByRole("navigation", { name: "Documentation" }).getByRole("link"),
+    ).toHaveText(["Guides", "Docs"]);
+    await expect(header.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/signin");
+    await expect(header.getByRole("link", { name: /^Back to/ })).toBeHidden();
+
+    // Signed in: the same bar says "Open your kitchen" and leads back to the kitchen.
+    await page.route("**/api/me", (route) =>
+      route.fulfill({
+        json: {
+          account: { id: "a1", email: "asha@example.test", name: "Asha Rao" },
+          workspaces: [
+            {
+              slug: "demo-mess",
+              name: "Demo Mess",
+              state: "ACTIVE",
+              movedTo: null,
+              roles: ["admin"],
+            },
+          ],
+          authDev: true,
+          signInWithProvider: false,
+        },
+      }),
+    );
+    for (const url of ["/guides/", "/docs/concepts/billing-engine/"]) {
+      await page.goto(url);
+      await expect(header.getByRole("link", { name: "Open your kitchen" })).toHaveAttribute(
+        "href",
+        "/app",
+      );
+      await expect(header.getByRole("link", { name: "Back to Demo Mess" })).toHaveAttribute(
+        "href",
+        "/w/demo-mess",
+      );
+    }
+    await page.goto("/");
+    await expect(header.getByRole("link", { name: "Open your kitchen" })).toBeVisible();
   });
 
   test("has a door each way between the people’s guides and the technical docs", async ({
@@ -161,7 +213,10 @@ test.describe("the documentation sites", () => {
       await expect(page.getByRole("link", { name: first })).toBeVisible();
       await expect(page.getByRole("navigation", { name: `${name} contents` })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Menu" })).toHaveCount(0);
-      const cards = page.locator("main .feature");
+      const cards = page
+        .getByRole("main")
+        .getByRole("link")
+        .filter({ has: page.getByRole("heading", { level: 2 }) });
       expect(await cards.count()).toBeGreaterThanOrEqual(3);
       await shot(page, info, `docs-front-${dir}`);
       // A card is a whole link: it goes to the page it names, which has the menu.
@@ -203,7 +258,7 @@ test.describe("the documentation sites", () => {
     await page.goto("/docs/lifecycle/bundle-and-move/");
     if (isMobile) await page.getByRole("button", { name: "Menu" }).click();
     const nav = page.getByRole("navigation", { name: "Docs contents" });
-    await expect(nav.locator("details.docs-group[open]")).toHaveCount(1);
+    await expect(nav.locator("details[open]")).toHaveCount(1);
     await expect(nav.getByRole("link", { name: "Bundles and moves" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Install a trial instance" })).toBeHidden();
 
@@ -221,7 +276,7 @@ test.describe("the documentation sites", () => {
   }) => {
     await page.goto("/docs/self-hosting/configuration/");
     const broken = await page.evaluate(() =>
-      [...document.querySelectorAll(".docs-article td:first-child code")]
+      [...document.querySelectorAll("article td:first-child code")]
         .filter((c) => !c.querySelector("wbr"))
         .filter((c) => c.getClientRects().length > 1)
         .map((c) => c.textContent),
@@ -230,7 +285,7 @@ test.describe("the documentation sites", () => {
     await expectNoSidewaysScroll(page, "the configuration page");
   });
 
-  test("has the same tiffin in its bar as the home page, packed as the page is read", async ({
+  test("has the same mark in its bar as the home page, filled as the page is read", async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -240,9 +295,8 @@ test.describe("the documentation sites", () => {
     const packed = () =>
       page.evaluate(() =>
         [1, 2, 3, 4].map((n) => {
-          const m = new DOMMatrix(
-            getComputedStyle(document.querySelector(`.docs-mark .mark-fill-${n}`)!).transform,
-          );
+          const fills = [...document.querySelectorAll("header svg rect")].slice(-4);
+          const m = new DOMMatrix(getComputedStyle(fills[n - 1]!).transform);
           return Math.round(m.a * 100) / 100;
         }),
       );
@@ -276,7 +330,10 @@ test.describe("the documentation sites", () => {
     }
     await page.goto("/docs/self-hosting/configuration/");
     await expectNoSidewaysScroll(page, "the configuration page");
-    await expect(page.locator(".tablewrap").first()).toHaveAttribute("tabindex", "0");
+    await expect(page.getByRole("region", { name: /^Table;/ }).first()).toHaveAttribute(
+      "tabindex",
+      "0",
+    );
   });
 
   test("shows the copy icon when a block is pointed at or tabbed into, and always where there is no pointer", async ({
@@ -284,7 +341,7 @@ test.describe("the documentation sites", () => {
     isMobile,
   }) => {
     await page.goto("/docs/self-hosting/cli/");
-    const block = page.locator("figure.code").first();
+    const block = page.getByRole("figure").first();
     const copy = block.getByRole("button", { name: "Copy this code" });
     const shown = () => copy.evaluate((el) => getComputedStyle(el).opacity);
     if (isMobile) {
@@ -299,7 +356,7 @@ test.describe("the documentation sites", () => {
       await expect.poll(shown, "and when the block has focus").toBe("1");
     }
     // An icon, not a word: the label for a screen reader is on the button, and the picture is hidden from it.
-    await expect(copy.locator("svg.i-copy")).toBeVisible();
+    await expect(copy.locator("svg").first()).toBeVisible();
     await expect(copy.locator("svg")).toHaveCount(2);
     expect(await copy.getAttribute("aria-label")).toBe("Copy this code");
     const box = await copy.boundingBox();
@@ -314,10 +371,10 @@ test.describe("the documentation sites", () => {
     browserName,
   }) => {
     await page.goto("/docs/self-hosting/cli/");
-    const block = page.locator("figure.console", { hasText: "keys:rewrap" });
-    await expect(block.locator(".code-name")).toHaveText("Console");
+    const block = page.getByRole("figure").filter({ hasText: "keys:rewrap" }).first();
+    await expect(block.getByText("Console", { exact: true })).toBeVisible();
     const prompt = await block
-      .locator(".line.cmd")
+      .locator("code > span")
       .first()
       .evaluate((el) => {
         const c = getComputedStyle(el, "::before");
@@ -326,8 +383,8 @@ test.describe("the documentation sites", () => {
     expect(prompt).toEqual({ content: '"$"', select: "none" });
     // What came back is there, dimmer than what was typed, and is not marked as a command.
     const colours = await block.evaluate((el) => ({
-      out: getComputedStyle(el.querySelector(".line.out")!).color,
-      typed: getComputedStyle(el.querySelector(".line.cmd")!).color,
+      out: getComputedStyle([...el.querySelectorAll("code > span")].at(-1)!).color,
+      typed: getComputedStyle(el.querySelector("code > span")!).color,
     }));
     expect(colours.out).not.toBe(colours.typed);
     await expectAccessible(page, "a page with a console");
@@ -347,10 +404,9 @@ test.describe("the documentation sites", () => {
   }) => {
     const problems = watchPage(page);
     await page.goto("/docs/overview/architecture/");
-    const figure = page.locator("figure.diagram").first();
-    await expect(figure.locator(".diagram-scroll svg")).toBeVisible();
-    await expect(figure.locator(":scope > figcaption")).toHaveText(/Where a request goes/);
-    const node = figure.locator(".diagram-scroll svg rect").first();
+    const figure = page.getByRole("group", { name: /Where a request goes/ });
+    await expect(figure.locator("svg").first()).toBeVisible();
+    const node = figure.locator("svg rect").first();
     const paint = () =>
       node.evaluate((el) => {
         const c = getComputedStyle(el);
@@ -377,10 +433,10 @@ test.describe("the documentation sites", () => {
     browserName,
   }) => {
     await page.goto("/docs/concepts/billing-engine/");
-    const block = page.locator("figure.code", { hasText: "EngineData" }).first();
-    await expect(block.locator(".code-name")).toHaveText("packages/core/src/engine.ts");
-    await expect(block.locator(".code-range")).toHaveText("lines 35\u201366");
-    const first = block.locator(".line").first();
+    const block = page.getByRole("figure").filter({ hasText: "EngineData" }).first();
+    await expect(block.getByText("packages/core/src/engine.ts", { exact: true })).toBeVisible();
+    await expect(block.getByText("lines 35\u201366", { exact: true })).toBeVisible();
+    const first = block.locator("code > span").first();
     const margin = await first.evaluate((el) => {
       const c = getComputedStyle(el, "::before");
       return { content: c.content, select: c.userSelect };
@@ -389,7 +445,7 @@ test.describe("the documentation sites", () => {
     // Highlighted: a keyword is not the colour of the text around it.
     const colours = await block.evaluate((el) => ({
       text: getComputedStyle(el.querySelector("code")!).color,
-      keyword: getComputedStyle(el.querySelector(".hljs-keyword")!).color,
+      keyword: getComputedStyle(el.querySelector("code span[class*=hljs-keyword]")!).color,
     }));
     expect(colours.keyword).not.toBe(colours.text);
     // Only Chromium can be given leave to read the clipboard.
@@ -411,7 +467,7 @@ test.describe("the documentation sites", () => {
     for (const url of urls) {
       await page.goto(url);
       const wide = page
-        .locator("figure.code")
+        .getByRole("figure")
         .filter({ has: page.locator("pre") })
         .evaluateAll((all) =>
           all.findIndex(
@@ -423,7 +479,10 @@ test.describe("the documentation sites", () => {
         );
       const at = await wide;
       if (at < 0) continue;
-      const figure = page.locator("figure.code").nth(at);
+      const figure = page
+        .getByRole("figure")
+        .filter({ has: page.locator("pre") })
+        .nth(at);
       const copy = figure.getByRole("button", { name: "Copy this code" });
       await figure.scrollIntoViewIfNeeded();
       const before = await copy.boundingBox();
@@ -440,13 +499,13 @@ test.describe("the documentation sites", () => {
   }) => {
     test.skip(!isMobile, "a phone");
     await page.goto("/docs/self-hosting/cli/");
-    const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+    const box = async (loc: Locator) => (await loc.first().boundingBox())!;
     const [brand, menu, sw, theme, search] = [
-      await box(".docs-brand"),
-      await box(".docs-menu"),
-      await box(".docs-switch"),
-      await box(".docs-theme"),
-      await box(".docs-search"),
+      await box(page.getByRole("banner").getByRole("link", { name: /^Alimentation/ })),
+      await box(page.getByRole("button", { name: "Menu" })),
+      await box(page.getByRole("navigation", { name: "Documentation" })),
+      await box(page.getByRole("button", { name: /^Theme:/ })),
+      await box(page.getByRole("combobox")),
     ];
     const width = page.viewportSize()!.width;
     expect(menu.x, "the menu is after the name").toBeGreaterThan(brand.x + brand.width);
@@ -496,7 +555,7 @@ test.describe("the documentation sites", () => {
     // And back: from the left.
     expect(await to("Guides", /\/guides\/$/)).toContain("glide-in-from-left");
     // Within one of them the page only dissolves into the next: nothing glides.
-    await page.locator('main a[href^="/guides/"]').first().click();
+    await page.getByRole("main").locator('a[href^="/guides/"]').first().click();
     await page.waitForURL(/\/guides\/.+/);
     await page.waitForFunction(() => (window as unknown as { __moved?: unknown }).__moved);
     expect((await moved())!.filter((n) => n.startsWith("glide-"))).toEqual([]);

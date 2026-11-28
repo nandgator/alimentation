@@ -1,392 +1,262 @@
-import { type PersonDto, peopleToCsv, type Role } from "@alimentation/core";
-import { useState } from "react";
-import { api, postJson } from "../../../api.ts";
-import { inOrder, liveOn, serviceName } from "../../../catalogue.ts";
-import { Button } from "../../../components/legacy/button.tsx";
-import { Input } from "../../../components/legacy/input.tsx";
-import { Select } from "../../../components/legacy/select.tsx";
-import { Chip, Dialog, Field, Form, PageHead, toast, useAction } from "../../../components/ui.tsx";
-import { rowsAfter, type Slot, sameRows, slotOf, takenOn } from "../../../enrolment.ts";
-import { date } from "../../../format.ts";
+import { peopleToCsv } from "@alimentation/core";
+import { DownloadIcon, PlusIcon, UploadIcon, UsersIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useParams } from "wouter";
+import { type DataColumn, DataTable, EmptyState, PageHeader, StatusBadge } from "@/components/app";
+import { Button } from "@/components/ui/button";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { date } from "@/format";
+import { useUrlState } from "@/hooks/use-url-state";
 import { useWorkspace } from "../context.tsx";
+import { ROLE_LABEL } from "../sections.ts";
+import {
+  canInvite,
+  detailLine,
+  groupPeople,
+  isDisabled,
+  isShow,
+  type Member,
+  type Show,
+  showCounts,
+  visibleMembers,
+} from "./model.ts";
 import { downloadCsv, ImportPeopleDialog } from "./PeopleImport.tsx";
+import { usePersonDialogs } from "./PersonDialogs.tsx";
+import { PersonPage } from "./PersonPage.tsx";
+import { accountStatus, RoleBadges, useEats } from "./shared.tsx";
 
-const ROLES: Role[] = ["consumer", "supplier", "admin"];
-const LABEL: Record<Role, string> = { consumer: "Member", supplier: "Supplier", admin: "Admin" };
+const SHOW_LABEL: Record<Show, string> = {
+  all: "All",
+  consumer: "Consumers",
+  supplier: "Cooks",
+  admin: "Admins",
+  disabled: "Disabled",
+};
+const SHOW_EMPTY: Record<Show, string> = {
+  all: "Nobody is here yet",
+  consumer: "No consumers",
+  supplier: "No cooks",
+  admin: "No admins",
+  disabled: "Nobody is disabled",
+};
 
-function PersonForm({ person, onDone }: { person: PersonDto | null; onDone: () => void }) {
+function PeopleList() {
   const ws = useWorkspace();
-  const [name, setName] = useState(person?.name ?? "");
-  const [role, setRole] = useState<Role>(person?.role ?? "consumer");
-  const [contact, setContact] = useState(person?.contact ?? "");
-  const [from, setFrom] = useState(person?.activeFrom ?? "");
-  const [to, setTo] = useState(person?.activeTo ?? "");
-  const [key, setKey] = useState(person?.externalKey ?? "");
-  // A key is set once, and then it never changes.
-  const keyFixed = !!person?.externalKey;
-  const act = useAction();
-  // Which services a member takes, and from when. A kitchen with one service has nothing to choose.
-  const mine = ws.boot.enrolments.filter((e) => e.personId === person?.id);
-  const choosable = inOrder(liveOn(ws.boot.services, ws.boot.today));
-  const askServices = !!person && person.role === "consumer" && choosable.length >= 2;
-  const [slots, setSlots] = useState<Record<string, Slot>>(() =>
-    Object.fromEntries(
-      choosable.map((sv) => [sv.id, slotOf(mine, sv.id, person?.activeFrom ?? ws.boot.today)]),
-    ),
-  );
-  const setSlot = (id: string, patch: Partial<Slot>) =>
-    setSlots((all) => ({ ...all, [id]: { ...(all[id] as Slot), ...patch } }));
-  return (
-    <Form
-      error={act.error}
-      onSubmit={() =>
-        act.run(async () => {
-          const body = {
-            name,
-            contact: contact || null,
-            activeFrom: from || null,
-            activeTo: to || null,
-          };
-          if (person)
-            await api.patch(
-              `${ws.api}/people/${person.id}`,
-              key && !keyFixed ? { ...body, externalKey: key } : body,
-            );
-          else await postJson(`${ws.api}/people`, { ...body, role, externalKey: key || null });
-          if (person && askServices) {
-            const next = rowsAfter(mine, slots);
-            if (!sameRows(next, mine))
-              await api.put(`${ws.api}/people/${person.id}/services`, { services: next });
-          }
-          toast("Saved.");
-          onDone();
-          ws.reload();
-        })
-      }
-    >
-      <Field label="Name" id="pname">
-        <Input
-          id="pname"
-          required
-          maxLength={120}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </Field>
-      {!person ? (
-        <Field label="Role" id="prole">
-          <Select id="prole" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {LABEL[r]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      ) : null}
-      <Field
-        label="Contact (optional)"
-        id="pcontact"
-        hint="Only you can see this. It is stored encrypted."
-      >
-        <Input
-          id="pcontact"
-          maxLength={200}
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-        />
-      </Field>
-      <Field
-        label="Key (optional)"
-        id="pkey"
-        hint={
-          keyFixed
-            ? "Your own code for this person. It is fixed once set."
-            : "Your own code for this person, such as a room or staff number. A file you import later finds them by it. Once set it cannot be changed. Letters, digits and . _ : / # - only; not a name, email or phone number."
-        }
-      >
-        <Input
-          id="pkey"
-          maxLength={64}
-          pattern="[A-Za-z0-9][A-Za-z0-9._:\/#\-]*"
-          readOnly={keyFixed}
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-        />
-      </Field>
-      {role === "consumer" ? (
-        <div className="pair">
-          <Field label="Eating from" id="pfrom">
-            <Input id="pfrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </Field>
-          <Field label="Until (optional)" id="pto">
-            <Input id="pto" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </Field>
-        </div>
-      ) : null}
-      {askServices ? (
-        <fieldset className="choices stack">
-          <legend>Services</legend>
-          <p className="muted small">
-            What {person?.name} eats, and from when. A day in a service they do not take is not
-            theirs to log, and is not billed.
-          </p>
-          {choosable.map((sv) => {
-            const slot = slots[sv.id] as Slot;
-            return (
-              <div key={sv.id} className="pair">
-                <label className="row">
-                  <input
-                    type="checkbox"
-                    checked={slot.on}
-                    onChange={(e) => setSlot(sv.id, { on: e.target.checked })}
-                  />
-                  {sv.name}
-                </label>
-                {slot.on ? (
-                  <>
-                    <Field label={`${sv.name} from`} id={`sv-from-${sv.id}`}>
-                      <Input
-                        id={`sv-from-${sv.id}`}
-                        type="date"
-                        required
-                        value={slot.from}
-                        onChange={(e) => setSlot(sv.id, { from: e.target.value })}
-                      />
-                    </Field>
-                    <Field label={`${sv.name} until (optional)`} id={`sv-to-${sv.id}`}>
-                      <Input
-                        id={`sv-to-${sv.id}`}
-                        type="date"
-                        value={slot.to}
-                        onChange={(e) => setSlot(sv.id, { to: e.target.value })}
-                      />
-                    </Field>
-                  </>
-                ) : null}
-              </div>
-            );
-          })}
-        </fieldset>
-      ) : null}
-      {!person && role === "consumer" && choosable.length >= 2 ? (
-        <p className="muted small">
-          A new member takes every service. You can change that after adding them.
-        </p>
-      ) : null}
-      <div>
-        <Button type="submit" disabled={act.busy}>
-          Save
-        </Button>
-      </div>
-      {person ? (
-        <div className="dlg-foot">
-          <p className="muted small">
-            {person.status === "ACTIVE"
-              ? "Disabling keeps their history and stops new entries."
-              : "Disabled: their history is kept and no new entries can be made."}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            disabled={act.busy}
-            onClick={() =>
-              void act.run(async () => {
-                await api.patch(`${ws.api}/people/${person.id}`, {
-                  status: person.status === "ACTIVE" ? "DISABLED" : "ACTIVE",
-                });
-                toast(person.status === "ACTIVE" ? "Disabled." : "Enabled.");
-                onDone();
-                ws.reload();
-              })
-            }
-          >
-            {person.status === "ACTIVE" ? "Disable" : "Enable"} {person.name}
-          </Button>
-        </div>
-      ) : null}
-    </Form>
-  );
-}
-
-function Invite({ person }: { person: PersonDto }) {
-  const ws = useWorkspace();
-  const [email, setEmail] = useState("");
-  const [link, setLink] = useState<string | null>(null);
-  const act = useAction();
-  return link ? (
-    <div className="stack">
-      <p>
-        Send this link to {person.name}. It works once, for 7 days, and only with the email you
-        typed.
-      </p>
-      <Input
-        readOnly
-        value={link}
-        onFocus={(e) => e.currentTarget.select()}
-        aria-label="Invitation link"
-      />
-      <Button
-        variant="outline"
-        type="button"
-        onClick={() => void navigator.clipboard?.writeText(link).then(() => toast("Copied."))}
-      >
-        Copy
-      </Button>
-    </div>
-  ) : (
-    <Form
-      error={act.error}
-      onSubmit={() =>
-        act.run(async () => {
-          const r = await postJson<{ link: string }>(`${ws.api}/people/${person.id}/invite`, {
-            email,
-          });
-          setLink(r.link);
-        })
-      }
-    >
-      <Field label={`${person.name}’s email`} id="iemail" hint="They sign in with this address.">
-        <Input
-          id="iemail"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </Field>
-      <div>
-        <Button type="submit" disabled={act.busy}>
-          Make a link
-        </Button>
-      </div>
-    </Form>
-  );
-}
-
-export function People() {
-  const ws = useWorkspace();
-  const [edit, setEdit] = useState<PersonDto | "new" | null>(null);
-  const [invite, setInvite] = useState<PersonDto | null>(null);
+  const [, go] = useLocation();
+  const dialogs = usePersonDialogs();
+  const eats = useEats();
   const [importing, setImporting] = useState(false);
-  const several = liveOn(ws.boot.services, ws.boot.today).length >= 2;
+  const [showRaw, setShow] = useUrlState("show", "all");
+  const show: Show = isShow(showRaw) ? showRaw : "all";
+  const [action, setAction] = useUrlState("action");
+  const several = ws.boot.services.filter((s) => s.archivedOn === null).length >= 2;
+
+  // The search menu's "Add a person" arrives here with ?action=add.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, for the address that asked
+  useEffect(() => {
+    if (action === "add" && ws.writable) dialogs.add();
+    if (action) setAction("");
+  }, [action]);
+
+  const members = useMemo(() => groupPeople(ws.boot.people), [ws.boot.people]);
+  const counts = showCounts(members);
+  const rows = visibleMembers(members, show);
+
+  const columns = useMemo<DataColumn<Member>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Name",
+        sort: (m) => m.main.name,
+        search: (m) => `${m.main.name} ${detailLine(m.main)}`,
+        cell: (m) => (
+          <div className="flex min-w-0 flex-col">
+            <Link
+              href={`${ws.base}/people/${m.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="w-fit rounded-sm font-medium outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {m.main.name}
+            </Link>
+            {detailLine(m.main) ? (
+              <span className="text-xs text-muted-foreground">{detailLine(m.main)}</span>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        id: "roles",
+        header: "Roles",
+        sort: (m) => m.roles.map((r) => ROLE_LABEL[r]).join(" "),
+        cell: (m) => <RoleBadges roles={m.roles} />,
+      },
+      ...(several
+        ? [
+            {
+              id: "eats",
+              header: "Eats",
+              className: "max-w-56 whitespace-normal",
+              cell: (m: Member) => eats(m) || <span className="text-muted-foreground">-</span>,
+            } satisfies DataColumn<Member>,
+          ]
+        : []),
+      {
+        id: "account",
+        header: "Account",
+        sort: (m) => accountStatus(m),
+        cell: (m) => <StatusBadge status={accountStatus(m)} />,
+      },
+      {
+        id: "from",
+        header: "From",
+        align: "end",
+        sort: (m) => m.main.activeFrom ?? "",
+        cell: (m) =>
+          m.main.activeFrom ? (
+            date(m.main.activeFrom)
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          ),
+      },
+    ],
+    [ws.base, several, eats],
+  );
+
+  const exportButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={() => downloadCsv("people.csv", peopleToCsv(ws.boot.people))}
+    >
+      <DownloadIcon aria-hidden="true" data-icon="inline-start" />
+      Export CSV
+    </Button>
+  );
+
   return (
-    <div className="stack">
-      <PageHead
+    <div className="flex flex-col">
+      <PageHeader
         title="People"
-        lead="Everyone you feed, and the people who help run the kitchen."
+        description="Everyone you feed, and the people who help run the kitchen."
         actions={
           <>
             <Button
-              variant="outline"
               type="button"
-              onClick={() => downloadCsv("people.csv", peopleToCsv(ws.boot.people))}
-            >
-              Export CSV
-            </Button>
-            <Button
               variant="outline"
-              type="button"
               disabled={!ws.writable}
               onClick={() => setImporting(true)}
             >
+              <UploadIcon aria-hidden="true" data-icon="inline-start" />
               Import
             </Button>
-            <Button type="button" disabled={!ws.writable} onClick={() => setEdit("new")}>
+            <Button type="button" disabled={!ws.writable} onClick={dialogs.add}>
+              <PlusIcon aria-hidden="true" data-icon="inline-start" />
               Add a person
             </Button>
           </>
         }
       />
-      <div
-        className="tablewrap"
-        tabIndex={0}
-        role="region"
-        aria-label="Table; scrolls sideways when it is wider than the screen"
-      >
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Key</th>
-              <th>Role</th>
-              {several ? <th>Services</th> : null}
-              <th>Signed in</th>
-              <th>Contact</th>
-              <th>From</th>
-              <th>Until</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {ws.boot.people.map((p) => (
-              <tr key={p.id} className={p.status === "DISABLED" ? "projected" : ""}>
-                <td className="linked">
-                  <button
-                    type="button"
-                    disabled={!ws.writable}
-                    aria-label={`Edit ${p.name}`}
-                    onClick={() => setEdit(p)}
-                  >
-                    <span className="nm">{p.name}</span>
-                    {p.status === "DISABLED" ? <Chip>Disabled</Chip> : null}
-                  </button>
-                </td>
-                <td>{p.externalKey ?? "-"}</td>
-                <td>{LABEL[p.role]}</td>
-                {several ? (
-                  <td>
-                    {p.role === "consumer"
-                      ? takenOn(
-                          ws.boot.enrolments.filter((e) => e.personId === p.id),
-                          ws.boot.today,
-                        )
-                          .map((id) => serviceName(ws.boot, id))
-                          .join(", ") || "-"
-                      : "-"}
-                  </td>
-                ) : null}
-                <td>{p.linked ? <Chip tone="good">Yes</Chip> : <Chip>Not yet</Chip>}</td>
-                <td>{p.contact ?? "-"}</td>
-                <td>{p.activeFrom ? date(p.activeFrom) : "-"}</td>
-                <td>{p.activeTo ? date(p.activeTo) : "-"}</td>
-                <td className="r">
-                  {!p.linked && p.status === "ACTIVE" ? (
-                    <button
-                      type="button"
-                      className="quiet"
-                      disabled={!ws.writable}
-                      onClick={() => setInvite(p)}
-                    >
-                      Invite
-                    </button>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <ToggleGroup
+          aria-label="Show"
+          variant="outline"
+          size="sm"
+          spacing={1}
+          className="flex-wrap"
+          value={[show]}
+          onValueChange={(v) => setShow(((v[0] as Show | undefined) ?? "all") as string)}
+        >
+          {(Object.keys(SHOW_LABEL) as Show[]).map((s) => (
+            <ToggleGroupItem key={s} value={s} aria-label={`${SHOW_LABEL[s]}, ${counts[s]}`}>
+              {SHOW_LABEL[s]}
+              <span className="text-muted-foreground tabular-nums">{counts[s]}</span>
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        {exportButton}
       </div>
-      <p className="muted small">
+
+      <DataTable
+        data={rows}
+        columns={columns}
+        getRowId={(m) => m.id}
+        caption="People"
+        searchLabel="Search people"
+        initialSort={{ id: "name" }}
+        onRowClick={(m) => go(`${ws.base}/people/${m.id}`)}
+        rowLabel={(m) => m.main.name}
+        empty={
+          <EmptyState
+            icon={UsersIcon}
+            title={SHOW_EMPTY[show]}
+            description={
+              show === "all"
+                ? "Add the people you feed, and anyone who helps run the kitchen."
+                : "Nobody matches this filter."
+            }
+            action={
+              show === "all" ? (
+                <Button type="button" disabled={!ws.writable} onClick={dialogs.add}>
+                  Add a person
+                </Button>
+              ) : undefined
+            }
+          />
+        }
+        mobile={{
+          title: (m) => m.main.name,
+          description: (m) =>
+            [m.roles.map((r) => ROLE_LABEL[r]).join(", "), several ? eats(m) : ""]
+              .filter(Boolean)
+              .join(" · "),
+          trailing: (m) => <StatusBadge status={accountStatus(m)} />,
+        }}
+        rowActions={(m) => (
+          <>
+            <DropdownMenuItem disabled={!ws.writable} onClick={() => dialogs.edit(m)}>
+              Edit
+            </DropdownMenuItem>
+            {canInvite(m) && !isDisabled(m) ? (
+              <DropdownMenuItem disabled={!ws.writable} onClick={() => dialogs.invite(m)}>
+                Invite
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            {isDisabled(m) ? (
+              <DropdownMenuItem disabled={!ws.writable} onClick={() => dialogs.enable(m)}>
+                Enable
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={!ws.writable}
+                onClick={() => dialogs.disable(m)}
+              >
+                Disable
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
+      />
+
+      <p className="mt-3 text-sm text-muted-foreground">
         {ws.boot.meter
           ? `${ws.boot.meter.usage.people} of the free tier’s people allowance used. `
           : ""}
         Disabling someone keeps their history and stops new entries.
       </p>
-      <Dialog
-        open={!!edit}
-        onClose={() => setEdit(null)}
-        title={edit === "new" ? "Add a person" : "Edit person"}
-      >
-        {edit ? (
-          <PersonForm person={edit === "new" ? null : edit} onDone={() => setEdit(null)} />
-        ) : null}
-      </Dialog>
-      <ImportPeopleDialog open={importing} onClose={() => setImporting(false)} />
-      <Dialog open={!!invite} onClose={() => setInvite(null)} title="Invite">
-        {invite ? <Invite person={invite} /> : null}
-      </Dialog>
+
+      {dialogs.node}
+      <ImportPeopleDialog open={importing} onOpenChange={setImporting} />
     </div>
   );
+}
+
+/** People, and one person's page at `/people/:id`. */
+export function People() {
+  const { id } = useParams();
+  return id ? <PersonPage id={id} /> : <PeopleList />;
 }

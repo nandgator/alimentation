@@ -2,116 +2,86 @@ import { expect, type Page, test } from "@playwright/test";
 import { type Seeded, seedHome } from "./seed.ts";
 import { aWorkingDayThisMonth, expectAccessible, firstOfMonth, shot, signIn } from "./support.ts";
 
-/** Opens a screen from the menu, behind More on a phone. */
-async function go(p: Page, name: string | RegExp) {
-  const nav = p.getByRole("navigation", { name: "Sections" });
-  const link = nav.getByRole("link", { name });
+const clean = (t: string) => t.replace(/\s+/g, " ").trim();
+const has = (names: string[], name: string) =>
+  names.some((n) => n === name || n.startsWith(`${name} `));
+
+/** Every name in the menu, whether it is in the sidebar, in the bottom bar or behind More. */
+async function menuNames(p: Page): Promise<string[]> {
+  const nav = p.getByRole("navigation", { name: "Sections", exact: true });
   // The menu is drawn once the kitchen has been read: wait for it before asking what is in it.
   await nav.getByRole("link").first().waitFor();
-  if (!(await link.isVisible())) await nav.getByRole("button", { name: "More" }).click();
-  await link.click();
-}
-
-/** Every name in the menu, whether it is shown or sits behind More. */
-async function menuNames(p: Page): Promise<string[]> {
-  const nav = p.getByRole("navigation", { name: "Sections" });
+  const names = (await nav.getByRole("link").allInnerTexts()).map(clean);
   const more = nav.getByRole("button", { name: "More" });
-  if (await more.isVisible()) await more.click();
-  return (await nav.getByRole("link").allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim());
+  if (await more.isVisible()) {
+    await more.click();
+    const sheet = p.getByRole("dialog", { name: "More" });
+    names.push(...(await sheet.getByRole("link").allInnerTexts()).map(clean));
+    await p.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+  }
+  return names;
 }
 
-test("a kitchen without money: made with a choice, and every screen counts meals and shows no money", async ({
+/** A kitchen made through the API, so these specs do not depend on the new-kitchen page. */
+async function makeKitchen(
+  page: Page,
+  slug: string,
+  name: string,
+  opts: { moneyEnabled: boolean; alsoSupplier?: boolean },
+) {
+  const made = await page.request.post("/api/workspaces", {
+    data: { slug, name, alsoSupplier: opts.alsoSupplier ?? false, moneyEnabled: opts.moneyEnabled },
+  });
+  expect(made.status()).toBe(201);
+}
+
+test("a kitchen without money: the Home counts meals, no screen about money is there, and nothing shows a rupee", async ({
   page,
 }, info) => {
   test.setTimeout(Number(process.env.E2E_TIMEOUT ?? 180_000));
   const slug = `meals-${info.project.name}-${Date.now().toString(36)}`;
   const w = `/api/w/${slug}`;
   await signIn(page, `meals-${slug}@example.org`, "Owner");
+  await makeKitchen(page, slug, "Plain Mess", { moneyEnabled: false });
   let seeded: Seeded | undefined;
 
-  await test.step("the choice is offered, in plain words, with its consequence", async () => {
-    await expect(page.getByRole("heading", { name: "Your kitchens" })).toBeVisible();
-    const track = page.getByLabel("Track money in this kitchen");
-    await expect(track).toBeChecked();
-    await expect(page.getByText("It cannot be changed later.")).toBeVisible();
-    await expectAccessible(page, "start a kitchen");
-    await track.uncheck();
-    await expect(page.getByText(/There are no prices, bills or payments\./)).toBeVisible();
-    await page.getByLabel("Name", { exact: true }).fill("Plain Mess");
-    await page.getByLabel("Address").fill(slug);
-    await page.getByLabel(/^Blank/).check();
-    await page.getByRole("button", { name: "Create" }).click();
-    await page.waitForURL(`**/w/${slug}`);
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  });
-
-  await test.step("the menu says what is missing, and no screen about money is in it", async () => {
-    await expect(
-      page.getByText("Add what you serve, then the menu, to start counting meals."),
-    ).toBeVisible();
+  await test.step("a new kitchen's Home is a checklist of three steps, with no prices among them", async () => {
+    await page.goto(`/w/${slug}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Plain Mess" })).toBeVisible();
+    const list = page.getByRole("heading", { name: "Set up your kitchen" });
+    await expect(list).toBeVisible();
+    await expect(page.getByText("0 of 3 done")).toBeVisible();
+    for (const step of ["People", "What you serve", "Menu"])
+      await expect(page.getByRole("link", { name: new RegExp(`^${step}`) }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Prices/ })).toHaveCount(0);
     await expect(page.getByText("Add prices to start billing.")).toHaveCount(0);
-    const names = await menuNames(page);
-    for (const gone of ["Payments", "Prices", "Settlements"]) expect(names).not.toContain(gone);
-    for (const kept of ["Dashboard", "Daily", "My log", "People", "Menu", "Rules", "Holidays"])
-      expect(names).toContain(kept);
     await expectAccessible(page, "new kitchen without money");
     await shot(page, info, "m1-new-kitchen");
   });
 
-  await test.step("what is served has no prices, and the menu is set on its own screen, for the working days", async () => {
-    seeded = await seedHome(page.request, slug, { menu: false });
-    // The items were added behind the page's back, so it reads the kitchen again.
-    await page.goto(`/w/${slug}`);
-    await go(page, "Catalogue");
-    await expect(page.getByRole("cell", { name: "Non Veg", exact: true })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Price" })).toHaveCount(0);
-    await expect(page.getByText("Not priced")).toHaveCount(0);
+  await test.step("the menu has no screen about money, and keeps the others under their new names", async () => {
+    const names = await menuNames(page);
+    for (const gone of ["Payments", "Bills"]) expect(has(names, gone), gone).toBe(false);
+    for (const kept of ["Home", "Today", "People", "Setup", "Books"])
+      expect(has(names, kept), kept).toBe(true);
+  });
+
+  await test.step("an address for a screen about money is not there, and the server says why", async () => {
+    for (const path of ["payments", "bills", "setup/prices", "books/settlements"]) {
+      await page.goto(`/w/${slug}/${path}`);
+      await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
+    }
+    const res = await page.request.get(`${w}/rate-cards`);
+    expect(res.status()).toBe(404);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+      "money_not_tracked",
+    );
+  });
+
+  await test.step("what is served, the menu and the people end the checklist", async () => {
+    seeded = await seedHome(page.request, slug, { prices: false });
     expect(seeded.services).toHaveLength(1);
-    await go(page, "Menu");
-    await page.getByRole("button", { name: "New menu" }).click();
-    const dlg = page.getByRole("dialog", { name: "New menu" });
-    await dlg.getByLabel("Applies from").fill(firstOfMonth());
-    for (const [d, m] of [
-      ["Mon", "Veg"],
-      ["Tue", "Veg"],
-      ["Wed", "Non Veg"],
-      ["Thu", "Veg"],
-      ["Fri", "Non Veg"],
-    ])
-      await dlg.getByLabel(`Menu on ${d}`).selectOption({ label: m! });
-    await dlg.getByLabel("Chapati").check();
-    await expect(dlg.getByLabel("Menu on Sat")).toHaveCount(0);
-    await expectAccessible(page, "menu dialog");
-    await dlg.getByRole("button", { name: "Add menu" }).click();
-    await expect(page.getByRole("cell", { name: "Non Veg" }).first()).toBeVisible();
-    await expect(
-      page.getByText("Add what you serve, then the menu, to start counting meals."),
-    ).toHaveCount(0);
-    await shot(page, info, "m2-menu");
-  });
-
-  await test.step("the rules leave out what is about money", async () => {
-    await go(page, "Rules");
-    await expect(page.getByRole("heading", { name: "Rules", exact: true })).toBeVisible();
-    await expect(page.getByText("Meals on Mon, Tue, Wed, Thu, Fri.")).toBeVisible();
-    for (const money of [/leave day is charged/i, /monthly fee/i, /payment/i])
-      await expect(page.getByText(money)).toHaveCount(0);
-    await page.getByRole("button", { name: "Change rules" }).click();
-    const dlg = page.getByRole("dialog", { name: "Change the rules" });
-    for (const label of [
-      "Charge on a leave day (%)",
-      "Monthly fee applies from",
-      "Payments",
-      "Rate cards may start",
-    ])
-      await expect(dlg.getByLabel(label)).toHaveCount(0);
-    await expect(dlg.getByLabel("Holidays that cancel a meal")).toBeVisible();
-    await expectAccessible(page, "rules dialog");
-    await page.keyboard.press("Escape");
-    await shot(page, info, "m3-rules");
-  });
-
-  await test.step("people and meals are counted, and nothing is priced", async () => {
     const made = await page.request.post(`${w}/people`, {
       data: { name: "Asha", role: "consumer", activeFrom: firstOfMonth() },
     });
@@ -123,91 +93,141 @@ test("a kitchen without money: made with a choice, and every screen counts meals
         personId: id,
         allConsumers: false,
         action: "Extra",
-        serviceId: seeded?.services[0],
-        itemId: seeded?.chapati,
+        serviceId: seeded.services[0],
+        itemId: seeded.chapati,
         qty: 3,
       },
     });
     expect(logged.status()).toBe(201);
-    // The people were added behind the page's back, so it reads the kitchen again.
+    // These were added behind the page's back, so it reads the kitchen again.
     await page.goto(`/w/${slug}`);
-    await go(page, "Dashboard");
-    await expect(page.locator(".tile", { hasText: "Meals" }).first()).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Chapati" })).toBeVisible();
-    await expect(page.locator("main")).not.toContainText("₹");
-    await expectAccessible(page, "dashboard without money");
-    await shot(page, info, "m4-dashboard");
-
-    await go(page, "Daily");
-    await expect(page.getByRole("columnheader", { name: "Meal" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Amount" })).toHaveCount(0);
-    await expect(page.locator("main")).not.toContainText("₹");
-    await expectAccessible(page, "daily without money");
-    await shot(page, info, "m5-daily");
-
-    await go(page, "Month close");
-    await expect(page.getByRole("columnheader", { name: "Billed" })).toHaveCount(0);
-    await expect(page.getByRole("columnheader", { name: "Live total" })).toHaveCount(0);
-    await expectAccessible(page, "month close without money");
-    await shot(page, info, "m6-close");
+    await expect(page.getByRole("heading", { level: 1, name: "Plain Mess" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Set up your kitchen" })).toHaveCount(0);
   });
 
-  await test.step("an address for a screen about money is not there, and the server says why", async () => {
-    await page.goto(`/w/${slug}/payments`);
-    await expect(page.getByText("There is nothing at this address for your role.")).toBeVisible();
-    await page.goto(`/w/${slug}/prices`);
-    await expect(page.getByText("There is nothing at this address for your role.")).toBeVisible();
-    const res = await page.request.get(`${w}/rate-cards`);
-    expect(res.status()).toBe(404);
-    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
-      "money_not_tracked",
-    );
+  await test.step("the Home counts meals, leave and extras, and who ate", async () => {
+    const stats = page.getByRole("region", { name: "This month" });
+    for (const label of ["Meals this month", "Leave days", "Eating today"])
+      await expect(stats.getByText(label, { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+    await expect(page.getByTestId("meals-chart")).toBeVisible();
+    // The table is a table on a desktop and a list of items on a phone: either way Asha is in it, with her 3 extras.
+    const who = page.getByRole("region", { name: "People" });
+    await expect(who.getByText("Asha", { exact: true }).first()).toBeVisible();
+    await expect(page.locator("main")).not.toContainText("₹");
+    await expectAccessible(page, "home without money");
+    await shot(page, info, "m4-home");
   });
 
-  await test.step("Your data says what a move does with money, and offers no claims scope to a helper", async () => {
-    await page.goto(`/w/${slug}`);
-    await go(page, "Your data");
-    await page.getByText("AI agents").click();
-    await expect(page.getByLabel(/May add and withdraw entries/)).toBeVisible();
-    await expect(page.getByLabel(/May say that a payment was made/)).toHaveCount(0);
-    await page.getByRole("tab", { name: "My own instance" }).click();
-    await expect(page.getByLabel(/Track money in the new kitchen/)).toBeVisible();
-    await expectAccessible(page, "your data without money");
-    await shot(page, info, "m7-your-data");
+  await test.step("no screen of the kitchen shows a rupee or a column about money", async () => {
+    for (const path of [
+      "today",
+      "people",
+      "setup/items",
+      "setup/menu",
+      "setup/rules",
+      "setup/holidays",
+      "books/month-end",
+      "books/audit",
+    ]) {
+      await page.goto(`/w/${slug}/${path}`);
+      await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+      await expect(page.locator("main"), path).not.toContainText("₹");
+      await expect(
+        page.getByRole("columnheader", { name: /^(Billed|Amount|Price|Live total)/ }),
+      ).toHaveCount(0);
+    }
+    // Rules keeps its name, and says nothing about leave charges, a monthly fee or payments.
+    await page.goto(`/w/${slug}/setup/rules`);
+    for (const word of [/leave day is charged/i, /monthly fee/i])
+      await expect(page.getByText(word)).toHaveCount(0);
+    await shot(page, info, "m3-rules");
   });
 });
 
-test("a kitchen that tracks money still shows its prices, so the two are told apart", async ({
+test("a kitchen that tracks money asks for prices on its Home, and then has Payments and Bills", async ({
   page,
-}) => {
-  const slug = `money-${Date.now().toString(36)}`;
-  await signIn(page, `money-${slug}@example.org`, "Owner");
-  await page.getByLabel("Name", { exact: true }).fill("Priced Mess");
-  await page.getByLabel("Address").fill(slug);
-  await page.getByRole("button", { name: "Create" }).click();
-  await page.waitForURL(`**/w/${slug}`);
-  // It starts from a home lunch, so what it serves is there already; the people come next, then the prices.
-  await expect(page.getByText("Add the people you feed")).toBeVisible();
-  let names = await menuNames(page);
-  for (const kept of ["Prices", "Menu", "Rates & rules"]) expect(names).toContain(kept);
-  // Nothing to pay or settle until there are prices.
-  for (const later of ["Payments", "Settlements"]) expect(names).not.toContain(later);
-  // With prices, the screens about money are there.
+}, info) => {
+  test.setTimeout(Number(process.env.E2E_TIMEOUT ?? 180_000));
+  const slug = `money-${info.project.name}-${Date.now().toString(36)}`;
   const w = `/api/w/${slug}`;
-  const items = (await (await page.request.get(`${w}/catalogue`)).json()) as { id: string }[];
-  const card = await page.request.post(`${w}/rate-cards`, {
-    data: {
-      effectiveFrom: `${new Date().toISOString().slice(0, 8)}01`,
-      monthlyFee: 0,
-      prices: items.map((i) => ({ itemId: i.id, serviceId: null, amount: 10000 })),
-    },
+  await signIn(page, `money-${slug}@example.org`, "Owner");
+  await makeKitchen(page, slug, "Priced Mess", { moneyEnabled: true });
+  // It starts with what it serves and a menu, and people to feed; prices come last.
+  await seedHome(page.request, slug, { prices: false });
+  const made = await page.request.post(`${w}/people`, {
+    data: { name: "Asha", role: "consumer", activeFrom: firstOfMonth() },
   });
-  expect(card.status()).toBe(201);
-  await page.reload();
-  await expect(page.getByRole("link", { name: "Payments" })).toBeVisible();
-  names = await menuNames(page);
-  for (const kept of ["Payments", "Prices", "Settlements", "Menu", "Rates & rules"])
-    expect(names).toContain(kept);
+  expect(made.status()).toBe(201);
+
+  await test.step("the checklist has four steps and the last is Prices; Payments and Bills wait for it", async () => {
+    await page.goto(`/w/${slug}`);
+    await expect(page.getByRole("heading", { name: "Set up your kitchen" })).toBeVisible();
+    await expect(page.getByText("3 of 4 done")).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Prices/ })).toBeVisible();
+    const names = await menuNames(page);
+    for (const later of ["Payments", "Bills"]) expect(has(names, later), later).toBe(false);
+    for (const kept of ["Home", "Today", "People", "Setup", "Books"])
+      expect(has(names, kept), kept).toBe(true);
+    await shot(page, info, "m5-money-checklist");
+  });
+
+  await test.step("with prices the checklist is gone and the Home leads with what is owed", async () => {
+    const items = (await (await page.request.get(`${w}/catalogue`)).json()) as { id: string }[];
+    const card = await page.request.post(`${w}/rate-cards`, {
+      data: {
+        effectiveFrom: firstOfMonth(),
+        monthlyFee: 0,
+        prices: items.map((i) => ({ itemId: i.id, serviceId: null, amount: 10000 })),
+      },
+    });
+    expect(card.status()).toBe(201);
+    await page.goto(`/w/${slug}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Priced Mess" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Set up your kitchen" })).toHaveCount(0);
+    const stats = page.getByRole("region", { name: "This month" });
+    for (const label of ["Owed to the kitchen", "Collected this month", "Eating today"])
+      await expect(stats.getByText(label, { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
+    const names = await menuNames(page);
+    for (const kept of ["Payments", "Bills"]) expect(has(names, kept), kept).toBe(true);
+    await expectAccessible(page, "home with money");
+    await shot(page, info, "m6-money-home");
+  });
+
+  await test.step("Bills has the month, three figures, a chart and a bill for each person", async () => {
+    await page.goto(`/w/${slug}/bills`);
+    await expect(page.getByRole("heading", { level: 1, name: "Bills" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Month", exact: true })).toBeVisible();
+    const figures = page.getByRole("region", { name: "This month" });
+    for (const label of ["Billed", "Collected", "Owed"])
+      await expect(figures.getByText(label, { exact: true })).toBeVisible();
+    await expect(page.getByTestId("bills-chart")).toBeVisible();
+    await page.getByRole("button", { name: "Show as table" }).click();
+    await expect(page.getByRole("columnheader", { name: "Billed" })).toBeVisible();
+    await page.getByRole("button", { name: "Show as chart" }).click();
+    await expectAccessible(page, "bills");
+    await shot(page, info, "m7-bills");
+
+    // A bill opens from the person's row: a sheet on a desktop, a page of its own on a phone.
+    await page
+      .getByRole("region", { name: "People" })
+      .getByRole("button", { name: "Asha" })
+      .first()
+      .click();
+    if (page.viewportSize() && page.viewportSize()!.width >= 768) {
+      const sheet = page.getByRole("dialog", { name: "Asha" });
+      await expect(sheet.getByText("Balance due")).toBeVisible();
+      await expect(sheet.getByRole("button", { name: "Print" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(sheet).toBeHidden();
+    } else {
+      await expect(page).toHaveURL(/\/bills\/[0-9a-f-]+/);
+      await expect(page.getByRole("heading", { level: 1, name: "Asha" })).toBeVisible();
+      await expect(page.getByText("Balance due")).toBeVisible();
+    }
+  });
 });
 
 // The second instance the config starts, to move a kitchen to.
@@ -256,19 +276,25 @@ test("a kitchen that counts meals moves to an instance that tracks money: the sa
   expect(before[0]?.addOns[seeded.chapati]).toBe(3);
 
   await test.step("the old kitchen is moved to the other instance, and asked to track money there", async () => {
-    await page.goto(`/w/${slug}/data`);
-    await page.getByRole("tab", { name: "My own instance" }).click();
+    await page.goto(`/w/${slug}/books/data`);
+    await page
+      .getByRole("group", { name: "Where to" })
+      .getByRole("button", { name: "My own instance" })
+      .click();
     await page.getByLabel("Address of your instance").fill(OTHER);
     await page.getByLabel("Token").fill(OTHER_TOKEN);
-    await page.getByLabel(/Track money in the new kitchen/).check();
+    await page.getByRole("checkbox", { name: /Track money in the new kitchen/ }).check();
     await page.getByRole("button", { name: "Check it first" }).click();
     await expect(page.getByText("It will work. Nothing has been changed.")).toBeVisible();
     await expectAccessible(page, "move preview");
     await page
       .getByRole("region", { name: "Move" })
-      .getByLabel(`Type ${slug} to confirm`)
-      .fill(slug);
-    await page.getByRole("button", { name: "Move now" }).click();
+      .getByRole("button", { name: "Move now" })
+      .click();
+    // Moving cannot be taken back, so it asks for the kitchen's address to be typed.
+    const sure = page.getByRole("alertdialog", { name: "Move this kitchen?" });
+    await sure.getByLabel(`Type ${slug} to confirm`).fill(slug);
+    await sure.getByRole("button", { name: "Move now" }).click();
     // The old copy is now read-only and says where the kitchen went.
     await expect(page.getByText(/This kitchen has moved/)).toBeVisible();
     await expect(page.getByRole("link", { name: OTHER })).toBeVisible();
@@ -284,7 +310,7 @@ test("a kitchen that counts meals moves to an instance that tracks money: the sa
       expect(boot.status()).toBe(200);
       const b = (await boot.json()) as {
         workspace: { moneyEnabled: boolean };
-        catalogue: { name: string }[];
+        catalogue: { id: string; name: string }[];
         setup: { message: string }[];
       };
       expect(b.workspace.moneyEnabled).toBe(true);
@@ -293,26 +319,31 @@ test("a kitchen that counts meals moves to an instance that tracks money: the sa
         "Price 4 items to start billing: Veg, Non Veg, Chapati, Bhakri.",
       );
 
-      await p2.goto(`/w/${slug}`);
-      await expect(p2.getByText(/Price 4 items to start billing/)).toBeVisible();
-      await go(p2, "Prices");
-      await p2.getByRole("button", { name: "New prices" }).click();
-      const dlg = p2.getByRole("dialog", { name: "New prices" });
-      await dlg.getByLabel("Applies from").fill(firstOfMonth());
-      for (const [label, rupees] of [
-        ["Veg (₹ per plate)", "150"],
-        ["Non Veg (₹ per plate)", "170"],
-        ["Chapati (₹ per piece)", "15"],
-        ["Bhakri (₹ per piece)", "30"],
-      ] as const)
-        await dlg.getByLabel(label, { exact: true }).fill(rupees);
-      await dlg.getByRole("button", { name: "Add prices" }).click();
-      await expect(p2.getByRole("cell", { name: "₹150" })).toBeVisible();
-      await go(p2, "Dashboard");
+      // The Home asks for the one step left, Prices; everything before it is done.
+      await p2.goto(`/w/${slug}?as=admin`);
+      await expect(p2.getByRole("heading", { name: "Set up your kitchen" })).toBeVisible();
+      await expect(p2.getByText("3 of 4 done")).toBeVisible();
+      await expect(p2.getByRole("link", { name: /^Prices/ })).toBeVisible();
+
+      const card = await p2.request.post(`${w}/rate-cards`, {
+        data: {
+          effectiveFrom: firstOfMonth(),
+          monthlyFee: 0,
+          prices: [
+            { itemId: b.catalogue[0]?.id, serviceId: null, amount: 15000 },
+            { itemId: b.catalogue[1]?.id, serviceId: null, amount: 17000 },
+            { itemId: b.catalogue[2]?.id, serviceId: null, amount: 1500 },
+            { itemId: b.catalogue[3]?.id, serviceId: null, amount: 3000 },
+          ],
+        },
+      });
+      expect(card.status()).toBe(201);
+      await p2.goto(`/w/${slug}?as=admin`);
+      await expect(p2.getByRole("heading", { name: "Set up your kitchen" })).toHaveCount(0);
       await expect(
-        p2.locator(".tile", { has: p2.locator(".k", { hasText: /^Bill$/ }) }),
+        p2.getByRole("region", { name: "This month" }).getByText("Owed to the kitchen"),
       ).toBeVisible();
-      await expectAccessible(p2, "dashboard after the move");
+      await expectAccessible(p2, "home after the move");
       await shot(p2, info, "mm2-priced");
     } finally {
       await there.close();

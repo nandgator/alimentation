@@ -1,0 +1,77 @@
+/*
+ * The motion of the shell. The page region is named `page`, so a route change fades it alone and the
+ * shell around it does not move: the old page leaves in 90ms, the new one arrives in 150ms and rises 4px.
+ * A browser without View Transitions swaps the page at once. Nothing moves under reduced motion.
+ */
+@layer components {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-old(page) {
+    animation: shell-page-out 90ms var(--ease-out) both;
+  }
+  ::view-transition-new(page) {
+    animation: shell-page-in var(--dur-2) var(--ease-out) both;
+  }
+  @keyframes shell-page-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes shell-page-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  /* The thin bar that runs under the top edge while something is on its way. */
+  @keyframes shell-progress {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(250%);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}
+
+/*
+ * The phone shell: a top bar of 56px and a bottom bar of 64px plus the inset of the screen. The height of
+ * the bottom bar is a variable, so a page can put its own sticky action just above it, and the page keeps
+ * clear of both.
+ */
+@layer components {
+  .phone-shell {
+    --bottom-bar: calc(4rem + env(safe-area-inset-bottom));
+  }
+  .phone-shell > main {
+    padding-bottom: calc(var(--bottom-bar) + 1rem);
+  }
+  /* Scrolling to something (a focused field, a button) keeps it out from under the two bars. */
+  html:has(.phone-shell) {
+    scroll-padding-top: 3.5rem;
+    scroll-padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+  .phone-bottom-bar {
+    height: var(--bottom-bar);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer components {
+  /* A bottom sheet of the shell: never taller than most of the screen, and clear of the home indicator. */
+  .shell-sheet {
+    max-height: 85svh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

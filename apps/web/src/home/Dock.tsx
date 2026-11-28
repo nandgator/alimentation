@@ -8,6 +8,21 @@ const boxOf = (el: Element): Box => {
   return { left: r.left, top: r.top, width: r.width, height: r.height };
 };
 
+/**
+ * Where a picture's own carrier is on the screen: the carrier is drawn in its own units (CARRIER_BOX), and the
+ * picture moves, lifts and pans it, so its box is CARRIER_BOX taken through all of that.
+ */
+const carrierBoxOf = (g: SVGGraphicsElement): Box | null => {
+  const m = g.getScreenCTM();
+  if (!m) return null;
+  return {
+    left: m.e + CARRIER_BOX.x * m.a,
+    top: m.f + CARRIER_BOX.y * m.d,
+    width: CARRIER_BOX.width * m.a,
+    height: CARRIER_BOX.height * m.d,
+  };
+};
+
 /** The nearest thing above an element that holds it in place as the page scrolls (`position: sticky`), if any. */
 const holderOf = (el: Element): Element | null => {
   for (let up = el.parentElement; up; up = up.parentElement) {
@@ -57,9 +72,16 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
     const find = () =>
       chapters.map((id) => {
         const el = document.getElementById(`${id}-title`);
-        return el ? { el, holder: holderOf(el) } : null;
+        // A chapter whose picture carries a carrier of its own takes the carrier into it (see dock.ts).
+        const into = document.querySelector<SVGGElement>(`#${id} [data-dock-into]`);
+        return el ? { el, holder: holderOf(el), into } : null;
       });
+    // The pictures' own carriers are hidden until the carrier is put into them.
+    const hideScenes = () => {
+      for (const h of headings) if (h?.into) h.into.style.opacity = "0";
+    };
     let headings = find();
+    hideScenes();
     let raf = 0;
     let timer = 0;
     // Whether the page has stopped, when the last frame was, and how far the carrier is from where the page says.
@@ -74,12 +96,18 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
       mark.style.opacity = String(Math.round(d.mark * 1000) / 1000);
       hero.dataset.lifted = String(d.lifted);
       mark.classList.toggle("is-docked", d.docked);
+      headings.forEach((h, k) => {
+        if (!h?.into) return;
+        const seen = d.scene?.chapter === k ? d.scene.seen : 0;
+        h.into.style.opacity = String(Math.round(seen * 1000) / 1000);
+      });
     };
     const journey = () =>
       journeyAt({
         scene: boxOf(scene),
         mark: boxOf(mark),
         headings: headings.map((h) => (h ? inFlow(h.el, h.holder) : null)),
+        into: headings.map((h) => (h?.into ? carrierBoxOf(h.into) : null)),
         scrollY: window.scrollY,
         vh: window.innerHeight,
       });
@@ -124,7 +152,9 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
     }
     window.addEventListener("scroll", scrolled, { passive: true });
     const reshaped = () => {
+      for (const h of headings) if (h?.into) h.into.style.opacity = "";
       headings = find();
+      hideScenes();
       soon();
     };
     window.addEventListener("resize", reshaped);
@@ -142,6 +172,7 @@ export function Dock({ chapters }: { chapters: readonly string[] }) {
       fly.style.transform = "";
       mark.style.opacity = "";
       mark.classList.remove("is-docked");
+      for (const h of headings) if (h?.into) h.into.style.opacity = "";
       delete hero.dataset.lifted;
     };
   }, [reduce, chapters]);

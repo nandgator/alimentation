@@ -22,11 +22,13 @@ test("an admin gives an agent a key, sees it once, uses it, and ends it", async 
     }, slug),
   ).toBe(201);
 
-  await page.goto(`/w/${slug}/data`);
-  await page.getByText("AI agents", { exact: true }).click();
-  await page.getByLabel("Name for the key").fill("Lunch bot");
-  await page.getByLabel("May add and withdraw entries").check();
-  await page.getByRole("button", { name: "Make a key" }).click();
+  await page.goto(`/w/${slug}/books/data`);
+  await expect(page.getByRole("heading", { name: "Your data", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "New key" }).click();
+  const form = page.getByRole("dialog", { name: "New key" });
+  await form.getByLabel("Name for the key").fill("Lunch bot");
+  await form.getByRole("checkbox", { name: "May add and withdraw entries" }).check();
+  await form.getByRole("button", { name: "Make a key" }).click();
 
   const shown = page.getByLabel("The key", { exact: true });
   await expect(shown).toBeVisible();
@@ -61,12 +63,20 @@ test("an admin gives an agent a key, sees it once, uses it, and ends it", async 
   await page.getByRole("button", { name: "I have copied it" }).click();
   await expect(shown).toHaveCount(0);
   await page.reload();
-  await page.getByText("AI agents", { exact: true }).click();
-  const row = page.getByRole("row", { name: /Lunch bot/ });
+  // A table row on a desktop, a list item on a phone.
+  const row = page
+    .getByRole("main")
+    .getByRole("row", { name: /Lunch bot/ })
+    .or(page.getByRole("main").getByRole("listitem").filter({ hasText: "Lunch bot" }));
   await expect(row).toContainText("You, as admin");
   await expect(row).toContainText("read, log");
   await expect(page.getByText(token)).toHaveCount(0);
-  await row.getByRole("button", { name: "End it" }).click();
+  // Ending a key is not undone, so it asks first, with "Keep it" as the default.
+  await row.getByRole("button", { name: "Actions for Lunch bot" }).click();
+  await page.getByRole("menuitem", { name: "End it" }).click();
+  const ask = page.getByRole("alertdialog", { name: "End Lunch bot?" });
+  await expect(ask.getByRole("button", { name: "Keep it" })).toBeFocused();
+  await ask.getByRole("button", { name: "End the key" }).click();
   await expect(row).toContainText("Ended");
   expect((await nobody.get(`/api/w/${slug}/bootstrap`, asKey)).status()).toBe(401);
   expect(problems).toEqual([]);

@@ -26,14 +26,23 @@ function group(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-/** `₹3,260` with zero shown as `-`, as the spec asks. Paise are shown only when non-zero. */
-export function formatMoney(p: Paise): string {
-  if (p === 0) return "-";
-  // Stryker disable next-line EqualityOperator: zero returned above
-  const sign = p < 0 ? "-" : "";
+/** The minus sign people read as a minus (U+2212), not the hyphen that looks like a dash. */
+export const MINUS = "\u2212";
+
+/**
+ * `₹3,260`. Zero is `₹0` and a negative amount has a true minus (`−₹170`). Paise are shown only when non-zero,
+ * unless `fixed` asks for two places on every amount so a column of amounts lines up.
+ */
+export function formatMoney(p: Paise, opts: { fixed?: boolean } = {}): string {
+  const sign = p < 0 ? MINUS : "";
   const abs = Math.abs(p);
   const whole = Math.floor(abs / PAISE_PER_RUPEE);
   const frac = abs % PAISE_PER_RUPEE;
   const base = `${sign}₹${group(String(whole))}`;
-  return frac === 0 ? base : `${base}.${String(frac).padStart(2, "0")}`;
+  return frac === 0 && !opts.fixed ? base : `${base}.${String(frac).padStart(2, "0")}`;
+}
+
+/** A balance from the person's side, where positive is credit they hold: `Credit ₹580`. Zero and a debt are plain amounts. */
+export function formatBalance(p: Paise, opts: { fixed?: boolean } = {}): string {
+  return p > 0 ? `Credit ${formatMoney(p, opts)}` : formatMoney(p, opts);
 }

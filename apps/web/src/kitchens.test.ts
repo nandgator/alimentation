@@ -1,6 +1,15 @@
 import type { BootstrapDto, KitchenTotals, OrganisationKitchenDto } from "@alimentation/core";
 import { describe, expect, it } from "vitest";
-import { figuresOf, type KitchenFigures, sumOrganisation, totalsOf } from "./kitchens.ts";
+import {
+  addressProblem,
+  addressSuggestions,
+  figuresOf,
+  type KitchenFigures,
+  probeAddress,
+  slugify,
+  sumOrganisation,
+  totalsOf,
+} from "./kitchens.ts";
 
 const stmt = (personId: string, billed: number, paid: number, earlierUnpaid = 0) => ({
   personId,
@@ -167,5 +176,45 @@ describe("an organisation's kitchens added up", () => {
     const mixed = sumOrganisation([kitchen(totals()), kitchen(totals({ currency: "USD" }))]);
     expect(mixed?.money).toBeNull();
     expect(mixed?.meals).toBe(400);
+  });
+});
+
+describe("addresses", () => {
+  it("makes an address from a name", () => {
+    expect(slugify("Willow Home Lunch")).toBe("willow-home-lunch");
+    expect(slugify("  Demo -- Mess!  ")).toBe("demo-mess");
+    expect(slugify("A".repeat(60))).toHaveLength(40);
+    expect(slugify(`${"x".repeat(39)} y`)).toBe("x".repeat(39));
+  });
+
+  it("says why an address cannot be used", () => {
+    expect(addressProblem("demo-mess")).toBeNull();
+    expect(addressProblem("ab")).toMatch(/3 to 40/);
+    expect(addressProblem("-abc")).toMatch(/3 to 40/);
+    expect(addressProblem("a--b")).toMatch(/two hyphens/);
+    expect(addressProblem("admin")).toMatch(/kept for the service/);
+  });
+
+  it("offers the same address with a number, within the limit", () => {
+    expect(addressSuggestions("demo-mess")).toEqual(["demo-mess-2", "demo-mess-3", "demo-mess-4"]);
+    const long = addressSuggestions("a".repeat(40), 1)[0] as string;
+    expect(long).toHaveLength(40);
+    expect(long.endsWith("-2")).toBe(true);
+    expect(addressSuggestions("abc-", 1)).toEqual(["abc-2"]);
+  });
+
+  it("reads availability from the status of the kitchen's own door", async () => {
+    const door = (s: number) => async () => s;
+    expect(await probeAddress("x", door(404))).toBe("available");
+    expect(await probeAddress("x", door(403))).toBe("taken");
+    expect(await probeAddress("x", door(401))).toBe("taken");
+    expect(await probeAddress("x", door(410))).toBe("taken");
+    expect(await probeAddress("x", door(429))).toBe("unknown");
+    expect(await probeAddress("x", door(503))).toBe("unknown");
+    expect(
+      await probeAddress("x", async () => {
+        throw new Error("offline");
+      }),
+    ).toBe("unknown");
   });
 });

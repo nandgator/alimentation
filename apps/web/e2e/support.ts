@@ -4,8 +4,16 @@ import { type BrowserContext, expect, type Page, type TestInfo } from "@playwrig
 export async function signIn(page: Page, email: string, name: string) {
   await page.goto("/signin");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Name").fill(name);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  // A new account is asked for a name; one that has a name is in at once.
+  const named = page.getByLabel("Your name");
+  await Promise.race([
+    named.waitFor().then(async () => {
+      await named.fill(name);
+      await page.getByRole("button", { name: "Continue" }).click();
+    }),
+    page.waitForURL("**/app"),
+  ]);
   await page.waitForURL("**/app");
 }
 

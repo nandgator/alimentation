@@ -40,10 +40,6 @@ async function expectControlsBesideWords(page: Page, where: string) {
   expect(bad, `${where}: controls not beside their words`).toEqual([]);
 }
 
-async function banners(page: Page) {
-  return page.locator("main .banner").allInnerTexts();
-}
-
 test("a kitchen made from a starter has one next step, a menu from the first of the month, and no raw errors", async ({
   page,
 }, info) => {
@@ -68,21 +64,21 @@ test("a kitchen made from a starter has one next step, a menu from the first of 
     await page.waitForURL(`**/w/${slug}`);
   });
 
-  await test.step("the dashboard shows one next step, and says nothing can be billed yet", async () => {
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-    const said = await banners(page);
-    expect(said).toHaveLength(1);
-    expect(said[0]).toContain("Add the people you feed");
-    await expect(page.getByText("Who owes what, and what has been paid")).toHaveCount(0);
-    await expect(
-      page.getByText("Bills will show here once the kitchen has a menu, people and prices."),
-    ).toBeVisible();
+  await test.step("the Home shows the one next step, and says nothing can be billed yet", async () => {
+    await expect(page.getByRole("heading", { level: 1, name: `Willow ${stamp}` })).toBeVisible();
+    // The setup checklist is the one place that says what is left; the first thing to do is the people.
+    await expect(page.getByRole("heading", { name: "Set up your kitchen" })).toBeVisible();
+    await expect(page.getByText("2 of 4 done")).toBeVisible();
+    await expect(page.getByText("Add the people you feed")).toBeVisible();
+    // No money figures before there is anything to bill, and no engine wording.
+    await expect(page.getByRole("region", { name: "This month" })).toHaveCount(0);
+    await expect(page.getByText("Owed to the kitchen")).toHaveCount(0);
     await expect(page.locator("main")).not.toContainText("no menu is in force");
-    // Nothing to pay or settle yet, so those are not offered.
+    // Nothing to pay or bill yet, so those are not offered, and an admin has no History.
     await expect(page.getByRole("link", { name: "Payments" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Settlements" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Bills" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "History" })).toHaveCount(0);
-    await expectAccessible(page, "blank dashboard");
+    await expectAccessible(page, "blank home");
     await shot(page, info, "after-blank-dash");
   });
 
@@ -110,36 +106,42 @@ test("a kitchen made from a starter has one next step, a menu from the first of 
       },
     });
     expect(card.status()).toBe(201);
-    for (const path of ["", "/daily", "/log", "/payments"]) {
+    for (const path of ["", "/today", "/meals", "/payments"]) {
       await page.goto(`/w/${slug}${path}`);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expect(page.locator("body")).not.toContainText(/no menu is in force|No menu/);
-      await expect(page.locator(".banner.bad")).toHaveCount(0);
-      expect(await banners(page), `at ${path || "/"}`).toEqual([]);
+      await expect(page.getByRole("main").getByRole("alert"), `at ${path || "/"}`).toHaveCount(0);
+      // Everything is set up now, so the checklist is gone.
+      await expect(page.getByRole("heading", { name: "Set up your kitchen" })).toHaveCount(0);
     }
   });
 
   await test.step("the log says in words when the menu starts later than the day chosen", async () => {
-    await page.goto(`/w/${slug}/log`);
-    await page.getByLabel("Date").fill(aWorkingDayThisMonth());
-    await expect(page.getByText(/Your menu starts on/)).toHaveCount(0);
-    const before = new Date();
-    before.setMonth(before.getMonth() - 1, 15);
-    const iso = `${before.getFullYear()}-${String(before.getMonth() + 1).padStart(2, "0")}-15`;
-    await page.getByLabel("Date").fill(iso);
+    await page.goto(`/w/${slug}/meals`);
+    await page.getByRole("button", { name: "Skip a meal" }).click();
+    const dlg = page.getByRole("dialog", { name: "Skip a meal" });
+    await dlg.getByLabel("Who is it for?").selectOption({ label: "Asha" });
+    await expect(dlg.getByText(/Your menu starts on/)).toHaveCount(0);
+    // Another day: the same day of the month before the menu began.
+    await dlg.getByLabel("Which day?").click();
+    await page.getByRole("button", { name: "Previous month" }).click();
+    await page
+      .getByRole("gridcell", { name: /\b15th\b/ })
+      .getByRole("button")
+      .click();
     await expect(
-      page.getByText(
+      dlg.getByText(
         /Your menu starts on 01-.*, so days before that are not counted\. Set an earlier start under Menu\./,
       ),
     ).toBeVisible();
-    await expect(page.locator("main")).not.toContainText(/SERVICE_NOT_SERVED|is not served/);
-    await expect(page.getByRole("button", { name: "Add" })).toBeDisabled();
+    await expect(dlg).not.toContainText(/SERVICE_NOT_SERVED|is not served/);
+    await expect(dlg.getByRole("button", { name: "Skip", exact: true })).toBeDisabled();
   });
 
   expect(problems).toEqual([]);
 });
 
-test("the log fits a phone: each entry is a card that shows who added it and that it was late", async ({
+test("the log fits a phone: each entry is a card that shows who it is for and that it was late", async ({
   page,
 }, info) => {
   const problems = watchPage(page);
@@ -173,25 +175,31 @@ test("the log fits a phone: each entry is a card that shows who added it and tha
   });
   expect(logged.status(), await logged.text()).toBe(201);
 
-  await page.goto(`/w/${slug}/log`);
-  await expect(page.getByRole("heading", { name: "Recent entries" })).toBeVisible();
-  const list = page.locator(".tablewrap.cards");
-  await expect(list).toContainText("Added by");
-  await expect(list).toContainText("Leave");
-  // Nothing is cut off at the side: the list is as wide as the screen and does not scroll.
-  const clipped = await list.evaluate((el) => el.scrollWidth - el.clientWidth);
-  expect(clipped).toBeLessThanOrEqual(1);
-  const edge = await page.locator("table.cards td[data-label='Added by']").first().boundingBox();
+  await page.goto(`/w/${slug}/meals`);
+  // One card to an entry: what it did, for whom, the note, and that it was late when it was.
+  const entry = page.getByRole("main").getByRole("listitem").filter({ hasText: "A long note" });
+  await expect(entry).toHaveCount(1);
+  await expect(entry).toContainText("Skip");
+  await expect(entry).toContainText("Asha");
+  const today = new Date();
+  const iso = (t: Date) =>
+    `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  if (day < iso(today)) await expect(entry).toContainText(/Added \d+ days? after/);
+  // Nothing is cut off at the side: the entry is as wide as the screen allows and the page does not scroll.
+  const edge = await entry.boundingBox();
   expect(edge && edge.x + edge.width).toBeLessThanOrEqual(390);
-  await expectControlsBesideWords(page, "log");
-  await expectAccessible(page, "log on a phone");
+  await expectControlsBesideWords(page, "meals");
+  await expectAccessible(page, "meals on a phone");
   await shot(page, info, "after-home-log");
 
   await test.step("the admin has no History, and an address for it says why", async () => {
     await expect(page.getByRole("link", { name: "History" })).toHaveCount(0);
     await page.goto(`/w/${slug}/history`);
     await expect(
-      page.getByText("History is not part of the admin view of this kitchen."),
+      page.getByRole("heading", { level: 1, name: "This is for cooks and consumers" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("History is open to cooks and consumers. Switch to that view to see it."),
     ).toBeVisible();
   });
 

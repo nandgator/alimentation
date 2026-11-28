@@ -166,18 +166,13 @@ test.describe("the theme choice", () => {
       data: { slug, name: `Theme ${slug}`, alsoSupplier: true },
     });
     await page.goto(`/w/${slug}`);
-    // The control is a Theme group in the kitchen's menu: under More on a phone in the old shell, and in the
-    // account menu (the name in the sidebar's foot, or the avatar in the top bar) in the new one.
+    // The control is in the account menu: the name in the sidebar's foot on a wide screen, and the avatar in the top
+    // bar (a sheet with a Theme group) on a phone.
     const group = page.getByRole("group", { name: "Theme", exact: true });
     const choose = async (label: "Light" | "Dark" | "Auto") => {
-      if (await group.isVisible()) return group.getByRole("radio", { name: label }).check();
-      if (isMobile) {
-        const more = page.getByRole("button", { name: "More" });
-        if (await more.isVisible()) await more.click();
-      }
       if (!(await group.isVisible())) {
         await page
-          .getByRole("button", { name: /^(Account|Owner)/ })
+          .getByRole("button", { name: /Account|Owner/ })
           .first()
           .click();
       }
@@ -187,6 +182,8 @@ test.describe("the theme choice", () => {
         .or(page.getByRole("radio", { name }))
         .first();
       await option.click();
+      // A wide screen's menu closes itself; a phone's sheet is closed with Escape.
+      if (isMobile) await page.keyboard.press("Escape");
     };
     await choose("Dark");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

@@ -54,6 +54,43 @@
     });
   }
 
+  // --- the way back, for someone who is signed in: the same header as the home page and the app, so "Sign in"
+  // becomes "Open your kitchen", and a strip under it leads back to the kitchen they came from. The page works
+  // without this (it says "Sign in"); the answer is the app's own, and nothing about the reader leaves the site.
+  const open = $(".docs-open");
+  const back = $(".docs-back");
+  const kitchens = (me) => (me.workspaces || []).filter((w) => w.state === "ACTIVE");
+  const remembered = (w) => {
+    try {
+      return localStorage.getItem(`role:${w.slug}`) !== null;
+    } catch {
+      return false;
+    }
+  };
+  if (open || back) {
+    fetch("/api/me", { headers: { accept: "application/json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me) => {
+        if (!me?.account) return;
+        if (open) {
+          open.textContent = "Open your kitchen";
+          open.setAttribute("href", "/app");
+        }
+        const all = kitchens(me);
+        // One kitchen is the one to go back to. With several, the one this device has been in, if it is only one.
+        const seen = all.filter(remembered);
+        const one = all.length === 1 ? all[0] : seen.length === 1 ? seen[0] : null;
+        const link = back?.querySelector("a");
+        if (!back || !link || !all.length) return;
+        link.textContent = one ? `Back to ${one.name}` : "Back to your kitchens";
+        link.setAttribute("href", one ? `/w/${one.slug}` : "/app");
+        back.hidden = false;
+      })
+      .catch(() => {
+        // Offline, or no server behind the page: it reads as it did.
+      });
+  }
+
   // --- copy buttons on code: an icon on the bar of the block (the design system's `.code` and `.icon-btn`)
   const NS = "http://www.w3.org/2000/svg";
   const icon = (name, shapes) => {

@@ -104,3 +104,107 @@ export function unionChoices(lists: readonly (readonly LogChoice[])[]): LogChoic
     }
   return out;
 }
+
+/** What a person means to do, in their words. Each is one legal action, so the form asks only what that action needs. */
+export type Intent = "skip" | "extra" | "switch" | "off";
+
+export const INTENT_ACTION: Record<Intent, LogAction> = {
+  skip: "Leave",
+  extra: "Extra",
+  switch: "Switch",
+  off: "Supplier Off",
+};
+
+/** The intents a role is offered, in the order they are shown. The cook marks a day the kitchen is off, and nothing else. */
+export const intentsFor = (role: "admin" | "supplier" | "consumer"): Intent[] => {
+  const may = allowedActions(role);
+  return (["skip", "extra", "switch", "off"] as const).filter((i) =>
+    may.includes(INTENT_ACTION[i]),
+  );
+};
+
+/** The value of the "Whole day" choice among a form's meals. */
+export const WHOLE_DAY = "whole";
+
+/** What one intent can be asked for, on one day, from the legal choices. */
+export interface IntentOptions {
+  /** Nothing can be logged: the person is not eating that day, or the menu does not serve it. */
+  none: boolean;
+  /** The services the entry may be for, in order. For a skip or a kitchen-off day, empty means the whole day is the only scope. */
+  services: string[];
+  /** For a skip or a kitchen-off day: whether the whole day is one of the choices. */
+  wholeDay: boolean;
+  /** For an extra or a switch: what each service offers. */
+  items: Record<string, { itemId: string; maxQty: number | null }[]>;
+}
+
+export function intentOptions(choices: readonly LogChoice[], intent: Intent): IntentOptions {
+  const mine = choices.filter((c) => c.action === INTENT_ACTION[intent]);
+  const services = [...new Set(mine.flatMap((c) => (c.serviceId === null ? [] : [c.serviceId])))];
+  const items: IntentOptions["items"] = {};
+  for (const c of mine) {
+    if ((c.action !== "Extra" && c.action !== "Switch") || c.serviceId === null) continue;
+    const list = items[c.serviceId] ?? [];
+    list.push({ itemId: c.itemId, maxQty: c.action === "Extra" ? c.maxQty : null });
+    items[c.serviceId] = list;
+  }
+  return {
+    none: mine.length === 0,
+    services,
+    wholeDay: mine.some((c) => c.serviceId === null),
+    items,
+  };
+}
+
+/** What the form holds when it is sent. */
+export interface LogFormValues {
+  personId: string;
+  date: string;
+  /** For a skip or a kitchen-off day: service ids, or `WHOLE_DAY`. */
+  scope: string[];
+  /** For an extra or a switch. */
+  serviceId: string;
+  itemId: string;
+  qty: string;
+  note: string;
+}
+
+/** The body of one `POST /log`. */
+export interface LogBody {
+  date: string;
+  personId: string | null;
+  allConsumers: boolean;
+  action: LogAction;
+  serviceId: string | null;
+  itemId: string | null;
+  qty: number | null;
+  note: string | null;
+}
+
+/**
+ * The entries a filled form stands for: a skip or a kitchen-off day is one entry for the whole day, or one for each
+ * meal ticked; an extra and a switch are one entry. Kitchens with a single service have no meal to tick, so the
+ * entry is for the whole day.
+ */
+export function bodiesFor(intent: Intent, v: LogFormValues, o: IntentOptions): LogBody[] {
+  const base = {
+    date: v.date,
+    personId: intent === "off" ? null : v.personId,
+    allConsumers: intent === "off",
+    action: INTENT_ACTION[intent],
+    note: v.note.trim() || null,
+  };
+  if (intent === "skip" || intent === "off") {
+    const whole = o.services.length === 0 || v.scope.includes(WHOLE_DAY);
+    const scopes = whole ? [null] : o.services.filter((s) => v.scope.includes(s));
+    return scopes.map((serviceId) => ({ ...base, serviceId, itemId: null, qty: null }));
+  }
+  return [
+    {
+      ...base,
+      serviceId: v.serviceId,
+      itemId: v.itemId,
+      qty: intent === "extra" ? Number(v.qty) || 1 : null,
+    },
+  ];
+}

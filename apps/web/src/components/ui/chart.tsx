@@ -3,9 +3,6 @@ import type { TooltipValueType } from "recharts";
 import * as RechartsPrimitive from "recharts";
 import { cn } from "@/lib/utils";
 
-// Format: { THEME_NAME: CSS_SELECTOR }
-const THEMES = { light: "", dark: ".dark" } as const;
-
 const INITIAL_DIMENSION = { width: 320, height: 200 } as const;
 type TooltipNameType = number | string;
 
@@ -14,10 +11,9 @@ export type ChartConfig = Record<
   {
     label?: React.ReactNode;
     icon?: React.ComponentType;
-  } & (
-    | { color?: string; theme?: never }
-    | { color?: never; theme: Record<keyof typeof THEMES, string> }
-  )
+    /** A CSS colour, usually a token such as `var(--chart-1)`, which already follows the theme. */
+    color?: string;
+  }
 >;
 
 type ChartContextProps = {
@@ -64,8 +60,9 @@ function ChartContainer({
           className,
         )}
         {...props}
+        // design: the series colours come from the chart config at run time, as custom properties
+        style={{ ...chartColors(config), ...props.style }}
       >
-        <ChartStyle id={chartId} config={config} />
         <RechartsPrimitive.ResponsiveContainer initialDimension={initialDimension}>
           {children}
         </RechartsPrimitive.ResponsiveContainer>
@@ -74,34 +71,16 @@ function ChartContainer({
   );
 }
 
-const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(([, config]) => config.theme ?? config.color);
-
-  if (!colorConfig.length) {
-    return null;
-  }
-
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ?? itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
-  })
-  .join("\n")}
+/**
+ * The colours of the series as custom properties (`--color-<key>`) on the chart's own element. They are set through
+ * the element's style object, not a `<style>` tag: the page's policy allows no inline style.
+ */
+function chartColors(config: ChartConfig): React.CSSProperties {
+  const vars: Record<string, string> = {};
+  for (const [key, item] of Object.entries(config))
+    if (item.color) vars[`--color-${key}`] = item.color;
+  return vars as React.CSSProperties;
 }
-`,
-          )
-          .join("\n"),
-      }}
-    />
-  );
-};
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
@@ -327,11 +306,4 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
   return configLabelKey in config ? config[configLabelKey] : config[key];
 }
 
-export {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartStyle,
-  ChartTooltip,
-  ChartTooltipContent,
-};
+export { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent };

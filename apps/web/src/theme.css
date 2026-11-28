@@ -16,7 +16,9 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
 @import "./styles.css" layer(legacy);
-@import "./home.css" layer(legacy);
+/* The home page's drawn pictures and motion (WP10). In `legacy` and not `components`: the order of the layers above is
+   only kept if this file is the first stylesheet the bundle meets, and the markup's utilities win over it either way. */
+@import "./home/art.css" layer(legacy);
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 /* A mouse or a trackpad: controls are 36px high there and 44px under a finger. */
@@ -108,7 +110,7 @@
   --muted-foreground: oklch(0.49 0.02 268);
   --accent: oklch(0.95 0.025 272);
   --accent-foreground: oklch(0.34 0.12 272);
-  --destructive: oklch(0.55 0.2 27);
+  --destructive: oklch(0.53 0.2 27);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.915 0.008 85);
   --input: oklch(0.62 0.015 265);

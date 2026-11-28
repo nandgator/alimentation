@@ -1,3 +1,4 @@
+// TODO(WP9, WP10): delete this file when its last importer (AppBar, Page) is gone; the shell no longer uses it.
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "../components/legacy/button.tsx";
@@ -69,14 +70,5 @@ export function Page({
   );
 }
 
-/** For pages that need someone signed in: sends everyone else to sign in and brings them back. */
-export function RequireSignIn({ children }: { children: ReactNode }) {
-  const { me } = useSession();
-  const [location, go] = useLocation();
-  if (me === undefined) return <p className="muted wrap waiting">Loading…</p>;
-  if (!me?.account) {
-    go(`/signin?next=${encodeURIComponent(location)}`, { replace: true });
-    return null;
-  }
-  return <>{children}</>;
-}
+// The shell owns this now; the re-export keeps the pages outside a kitchen working until WP9 and WP10 replace this file's other exports.
+export { RequireSignIn } from "../shell/RequireSignIn.tsx";

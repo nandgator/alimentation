@@ -59,7 +59,7 @@ test("a person in several kitchens sees each one with its figures, and the figur
   await expect(page.getByRole("heading", { name: "Your kitchens" })).toBeVisible();
 
   const card = (name: string) =>
-    page.locator(".card", { has: page.getByRole("heading", { name, level: 3 }) });
+    page.getByRole("listitem").filter({ has: page.getByRole("heading", { name, level: 3 }) });
   await expect(card("North Mess")).toContainText(/₹[\d,]+(\.\d\d)? owed/);
   await expect(card("South Mess")).toContainText("Needs setting up");
   await expect(card("South Mess")).toContainText("Nothing owed");
@@ -68,8 +68,8 @@ test("a person in several kitchens sees each one with its figures, and the figur
   const across = page.getByRole("region", { name: "Across your 2 kitchens" });
   await expect(across).toBeVisible();
   const owedHere = (await card("North Mess").innerText()).match(/(₹[\d,]+(?:\.\d\d)?) owed/)![1];
-  await expect(across.locator(".tile", { hasText: "Owed to your kitchens" })).toContainText(
-    owedHere!,
+  await expect(across).toContainText(
+    new RegExp(`Owed to your kitchens\\s*${owedHere!.replace(/[.$]/g, "\\$&")}`),
   );
 
   await expectAccessible(page, "your kitchens");
@@ -146,10 +146,16 @@ test("prices, rules and holidays copy from one kitchen to another, after showing
     ).status,
   ).toBe(201);
 
+  // Someone who runs two kitchens has a Manage menu, and copying a setup is in it.
   await page.goto("/app");
-  const section = page.getByRole("region", { name: "Copy a setup to other kitchens" });
+  const openCopy = async () => {
+    await page.getByRole("button", { name: "Manage" }).click();
+    await page.getByRole("menuitem", { name: "Copy a setup" }).click();
+    return page.getByRole("dialog", { name: "Copy a setup" });
+  };
+  const section = await openCopy();
   await section.getByLabel("Copy from").selectOption({ label: "North Copy Mess" });
-  await section.getByLabel("South Copy Mess").check();
+  await section.getByRole("checkbox", { name: "South Copy Mess" }).check();
   await section.getByRole("button", { name: "See what would be added" }).click();
   await expect(section).toContainText(
     "Will add 1 service, 4 items, 1 menu, 1 price list, 1 set of rules, 1 holiday.",
@@ -168,9 +174,14 @@ test("prices, rules and holidays copy from one kitchen to another, after showing
   expect(there.holidays.map((h) => h.name)).toEqual(["Founders day"]);
 
   // Once copied, there is nothing left to add.
-  await section.getByRole("button", { name: "See what would be added" }).click();
-  await expect(section).toContainText("Nothing to add.");
-  await expect(section.getByRole("button", { name: /^Copy to/ })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(section).toBeHidden();
+  const again = await openCopy();
+  await again.getByLabel("Copy from").selectOption({ label: "North Copy Mess" });
+  await again.getByRole("checkbox", { name: "South Copy Mess" }).check();
+  await again.getByRole("button", { name: "See what would be added" }).click();
+  await expect(again).toContainText("Nothing to add.");
+  await expect(again.getByRole("button", { name: /^Copy to/ })).toBeDisabled();
 });
 
 test("a head office sees its kitchens added up, and a kitchen can join, and stop, by itself", async ({
@@ -198,9 +209,11 @@ test("a head office sees its kitchens added up, and a kitchen can join, and stop
 
   // Someone with two kitchens is offered an organisation, and starts one.
   await page.goto("/app");
-  await expect(page.getByRole("heading", { name: "Start an organisation" })).toBeVisible();
-  await page.locator("#org-name").fill("Hall Group");
-  await page.getByRole("button", { name: "Start it" }).click();
+  await page.getByRole("button", { name: "Manage" }).click();
+  await page.getByRole("menuitem", { name: "Start an organisation" }).click();
+  const start = page.getByRole("dialog", { name: "Start an organisation" });
+  await start.getByLabel("Name").fill("Hall Group");
+  await start.getByRole("button", { name: "Start it" }).click();
   await expect(page.getByRole("heading", { name: "Hall Group", level: 1 })).toBeVisible();
   await expect(page.getByText("No kitchen shares its totals")).toBeVisible();
 
@@ -222,7 +235,7 @@ test("a head office sees its kitchens added up, and a kitchen can join, and stop
   // The kitchen says who receives its totals, to everyone in it, and can stop.
   await page.goto(`/w/${north}`);
   await expect(page.getByText("shares its totals", { exact: false })).toBeVisible();
-  await page.goto(`/w/${north}/data`);
+  await page.goto(`/w/${north}/books/data`);
   await expect(page.getByText("Hall Group").first()).toBeVisible();
   await page.getByRole("button", { name: "Stop sharing" }).click();
   await expect(page.getByText("Share this kitchen", { exact: false })).toBeVisible();
@@ -233,7 +246,7 @@ test("a head office sees its kitchens added up, and a kitchen can join, and stop
   await page.getByRole("button", { name: "Make a link" }).click();
   const link = await page.getByLabel("The link", { exact: true }).inputValue();
   expect(link.length).toBeGreaterThan(20);
-  await page.goto(`/w/${north}/data`);
+  await page.goto(`/w/${north}/books/data`);
   await page.getByText("Share this kitchen", { exact: false }).click();
   await page.getByLabel("The link their head office sent you").fill(link);
   await page.getByRole("button", { name: "See who it is for" }).click();

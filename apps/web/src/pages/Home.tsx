@@ -1,15 +1,15 @@
 import { FREE_LIMITS, GRACE_DAYS, THRESHOLDS } from "@alimentation/core";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
 import { type Capacity, getJson } from "../api.ts";
-import { Button } from "../components/legacy/button.tsx";
-import { Mark } from "../components/Mark.tsx";
-import { ThemeSwitch } from "../components/ThemeSwitch.tsx";
 import { Defs, HeroScene } from "../home/art.tsx";
 import { Dock } from "../home/Dock.tsx";
 import { Month } from "../home/Month.tsx";
 import { Figure, Lines, useChapter, useLight, useLive, useReveal } from "../home/motion.tsx";
+import { SiteHeader } from "../home/SiteHeader.tsx";
 import { Stage } from "../home/Stage.tsx";
+import { ThemeChoice } from "../home/ThemeChoice.tsx";
 import { useSession } from "../session.tsx";
 
 /** The eight promises. Each title is the ledger's wording (docs/PROMISES.md), kept equal by a check. */
@@ -66,6 +66,13 @@ const fmt = new Intl.NumberFormat("en-IN");
 
 /** The sections the bar names, in page order. */
 const CHAPTERS = ["try", "free", "moving", "leaving", "promises"] as const;
+const SECTION_LINKS: { id: (typeof CHAPTERS)[number]; name: string }[] = [
+  { id: "try", name: "Try it" },
+  { id: "free", name: "Free" },
+  { id: "moving", name: "Moving" },
+  { id: "leaving", name: "Leaving" },
+  { id: "promises", name: "Promises" },
+];
 
 export function Home() {
   const { me } = useSession();
@@ -90,34 +97,22 @@ export function Home() {
     <div className="home" ref={root}>
       <Defs />
       <Dock chapters={CHAPTERS} />
-      <header className="hnav">
-        <div className="hwrap">
-          <Link href="/" className="brand">
-            <Mark packing /> <span className="brand-text">Alimentation</span>
-          </Link>
-          <nav aria-label="Sections">
-            <a href="#try" aria-current={here("try")}>
-              Try it
-            </a>
-            <a href="#free" aria-current={here("free")}>
-              Free
-            </a>
-            <a href="#moving" aria-current={here("moving")}>
-              Moving
-            </a>
-            <a href="#leaving" aria-current={here("leaving")}>
-              Leaving
-            </a>
-            <a href="#promises" aria-current={here("promises")}>
-              Promises
-            </a>
-            <a href="/guides/">Guides</a>
+      <SiteHeader
+        chapters={
+          <nav aria-label="Sections" className="mx-auto hidden gap-6 lg:flex">
+            {SECTION_LINKS.map((c) => (
+              <a
+                key={c.id}
+                href={`#${c.id}`}
+                aria-current={here(c.id)}
+                className="inline-flex min-h-11 items-center text-sm font-medium text-foreground underline decoration-transparent decoration-1 underline-offset-4 transition-[text-decoration-color] hover:decoration-current"
+              >
+                {c.name}
+              </a>
+            ))}
           </nav>
-          <Button variant="outline" size="sm" render={<Link href={start} />}>
-            {signedIn ? "Open your kitchens" : "Sign in"}
-          </Button>
-        </div>
-      </header>
+        }
+      />
 
       <main>
         <section className="hero" ref={hero}>
@@ -132,8 +127,8 @@ export function Home() {
                 every payment, and what each person still owes.
               </p>
               <div className="actions load" style={{ ["--d" as string]: "500ms" }}>
-                <Button variant="accent" size="lg" render={<Link href={start} />}>
-                  {signedIn ? "Open your kitchens" : "Start your kitchen"}
+                <Button size="lg" className="btn-field" render={<Link href={start} />}>
+                  {signedIn ? "Open your kitchen" : "Start your kitchen"}
                 </Button>
                 <a href="#try" className="textlink">
                   See how it works
@@ -371,29 +366,16 @@ export function Home() {
               Made for small kitchens that feed people they know, with nothing to hide on the way
               out.
             </p>
-            <nav aria-label="Footer">
-              <a href="#try" className="in-bar">
-                Try it
-              </a>
-              <a href="#free" className="in-bar">
-                Free
-              </a>
-              <a href="#moving" className="in-bar">
-                Moving
-              </a>
-              <a href="#leaving" className="in-bar">
-                Leaving
-              </a>
-              <a href="#promises" className="in-bar">
-                Promises
-              </a>
-              <a href="/guides/" className="in-bar">
-                Guides
-              </a>
-              <a href="/docs/">Docs</a>
+            {/* The bar names the sections wherever it has room for them; on a phone the close is where they are. */}
+            <nav aria-label="Footer" className="foot-nav">
+              {SECTION_LINKS.map((c) => (
+                <a key={c.id} href={`#${c.id}`}>
+                  {c.name}
+                </a>
+              ))}
             </nav>
           </div>
-          <ThemeSwitch className="foot-theme" />
+          <ThemeChoice />
           <p className="mega" aria-hidden="true" ref={name}>
             <span className="mega-base">Alimentation</span>
             <span className="mega-lit">Alimentation</span>

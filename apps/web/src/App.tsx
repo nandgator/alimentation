@@ -1,24 +1,35 @@
 import { lazy, Suspense } from "react";
-import { Link, Route, Switch } from "wouter";
-import { Button } from "./components/legacy/button.tsx";
+import { Route, Router, Switch, useLocation } from "wouter";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "./components/ui.tsx";
+import { useMedia } from "./home/motion.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Join } from "./pages/Join.tsx";
 import { Operator } from "./pages/Operator.tsx";
 import { Places } from "./pages/Places.tsx";
 import { ReceiptPage } from "./pages/Receipt.tsx";
 import { SignIn } from "./pages/SignIn.tsx";
-import { WorkspaceShell } from "./pages/workspace/Shell.tsx";
 import { SessionProvider } from "./session.tsx";
+import { PendingBar } from "./shell/ProgressBar.tsx";
+import { documentTitle, RouteEffects } from "./shell/RouteEffects.tsx";
+import { Unavailable } from "./shell/Unavailable.tsx";
+import { aroundNav } from "./shell/useTransitionNav.ts";
+import { WorkspaceShell } from "./shell/WorkspaceShell.tsx";
 
 // Only a head office opens this one, so nobody else downloads it.
+/** The kit page: development, or a build made with VITE_KIT=1 (the e2e build). */
+const KIT = import.meta.env.DEV || import.meta.env.VITE_KIT === "1";
+const KitPage = lazy(() =>
+  import("@/components/app/dev/KitPage").then((m) => ({ default: m.KitPage })),
+);
 const Organisation = lazy(() =>
   import("./pages/Organisation.tsx").then((m) => ({ default: m.Organisation })),
 );
 
 function OrganisationRoute() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PendingBar />}>
       <Organisation />
     </Suspense>
   );
@@ -26,29 +37,73 @@ function OrganisationRoute() {
 
 function NotFound() {
   return (
-    <div className="narrow solo">
-      <h1>Nothing here</h1>
-      <p className="muted">That address does not lead anywhere.</p>
-      <Button render={<Link href="/" />}>Home</Button>
+    <div className="p-6">
+      <Unavailable
+        title="Page not found"
+        reason="That address does not lead anywhere."
+        home="/"
+        homeLabel="Go home"
+      />
     </div>
   );
 }
 
+/** The titles of the pages outside a kitchen. The home page keeps its own. */
+function outsideTitle(location: string): string | null {
+  if (location === "/" || location.startsWith("/w/")) return null;
+  if (location === "/signin") return documentTitle("Sign in");
+  if (location === "/app") return documentTitle("Your kitchens");
+  if (location === "/app/new") return documentTitle("New kitchen");
+  if (location === "/app/operator") return documentTitle("Operator");
+  if (location.startsWith("/app/org/")) return documentTitle("Organisation");
+  if (location === "/join" || location.startsWith("/join/")) return documentTitle("Join a kitchen");
+  if (location.startsWith("/r/")) return documentTitle("Receipt");
+  return documentTitle("Page not found");
+}
+
+/** Route effects for everything outside a kitchen (the kitchen's own shell runs them for itself). */
+function OutsideEffects() {
+  const [location] = useLocation();
+  if (location.startsWith("/w/")) return null;
+  return <RouteEffects title={outsideTitle(location)} />;
+}
+
 export function App() {
+  const wide = useMedia("(min-width: 1024px)");
   return (
     <SessionProvider>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/signin" component={SignIn} />
-        <Route path="/app" component={Places} />
-        <Route path="/join" component={Join} />
-        <Route path="/receipt/:id" component={ReceiptPage} />
-        <Route path="/operator" component={Operator} />
-        <Route path="/org/:id" component={OrganisationRoute} />
-        <Route path="/w/:slug/*?" component={WorkspaceShell} />
-        <Route component={NotFound} />
-      </Switch>
-      <Toaster />
+      <TooltipProvider delay={300}>
+        <Router aroundNav={aroundNav}>
+          <OutsideEffects />
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/signin" component={SignIn} />
+            <Route path="/app" component={Places} />
+            {/* TODO(WP9): the new-kitchen page; until it exists the list of kitchens opens. */}
+            <Route path="/app/new" component={Places} />
+            <Route path="/app/operator" component={Operator} />
+            <Route path="/app/org/:id" component={OrganisationRoute} />
+            {KIT && (
+              <Route path="/dev/kit">
+                <Suspense fallback={<PendingBar />}>
+                  <KitPage />
+                </Suspense>
+              </Route>
+            )}
+            <Route path="/join/:token?" component={Join} />
+            <Route path="/r/:id" component={ReceiptPage} />
+            <Route path="/w/:slug/*?" component={WorkspaceShell} />
+            <Route component={NotFound} />
+          </Switch>
+        </Router>
+        {/* The legacy toaster serves the screens not yet ported; sonner serves the new ones. */}
+        <Toaster />
+        <Sonner
+          position={wide ? "bottom-right" : "bottom-center"}
+          offset={wide ? undefined : { bottom: "5.5rem" }}
+          mobileOffset={{ bottom: "5.5rem" }}
+        />
+      </TooltipProvider>
     </SessionProvider>
   );
 }

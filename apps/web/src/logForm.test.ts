@@ -1,6 +1,15 @@
 import { type LogChoice, logChoices } from "@alimentation/core";
 import { describe, expect, it } from "vitest";
-import { allowedActions, resolveForm, unionChoices } from "./logForm.ts";
+import {
+  allowedActions,
+  bodiesFor,
+  intentOptions,
+  intentsFor,
+  type LogFormValues,
+  resolveForm,
+  unionChoices,
+  WHOLE_DAY,
+} from "./logForm.ts";
 
 const choice = {
   leaveWhole: { action: "Leave", serviceId: null },
@@ -127,5 +136,89 @@ describe("the log form, built from the legal choices", () => {
       resolveForm(logChoices(menu, catalogue, services, person, "2026-10-06", enrol), all, {})
         .action,
     ).toBeNull();
+  });
+});
+
+describe("what a person means to do", () => {
+  it("offers each role only the intents it may act on", () => {
+    expect(intentsFor("consumer")).toEqual(["skip", "extra", "switch"]);
+    expect(intentsFor("admin")).toEqual(["skip", "extra", "switch", "off"]);
+    expect(intentsFor("supplier")).toEqual(["off"]);
+  });
+
+  it("reads what an intent can be asked for from the legal choices", () => {
+    expect(intentOptions(one, "skip")).toEqual({
+      none: false,
+      services: [],
+      wholeDay: true,
+      items: {},
+    });
+    expect(intentOptions(three, "skip")).toMatchObject({
+      services: ["lunch", "dinner"],
+      wholeDay: true,
+    });
+    expect(intentOptions(three, "extra").items).toEqual({
+      lunch: [{ itemId: "curd", maxQty: 4 }],
+      dinner: [
+        { itemId: "curd", maxQty: 4 },
+        { itemId: "tea", maxQty: 9 },
+      ],
+    });
+    expect(intentOptions(three, "switch").items.lunch).toEqual([
+      { itemId: "khichdi", maxQty: null },
+    ]);
+    expect(intentOptions([], "skip").none).toBe(true);
+    expect(intentOptions([choice.leaveWhole], "extra").none).toBe(true);
+  });
+});
+
+describe("the entries a form stands for", () => {
+  const v: LogFormValues = {
+    personId: "p1",
+    date: "2026-11-26",
+    scope: [],
+    serviceId: "",
+    itemId: "",
+    qty: "",
+    note: "  away  ",
+  };
+  const many = intentOptions(three, "skip");
+
+  it("sends one whole-day skip for a kitchen with a single service", () => {
+    expect(bodiesFor("skip", v, intentOptions(one, "skip"))).toEqual([
+      {
+        date: "2026-11-26",
+        personId: "p1",
+        allConsumers: false,
+        action: "Leave",
+        serviceId: null,
+        itemId: null,
+        qty: null,
+        note: "away",
+      },
+    ]);
+  });
+
+  it("sends one skip for each meal ticked, or one for the whole day", () => {
+    expect(
+      bodiesFor("skip", { ...v, scope: ["dinner", "lunch"] }, many).map((b) => b.serviceId),
+    ).toEqual(["lunch", "dinner"]);
+    expect(
+      bodiesFor("skip", { ...v, scope: [WHOLE_DAY, "lunch"] }, many).map((b) => b.serviceId),
+    ).toEqual([null]);
+  });
+
+  it("marks a kitchen-off day for everyone, with no person", () => {
+    const [b] = bodiesFor("off", v, intentOptions(one, "off"));
+    expect(b).toMatchObject({ personId: null, allConsumers: true, action: "Supplier Off" });
+  });
+
+  it("sends an extra with its quantity, and a switch with none", () => {
+    const e = { ...v, serviceId: "lunch", itemId: "curd", qty: "3" };
+    expect(bodiesFor("extra", e, intentOptions(three, "extra"))).toEqual([
+      expect.objectContaining({ action: "Extra", serviceId: "lunch", itemId: "curd", qty: 3 }),
+    ]);
+    expect(bodiesFor("extra", { ...e, qty: "" }, intentOptions(three, "extra"))[0]?.qty).toBe(1);
+    expect(bodiesFor("switch", e, intentOptions(three, "switch"))[0]?.qty).toBeNull();
   });
 });

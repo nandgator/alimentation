@@ -8,6 +8,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
+import "sonner/dist/styles.css";
 import { useTheme } from "@/theme";
 
 const Toaster = ({ ...props }: ToasterProps) => {
@@ -17,6 +18,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme === "auto" ? "system" : theme}
       className="toaster group"
+      // Bottom-centre on a phone, clear of the bottom bar; bottom-right on a wide screen.
+      mobileOffset={{ bottom: "calc(4rem + env(safe-area-inset-bottom) + 0.75rem)" }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

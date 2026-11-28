@@ -1,7 +1,12 @@
+import { CheckIcon, PrinterIcon, XIcon } from "lucide-react";
 import { Link, useParams } from "wouter";
-import { getJson } from "../api.ts";
+import { EmptyState, PageHeader, PageSkeleton } from "@/components/app";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+// TODO(WP10): swap for the shared site header; it is the receipt's only chrome.
 import { AppBar } from "../components/Chrome.tsx";
-import { Problem, Spinner, useLoad } from "../components/ui.tsx";
+import { StatementFrame } from "./workspace/bills/StatementCard.tsx";
+import { useApi } from "./workspace/bills/useApi.ts";
 
 interface Receipt {
   workspaceId: string;
@@ -28,73 +33,104 @@ const CHECKS: Record<string, string> = {
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
+/** One line of the receipt: what it is, and its value. */
+function Line({ term, children }: { term: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-1 py-3 sm:grid-cols-3 sm:gap-4">
+      <dt className="text-sm text-muted-foreground">{term}</dt>
+      <dd className="min-w-0 break-words text-sm sm:col-span-2">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * `/r/:id`: the receipt a kitchen's wipe leaves, as a printable page. It is the same card as a bill's statement,
+ * so the two read as one family on paper. It names no one.
+ */
 export function ReceiptPage() {
   const { id = "" } = useParams();
-  const r = useLoad(() => getJson<Receipt>(`/api/receipts/${encodeURIComponent(id)}`), [id]);
+  const r = useApi<Receipt>(`/api/receipts/${encodeURIComponent(id)}`);
+  const data = r.data;
   return (
     <>
       <AppBar />
-      <div className="narrow solo">
-        {r.loading && !r.data ? <Spinner /> : null}
+      <main className="mx-auto w-full max-w-2xl px-4 py-6">
+        <PageHeader title="Wipe receipt" description="What was removed, and what was checked." />
+        {r.loading ? <PageSkeleton loading variant="form" /> : null}
         {r.error ? (
-          <div className="stack">
-            <Problem
-              error={r.error.status === 404 ? "There is no receipt with that address." : r.error}
-            />
-            <Link href="/">← Home</Link>
+          <div className="flex flex-col gap-4">
+            {r.error.status === 404 ? (
+              <EmptyState
+                title="There is no receipt with that address"
+                description="Check the link, or ask whoever sent it."
+              />
+            ) : (
+              <Alert variant="destructive">
+                <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{r.error.message}</span>
+                  <Button type="button" variant="outline" size="sm" onClick={r.reload}>
+                    Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            <Button
+              variant="outline"
+              className="self-start"
+              render={<Link href="/" />}
+              nativeButton={false}
+            >
+              Home
+            </Button>
           </div>
         ) : null}
-        {r.data ? (
-          <figure className="receipt flat">
-            <figcaption>Wipe receipt</figcaption>
-            <dl>
-              <div>
-                <dt>Workspace</dt>
-                <dd className="mono">{r.data.workspaceId}</dd>
-              </div>
-              <div>
-                <dt>Requested</dt>
-                <dd>
-                  {when(r.data.requestedAt)} · completed {when(r.data.completedAt)}
-                  {r.data.manifest.resumedAfterInterruption
-                    ? " (finished after an interruption)"
-                    : ""}
-                </dd>
-              </div>
-              <div>
-                <dt>Checked</dt>
-                <dd>
-                  {Object.entries(r.data.manifest.checks).map(([k, ok]) => (
-                    <div key={k}>
-                      <span className={`tick ${ok ? "ok" : "bad"}`}>{ok ? "✓" : "✗"}</span>
-                      {CHECKS[k] ?? k}
-                    </div>
+        {data ? (
+          <StatementFrame
+            title={data.workspaceId}
+            subtitle={`Requested ${when(data.requestedAt)} · completed ${when(data.completedAt)}${
+              data.manifest.resumedAfterInterruption ? " (finished after an interruption)" : ""
+            }`}
+            actions={
+              <Button type="button" variant="outline" onClick={() => window.print()}>
+                <PrinterIcon aria-hidden="true" data-icon="inline-start" />
+                Print
+              </Button>
+            }
+          >
+            <dl className="divide-y">
+              <Line term="Checked">
+                <ul className="flex flex-col gap-1">
+                  {Object.entries(data.manifest.checks).map(([k, ok]) => (
+                    <li key={k} className="flex items-center gap-2">
+                      {ok ? (
+                        <CheckIcon className="size-4 text-success-foreground" aria-hidden="true" />
+                      ) : (
+                        <XIcon className="size-4 text-destructive" aria-hidden="true" />
+                      )}
+                      <span>
+                        {CHECKS[k] ?? k}
+                        <span className="sr-only">{ok ? ": passed" : ": failed"}</span>
+                      </span>
+                    </li>
                   ))}
-                </dd>
-              </div>
-              {r.data.manifest.rowsRemoved ? (
-                <div>
-                  <dt>Counted, never read</dt>
-                  <dd>
-                    {Object.entries(r.data.manifest.rowsRemoved)
-                      .map(([k, n]) => `${k.replace(/_/g, " ")} ${n}`)
-                      .join(" · ")}
-                  </dd>
-                </div>
+                </ul>
+              </Line>
+              {data.manifest.rowsRemoved ? (
+                <Line term="Counted, never read">
+                  {Object.entries(data.manifest.rowsRemoved)
+                    .map(([k, n]) => `${k.replace(/_/g, " ")} ${n}`)
+                    .join(" · ")}
+                </Line>
               ) : null}
-              <div>
-                <dt>What remains</dt>
-                <dd>{r.data.manifest.remains.join(". ")}.</dd>
-              </div>
-              <div>
-                <dt>Digest</dt>
-                <dd className="mono">{r.data.digest}</dd>
-              </div>
+              <Line term="What remains">{data.manifest.remains.join(". ")}.</Line>
+              <Line term="Digest">
+                <code className="break-all font-mono text-xs">{data.digest}</code>
+              </Line>
             </dl>
-            <p className="seal">Names no one.</p>
-          </figure>
+            <p className="pt-3 text-sm font-medium">Names no one.</p>
+          </StatementFrame>
         ) : null}
-      </div>
+      </main>
     </>
   );
 }

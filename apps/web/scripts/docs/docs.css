@@ -1,14 +1,151 @@
-/* The documentation. It sits on the app's own stylesheet (colours, fonts, light and dark), so this
-   file only lays pages out. Code is on the chalkboard; callouts are the steel and turmeric of the
-   kitchen. Nothing here is inline in a page: the content-security policy forbids that. */
+/* biome-ignore-all lint/style/noDescendingSpecificity: the page-wide reading rules come first and the pieces after them, and the pieces are meant to win */
+/* The documentation, in the Bahi colours (docs/research/ui-rewrite-plan.md, section 2). It sits on the app's own
+   stylesheet for the tokens (colours, fonts, light and dark: `theme.css`), and it writes down everything else it
+   needs, because the pages are plain HTML and cannot use the app's components or its utilities. So this file lays
+   pages out and also draws the few pieces the pages use (buttons, tables, code), in the app's own tokens. Nothing
+   here is inline in a page: the content-security policy forbids that. */
 
 .docs {
   --docs-w: 1320px;
   --top: 58px;
   scroll-padding-top: calc(var(--top) + 16px);
+
+  /* The scale the pages are laid out on. */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2.25rem;
+  --shadow-focus-error: 0 0 0 3px color-mix(in oklch, var(--destructive) 20%, transparent);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --gutter: 16px;
+  --measure: 46rem;
+  --leading: 1.7;
+  --leading-lede: 1.55;
+  --flow: 20px;
+  --control: 44px;
+  --control-sm: 36px;
+  --radius-xs: 0.25rem;
+  --radius-pill: 999px;
+  --z-bar: 20;
+  --z-pop: 40;
+  --z-toast: 50;
+  --elev-menu:
+    0 1px 2px color-mix(in oklch, black 10%, transparent),
+    0 8px 24px -8px color-mix(in oklch, black 28%, transparent);
+  --elev-toast:
+    0 2px 6px color-mix(in oklch, black 14%, transparent),
+    0 14px 28px -10px color-mix(in oklch, black 32%, transparent);
+  --elev-dialog:
+    0 2px 6px color-mix(in oklch, black 14%, transparent),
+    0 28px 64px -16px color-mix(in oklch, black 40%, transparent);
+  --bad-soft: color-mix(in oklch, var(--destructive) 8%, var(--background));
+  --highlight-soft: color-mix(in oklch, var(--highlight) 25%, var(--background));
+
+  /* Code is on a board that is dark in both themes; what it is written in are the chart and status tokens, mixed
+     toward the board's own ink so that each reads at 4.5:1 and more on it. */
+  --board: var(--foreground);
+  --board-ink: var(--background);
+  --board-dim: color-mix(in oklch, var(--background) 70%, var(--foreground));
+  --code-keyword: color-mix(in oklch, var(--chart-3) 55%, var(--board-ink));
+  --code-string: color-mix(in oklch, var(--success) 55%, var(--board-ink));
+  --code-number: color-mix(in oklch, var(--warning) 60%, var(--board-ink));
+  --code-type: color-mix(in oklch, var(--destructive) 50%, var(--board-ink));
+  --code-name: color-mix(in oklch, var(--info) 55%, var(--board-ink));
+  --code-function: color-mix(in oklch, var(--chart-2) 55%, var(--board-ink));
+
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font: 400 var(--text-base) / 1.55 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: lining-nums;
+}
+:root[data-theme="dark"] .docs {
+  --board: var(--popover);
+  --board-ink: var(--foreground);
+  --board-dim: var(--muted-foreground);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .docs {
+    --board: var(--popover);
+    --board-ink: var(--foreground);
+    --board-dim: var(--muted-foreground);
+  }
 }
 html:has(.docs) {
   scroll-padding-top: calc(58px + 16px);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---------- The page's own reading (the app's reset leaves headings, links and lists bare) ---------- */
+.docs h1,
+.docs h2,
+.docs h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 650;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  hyphens: none;
+}
+.docs h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+}
+.docs h2 {
+  font-size: var(--text-xl);
+}
+.docs h3 {
+  font-size: var(--text-lg);
+}
+.docs p {
+  margin: 0;
+  text-wrap: pretty;
+}
+.docs-article a:not(.anchor),
+.docs-foot a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.2em;
+}
+.docs :focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+.docs ::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.grow {
+  flex: 1;
+}
+.muted {
+  color: var(--muted-foreground);
+}
+.small {
+  font-size: var(--text-sm);
 }
 .skip {
   position: absolute;
@@ -17,8 +154,8 @@ html:has(.docs) {
   z-index: calc(var(--z-toast) + 10);
   padding: 10px 16px;
   border-radius: var(--radius-pill);
-  background: var(--brand);
-  color: var(--brand-ink);
+  background: var(--primary);
+  color: var(--primary-foreground);
   text-decoration: none;
   font-weight: 600;
 }
@@ -26,13 +163,337 @@ html:has(.docs) {
   top: 10px;
 }
 
+/* ---------- Buttons: the app's button, drawn for plain HTML ---------- */
+.btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--control);
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: 500 var(--text-sm) / 1 var(--font-sans);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) ease,
+    border-color var(--dur-1) ease;
+}
+.btn.ghost {
+  border-color: var(--input);
+  background: var(--background);
+  color: var(--foreground);
+}
+.btn.small {
+  min-height: var(--control-sm);
+  padding: 0 14px;
+}
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:not([disabled]):hover {
+    background: color-mix(in oklch, var(--primary) 85%, var(--foreground));
+  }
+  .btn.ghost:not([disabled]):hover {
+    background: var(--muted);
+  }
+}
+.icon-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: var(--control-sm);
+  min-height: var(--control-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: 600 var(--text-xs) / 1 var(--font-sans);
+  cursor: pointer;
+}
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (hover: hover) {
+  .icon-btn:hover {
+    background: color-mix(in oklch, var(--foreground) 8%, transparent);
+    color: var(--foreground);
+  }
+}
+
+/* ---------- Tables ---------- */
+.tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+.docs table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--text-sm);
+}
+.docs th,
+.docs td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.docs tbody tr:last-child td {
+  border-bottom: 0;
+}
+.docs th {
+  font: 600 var(--text-xs) / 1.2 var(--font-sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  background: var(--muted);
+}
+.docs td.r,
+.docs th.r {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Fields ---------- */
+.docs input[type="search"] {
+  appearance: none;
+  width: 100%;
+  min-height: var(--control);
+  padding: 0 16px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+  color: var(--foreground);
+  font: 400 var(--text-md) / 1.2 var(--font-sans);
+}
+.docs input[type="search"]::placeholder {
+  color: var(--muted-foreground);
+}
+
+/* ---------- Code ---------- */
+/* A listing sits on a board, dark in both themes. What it is goes on a bar above it: the language or the file, and
+   which lines of it. The copy button is an icon in the bar. With a pointer it comes forward when the block is pointed
+   at or has focus, so it is not always in the way; with none (a phone), or when the block is tabbed into, it is
+   always there. A console shows a session: the commands you type, each after its prompt, and what comes back,
+   dimmer. The prompts are not text, so copying takes the commands alone. */
+.code {
+  position: relative;
+  border-radius: var(--radius-lg);
+  background: var(--board);
+  color: var(--board-ink);
+  box-shadow: var(--elev-menu);
+}
+.code pre {
+  margin: 0;
+  padding: 16px 18px;
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  background: none;
+  color: inherit;
+  /* The scrollbar is the board's, not the page's: a light track under a dark block looks like a gap. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--board-ink) 38%, transparent) transparent;
+}
+.code.has-bar pre {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.code pre:focus-visible {
+  outline-offset: 2px;
+}
+.code code {
+  display: block;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: var(--text-sm) / 1.6 var(--font-mono);
+  white-space: pre;
+}
+.code-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control);
+  padding: 4px 8px 4px 18px;
+  border-bottom: 1px solid color-mix(in oklch, var(--board-ink) 14%, transparent);
+  color: var(--board-dim);
+  font: 600 var(--text-xs) / 1 var(--font-sans);
+  letter-spacing: 0.02em;
+}
+.code-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.code-range {
+  flex: none;
+  font-weight: 500;
+}
+.code .copy {
+  margin-left: auto;
+  border-color: color-mix(in oklch, var(--board-ink) 22%, transparent);
+  color: var(--board-ink);
+}
+.code:not(.has-bar) .copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  margin: 0;
+  background: color-mix(in oklch, var(--board) 86%, black);
+}
+.code:not(.has-bar) pre {
+  padding-right: 56px;
+}
+.code .copy:focus-visible {
+  outline-color: var(--board-ink);
+}
+.copy .i-check,
+.copy .copy-label {
+  display: none;
+}
+.copy[data-state="copied"] {
+  padding: 0 var(--space-3);
+  color: var(--code-string);
+  border-color: color-mix(in oklch, var(--code-string) 55%, transparent);
+}
+.copy[data-state="copied"] .i-copy {
+  display: none;
+}
+.copy[data-state="copied"] .i-check,
+.copy[data-state="copied"] .copy-label {
+  display: inline;
+}
+.copy[data-state="copied"] .i-check {
+  display: block;
+}
+@media (hover: hover) {
+  .code .copy {
+    opacity: 0;
+    transition: opacity var(--dur-1) var(--ease-out);
+  }
+  .code:hover .copy,
+  .code:focus-within .copy,
+  .code .copy[data-state="copied"] {
+    opacity: 1;
+  }
+  .code .copy:hover {
+    background: color-mix(in oklch, var(--board-ink) 14%, transparent);
+  }
+}
+/* Line numbers are in the margin and not in the text: they cannot be selected or copied, and are faint. */
+.code.numbered .line::before {
+  content: attr(data-n);
+  display: inline-block;
+  min-width: 3ch;
+  margin-right: 1.4em;
+  color: color-mix(in oklch, var(--board-dim) 62%, var(--board));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+.code .line.hl {
+  display: inline-block;
+  min-width: 100%;
+  background:
+    linear-gradient(var(--highlight), var(--highlight)) left / 3px 100% no-repeat,
+    color-mix(in oklch, var(--board-ink) 10%, transparent);
+}
+/* A console: a prompt before each command that is typed, an indent where there is none, so that what comes back
+   lines up under what was typed. */
+.code.console .line::before {
+  content: "";
+  display: inline-block;
+  min-width: 2ch;
+  user-select: none;
+}
+.code.console .line.cmd::before {
+  content: "$";
+  color: var(--code-string);
+}
+.code.console .line.out {
+  color: var(--board-dim);
+}
+/* Highlighting: the system's own colours, picked for the board. */
+.code .hljs-comment,
+.code .hljs-quote {
+  color: var(--board-dim);
+  font-style: italic;
+}
+.code .hljs-keyword,
+.code .hljs-selector-tag,
+.code .hljs-tag,
+.code .hljs-name,
+.code .hljs-doctag {
+  color: var(--code-keyword);
+}
+.code .hljs-string,
+.code .hljs-regexp,
+.code .hljs-addition,
+.code .hljs-template-tag {
+  color: var(--code-string);
+}
+.code .hljs-number,
+.code .hljs-literal,
+.code .hljs-symbol,
+.code .hljs-bullet {
+  color: var(--code-number);
+}
+.code .hljs-title,
+.code .hljs-section,
+.code .hljs-selector-id,
+.code .hljs-selector-class {
+  color: var(--code-function);
+}
+.code .hljs-type,
+.code .hljs-built_in,
+.code .hljs-deletion {
+  color: var(--code-type);
+}
+.code .hljs-attr,
+.code .hljs-attribute,
+.code .hljs-property,
+.code .hljs-variable,
+.code .hljs-params,
+.code .hljs-template-variable {
+  color: var(--code-name);
+}
+.code .hljs-meta,
+.code .hljs-punctuation,
+.code .hljs-operator {
+  color: var(--board-dim);
+}
+.code .hljs-emphasis {
+  font-style: italic;
+}
+.code .hljs-strong {
+  font-weight: 700;
+}
+
 /* ---------- Top bar ---------- */
 .docs-top {
   position: sticky;
   top: 0;
   z-index: var(--z-bar);
-  background: var(--bg);
-  border-bottom: 1px solid var(--hair);
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 .docs-top-in {
   width: min(var(--docs-w), 100% - 2 * var(--gutter));
@@ -48,24 +509,23 @@ html:has(.docs) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font: 400 var(--text-lg) / 1 var(--serif);
-  font-variant-numeric: lining-nums;
-  color: var(--ink);
+  font: 650 var(--text-md) / 1 var(--font-heading);
+  color: var(--foreground);
   text-decoration: none;
 }
 .docs-brand b {
-  font-weight: 400;
-  color: var(--ink-2);
+  font-weight: 450;
+  color: var(--muted-foreground);
 }
 .docs-menu {
   display: none;
   min-height: var(--control-sm);
   padding: 6px 14px;
-  border: 1px solid var(--ink-2);
+  border: 1px solid var(--input);
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--ink);
-  font: 600 var(--text-sm) / 1 var(--sans);
+  color: var(--foreground);
+  font: 600 var(--text-sm) / 1 var(--font-sans);
   cursor: pointer;
 }
 .docs-search {
@@ -90,7 +550,7 @@ html:has(.docs) {
   max-height: min(70vh, 460px);
   overflow: auto;
   background: var(--card);
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--elev-menu);
 }
@@ -98,34 +558,89 @@ html:has(.docs) {
   display: none;
 }
 .docs-results .where {
-  font: 600 var(--text-xs) / 1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--font-sans);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 .docs-results .snip {
   font-size: var(--text-sm);
   line-height: 1.4;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 .docs-results .none {
   padding: 12px;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 
-/* The badge in the bar is the tiffin that is packed as the page is read (the fills are the app stylesheet's own, see
-   `.mark-fill`): the same protagonist as on the home page. */
+/* The mark in the bar is the ledger of the home page and the app: a book in the ink of the page with a saffron tick,
+   and a stripe over each of its rulings that is filled as the page is read (the same scroll-driven fill as the home
+   page's bar). With no way to follow the scroll it simply stays empty. */
 .docs-mark {
   flex: none;
-}
-.docs-mark .mark-badge {
-  fill: var(--brand);
+  color: var(--foreground);
 }
 .docs-mark .mark-body {
-  fill: var(--brand-ink);
+  fill: currentColor;
 }
-.docs-mark .mark-clip {
+.docs-mark .mark-rule {
+  fill: var(--background);
+  opacity: 0.85;
+}
+.docs-mark .mark-tick {
   fill: var(--highlight);
+}
+.mark-fill {
+  fill: var(--highlight);
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .mark-fill {
+      animation: pack linear both;
+      animation-timeline: scroll(root block);
+    }
+    .mark-fill-1 {
+      animation-range: 4% 30%;
+    }
+    .mark-fill-2 {
+      animation-range: 30% 56%;
+    }
+    .mark-fill-3 {
+      animation-range: 56% 80%;
+    }
+    .mark-fill-4 {
+      animation-range: 80% 98%;
+    }
+  }
+}
+@keyframes pack {
+  to {
+    transform: scaleX(1);
+  }
+}
+/* The way back to the kitchen the reader came from, under the bar, for someone who is signed in (docs.js). */
+.docs .docs-back {
+  width: min(var(--docs-w), 100% - 2 * var(--gutter));
+  margin: 0 auto;
+  padding-bottom: 6px;
+  font-size: var(--text-sm);
+}
+.docs-back[hidden] {
+  display: none;
+}
+.docs-back a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-sm);
+  color: var(--primary);
+  font-weight: 600;
+}
+.docs-back a::before {
+  content: "\2190";
+  margin-right: 8px;
 }
 
 /* From one page to the next the bar and the contents stay where they are and only the page changes, where the
@@ -183,10 +698,10 @@ html:has(.docs) {
   border-radius: var(--radius-md);
   list-style: none;
   cursor: pointer;
-  font: 600 var(--text-xs) / 1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--font-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 .docs-group-title::-webkit-details-marker {
   display: none;
@@ -208,28 +723,28 @@ html:has(.docs) {
   transform: rotate(45deg);
 }
 .docs-group-title:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--primary);
   outline-offset: -2px;
 }
 .docs-links {
   display: grid;
   gap: 2px;
   margin: 2px 0 12px 14px;
-  border-left: 1px solid var(--hair);
+  border-left: 1px solid var(--border);
 }
 .docs-nav a {
   display: block;
   padding: 6px 12px;
   border-radius: var(--radius-md);
-  color: var(--ink-2);
+  color: var(--muted-foreground);
   text-decoration: none;
   font-weight: 500;
   font-size: var(--text-sm);
   line-height: 1.4;
 }
 .docs-nav a[aria-current="page"] {
-  background: var(--brand);
-  color: var(--brand-ink);
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 /* Where the browser can, a group opens and closes by growing, not by jumping. */
 @supports (interpolate-size: allow-keywords) {
@@ -260,7 +775,7 @@ html:has(.docs) {
   display: grid;
   gap: 2px;
   align-content: start;
-  border-left: 1px solid var(--hair);
+  border-left: 1px solid var(--border);
 }
 .docs-toc .docs-group-title {
   padding-left: 14px;
@@ -271,7 +786,7 @@ html:has(.docs) {
   padding: 4px 14px;
   margin-left: -1px; /* design: it overlaps the rule beside it by that rule's own width */
   border-left: 2px solid transparent;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
   text-decoration: none;
   font-size: var(--text-sm);
   line-height: 1.35;
@@ -280,17 +795,17 @@ html:has(.docs) {
   padding-left: 24px;
 }
 .docs-toc a[aria-current="true"] {
-  border-left-color: var(--brand);
-  color: var(--ink);
+  border-left-color: var(--primary);
+  color: var(--foreground);
   font-weight: 600;
 }
 @media (hover: hover) and (pointer: fine) {
   .docs-nav a:not([aria-current="page"]):hover {
-    background: var(--paper-2);
-    color: var(--ink);
+    background: var(--muted);
+    color: var(--foreground);
   }
   .docs-toc a:hover {
-    color: var(--ink);
+    color: var(--foreground);
   }
 }
 
@@ -305,10 +820,10 @@ html:has(.docs) {
 }
 .docs-crumb {
   margin-bottom: 8px;
-  font: 600 var(--text-xs) / 1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--font-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 .docs-article h1 {
   font-size: clamp(2.1rem, 4.4vw, 3.1rem);
@@ -324,9 +839,9 @@ html:has(.docs) {
 }
 .docs-article .anchor {
   margin-left: var(--space-2);
-  color: var(--ink-2);
+  color: var(--muted-foreground);
   text-decoration: none;
-  font-family: var(--sans);
+  font-family: var(--font-sans);
   font-size: 0.8em;
   opacity: 0;
 }
@@ -351,27 +866,18 @@ html:has(.docs) {
   margin: 0 0 var(--flow);
 }
 .feature p {
-  color: var(--ink-2);
+  color: var(--muted-foreground);
   font-size: var(--text-sm);
   line-height: 1.55;
 }
 .callout p {
   margin-bottom: var(--space-3);
 }
-.specimens p {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  margin: 0;
-  max-width: none;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--hair);
-}
 /* What a page opens with is its summary: set larger and quieter, so the page says what it is before it says more. */
 .docs-article h1 + p {
   font-size: var(--text-lg);
   line-height: var(--leading-lede);
-  color: var(--ink-2);
+  color: var(--muted-foreground);
   margin-bottom: var(--space-5);
 }
 .docs-article ul,
@@ -387,23 +893,29 @@ html:has(.docs) {
   margin-top: 6px;
   margin-bottom: 0;
 }
+.docs-article ul {
+  list-style: disc;
+}
+.docs-article ol {
+  list-style: decimal;
+}
 .docs-article ul:has(> li > .tick) {
   list-style: none;
   padding-left: var(--space-1);
 }
 .tick {
   font-size: 1.15em;
-  color: var(--brand);
+  color: var(--primary);
 }
 .docs-article blockquote {
   margin: var(--flow) 0;
   padding: var(--space-1) var(--space-4);
-  border-left: 3px solid var(--hair);
-  color: var(--ink-2);
+  border-left: 3px solid var(--border);
+  color: var(--muted-foreground);
 }
 .docs-article hr {
   border: 0;
-  border-top: 1px solid var(--hair);
+  border-top: 1px solid var(--border);
   margin: var(--space-6) 0;
 }
 .docs-article table {
@@ -437,17 +949,11 @@ html:has(.docs) {
 .docs-article strong {
   font-weight: 650;
 }
-.specimens code {
-  flex: 0 0 8rem;
-}
-.ruler code {
-  flex: 0 0 8rem;
-}
 .docs-article :not(pre) > code {
   padding: 0.1em 0.35em;
   border-radius: var(--radius-sm);
-  background: var(--paper-2);
-  font: 0.88em / 1.4 var(--mono);
+  background: var(--muted);
+  font: 0.88em / 1.4 var(--font-mono);
   overflow-wrap: break-word;
 }
 
@@ -463,7 +969,7 @@ html:has(.docs) {
    ordinary ink, and the arrows the brand itself. */
 .docs-article figure.diagram {
   margin: var(--flow) 0 var(--space-5);
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
 }
@@ -482,19 +988,19 @@ html:has(.docs) {
   min-width: 36rem;
   height: auto;
   --bg: var(--card);
-  --fg: var(--ink);
-  --accent: var(--brand);
-  --line: var(--ink-2);
-  --muted: var(--ink-2);
-  --surface: color-mix(in srgb, var(--brand) 9%, var(--card));
-  --border: color-mix(in srgb, var(--brand) 38%, var(--card));
+  --fg: var(--foreground);
+  --accent: var(--primary);
+  --line: var(--muted-foreground);
+  --muted: var(--muted-foreground);
+  --surface: color-mix(in srgb, var(--primary) 9%, var(--card));
+  --border: color-mix(in srgb, var(--primary) 38%, var(--card));
 }
 .diagram-scroll svg text {
-  font-family: var(--sans);
+  font-family: var(--font-sans);
 }
 .docs-article figure.diagram > figcaption {
   padding: 0 var(--space-4) var(--space-3);
-  color: var(--ink-2);
+  color: var(--muted-foreground);
   font-size: var(--text-sm);
   text-align: center;
 }
@@ -503,7 +1009,7 @@ html:has(.docs) {
   font-size: var(--text-sm);
 }
 .diagram-source summary {
-  color: var(--ink-2);
+  color: var(--muted-foreground);
   cursor: pointer;
 }
 .diagram-source .code {
@@ -514,31 +1020,31 @@ html:has(.docs) {
 .callout {
   margin: var(--space-5) 0;
   padding: 12px 16px 4px;
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   border-left-width: 5px;
   border-radius: var(--radius-md);
   background: var(--card);
 }
 .callout .callout-title {
   margin-bottom: var(--space-1);
-  font: 700 var(--text-xs) / 1.2 var(--sans);
+  font: 700 var(--text-xs) / 1.2 var(--font-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 .callout-note {
-  border-left-color: var(--ink-2);
+  border-left-color: var(--muted-foreground);
 }
 .callout-tip {
-  border-left-color: var(--good);
-  background: var(--good-soft);
+  border-left-color: var(--success-foreground);
+  background: var(--success-soft);
 }
 .callout-important {
-  border-left-color: var(--brand);
+  border-left-color: var(--primary);
 }
 .callout-warning {
-  border-left-color: var(--accent);
-  background: var(--warn-soft);
+  border-left-color: var(--warning);
+  background: var(--warning-soft);
 }
 
 /* Previous and next. */
@@ -552,28 +1058,18 @@ html:has(.docs) {
   display: grid;
   gap: 4px;
   padding: 14px 18px;
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
-  color: var(--ink);
-  font: 400 var(--text-lg) / 1.2 var(--serif);
+  color: var(--foreground);
+  font: 400 var(--text-lg) / 1.2 var(--font-heading);
   text-decoration: none;
 }
-.swatch b,
-.swatch span {
-  padding: 2px 10px;
-  font-size: var(--text-xs);
-  line-height: 1.4;
-}
-.swatch span {
-  padding-bottom: 8px;
-  color: var(--ink-2);
-}
 .docs-pager a span {
-  font: 600 var(--text-xs) / 1.2 var(--sans);
+  font: 600 var(--text-xs) / 1.2 var(--font-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 .docs-pager .next {
   text-align: right;
@@ -581,13 +1077,13 @@ html:has(.docs) {
 }
 @media (hover: hover) and (pointer: fine) {
   .docs-pager a:hover {
-    border-color: var(--ink-2);
+    border-color: var(--muted-foreground);
   }
 }
 .docs-foot {
   max-width: 50rem;
   padding: 0 0 56px;
-  border-top: 1px solid var(--hair);
+  border-top: 1px solid var(--border);
   padding-top: 20px;
 }
 
@@ -596,9 +1092,9 @@ html:has(.docs) {
   display: inline-flex;
   gap: 2px;
   padding: 2px;
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  background: var(--paper-2);
+  background: var(--muted);
 }
 .docs-switch a {
   display: inline-flex;
@@ -606,8 +1102,8 @@ html:has(.docs) {
   min-height: var(--control-sm);
   padding: 0 14px;
   border-radius: var(--radius-pill);
-  color: var(--ink-2);
-  font: 600 var(--text-sm) / 1.2 var(--sans);
+  color: var(--muted-foreground);
+  font: 600 var(--text-sm) / 1.2 var(--font-sans);
   text-decoration: none;
 }
 .docs-results li a {
@@ -615,21 +1111,21 @@ html:has(.docs) {
   gap: 2px;
   padding: 10px 12px;
   border-radius: var(--radius-md);
-  color: var(--ink);
+  color: var(--foreground);
   text-decoration: none;
 }
 /* After the nav, contents, pager and switcher links it is more specific than, so it reads in the order it wins. */
 .docs-results li[aria-selected="true"] a,
 .docs-results li a:hover {
-  background: var(--paper-2);
+  background: var(--muted);
 }
 .docs-switch a[aria-current="true"] {
-  background: var(--brand);
-  color: var(--brand-ink);
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 @media (hover: hover) and (pointer: fine) {
   .docs-switch a:not([aria-current="true"]):hover {
-    color: var(--ink);
+    color: var(--foreground);
   }
 }
 
@@ -645,13 +1141,13 @@ html:has(.docs) {
   padding-block: clamp(var(--space-7), 9vw, var(--space-8)) var(--space-7);
 }
 .home-hero h1 {
-  font: 400 clamp(2.5rem, 7vw, 4.25rem) / 1.04 var(--serif);
+  font: 650 clamp(2.5rem, 7vw, 4.25rem) / 1.04 var(--font-heading);
   font-variant-numeric: lining-nums;
   letter-spacing: -0.02em;
 }
 .home-name {
   display: block;
-  color: var(--brand);
+  color: var(--primary);
 }
 .home-text {
   display: block;
@@ -661,7 +1157,7 @@ html:has(.docs) {
   margin-top: var(--space-4);
   font-size: var(--text-lg);
   line-height: 1.5;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 .home-actions {
   display: flex;
@@ -680,21 +1176,21 @@ html:has(.docs) {
   align-content: start;
   gap: var(--space-2);
   padding: var(--space-5);
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--card);
-  color: var(--ink);
+  color: var(--foreground);
   text-decoration: none;
   transition:
     border-color var(--dur-1) var(--ease-out),
     transform var(--dur-1) var(--ease-out);
 }
 .feature h2 {
-  font: 600 var(--text-md) / 1.3 var(--sans);
+  font: 600 var(--text-md) / 1.3 var(--font-sans);
 }
 @media (hover: hover) and (pointer: fine) {
   .feature:hover {
-    border-color: var(--brand);
+    border-color: var(--primary);
     transform: translateY(-2px);
   }
 }
@@ -712,7 +1208,9 @@ html:has(.docs) {
   padding-bottom: var(--space-7);
 }
 
-/* ---------- The design system, shown with the system itself ---------- */
+/* ---------- The design system, shown with the system itself ----------
+   The swatches are the theme's own tokens, so they follow the light and the dark theme. The `ds-` pieces are
+   plain-HTML drawings of the app's components, written in the same tokens. */
 .swatches {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -723,66 +1221,91 @@ html:has(.docs) {
   display: grid;
   grid-template-rows: 56px auto auto;
   overflow: hidden;
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--card);
 }
 .swatch i {
   display: block;
-  border-bottom: 1px solid var(--hair);
+  border-bottom: 1px solid var(--border);
+}
+.swatch b,
+.swatch span {
+  padding: 2px 10px;
+  font-size: var(--text-xs);
+  line-height: 1.4;
 }
 .swatch b {
   padding-top: 8px;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-weight: 600;
 }
-.sw-bg i {
-  background: var(--bg);
+.swatch span {
+  padding-bottom: 8px;
+  color: var(--muted-foreground);
 }
-.sw-paper-2 i {
-  background: var(--paper-2);
+.sw-background i {
+  background: var(--background);
 }
 .sw-card i {
   background: var(--card);
 }
-.sw-ink i {
-  background: var(--ink);
+.sw-muted i {
+  background: var(--muted);
 }
-.sw-ink-2 i {
-  background: var(--ink-2);
+.sw-secondary i {
+  background: var(--secondary);
 }
-.sw-hair i {
-  background: var(--hair);
+.sw-border i {
+  background: var(--border);
 }
-.sw-brand i {
-  background: var(--brand);
+.sw-input i {
+  background: var(--input);
+}
+.sw-foreground i {
+  background: var(--foreground);
+}
+.sw-muted-foreground i {
+  background: var(--muted-foreground);
+}
+.sw-primary i {
+  background: var(--primary);
 }
 .sw-accent i {
+  background: var(--accent);
+}
+.sw-ring i {
+  background: var(--ring);
+}
+.sw-highlight i {
   background: var(--highlight);
 }
-.sw-accent-soft i {
-  background: var(--accent-soft);
+.sw-success i {
+  background: var(--success);
 }
-.sw-good i {
-  background: var(--good);
+.sw-warning i {
+  background: var(--warning);
 }
-.sw-good-soft i {
-  background: var(--good-soft);
+.sw-destructive i {
+  background: var(--destructive);
 }
-.sw-warn i {
-  background: var(--warn);
+.sw-info i {
+  background: var(--info);
 }
-.sw-warn-soft i {
-  background: var(--warn-soft);
+.sw-chart-1 i {
+  background: var(--chart-1);
 }
-.sw-bad i {
-  background: var(--bad);
+.sw-chart-2 i {
+  background: var(--chart-2);
 }
-.sw-bad-soft i {
-  background: var(--bad-soft);
+.sw-chart-3 i {
+  background: var(--chart-3);
 }
-.sw-field-green i {
-  background: var(--field-green);
+.sw-chart-4 i {
+  background: var(--chart-4);
+}
+.sw-chart-5 i {
+  background: var(--chart-5);
 }
 .sw-board i {
   background: var(--board);
@@ -811,32 +1334,30 @@ html:has(.docs) {
   gap: var(--space-2);
   margin-block: var(--space-4) var(--space-5);
 }
-.specimens .serif {
-  font-family: var(--serif);
-}
-.t-2xs {
-  font-size: var(--text-2xs);
-}
-.t-xs {
-  font-size: var(--text-xs);
-}
-.t-sm {
+.t-body {
   font-size: var(--text-sm);
 }
-.t-md {
-  font-size: var(--text-md);
+.t-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
 }
-.t-base {
-  font-size: var(--text-base);
-}
-.t-lg {
-  font-size: var(--text-lg);
-}
-.t-xl {
+.t-h1 {
   font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
-.t-2xl {
-  font-size: var(--text-2xl);
+.t-h2 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.t-stat {
+  font-size: var(--text-xl);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.t-caption {
+  font-size: var(--text-xs);
+  font-weight: 500;
 }
 
 .rulers {
@@ -849,11 +1370,14 @@ html:has(.docs) {
   align-items: center;
   gap: var(--space-3);
 }
+.ruler code {
+  flex: 0 0 8rem;
+}
 .ruler i {
   display: block;
   height: var(--space-3);
   border-radius: var(--radius-xs);
-  background: var(--brand);
+  background: var(--primary);
 }
 .sp-1 {
   width: var(--space-1);
@@ -879,6 +1403,18 @@ html:has(.docs) {
 .sp-8 {
   width: var(--space-8);
 }
+.specimens p {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  max-width: none;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+.specimens code {
+  flex: 0 0 8rem;
+}
 
 .shapes {
   display: flex;
@@ -891,12 +1427,9 @@ html:has(.docs) {
   place-items: center;
   width: 96px;
   height: 64px;
-  border: 1px solid var(--ink-2);
+  border: 1px solid var(--input);
   background: var(--card);
-  font: 600 var(--text-xs) / 1.2 var(--mono);
-}
-.r-xs {
-  border-radius: var(--radius-xs);
+  font: 600 var(--text-xs) / 1.2 var(--font-mono);
 }
 .r-sm {
   border-radius: var(--radius-sm);
@@ -921,7 +1454,7 @@ html:has(.docs) {
   padding: var(--space-5);
   margin-block: var(--space-4) var(--space-5);
   border-radius: var(--radius-lg);
-  background: var(--paper-2);
+  background: var(--muted);
 }
 .layer {
   display: grid;
@@ -930,23 +1463,20 @@ html:has(.docs) {
   height: 84px;
   border-radius: var(--radius-md);
   background: var(--card);
-  font: 600 var(--text-xs) / 1.3 var(--mono);
+  font: 600 var(--text-xs) / 1.3 var(--font-mono);
   text-align: center;
 }
 .layer.lay-flat {
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
 }
 .layer.lay-menu {
   box-shadow: var(--elev-menu);
-}
-.layer.lay-toast {
-  box-shadow: var(--elev-toast);
 }
 .layer.lay-dialog {
   box-shadow: var(--elev-dialog);
 }
 
-/* A specimen of the app's own components, on a page of its own colour. */
+/* A specimen of the app's own components, drawn in plain HTML on a page of its own colour. */
 .demo {
   display: flex;
   flex-wrap: wrap;
@@ -954,20 +1484,187 @@ html:has(.docs) {
   gap: var(--space-3);
   padding: var(--space-4);
   margin-block: var(--space-3) var(--space-5);
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--bg);
+  background: var(--background);
 }
-.demo .field {
+.demo .tablewrap {
+  flex: 1 1 100%;
+}
+.demo .ds-alert {
+  flex: 1 1 100%;
+}
+.ds-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  font: 500 var(--text-sm) / 1 var(--font-sans);
+  cursor: pointer;
+}
+.ds-btn.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.ds-btn.secondary {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+.ds-btn.outline {
+  border-color: var(--input);
+  background: var(--background);
+  color: var(--foreground);
+}
+.ds-btn.ghost {
+  background: transparent;
+  color: var(--foreground);
+}
+.ds-btn.destructive {
+  background: color-mix(in oklch, var(--destructive) 10%, var(--background));
+  color: var(--destructive);
+}
+.ds-btn.link {
+  background: transparent;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.ds-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ds-field {
+  display: grid;
+  gap: 6px;
   flex: 1 1 220px;
   align-self: flex-start;
 }
-.demo .tiles {
-  flex: 1 1 100%;
+.ds-field label {
+  font: 500 var(--text-sm) / 1.2 var(--font-sans);
 }
-.demo .banner {
-  flex: 1 1 100%;
-  margin: 0;
+.ds-field .hint {
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+.ds-input {
+  appearance: none;
+  width: 100%;
+  min-height: var(--control);
+  padding: 0 12px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  color: var(--foreground);
+  font: 400 var(--text-md) / 1.2 var(--font-sans);
+}
+.ds-input[aria-invalid="true"] {
+  border-color: var(--destructive);
+  box-shadow: var(--shadow-focus-error);
+}
+.ds-error {
+  color: var(--destructive);
+  font-size: var(--text-sm);
+}
+.ds-group {
+  display: flex;
+}
+.ds-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--input);
+  border-right: 0;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.ds-group .ds-input {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-variant-numeric: tabular-nums;
+}
+.ds-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border-radius: var(--radius-pill);
+  font: 500 var(--text-xs) / 1.4 var(--font-sans);
+}
+.ds-badge svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ds-badge.success {
+  background: var(--success-soft);
+  color: var(--success-foreground);
+}
+.ds-badge.warning {
+  background: var(--warning-soft);
+  color: var(--warning-foreground);
+}
+.ds-badge.destructive {
+  background: var(--bad-soft);
+  color: var(--destructive);
+}
+.ds-badge.strong {
+  font-weight: 700;
+}
+.ds-badge.neutral {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.ds-alert {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+.ds-alert.info {
+  border-left-color: var(--info);
+  background: var(--info-soft);
+  color: var(--info-foreground);
+}
+.ds-alert.success {
+  border-left-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success-foreground);
+}
+.ds-alert.warning {
+  border-left-color: var(--warning);
+  background: var(--warning-soft);
+  color: var(--warning-foreground);
+}
+.ds-alert.destructive {
+  border-left-color: var(--destructive);
+  background: var(--bad-soft);
+  color: var(--destructive);
+}
+.ds-stat {
+  flex: 1 1 140px;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+}
+.ds-stat .k {
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+.ds-stat .v {
+  margin-top: 4px;
+  font-size: var(--text-xl);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Narrower screens ---------- */
@@ -992,11 +1689,11 @@ html:has(.docs) {
      between the guides and the docs with the theme at the right; then the search. */
   .docs-top-in {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      "brand menu"
-      "switch theme"
-      "search search";
+      "brand menu menu"
+      "switch theme open"
+      "search search search";
   }
   .docs-brand {
     grid-area: brand;
@@ -1023,7 +1720,7 @@ html:has(.docs) {
     position: static;
     max-height: none;
     padding: 16px 0 8px;
-    border-bottom: 1px solid var(--hair);
+    border-bottom: 1px solid var(--border);
   }
   .docs-nav[data-open="true"] {
     display: grid;
@@ -1033,7 +1730,8 @@ html:has(.docs) {
     max-width: none;
   }
   .docs-open {
-    display: none;
+    grid-area: open;
+    justify-self: end;
   }
   .docs-pager {
     grid-template-columns: 1fr;

@@ -311,3 +311,62 @@ describe("the carrier is never left in the air", () => {
     expect(STILL).toBeLessThan(250);
   });
 });
+
+describe("a chapter whose picture carries the carrier on", () => {
+  // The third chapter's picture has a carrier of its own, at this place on the page.
+  const INTO = { left: 520, top: 3050, width: 96, height: 151 };
+  const into = (y: number): (Box | null)[] => [
+    null,
+    null,
+    { ...INTO, top: INTO.top - y },
+    null,
+    null,
+  ];
+  const on = (y: number) => courierAt({ ...where(y), into: into(y) });
+
+  it("puts the carrier into the picture after the heading, and not into the bar", () => {
+    const d = on(TOPS[2]! - 20);
+    expect(d).toMatchObject({ flyer: 0, docked: false, scene: { chapter: 2, seen: 1 } });
+    expect(d.mark).toBeCloseTo(0.28);
+    near(d.box, { ...INTO, top: INTO.top - (TOPS[2]! - 20) });
+  });
+
+  it("leaves it in the picture until the next heading comes, and never in the bar between", () => {
+    for (let y = TOPS[2]! - 20; y < TOPS[3]! - VH * 0.92; y += 50) {
+      const d = on(y);
+      expect(d.docked, `at ${y}`).toBe(false);
+      expect(d.scene, `at ${y}`).toEqual({ chapter: 2, seen: 1 });
+    }
+  });
+
+  it("takes it out of the picture for the next heading, and then into the bar as before", () => {
+    const y = TOPS[3]! - VH * 0.5;
+    const d = on(y);
+    near(d.box, standOn(heading(TOPS[3]!, y)));
+    expect(d).toMatchObject({ flyer: 1, docked: false });
+    expect(d.scene?.seen ?? 0).toBe(0);
+    expect(on(TOPS[3]! - 20)).toMatchObject({ docked: true, mark: 1, scene: null });
+  });
+
+  it("goes the other way the same, and is the bar's own before the chapter", () => {
+    expect(on(TOPS[1]! - 20)).toMatchObject({ docked: true, scene: null });
+    const ys = [2000, 2500, 2790, 3000, 3300, 3700];
+    expect(ys.map(on)).toEqual([...ys].reverse().map(on).reverse());
+  });
+
+  it("never leaps on the way into the picture or out of it", () => {
+    let prev = on(TOPS[1]!);
+    for (let y = TOPS[1]! + 1; y <= TOPS[3]!; y++) {
+      const d = on(y);
+      const a = centre(prev.box);
+      const b = centre(d.box);
+      expect(Math.hypot(b.x - a.x, b.y - a.y), `at ${y}`).toBeLessThan(7);
+      expect(Math.abs(d.flyer - prev.flyer), `flyer at ${y}`).toBeLessThan(0.25);
+      expect(
+        Math.abs((d.scene?.seen ?? 0) - (prev.scene?.seen ?? 0)),
+        `scene at ${y}`,
+      ).toBeLessThan(0.25);
+      prev = d;
+    }
+  });
+});

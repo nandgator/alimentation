@@ -1,4 +1,10 @@
-import type { CatalogueItem, MenuVersion, Service, Weekday } from "@alimentation/core";
+import {
+  type CatalogueItem,
+  dayName,
+  type MenuVersion,
+  type Service,
+  type Weekday,
+} from "@alimentation/core";
 
 /**
  * The menu editor's state: for each service, the meal on each weekday ("" is "not served"), and the items it
@@ -79,4 +85,10 @@ export function menuBody(
     if (ids.length > 0) offered[sv] = ids;
   }
   return { effectiveFrom, days, offered, note: note.trim() || null };
+}
+
+/** What to say when working days have no meal, in words, or null when every one has. */
+export function unservedWords(days: readonly Weekday[]): string | null {
+  if (days.length === 0) return null;
+  return `Nothing is served on ${days.map((d) => dayName(d)).join(", ")}. Choose a meal, or take the day off in the rules.`;
 }

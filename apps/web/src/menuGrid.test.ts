@@ -7,6 +7,7 @@ import {
   setCell,
   toggleOffered,
   unservedDays,
+  unservedWords,
 } from "./menuGrid.ts";
 
 const services: Service[] = [
@@ -76,5 +77,14 @@ describe("the menu grid", () => {
       offered: { lunch: ["thali", "curd"] },
       note: null,
     });
+  });
+});
+
+describe("unservedWords", () => {
+  it("names the days with nothing served, and is silent when there are none", () => {
+    expect(unservedWords([])).toBeNull();
+    expect(unservedWords([2, 3])).toBe(
+      "Nothing is served on Tue, Wed. Choose a meal, or take the day off in the rules.",
+    );
   });
 });

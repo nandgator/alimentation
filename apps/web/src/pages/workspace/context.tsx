@@ -11,8 +11,15 @@ export interface Workspace {
   /** Whether the kitchen tracks money. When it does not, there are no prices, bills or payments to show. */
   money: boolean;
   fromDevice: boolean;
+  /** The kitchen's own address, `/w/{slug}`: what every link inside it starts with. */
+  base: string;
   api: string;
+  /** Whether the statement is being fetched again while the old one stays on screen. */
+  refreshing: boolean;
+  /** Fetches the statement again, keeping what is shown until the new one arrives. */
   reload(): void;
+  /** Acts as another of the person's roles: no page load, and the new role's home opens. */
+  switchRole(role: Role): void;
   nameOf(personId: string): string;
 }
 

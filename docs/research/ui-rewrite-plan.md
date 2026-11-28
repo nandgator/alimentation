@@ -328,6 +328,7 @@ Every page is built from the same parts:
 The specs below list only what differs from that.
 
 ### Sign in (`/signin`). Block: login-03
+
 - A centred card, with the brand mark above it.
 - Step 1 asks for the email (`inputMode="email"`, `autoCapitalize="none"`, `spellCheck={false}`, `autoComplete="email"`).
 - Step 2 asks for "Your name" only if the account is new.
@@ -335,10 +336,12 @@ The specs below list only what differs from that.
 - Errors are inline (FRM-14).
 
 ### Join (`/join/:token`)
+
 - A card that reads "{Admin} invited you to {Kitchen} as a Consumer". It carries a primary "Join" and, when signed out, an email step.
 - An expired or used token shows `NotAvailable` with the reason "This invite has expired. Ask your admin for a new one."
 
 ### Kitchens (`/app`)
+
 - The H1 is "Your kitchens", with a primary "New kitchen" button.
 - The list uses `item` rows: avatar initial, name, the role badges, and "3 people · ₹12,400 owed" where money is on. Slugs are hidden.
 - A "Manage" dropdown holds "Copy a setup" (it opens a FormDialog) and "Start an organisation".
@@ -346,6 +349,7 @@ The specs below list only what differs from that.
 - The empty state reads "You are not in a kitchen yet" and offers "New kitchen".
 
 ### New kitchen (`/app/new`)
+
 - A full page with one column, max 560px.
 - **Name.** The address is derived from it with a live check (debounced 300ms) that shows a check icon for "Available" or "Taken. Try demo-mess-2."
 - **Start from.** Radio cards, each with a bold title and a muted description.
@@ -357,11 +361,13 @@ The specs below list only what differs from that.
 - Submit reads "Create kitchen" and is full width on phones. On success the user lands in the new kitchen's admin Home with its checklist (FRM-09).
 
 ### Operator (`/app/operator`), Organisation (`/app/org/:id`)
+
 - A PageHeader with tabs: Kitchens, People, Settings.
 - Lists use DataTable.
 - Destructive operations use `ConfirmAction level="typed"`.
 
 ### Home: admin (`/w/:slug`). Starts from block dashboard-01, reduced
+
 - **Setup checklist card.** It appears only while setup is incomplete. It is a task list (People, What you serve, Menu, Prices) with "2 of 4 done", and each row is a link with a status icon.
 - **"Needs you" card.** It shows claims to confirm (a count and the first three, each with Confirm or Open), disputed claims, and entries logged late. Its empty state reads "Nothing waiting. ✓".
 - **Stats.** One row of three cards: "Owed to the kitchen" (Money, large), "Collected this month", and "Eating today" (a count linking to Today). A projected month shows the caption "Projected to month end".
@@ -369,12 +375,14 @@ The specs below list only what differs from that.
 - **Copy.** The H1 is the kitchen name and the description is the date, e.g. "Wednesday, 25 Nov 2026".
 
 ### Home: consumer (`/w/:slug`)
+
 - **Hero card.** "You owe ₹1,250 for November" (or "You're all paid up", or "Credit ₹580"), shown with a StatusBadge and a primary "Pay" button.
 - **This month.** A compact bill statement (see Bills), collapsible.
 - **Your next meals.** Today and tomorrow, with "Skip" chips that act as undo-level actions.
 - **Recent.** The last three history items and "See all".
 
 ### Today (`/w/:slug/today`; this is the cook's home)
+
 - **Header.** A date switcher of chips for Yesterday, Today and Tomorrow, plus a calendar button.
 - **Meal tabs.** Breakfast, Lunch and Dinner.
 - **Each tab:**
@@ -385,6 +393,7 @@ The specs below list only what differs from that.
 - Skeleton: the tabs plus 8 list rows.
 
 ### Meals (`/w/:slug/meals`)
+
 - **Consumer: intent buttons first.** "Skip a meal", "Add an extra" and "Guest". Each opens a FormDialog that asks for date chips (today, tomorrow, the next 7 days, or a calendar) and the meals (a toggle group). A note is under "More details".
 - **Admin and cook.** The same intents, plus a person picker.
 - **Below the intents.** A list of entries grouped by day, with a StatusBadge and row actions in a menu: Edit, or Remove at undo level.
@@ -392,6 +401,7 @@ The specs below list only what differs from that.
 - An error such as "already logged" sits under the Date field (FRM-02, FRM-16).
 
 ### Payments / Pay (`/w/:slug/payments`)
+
 - **Admin.** Tabs in the URL: To confirm (default, with a badge), Pending, Confirmed, Disputed, All.
   - The DataTable columns are Person, Month ("Nov 2026"), Amount, Method, Paid on, and Status. A dispute note appears as a second line.
   - Row actions in a menu: Confirm (undo level), Dispute (FormDialog), and Reverse (`ConfirmAction confirm`). The reason is marked "Required", and the effect is stated: "Kabir's November payment goes back to pending."
@@ -409,12 +419,14 @@ The specs below list only what differs from that.
 - **Cook.** What the kitchen owes the cook and what has been paid, as a read-only list.
 
 ### History (`/w/:slug/history`)
+
 - A feed grouped by day, with a sticky day heading on each.
 - Each row has a type icon (bill, payment, meal, menu), a short sentence with the amount or date in bold, and the time on the right.
 - Filter chips in the URL: All, Bills, Payments, Meals.
 - The pager reads "Show older (24 more)" (DAT-11).
 
 ### People (`/w/:slug/people`, `/people/:id`)
+
 - **Table.** A DataTable with the columns Name (the email under it), Roles (badges, one row per person whatever their roles), Eats (a services summary that wraps), Account (Active or Invited, as a StatusBadge), and From.
   - A search box.
   - Filter chips: Consumers, Cooks, Admins, Disabled. Disabled people are hidden by default.
@@ -424,6 +436,7 @@ The specs below list only what differs from that.
 - **Person detail.** A page with tabs: Overview, Meals, Payments, Bill. Actions: Invite (the title reads "Invite Asha Rao"), Edit, and Disable (`ConfirmAction confirm`).
 
 ### Bills (`/w/:slug/bills`, `/bills/:personId`)
+
 - **Header.** The MonthPicker in the URL. A projected month is badged "Projected", with a tooltip: "Figures to date plus the rest of the month as planned."
 - **Stats.** Three cards: Billed, Collected, Owed.
 - **Chart.** The shadcn Chart, as a bar chart with two series (Billed on chart-1, Collected on chart-2) over the last 6 months. It has a tooltip on hover and focus, a key that reads "* projected", and a table fallback through "Show as table".
@@ -437,6 +450,7 @@ The specs below list only what differs from that.
 - The per-person bill tables stacked down the page are deleted (DAT-02, DAT-03, DAT-07, DAT-12).
 
 ### Setup hub (`/w/:slug/setup/*`)
+
 - **Tabs.** What you serve, Menu, Prices, Rules, Holidays.
 - **What you serve.** A DataTable of the items. Adding an item opens a FormDialog. Kind is a radio group, and a count uses CountInput. Retire is `ConfirmAction confirm`: the title reads "Retire Curd?", a checkbox reads "I understand this name stays taken", and the destructive button sits on the right with "Keep it" focused (FRM-01).
 - **Menu.** A week grid on desktop. On phones it is a day list with the meals as rows. Editing a day opens a Sheet.
@@ -445,6 +459,7 @@ The specs below list only what differs from that.
 - **Holidays.** A list of the holidays plus "Add a holiday" (a DateField range in which the end is at least the start) and "Import".
 
 ### Books hub (`/w/:slug/books/*`)
+
 - **Tabs.** Month end, Settlements, Older months, Audit, Your data.
 - **Month end.** A checklist of month status ("To confirm: 2", "Disputed: 0") and then "Close November 2026" (`ConfirmAction confirm`). An "Entries after close" setting links to Rules.
 - **Settlements.** A DataTable and "Record a settlement", a FormDialog with MoneyInput, Note (optional) and the Month.
@@ -453,14 +468,17 @@ The specs below list only what differs from that.
 - **Your data.** Export cards (CSV, JSON), agent keys (a DataTable plus "New key"), and the Danger zone card (Move, Delete; `ConfirmAction typed`, with the slug).
 
 ### NotAvailable (all denials and 404)
+
 - A full page with an icon, an H1 and a reason, then a primary "Go to your home" and a secondary "All kitchens".
 - The H1 is "Page not found", "This is for admins" or "You're not in this kitchen".
 - The reason for a role denial reads "People is open to admins. Ask {admin name} if you need it."
 
 ### Receipt (`/r/:id`)
+
 - A printable statement card. It uses the same statement component as Bills, has print styles, and its only chrome is the site header.
 
 ### Home page, guides and docs
+
 - **Site header.** One shared header across all three: the brand mark, Guides, Docs, and then "Open your kitchen" when signed in or "Sign in" when not. When a session exists, the guides and docs show a "Back to {Kitchen}" link (NAV-17).
 - **Home page.** It is restyled to the Bahi tokens, with the drawn pictures kept. `home.css` is rewritten to Tailwind utilities. The drawn art keeps only the rules it needs, in `src/home/art.css`.
 
@@ -599,6 +617,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP0. Foundation (blocking)
 
 **Owns:**
+
 - `package.json` and the lockfile
 - `components.json`
 - `src/theme.css`
@@ -613,6 +632,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 - `e2e/theme.spec.ts`
 
 **Does:**
+
 1. Adds the dependencies from D4 and removes Young Serif.
 2. Runs shadcn init and adds every component in §3.
 3. Writes the tokens from §2, the dark blocks, the motion tokens, preflight, the control font inherit, and `styles.css` moved into the lowest `legacy` layer.
@@ -632,6 +652,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 | `books/` | Settlements, CloseMonths, Retention, Audit, YourData, AgentKeys |
 
 **Accepted when:**
+
 - `bun run build` passes.
 - `tokens.test.ts` passes in both themes.
 - Every control renders in Figtree.
@@ -641,6 +662,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP1. App kit
 
 **Owns:**
+
 - `src/components/app/**`
 - `src/hooks/**`
 - `src/format.ts` and `format.test.ts`
@@ -651,6 +673,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 **Does:** builds every component in the §3 app-components table, and the form helpers with `mapServerError`. It also adds a `/dev/kit` route, available only in development, that shows every component in every state at both viewports.
 
 **Accepted when:**
+
 - Each component is shown on `/dev/kit` in light and dark, and in its empty, loading, error and disabled states.
 - DataTable switches to a list at 767px.
 - FormDialog becomes a sheet below 768px, with the footer visible at 390×844.
@@ -662,6 +685,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP2. Shell and navigation
 
 **Owns:**
+
 - `src/App.tsx`
 - `src/shell/**`, the new home of the shell, route effects, the command menu and the kitchen switcher
 - `src/pages/workspace/Shell.tsx`, which is deleted
@@ -675,6 +699,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 **Does:** everything in §4: the routes table, the per-role nav, sidebar-07 on desktop, the phone top bar, bottom bar and More sheet, NavUser, the role switch, the command menu, the route effects, View Transitions, the progress bar, the skip link, the boot skeleton, the status bar, and `NotAvailable` wiring for every denial.
 
 **Accepted when:**
+
 - Every finding NAV-01 to NAV-11 and NAV-13 to NAV-17 is closed for the shell. NAV-12 is closed by WP3.
 - No horizontal scroll at 390px.
 - The admin sidebar fits 1440×900 with no clipping.
@@ -684,6 +709,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP3. Homes and Bills
 
 **Owns:**
+
 - `src/pages/workspace/home/**`
 - `bills/**`
 - `src/pages/Receipt.tsx`
@@ -694,6 +720,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 **Does:** the admin and consumer Homes, Bills with its chart, table and statement, and the Receipt, all as in §5.
 
 **Accepted when:**
+
 - DAT-02, DAT-03, DAT-07, DAT-08, DAT-12 and NAV-12 are closed.
 - The admin home shows the checklist on `demo-empty` and the "Needs you" card on `demo-mess`.
 - A consumer sees what they owe above the fold at 390×844.
@@ -702,6 +729,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP4. Today, Meals, History
 
 **Owns:**
+
 - `today/**`
 - `meals/**`
 - `history/**`
@@ -710,6 +738,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 **Does:** Today, built around its tabs with optimistic toggles; Meals, with its intents and FormDialogs; and History, grouped by day.
 
 **Accepted when:**
+
 - FRM-16, DAT-11 and the log part of FRM-02 and FRM-06 are closed.
 - A consumer can skip tomorrow's lunch in three taps or fewer, from Home or Meals.
 - A toggle on Today updates in under 100ms, rolls back if the server fails, and offers Undo.
@@ -717,11 +746,13 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP5. Payments
 
 **Owns:**
+
 - `payments/**`
 
 **Does:** the admin tabs and DataTable; the consumer's Pay flow with its pre-fills; the cook's view; and the Reverse, Dispute and Confirm actions through `ConfirmAction`.
 
 **Accepted when:**
+
 - DAT-10 and FRM-11 are closed, along with the payments part of FRM-07.
 - Each claim appears exactly once on screen.
 - The amount field opens the decimal keyboard.
@@ -730,6 +761,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP6. People
 
 **Owns:**
+
 - `people/**`
 - `src/enrolment.ts` and `enrolment.test.ts`
 - `e2e/people-import.spec.ts`
@@ -737,6 +769,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 **Does:** the People DataTable, which becomes a list on phones; Add person; the person detail page; and Import, with its preview step.
 
 **Accepted when:**
+
 - DAT-01, DAT-09 and FRM-08 are closed, along with the people part of FRM-13.
 - Each person appears exactly once, whatever their roles.
 - Import shows a preview before applying.
@@ -746,6 +779,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP7. Setup hub
 
 **Owns:**
+
 - `setup/**`
 - `src/catalogue.ts`, `menuGrid.ts` and `priceForm.ts`, with their tests
 - `e2e/catalogue.spec.ts`
@@ -753,6 +787,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 **Does:** the Setup tabs, as in §5.
 
 **Accepted when:**
+
 - FRM-01, FRM-12 and FRM-19 are closed, along with the setup parts of FRM-04, FRM-06 and FRM-07.
 - Retire is red, requires its checkbox, and "Keep it" has default focus.
 - The Rules dialog footer is visible on open at 390×844 and at 1440×900.
@@ -761,6 +796,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP8. Books hub
 
 **Owns:**
+
 - `books/**`
 - `src/retention.ts` and `retention.test.ts`
 - `e2e/retention.spec.ts` and `agents.spec.ts`
@@ -768,6 +804,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 **Does:** Month end, Settlements, Older months, Audit and Your data, as in §5.
 
 **Accepted when:**
+
 - DAT-06 and FRM-15 are closed.
 - Audit filters, search and pages through rows, with the filters kept in the URL.
 - Every typed confirm shows the string to copy and whether the typed text matches.
@@ -776,6 +813,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP9. Outside the workspace
 
 **Owns:**
+
 - `src/pages/SignIn.tsx`, `Join.tsx`, `Places.tsx`, `ManyKitchens.tsx`, `CopySetup.tsx`, `Operator.tsx` and `Organisation.tsx`
 - `src/pages/workspace/HeadOffice.tsx`
 - `src/kitchens.ts`, `copySetup.ts` and `starters.ts`, with their tests
@@ -784,6 +822,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 **Does:** Sign in, Join, `/app`, `/app/new`, Operator and Organisation, as in §5.
 
 **Accepted when:**
+
 - FRM-09 and FRM-14 are closed.
 - The address check shows its result before submit.
 - The money choice has no default.
@@ -792,18 +831,21 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP10. Public site and docs
 
 **Owns:**
+
 - `src/pages/Home.tsx`, `src/home/**` and `src/home.css`, which is deleted and replaced by `src/home/art.css`
 - `scripts/build-docs.mjs`, `scripts/docs-blocks.mjs` and `scripts/docs/**`
 - `docs/site/docs/design/**`
 - `e2e/home.spec.ts` and `docs.spec.ts`
 
 **Does:**
+
 - Builds the shared site header and the "Back to kitchen" link.
 - Restyles the home page to Bahi.
 - Points the docs CSS at the tokens.
 - Rewrites the design-system docs to describe this plan's tokens, components and rules.
 
 **Accepted when:**
+
 - NAV-17 is closed.
 - No green brand colour remains on any public page.
 - `home.spec` and `docs.spec` pass using role and text selectors.
@@ -811,6 +853,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 ### WP11. Checker, journey, cleanup (last)
 
 **Owns:**
+
 - `scripts/check-design.mjs` and `src/design.test.ts`
 - `src/styles.css` and `src/components/ui.tsx`, both deleted
 - `e2e/support.ts` and `seed.ts`, which the other packages may extend by asking WP11
@@ -819,6 +862,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 - `playwright.config.ts`
 
 **Does:**
+
 1. Writes the new checker from §7.
 2. Deletes the legacy CSS and `ui.tsx` once nothing imports them.
 3. Writes the journey and a11y specs.
@@ -826,6 +870,7 @@ The work is split into twelve packages, WP0 to WP11. Each file has exactly one o
 5. Writes a final pass over the audit: every finding ID is marked Closed, each with the commit that closed it, in a table appended to `ui-audit-2026-11.md`.
 
 **Accepted when:**
+
 - `styles.css`, `home.css` and `ui.tsx` are gone.
 - The checker reports no violations.
 - axe reports no serious or critical violations on any route × role × theme × viewport.

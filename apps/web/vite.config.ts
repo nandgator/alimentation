@@ -12,6 +12,59 @@ const api = process.env.API_ORIGIN ?? "http://localhost:8787";
 // The API reference is a site of its own; given its address (dev/local.sh dev does), it is reached at
 // /reference/ here too, as it is behind the proxy in front of a deployment.
 const reference = process.env.REFERENCE_ORIGIN;
+// The address the API was told the app is at (dev/local.sh dev sets it).
+const appOrigin = process.env.APP_ORIGIN;
+
+/**
+ * The API refuses a write whose Origin is not the app's own. A page opened here by another name for this same server
+ * (127.0.0.1 for localhost, the machine's address on the network) sends its own Origin, which is this server but
+ * not the name the API was given, so a write from it is handed on as coming from that name. Only a write from a page
+ * of this server is: one from another site keeps its Origin, and its Sec-Fetch-Site, and is refused as before.
+ */
+const proxied = (target: string) => ({
+  target,
+  changeOrigin: false,
+  configure: (proxy: {
+    on: (event: "proxyReq", fn: (req: ProxyReq, from: FromReq) => void) => void;
+  }) => {
+    if (!appOrigin) return;
+    proxy.on("proxyReq", (req, from) => {
+      const origin = from.headers.origin;
+      if (!origin || from.headers["sec-fetch-site"] === "cross-site") return;
+      let host: string;
+      try {
+        host = new URL(origin).host;
+      } catch {
+        return;
+      }
+      if (host === from.headers.host) req.setHeader("origin", appOrigin);
+    });
+  },
+});
+interface ProxyReq {
+  setHeader: (name: string, value: string) => void;
+}
+interface FromReq {
+  headers: Record<string, string | string[] | undefined>;
+}
+
+/**
+ * The toasts' library writes its stylesheet into a `<style>` element when it loads, which the page's security policy
+ * (style-src 'self') refuses. The same sheet ships as a file, which src/components/ui/sonner.tsx imports, so the
+ * build drops the library's own call and the sheet comes with the rest of the app's CSS.
+ */
+function sonnerCssFile(): Plugin {
+  return {
+    name: "sonner-css-file",
+    enforce: "pre",
+    transform(code, id) {
+      if (!/[\\/]sonner[\\/]dist[\\/]index\.m?js$/.test(id)) return null;
+      const out = code.replace(/^__insertCSS\(".*"\);$/m, "");
+      if (out === code) this.error("sonner no longer writes its CSS the way this plugin expects");
+      return { code: out, map: null };
+    },
+  };
+}
 
 /**
  * The guides and the documentation are static pages made by the build, not routes of the app, so the dev server
@@ -72,6 +125,7 @@ function builtPages(): Plugin {
 export default defineConfig({
   resolve: { alias: { "@": join(import.meta.dirname, "src") } },
   plugins: [
+    sonnerCssFile(),
     tailwindcss(),
     react(),
     builtPages(),
@@ -117,9 +171,11 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    // The API is told the app is on this port, so it must not quietly move to another.
+    strictPort: true,
     proxy: {
-      "/api": { target: api, changeOrigin: false },
-      "/auth": { target: api, changeOrigin: false },
+      "/api": proxied(api),
+      "/auth": proxied(api),
       ...(reference
         ? {
             "^/reference/": {

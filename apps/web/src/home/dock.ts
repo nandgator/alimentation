@@ -7,7 +7,9 @@ import { smoothDamp } from "./motion.tsx";
  * One carrier goes through the whole page. It is lifted off the first screen's shelf and carried to the first
  * chapter's heading, where it stands for as long as the heading is read; as the heading leaves the top of the screen
  * it is put into the bar, where it is the tiffin that is packed as the page is read; and when the next chapter's
- * heading comes up it is taken out of the bar again and carried down to stand on that.
+ * heading comes up it is taken out of the bar again and carried down to stand on that. A chapter with a picture of
+ * its own that carries a carrier (the Moving stage's shelf) takes it in place of the bar: it is put down there, the
+ * picture carries it from place to place, and the next heading takes it from wherever the picture has left it.
  *
  * The journey is a line of rests (the shelf, the first heading, the bar, the next heading, the bar, and so on) and a
  * number, how far along that line the carrier is: a whole number is a rest, and anywhere between two it is in the
@@ -34,6 +36,11 @@ export interface Courier {
   lifted: boolean;
   /** The carrier is in the bar. */
   docked: boolean;
+  /**
+   * The carrier has gone into a chapter's own picture (the Moving stage's shelf), which then carries it on: which
+   * chapter (its place in `headings`), and how much of the picture's own carrier is seen. Null when it is in none.
+   */
+  scene: { chapter: number; seen: number } | null;
 }
 
 /** How much of the mark is seen while the carrier is out of it: enough to show where it will go. */
@@ -109,6 +116,11 @@ export interface Where {
   scene: Box;
   mark: Box;
   headings: (Box | null)[];
+  /**
+   * For each chapter, the carrier in its own picture, if it has one (on the screen now): after that chapter's heading
+   * the carrier goes into it, and not into the bar, and it is taken out of it for the next chapter's heading.
+   */
+  into?: (Box | null)[];
   scrollY: number;
   vh: number;
 }
@@ -129,10 +141,10 @@ export interface Journey {
  * the next stretch, as the heading comes to the top, and the next heading's is taken out of it as that heading comes
  * up from the foot of the screen.
  */
-export function journeyAt({ scene, mark, headings, scrollY, vh }: Where): Journey {
+export function journeyAt({ scene, mark, headings, into, scrollY, vh }: Where): Journey {
   const nav = tiffinIn(mark);
-  const stops = headings.flatMap((heading) =>
-    heading ? [{ heading, stand: standOn(heading) }] : [],
+  const stops = headings.flatMap((heading, chapter) =>
+    heading ? [{ heading, stand: standOn(heading), chapter, into: into?.[chapter] ?? null }] : [],
   );
   const rest = carrierIn(scene);
   const onPage = rest.top + rest.height / 2 + scrollY;
@@ -162,7 +174,20 @@ export function journeyAt({ scene, mark, headings, scrollY, vh }: Where): Journe
 
   const courier = (at: number): Courier => {
     const j = clamp(at, 0, last);
-    if (j >= last) return { box: nav, flyer: 0, mark: 1, lifted: true, docked: true };
+    if (j >= last) {
+      // At the end of the page: in the bar, or in the last chapter's own picture if it has one.
+      const end = stops.at(-1);
+      if (end?.into)
+        return {
+          box: end.into,
+          flyer: 0,
+          mark: GHOST,
+          lifted: true,
+          docked: false,
+          scene: { chapter: end.chapter, seen: 1 },
+        };
+      return { box: nav, flyer: 0, mark: 1, lifted: true, docked: true, scene: null };
+    }
     const leg = Math.floor(j);
     const t = j - leg;
 
@@ -178,28 +203,51 @@ export function journeyAt({ scene, mark, headings, scrollY, vh }: Where): Journe
         mark: toBar ? lerp(GHOST, 1, between(e, 0.8, 1)) : GHOST,
         lifted: t > 0,
         docked: false,
+        scene: null,
       };
     }
     if (leg % 2 === 1) {
-      // Standing on a heading, and put into the bar.
-      const { stand } = must(stops[(leg - 1) / 2]);
+      // Standing on a heading, and put into the bar, or into the chapter's own picture, which takes it on from there.
+      const { stand, into, chapter } = must(stops[(leg - 1) / 2]);
+      const land = between(t, 0.85, 1);
+      if (into)
+        return {
+          box: carry(stand, into, smooth(t), vh),
+          flyer: 1 - land,
+          mark: GHOST,
+          lifted: true,
+          docked: false,
+          scene: { chapter, seen: land },
+        };
       return {
         box: carry(stand, nav, smooth(t), vh),
-        flyer: 1 - between(t, 0.85, 1),
-        mark: lerp(GHOST, 1, between(t, 0.85, 1)),
+        flyer: 1 - land,
+        mark: lerp(GHOST, 1, land),
         lifted: true,
         docked: false,
+        scene: null,
       };
     }
-    // In the bar, and taken out and carried down to the next heading.
+    // In the bar (or in the last chapter's picture), and taken out and carried down to the next heading.
     const { stand } = must(stops[leg / 2]);
+    const before = must(stops[leg / 2 - 1]);
     const out = between(t, 0, 0.15);
+    if (before.into)
+      return {
+        box: carry(before.into, stand, smooth(t), vh),
+        flyer: out,
+        mark: GHOST,
+        lifted: true,
+        docked: false,
+        scene: { chapter: before.chapter, seen: 1 - out },
+      };
     return {
       box: carry(nav, stand, smooth(t), vh),
       flyer: out,
       mark: lerp(1, GHOST, out),
       lifted: true,
       docked: t === 0,
+      scene: null,
     };
   };
 

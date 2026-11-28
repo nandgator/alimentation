@@ -1,5 +1,9 @@
 /*
- * The public home page: a kitchen. Tiled green walls, a turmeric field, steel, a chalkboard.
+ * The public home page, in the Bahi colours (docs/research/ui-rewrite-plan.md, section 2): indigo walls, a soft
+ * indigo field, steel, an ink board. Every colour here is a token of theme.css or a mix of two, so the page follows
+ * the light and the dark theme and no colour is written twice. The words and the layout are utilities in
+ * Home.tsx; what is left in this file is what utilities cannot say: the drawn pictures, the receipt's torn edge,
+ * the board's tiles and every motion.
  * Sections are told apart by the colour of their whole field, not by lines or shadows.
  * Everything that moves does so inside `prefers-reduced-motion: no-preference`, and is only ever
  * transform, opacity or clip-path.
@@ -7,28 +11,126 @@
 .home {
   --margin: clamp(1rem, 2.6vw, 2.5rem);
   --section: clamp(88px, 11vw, 184px);
+  --seam: clamp(28px, 4vw, 64px);
   --step-display: clamp(2.25rem, 0.8rem + 6.6vw, 6.5rem);
   --step-head: clamp(2.1rem, 1rem + 4.3vw, 4.5rem);
   --step-lead: clamp(1.2rem, 1.05rem + 0.7vw, 1.6rem);
-  --tile: color-mix(in srgb, var(--field-green) 93%, white);
+  --r-xs: 0.25rem;
+  --r-pill: 999px;
+  --z-bar: 20;
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* The fields. The wall is the brand's indigo, in the light theme as it is; in the dark theme it is a deep tint of it. */
+  --field: var(--primary);
+  --field-ink: var(--primary-foreground);
+  --field-soft: color-mix(in oklch, var(--field-ink) 78%, var(--field));
+  --tile: color-mix(in srgb, var(--field) 93%, white);
+  /* Free: a whole field of the quiet indigo tint, with its own ink. */
+  --free: var(--accent);
+  --free-ink: var(--accent-foreground);
+  /* The board: ink, with paper on it. Its bright tile is a light indigo. */
+  --board: var(--foreground);
+  --board-ink: var(--background);
+  --board-dim: color-mix(in oklch, var(--background) 70%, var(--foreground));
+  --board-hi: color-mix(in oklch, var(--primary) 45%, var(--primary-foreground));
+  --board-hi-ink: var(--foreground);
+  /* Steel: five greys between the paper and the ink. */
+  --steel-1: color-mix(in oklch, var(--foreground) 10%, var(--background));
+  --steel-2: color-mix(in oklch, var(--foreground) 22%, var(--background));
+  --steel-3: color-mix(in oklch, var(--foreground) 42%, var(--background));
+  --steel-4: color-mix(in oklch, var(--foreground) 58%, var(--background));
+  /* The saffron of the drawn pictures: a deeper and a paler tone of the highlight. */
+  --turmeric-deep: color-mix(in oklch, var(--highlight) 80%, black);
+  --turmeric-pale: color-mix(in oklch, var(--highlight) 45%, white);
+  --cast: black;
+  /* The receipt is paper laid on the wall, so it is light paper with dark ink in both themes. */
+  --paper-sheet: var(--field-ink);
+  --paper-ink: var(--foreground);
+  --paper-ink-2: color-mix(in oklch, var(--paper-ink) 72%, var(--paper-sheet));
+  --paper-rule: color-mix(in oklch, var(--paper-ink) 45%, var(--paper-sheet));
+  --paper-rule-soft: color-mix(in oklch, var(--paper-ink) 22%, var(--paper-sheet));
+  --paper-good: color-mix(in oklch, var(--success) 70%, black);
+  --paper-bad: color-mix(in oklch, var(--destructive) 70%, black);
   /* One idea of depth: whatever hangs on the wall or lies against it throws a shadow. `--lift` is for
      boxes; `--lift-cut` is for shapes with a cut edge (the receipt), where a box shadow would be clipped. */
-  --lift: 0 2px 4px rgb(8 22 15 / 0.14), 0 26px 40px -18px rgb(8 22 15 / 0.5);
-  --lift-cut: drop-shadow(0 22px 26px rgb(0 0 0 / 0.38));
+  --lift:
+    0 2px 4px color-mix(in oklch, black 14%, transparent),
+    0 26px 40px -18px color-mix(in oklch, black 50%, transparent);
+  --lift-cut: drop-shadow(0 22px 26px color-mix(in oklch, black 38%, transparent));
+  font: 400 1.0625rem / 1.55 var(--font-sans);
+  font-variant-numeric: lining-nums;
   overflow-x: clip;
+}
+.home h2,
+.home h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+.home h3 {
+  font-size: 1.25rem;
+}
+.home p {
+  text-wrap: pretty;
+}
+.home :focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+.hero :focus-visible,
+.leaving :focus-visible,
+.hfoot :focus-visible {
+  outline-color: var(--field-ink);
+}
+.home ::selection {
+  background: var(--highlight);
+  color: var(--highlight-foreground);
+}
+/* The dark theme, written twice as the tokens are: the chosen theme, and the system's when none is chosen. */
+:root[data-theme="dark"] .home {
+  --field: color-mix(in oklch, var(--primary) 32%, var(--background));
+  --field-ink: var(--foreground);
+  --free-ink: var(--accent-foreground);
+  --board: var(--popover);
+  --board-ink: var(--foreground);
+  --board-dim: var(--muted-foreground);
+  --board-hi: var(--primary);
+  --board-hi-ink: var(--primary-foreground);
+  --steel-1: color-mix(in oklch, var(--foreground) 88%, var(--background));
+  --steel-2: color-mix(in oklch, var(--foreground) 70%, var(--background));
+  --steel-3: color-mix(in oklch, var(--foreground) 50%, var(--background));
+  --steel-4: color-mix(in oklch, var(--foreground) 36%, var(--background));
+  --paper-sheet: var(--foreground);
+  --paper-ink: var(--background);
+  --lift:
+    0 2px 4px color-mix(in oklch, black 45%, transparent),
+    0 28px 44px -16px color-mix(in oklch, black 85%, transparent);
+  --lift-cut: drop-shadow(0 24px 28px color-mix(in oklch, black 60%, transparent));
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .home {
-    --lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 28px 44px -16px rgb(0 0 0 / 0.85);
-    --lift-cut: drop-shadow(0 24px 28px rgb(0 0 0 / 0.6));
+    --field: color-mix(in oklch, var(--primary) 32%, var(--background));
+    --field-ink: var(--foreground);
+    --free-ink: var(--accent-foreground);
+    --board: var(--popover);
+    --board-ink: var(--foreground);
+    --board-dim: var(--muted-foreground);
+    --board-hi: var(--primary);
+    --board-hi-ink: var(--primary-foreground);
+    --steel-1: color-mix(in oklch, var(--foreground) 88%, var(--background));
+    --steel-2: color-mix(in oklch, var(--foreground) 70%, var(--background));
+    --steel-3: color-mix(in oklch, var(--foreground) 50%, var(--background));
+    --steel-4: color-mix(in oklch, var(--foreground) 36%, var(--background));
+    --paper-sheet: var(--foreground);
+    --paper-ink: var(--background);
+    --lift:
+      0 2px 4px color-mix(in oklch, black 45%, transparent),
+      0 28px 44px -16px color-mix(in oklch, black 85%, transparent);
+    --lift-cut: drop-shadow(0 24px 28px color-mix(in oklch, black 60%, transparent));
   }
-}
-.home {
-  --seam: clamp(28px, 4vw, 64px);
-}
-:root[data-theme="dark"] .home {
-  --lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 28px 44px -16px rgb(0 0 0 / 0.85);
-  --lift-cut: drop-shadow(0 24px 28px rgb(0 0 0 / 0.6));
 }
 .hwrap {
   width: min(1360px, 100% - 2 * var(--margin));
@@ -41,7 +143,7 @@
   overflow: hidden;
 }
 .defs .grout {
-  fill: var(--field-green);
+  fill: var(--field);
 }
 .defs .glaze {
   fill: var(--tile);
@@ -88,7 +190,7 @@
   opacity: 0.22;
 }
 .home svg .hole {
-  fill: var(--field-green);
+  fill: var(--field);
 }
 .wall {
   position: absolute;
@@ -100,8 +202,8 @@
 
 /* ---------- Words ----------------------------------------------------------- */
 .lines {
-  font-family: var(--serif);
-  font-weight: 400;
+  font-family: var(--font-heading);
+  font-weight: 600;
   line-height: 1.02;
   letter-spacing: -0.028em;
   text-wrap: balance;
@@ -156,57 +258,18 @@
   }
 }
 /* ---------- Bar -------------------------------------------------------------- */
-.hnav {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-bar);
-  background: var(--bg);
-}
-.hnav .hwrap {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  min-height: 64px;
-}
-.hnav nav {
-  display: flex;
-  gap: clamp(18px, 2.4vw, 36px);
-  margin-inline: auto;
-}
-.hnav nav a {
-  color: var(--ink);
-  font-weight: 500;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-decoration-thickness: 0.07em;
-  text-underline-offset: 0.35em;
-  transition: text-decoration-color 180ms ease;
-}
-/* The chapter being read is underlined in turmeric: where you are, always shown. */
+/* The bar is the shared site header (SiteHeader.tsx); this is only what the page does to it. */
 .hnav nav a[aria-current] {
   text-decoration-color: var(--highlight);
   text-decoration-thickness: 0.12em;
-}
-@media (hover: hover) and (pointer: fine) {
-  .hnav nav a:hover {
-    text-decoration-color: currentColor;
-  }
-}
-@media (max-width: 860px) {
-  .hnav nav {
-    display: none;
-  }
-  .hnav [data-slot="button"] {
-    margin-left: auto;
-  }
 }
 
 /* ---------- The first screen: a tiled wall, a shelf, a carrier --------------- */
 .hero {
   position: relative;
   overflow: clip;
-  background: var(--field-green);
-  color: var(--field-green-ink);
+  background: var(--field);
+  color: var(--field-ink);
 }
 .hero-grid {
   position: relative;
@@ -243,7 +306,7 @@
   margin-top: 22px;
   min-height: 1.4em;
   font-size: 0.95rem;
-  color: var(--field-green-soft);
+  color: var(--field-soft);
 }
 .hero-scene {
   position: relative;
@@ -284,7 +347,7 @@ main > section.section:not(.hero) {
 /* A sheet has a colour of its own, the page's paper unless a section names another, or its corners would show
    nothing. (`:where` so that a section's own field wins.) */
 :where(main > section:not(.hero)) {
-  background: var(--bg);
+  background: var(--background);
 }
 .hero {
   padding-bottom: var(--seam);
@@ -318,7 +381,7 @@ main > section.section:not(.hero) {
   transform: scaleX(0);
 }
 .steel {
-  background: var(--paper-2);
+  background: var(--muted);
 }
 
 /* Try a month at the mess: a chalkboard. */
@@ -372,10 +435,10 @@ main > section.section:not(.hero) {
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--board) 80%, white);
   color: var(--board-ink);
-  font: 400 1.6rem / 1 var(--sans);
+  font: 400 1.6rem / 1 var(--font-sans);
   padding: 0 0 3px;
   cursor: pointer;
   transition:
@@ -412,7 +475,7 @@ main > section.section:not(.hero) {
   appearance: none;
   position: relative;
   border: 0;
-  border-radius: var(--radius-xs);
+  border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--board) 90%, white);
   color: var(--board-ink);
   padding: 8px 8px 9px;
@@ -436,7 +499,7 @@ main > section.section:not(.hero) {
 /* A weekday that belongs to the month before or after: its number, faint, and no tile. */
 .day-out {
   padding: 8px;
-  font: 400 0.95rem / 1 var(--serif);
+  font: 650 0.95rem / 1 var(--font-heading);
   font-variant-numeric: lining-nums;
   color: var(--board-dim);
 }
@@ -450,7 +513,7 @@ main > section.section:not(.hero) {
   color: var(--board);
 }
 .day .d {
-  font: 400 1.05rem / 1 var(--serif);
+  font: 650 1.05rem / 1 var(--font-heading);
   font-variant-numeric: lining-nums;
 }
 .day .m {
@@ -468,11 +531,11 @@ main > section.section:not(.hero) {
   color: var(--board-dim);
 }
 .day-switch {
-  background: var(--highlight);
-  color: var(--accent-ink);
+  background: var(--board-hi);
+  color: var(--board-hi-ink);
 }
 .day-switch.is-frozen {
-  background: color-mix(in srgb, var(--highlight) 72%, var(--board));
+  background: color-mix(in srgb, var(--board-hi) 72%, var(--board));
 }
 .day .plus,
 .day .tag {
@@ -480,7 +543,7 @@ main > section.section:not(.hero) {
   right: 8px;
   font-size: 0.74rem;
   font-weight: 700;
-  color: var(--highlight);
+  color: var(--board-hi);
 }
 .day .tag {
   top: 7px;
@@ -496,7 +559,7 @@ main > section.section:not(.hero) {
 }
 .day-switch .tag,
 .day-switch .lock {
-  color: var(--accent-ink);
+  color: var(--board-hi-ink);
 }
 .day.is-today .tag {
   color: var(--board);
@@ -556,7 +619,7 @@ main > section.section:not(.hero) {
   background: color-mix(in srgb, var(--board) 50%, black);
 }
 .board-key .k-switch {
-  background: var(--highlight);
+  background: var(--board-hi);
 }
 .board-key .k-chapati {
   background: color-mix(in srgb, var(--board) 90%, white);
@@ -586,7 +649,7 @@ main > section.section:not(.hero) {
     background: color-mix(in srgb, var(--board) 80%, black);
   }
   .day-switch:not(:disabled):hover {
-    background: color-mix(in srgb, var(--highlight) 86%, white);
+    background: color-mix(in srgb, var(--board-hi) 86%, white);
   }
   .board .step:not(:disabled):hover {
     background: color-mix(in srgb, var(--board) 66%, white);
@@ -598,14 +661,14 @@ main > section.section:not(.hero) {
   color: var(--board-dim);
 }
 .board :focus-visible {
-  outline: 3px solid var(--highlight);
+  outline: 3px solid var(--board-hi);
   outline-offset: 2px;
 }
 .board-bill {
   margin-top: 18px;
   padding: clamp(14px, 2vw, 22px);
   background: color-mix(in srgb, var(--board) 86%, black);
-  border-radius: var(--radius-xs);
+  border-radius: var(--r-xs);
 }
 .board-bill dl {
   margin: 0;
@@ -651,7 +714,7 @@ main > section.section:not(.hero) {
   font-weight: 700;
 }
 .board-bill .sofar b {
-  font: 400 1.5rem / 1 var(--serif);
+  font: 650 1.5rem / 1 var(--font-heading);
   font-variant-numeric: lining-nums;
 }
 .board-bill .total {
@@ -669,8 +732,8 @@ main > section.section:not(.hero) {
   font-size: 0.95rem;
 }
 .board-bill .total b {
-  font: 400 clamp(2.2rem, 4.4vw, 3.4rem) / 1 var(--serif);
-  color: var(--highlight);
+  font: 650 clamp(2.2rem, 4.4vw, 3.4rem) / 1 var(--font-heading);
+  color: var(--board-hi);
   font-variant-numeric: lining-nums tabular-nums;
 }
 .board-bill .again {
@@ -681,7 +744,7 @@ main > section.section:not(.hero) {
   margin-top: 6px;
   min-height: 44px;
   color: var(--board-ink);
-  font: 600 0.9rem var(--sans);
+  font: 600 0.9rem var(--font-sans);
   text-decoration: underline;
   text-underline-offset: 0.25em;
   text-decoration-thickness: 0.07em;
@@ -710,7 +773,7 @@ main > section.section:not(.hero) {
   width: 100%;
   height: auto;
   aspect-ratio: 1200 / 560;
-  background: var(--field-green);
+  background: var(--field);
   border-radius: var(--radius-sm);
   box-shadow: var(--lift);
 }
@@ -756,7 +819,7 @@ main > section.section:not(.hero) {
 }
 .steps .catch {
   margin-top: 0;
-  color: var(--ink);
+  color: var(--foreground);
 }
 @media (max-width: 799px) {
   .moving {
@@ -774,7 +837,7 @@ main > section.section:not(.hero) {
     position: sticky;
     top: 64px;
     z-index: 2;
-    background: var(--paper-2);
+    background: var(--muted);
     padding-block: 8px;
   }
   .stage {
@@ -786,10 +849,10 @@ main > section.section:not(.hero) {
     justify-content: flex-start;
   }
 }
-/* Free: a whole field of turmeric. */
+/* Free: a whole field of the quiet indigo tint. */
 .free {
-  background: var(--field-yellow);
-  color: var(--field-yellow-ink);
+  background: var(--free);
+  color: var(--free-ink);
 }
 .free-grid {
   display: grid;
@@ -808,7 +871,7 @@ main > section.section:not(.hero) {
 }
 .limits dd {
   margin: 0;
-  font: 400 clamp(3.2rem, 7.6vw, 8rem) / 1 var(--serif);
+  font: 650 clamp(3.2rem, 7.6vw, 8rem) / 1 var(--font-heading);
   font-variant-numeric: lining-nums;
   letter-spacing: -0.03em;
 }
@@ -848,8 +911,8 @@ main > section.section:not(.hero) {
 
 /* Leaving: the receipt prints from the top down. */
 .leaving {
-  background: var(--field-green);
-  color: var(--field-green-ink);
+  background: var(--field);
+  color: var(--field-ink);
 }
 .leaving-grid {
   display: grid;
@@ -858,6 +921,7 @@ main > section.section:not(.hero) {
   align-items: start;
 }
 .wipe {
+  list-style: decimal;
   padding: 0 0 0 1.5rem;
   margin: clamp(28px, 3vw, 44px) 0 0;
   display: grid;
@@ -865,8 +929,8 @@ main > section.section:not(.hero) {
   max-width: 48ch;
 }
 .wipe li::marker {
-  color: var(--highlight);
-  font: 400 1.4rem var(--serif);
+  color: var(--field-soft);
+  font: 650 1.4rem var(--font-heading);
   font-variant-numeric: lining-nums;
 }
 .wipe li {
@@ -888,7 +952,7 @@ main > section.section:not(.hero) {
 .receipt {
   position: relative;
   margin: 0 4%;
-  background: var(--field-green-ink);
+  background: var(--paper-sheet);
   color: var(--paper-ink);
   padding: 26px 26px 34px;
   clip-path: polygon(
@@ -952,7 +1016,7 @@ main > section.section:not(.hero) {
   line-height: 1.5;
 }
 .receipt .mono {
-  font: 500 0.8rem / 1.4 var(--mono);
+  font: 500 0.8rem / 1.4 var(--font-mono);
   word-break: break-all;
 }
 .receipt .tick {
@@ -969,7 +1033,7 @@ main > section.section:not(.hero) {
 }
 .receipt .seal {
   margin-top: 14px;
-  font: 400 1.05rem / 1.35 var(--serif);
+  font: 650 1.05rem / 1.35 var(--font-heading);
   font-variant-numeric: lining-nums;
   color: var(--paper-ink);
 }
@@ -987,7 +1051,7 @@ main > section.section:not(.hero) {
   padding: clamp(24px, 3vw, 40px) clamp(16px, 2.4vw, 32px);
 }
 .promises li:nth-child(odd) {
-  background: var(--paper-2);
+  background: var(--muted);
 }
 .promises h3 {
   font-size: clamp(1.5rem, 2.5vw, 2.3rem);
@@ -997,10 +1061,10 @@ main > section.section:not(.hero) {
 }
 .promises .limit {
   margin-top: 12px;
-  color: var(--ink-2);
+  color: var(--muted-foreground);
 }
 .promises .limit b {
-  color: var(--ink);
+  color: var(--foreground);
 }
 @media (max-width: 800px) {
   .promises li {
@@ -1046,8 +1110,8 @@ main > section.section:not(.hero) {
 .hfoot {
   position: relative;
   overflow: clip;
-  background: var(--field-green);
-  color: var(--field-green-ink);
+  background: var(--field);
+  color: var(--field-ink);
   padding-top: clamp(48px, 6vw, 88px);
 }
 .foot-top {
@@ -1074,33 +1138,59 @@ main > section.section:not(.hero) {
   display: inline-flex;
   align-items: center;
 }
-/* The bar, which stays at the top of the screen, already has the sections and the guides wherever it has room for
-   them, so the foot does not say them again; on a phone, where the bar has only the name and the way in, the foot is
+/* The bar, which stays at the top of the screen, already has the sections wherever it has room for them, so the
+   foot does not say them again; on a phone and a tablet, where the bar has only the name and the way in, the foot is
    where they are. */
-@media (min-width: 861px) {
-  .foot-top nav .in-bar {
+@media (min-width: 1024px) {
+  .foot-top .foot-nav {
     display: none;
   }
 }
-/* The theme choice, on the green of the close: the control's own colours are for the page, so here it is
-   drawn in the close's. */
+/* The theme choice, on the wall of the close: the control's own colours are for the page, so here it is
+   drawn in the close's (see ThemeChoice.tsx). */
 .hfoot .foot-theme {
   margin-top: 24px;
 }
 .hfoot .foot-theme legend {
   color: inherit;
   opacity: 0.8;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
-.hfoot .theme-opts {
+.foot-opts {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--field-ink);
+  border-radius: var(--r-pill);
+}
+.foot-opts [role="radio"] {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--r-pill);
   background: transparent;
-  border-color: var(--field-green-ink);
+  color: var(--field-ink);
+  min-height: 44px;
+  padding: 0 18px;
+  font: 600 0.875rem / 1 var(--font-sans);
+  cursor: pointer;
 }
-.hfoot .theme-opts span {
-  color: var(--field-green-ink);
+.foot-opts [role="radio"][aria-checked="true"] {
+  background: var(--field-ink);
+  color: var(--field);
 }
-.hfoot .theme-opts input:checked + span {
-  background: var(--field-green-ink);
-  color: var(--field-green);
+.foot-opts [role="radio"]:focus-visible {
+  outline: 3px solid var(--field-ink);
+  outline-offset: 2px;
+}
+/* The one call to action on the wall: paper on indigo, by handing the button the wall's colours as its own. */
+.btn-field {
+  --primary: var(--field-ink);
+  --primary-foreground: var(--field);
 }
 /* The name, set to the width of the page and cut off at its foot, engraved in the wall: dim until a light passes
    over it, the warm light of a stove, which follows a pointer and otherwise wanders along it (see useLight).
@@ -1110,7 +1200,7 @@ main > section.section:not(.hero) {
   --lx: 50%;
   --ly: 58%;
   position: relative;
-  font: 400 calc(100cqw / 6.34) / 1 var(--serif);
+  font: 650 calc(100cqw / 6.34) / 1 var(--font-heading);
   font-variant-numeric: lining-nums;
   letter-spacing: -0.03em;
   white-space: nowrap;
@@ -1121,14 +1211,14 @@ main > section.section:not(.hero) {
   pointer-events: none;
 }
 .mega-base {
-  color: color-mix(in srgb, var(--field-green-ink) 15%, transparent);
+  color: color-mix(in srgb, var(--field-ink) 15%, transparent);
   -webkit-mask-image: linear-gradient(to bottom, black 28%, transparent 92%);
   mask-image: linear-gradient(to bottom, black 28%, transparent 92%);
 }
 .mega-lit {
   position: absolute;
   inset: 0;
-  color: color-mix(in srgb, var(--highlight) 58%, var(--field-green-ink));
+  color: color-mix(in srgb, var(--highlight) 58%, var(--field-ink));
   text-shadow: 0 0 0.1em color-mix(in srgb, var(--highlight) 45%, transparent);
   -webkit-mask-image:
     radial-gradient(circle 20cqw at var(--lx) var(--ly), black 0%, transparent 100%),
@@ -1146,7 +1236,7 @@ main > section.section:not(.hero) {
    still picture is a drawn one and not a frame caught half done. */
 .steam path {
   fill: none;
-  stroke: var(--field-green-ink);
+  stroke: var(--field-ink);
   stroke-width: calc(var(--thick) * 1px);
   stroke-linecap: round;
   stroke-linejoin: round;

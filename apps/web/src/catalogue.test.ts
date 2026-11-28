@@ -11,6 +11,7 @@ import {
   retiredBy,
   severalServices,
   shownItems,
+  standing,
 } from "./catalogue.ts";
 
 const item = (
@@ -166,5 +167,18 @@ describe("what a kitchen calls things", () => {
       ["2026-10-02", 2],
       ["2026-10-05", 1],
     ]);
+  });
+
+  it("says where a service or an item stands for its badge", () => {
+    expect(standing({ archivedOn: null }, "2026-11-10")).toEqual({ state: "inUse" });
+    expect(standing({ archivedOn: "2026-11-20" }, "2026-11-10")).toEqual({
+      state: "retiring",
+      on: "2026-11-20",
+    });
+    // It goes on the date it was retired, and that day is not served.
+    expect(standing({ archivedOn: "2026-11-10" }, "2026-11-10")).toEqual({
+      state: "retired",
+      on: "2026-11-10",
+    });
   });
 });
