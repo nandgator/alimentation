@@ -56,6 +56,8 @@ export default defineConfig({
         OPERATOR_EMAILS: "operator@example.org",
         // The journey is a whole kitchen's life in one sitting: more requests than the free day of 1,000.
         FREE_LIMITS_JSON: JSON.stringify({ requestsPerDay: 5000 }),
+        // …and the host's day grows with it, or the dearer kitchens would leave room for only a few.
+        CAPACITY_JSON: JSON.stringify({ accountRequestsPerDay: 500_000 }),
       },
     },
     {

@@ -9,17 +9,22 @@ import {
 } from "lucide-react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import "sonner/dist/styles.css";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useTheme } from "@/theme";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const [theme] = useTheme();
+  const phone = !useMediaQuery("(min-width: 1024px)");
 
   return (
     <Sonner
       theme={theme === "auto" ? "system" : theme}
       className="toaster group"
-      // Bottom-centre on a phone, clear of the bottom bar; bottom-right on a wide screen.
-      mobileOffset={{ bottom: "calc(4rem + env(safe-area-inset-bottom) + 0.75rem)" }}
+      // Top-centre on a phone, under the top bar, so a toast never covers the bottom bar or a sheet that rises from
+      // it; bottom-right on a wide screen.
+      position={phone ? "top-center" : "bottom-right"}
+      offset={phone ? { top: "4rem" } : undefined}
+      mobileOffset={{ top: "calc(3.5rem + env(safe-area-inset-top) + 0.5rem)" }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

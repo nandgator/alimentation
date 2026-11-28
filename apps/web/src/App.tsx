@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { Route, Router, Switch, useLocation } from "wouter";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useMedia } from "./home/motion.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Join } from "./pages/Join.tsx";
 import { NewKitchen } from "./pages/NewKitchen.tsx";
@@ -69,7 +68,6 @@ function OutsideEffects() {
 }
 
 export function App() {
-  const wide = useMedia("(min-width: 1024px)");
   return (
     <SessionProvider>
       <TooltipProvider delay={300}>
@@ -95,11 +93,7 @@ export function App() {
             <Route component={NotFound} />
           </Switch>
         </Router>
-        <Sonner
-          position={wide ? "bottom-right" : "bottom-center"}
-          offset={wide ? undefined : { bottom: "5.5rem" }}
-          mobileOffset={{ bottom: "5.5rem" }}
-        />
+        <Sonner />
       </TooltipProvider>
     </SessionProvider>
   );

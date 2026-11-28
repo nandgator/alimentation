@@ -19,6 +19,10 @@ export async function signIn(page: Page, email: string, name: string) {
 
 /** Fails on anything a person with a screen reader or low vision would hit, serious or worse. */
 export async function expectAccessible(page: Page, where: string) {
+  // A colour that has just changed (a theme, a role) is still its old one until a frame has been drawn.
+  await page.evaluate(
+    () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+  );
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
