@@ -1,6 +1,7 @@
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  FileUpIcon,
   PencilIcon,
   PlusIcon,
   SearchIcon,
@@ -59,6 +60,7 @@ const ACTION_LOOK: Record<ActionKey, { icon: typeof PlusIcon; tone: string }> = 
   added: { icon: PlusIcon, tone: "bg-muted text-foreground" },
   changed: { icon: PencilIcon, tone: "bg-muted text-foreground" },
   removed: { icon: Trash2Icon, tone: "border-destructive/40 bg-background text-destructive" },
+  imported: { icon: FileUpIcon, tone: "bg-muted text-foreground" },
 };
 
 /** What was done: an icon and a word, never colour alone. */

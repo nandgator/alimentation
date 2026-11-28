@@ -8,7 +8,8 @@ export interface AuditEntry {
   id: number;
   table: string;
   rowId: string;
-  action: "INSERT" | "UPDATE" | "DELETE";
+  /** The verbs the server writes; the list may grow, so an unknown one is read as a change (see `actionKey`). */
+  action: "INSERT" | "UPDATE" | "DELETE" | "IMPORT";
   actor: string | null;
   at: string;
   /** Set when an AI agent made the change on a person's behalf. */
@@ -17,21 +18,25 @@ export interface AuditEntry {
   after: Record<string, unknown> | null;
 }
 
-export type ActionKey = "added" | "changed" | "removed";
+export type ActionKey = "added" | "changed" | "removed" | "imported";
 
 export const ACTIONS: { key: ActionKey; label: string }[] = [
   { key: "added", label: "Added" },
   { key: "changed", label: "Changed" },
   { key: "removed", label: "Removed" },
+  { key: "imported", label: "Imported" },
 ];
 
 const ACTION_OF: Record<AuditEntry["action"], ActionKey> = {
   INSERT: "added",
   UPDATE: "changed",
   DELETE: "removed",
+  IMPORT: "imported",
 };
 
-export const actionKey = (e: Pick<AuditEntry, "action">): ActionKey => ACTION_OF[e.action];
+/** A verb the screen has no word for is shown as a change, never as a blank page. */
+export const actionKey = (e: Pick<AuditEntry, "action">): ActionKey =>
+  ACTION_OF[e.action] ?? "changed";
 export const actionWords = (e: Pick<AuditEntry, "action">): string =>
   ACTIONS.find((a) => a.key === actionKey(e))?.label ?? "Changed";
 

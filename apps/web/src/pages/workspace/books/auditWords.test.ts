@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AuditEntry,
   type AuditFilter,
+  actionKey,
   actionWords,
   changesOf,
   dayOf,
@@ -35,6 +36,24 @@ describe("the words", () => {
     expect(actionWords({ action: "INSERT" })).toBe("Added");
     expect(actionWords({ action: "UPDATE" })).toBe("Changed");
     expect(actionWords({ action: "DELETE" })).toBe("Removed");
+    expect(actionWords({ action: "IMPORT" })).toBe("Imported");
+  });
+  it("reads a verb nobody named as a change, so the trail never goes blank", () => {
+    expect(actionKey({ action: "SOMETHING_NEW" as AuditEntry["action"] })).toBe("changed");
+    expect(actionWords({ action: "SOMETHING_NEW" as AuditEntry["action"] })).toBe("Changed");
+  });
+  it("has a word for every verb the database writes", async () => {
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const dir = new URL("../../../../../api/migrations/workspace/", import.meta.url);
+    const written = new Set<string>();
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".sql")))
+      for (const m of readFileSync(new URL(f, dir), "utf8").matchAll(
+        /'(INSERT|UPDATE|DELETE|IMPORT)'/g,
+      ))
+        written.add(m[1] as string);
+    expect([...written].sort()).toEqual(["DELETE", "IMPORT", "INSERT", "UPDATE"]);
+    for (const a of written)
+      expect(actionWords({ action: a as AuditEntry["action"] })).not.toBe("");
   });
   it("names a table by what it holds, and an unknown one plainly", () => {
     expect(entityWords("menu_day")).toBe("Menu day");

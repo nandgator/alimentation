@@ -9,6 +9,7 @@ import { KitchenTitle } from "../hooks/use-page-title.ts";
 import { type Workspace, WorkspaceProvider } from "../pages/workspace/context.tsx";
 import { homeOf, ROLE_LABEL } from "../pages/workspace/sections.ts";
 import { DesktopShell } from "./DesktopShell.tsx";
+import { PageBoundary } from "./PageBoundary.tsx";
 import { PhoneShell } from "./PhoneShell.tsx";
 import { ProgressBar } from "./ProgressBar.tsx";
 import { RequireSignIn } from "./RequireSignIn.tsx";
@@ -50,7 +51,9 @@ function Frame() {
       <RouteEffects title={title} />
       <ProgressBar active={s.ws.refreshing} />
       <Shell>
-        <WorkspaceRoutes />
+        <PageBoundary home={homeOf(s.ws.base, s.ws.role)}>
+          <WorkspaceRoutes />
+        </PageBoundary>
       </Shell>
     </KitchenTitle.Provider>
   );

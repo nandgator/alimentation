@@ -65,7 +65,7 @@ test.describe("moving between screens", () => {
     await expect(page).toHaveTitle(/^Rules · Setup · Nav titles · Alimentation$/);
     titles.add(await page.title());
     await page.goto(`/w/${slug}/books/audit`);
-    await expect(page).toHaveTitle(/^Audit · Nav titles · Alimentation$/);
+    await expect(page).toHaveTitle(/^Audit · Books · Nav titles · Alimentation$/);
     titles.add(await page.title());
     expect(titles.size).toBe(4);
 
@@ -146,6 +146,44 @@ test.describe("moving between screens", () => {
     await expect(
       page.getByRole("heading", { name: "This is for cooks and consumers", level: 1 }),
     ).toBeVisible();
+    await member.close();
+  });
+
+  test("the audit trail shows an import, and a screen that breaks leaves the kitchen standing", async ({
+    page,
+    browser,
+  }, info) => {
+    test.setTimeout(240_000);
+    const member: BrowserContext = await browser.newContext({ ...info.project.use });
+    const { slug } = await seed(page, await member.newPage(), "audit");
+    const entry = (over: object) => ({
+      id: 1,
+      table: "person_import",
+      rowId: "file-1",
+      action: "IMPORT",
+      actor: null,
+      at: new Date().toISOString(),
+      before: null,
+      after: { rows: 3 },
+      ...over,
+    });
+    const serve = (rows: unknown[]) =>
+      page.route("**/api/w/*/audit*", (r) => r.fulfill({ json: rows }));
+
+    // The verb the database writes for a people import has its own word.
+    await serve([entry({})]);
+    await page.goto(`/w/${slug}/books/audit`);
+    await expect(page.getByText("Imported").locator("visible=true").first()).toBeVisible();
+
+    // A row that cannot be drawn costs the one screen, not the kitchen: the sidebar stays and Try again is offered.
+    await page.unroute("**/api/w/*/audit*");
+    await serve([entry({ table: { not: "a name" } })]);
+    await page.goto(`/w/${slug}/books/audit`);
+    await expect(
+      page.getByRole("heading", { name: "This screen could not be shown", level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Sections", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
     await member.close();
   });
 
